@@ -81,6 +81,49 @@ def trad(p, root):
     return ut
 
 
+TYPSNITTSPAKET = re.compile(r'^@fontsource(?:-variable)?/')
+
+
+def sajtmanifest(slug):
+    """Basprojektets källmanifest som gemensam förutsättning. Skissens enda installationsväg (kontroller/typsnitt.py)
+    lägger armarnas typsnitt i basprojektets package.json och package-lock.json, som kandidaterna delar: det är armarnas
+    arbete, inte en ändrad förutsättning (kvalitetsprovet 2026-10-09, försök 1 föll på det). Därför jämförs package.json
+    utan @fontsource-beroenden, och package-lock.json ingår inte; verktygskedjan (övriga beroenden, skript) ingår."""
+    sajt = atelje.KUNDER / slug / 'sajt'
+    m = skapande.kallmanifest(sajt)
+    m.pop('package-lock.json', None)
+    if m.get('package.json'):
+        pj = json.loads(vanlig(sajt / 'package.json', atelje.ROOT))
+        for falt in ('dependencies', 'devDependencies'):
+            if isinstance(pj.get(falt), dict):
+                pj[falt] = {k: v for k, v in pj[falt].items() if not TYPSNITTSPAKET.match(k)}
+        m['package.json'] = sha(json.dumps(pj, sort_keys=True).encode())
+    return m
+
+
+TILLAGGBARA = ('underlag', 'sajt')  # manifest där en fil får tillkomma under försöket (armarnas arbete); ändring eller borttag bryter låset
+
+
+def jamfor(fore, nu):
+    """(avvikelser, tillkomna) mellan låsets gemensamma förutsättningar och nuläget. I underlaget och basprojektet får en fil
+    tillkomma (saknad vid förberedelsen, till exempel ett referenspaket ur research på begäran eller REFERENSER.md); den
+    redovisas under tillkomna. Allt annat ska vara lika."""
+    avvik, tillkomna = [], {}
+    for k in sorted(set(fore) | set(nu)):
+        a, b = fore.get(k), nu.get(k)
+        if k in TILLAGGBARA and isinstance(a, dict) and isinstance(b, dict):
+            for f in sorted(set(a) | set(b)):
+                if a.get(f) == b.get(f):
+                    continue
+                if a.get(f) is None and b.get(f) is not None:
+                    tillkomna.setdefault(k, []).append(f)
+                else:
+                    avvik.append('%s/%s' % (k, f))
+        elif a != b:
+            avvik.append(k)
+    return avvik, tillkomna
+
+
 def gemensamt(slug, ids):
     """Källor och effektiv budget; aldrig hemligheter eller användarens MCP-inställningar."""
     root, u, r = atelje.ROOT, atelje.UNDERLAG / slug, kd.rot(slug)
@@ -120,7 +163,7 @@ def gemensamt(slug, ids):
     return {'underlag': skapande.underlagsmanifest(slug, atelje.UNDERLAG), 'plan': plan,
             'levererad_metod': levererat,
             'deklarerat_material': deklarerat, 'agarkriterier': agarkriterier,
-            'sajt': skapande.kallmanifest(atelje.KUNDER / slug / 'sajt'), 'metod': metod,
+            'sajt': sajtmanifest(slug), 'metod': metod,
             'installningar': {'skapare': kd.skaparval(), 'granskare': kd.GRANSKARE_MODELL,
                              'atelje_modell': atelje.MODELL, 'atelje_effort': atelje.EFFORT,
                              'lage': kd.LAGE, 'effort_ovriga': kd.EFFORT_SKISS,
@@ -271,8 +314,10 @@ def krav(ab, slug):
     p = las_post(ab, slug)
     if p and os.environ.get('CLAUDE_CODE_EFFORT_LEVEL'):
         raise ValueError('CLAUDE_CODE_EFFORT_LEVEL gör försöksinställningen tvetydig')
-    if p and p.get('gemensamt') != gemensamt(slug, p['kandidater']):
-        raise ValueError('metodförsökets underlag, uppdrag, metod eller budget har ändrats')
+    if p:
+        avvik, _t = jamfor(p.get('gemensamt') or {}, gemensamt(slug, p['kandidater']))
+        if avvik:
+            raise ValueError('metodförsökets underlag, uppdrag, metod eller budget har ändrats: %s' % ', '.join(avvik[:6]))
     return p
 
 
@@ -310,7 +355,7 @@ def resultat(ab, slug):
     p = las_post(ab, slug)
     if not p:
         return None
-    fel = None
+    fel, tillkomna = None, {}
     try:
         aktuell = gemensamt(slug, p['kandidater'])
         # Själva blinda valet får lägga till en dom efter avslutade, kontrollerade armar.
@@ -328,8 +373,9 @@ def resultat(ab, slug):
                     aktuell['agarkriterier'][skapande.DOMLOGG] = p['gemensamt']['agarkriterier'][skapande.DOMLOGG]
         if os.environ.get('CLAUDE_CODE_EFFORT_LEVEL'):
             raise ValueError('CLAUDE_CODE_EFFORT_LEVEL gör försöksinställningen tvetydig')
-        if aktuell != p['gemensamt']:
-            raise ValueError('metodförsökets gemensamma förutsättningar har ändrats')
+        avvik, tillkomna = jamfor(p['gemensamt'], aktuell)
+        if avvik:
+            raise ValueError('metodförsökets gemensamma förutsättningar har ändrats: %s' % ', '.join(avvik[:6]))
     except (ValueError, OSError) as e:
         fel = str(e)
     armar = {}
@@ -371,5 +417,6 @@ def resultat(ab, slug):
                     'observerad_effort': None, 'observerad_modell': None,
                     'observationsskal': 'Ingen oberoende observation av effektiv effort/modell i denna sammanställning.'}
     return {'id': p['id'], 'jamforbara_kallor': not fel, 'fel': fel, 'armar': armar,
+            'tillkomna_under_forsoket': tillkomna,  # filer som armarna lade till i delade kataloger (jamfor): delade, inte ändrade
             'bedomning': 'ännu inte bedömt' if not kd.domd(slug) else 'se ägarens versionsbundna dom i kandidatflödet',
             'begransning': p['begransning']}

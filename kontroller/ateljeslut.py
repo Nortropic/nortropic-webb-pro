@@ -301,6 +301,8 @@ def tillstanden(slug, status, slag, kand, beslut_):
             ag['varde'] = None
             ag['text'] += '; senare rader är oläsbara: aktuellt ägarbeslut kan inte fastställas (%s)' % ', '.join(
                 'rad %d' % r['rad'] for r in oklara)
+    elif status.get('steg') == 'planprovad':
+        ag = {'varde': None, 'text': 'inget att bedöma än: körningen stannade efter planprövningen, före skaparna'}
     elif slag == 'klar' and kand and not any(k['valbar'] for k in kand):
         ag = {'varde': None, 'text': 'ingen kandidat blev valbar: ägaren har inget att bedöma, och en ny körning behövs'}
     else:
@@ -389,6 +391,10 @@ def bygg(slug, status, korning, typ=TYP, efterhand=None):
         'startkontrollen': ['rätta det startkontrollen stoppade på (%s) och starta igen med .venv/bin/python kontroller/prototyp.py %s' % (
             (status.get('startkontroll') or {}).get('kvitto') or 'underlag/%s/atelje/STARTKVITTO-STOPP.md' % slug, slug)],
     }.get(slag, fortsatt)
+    if status.get('steg') == 'planprovad':
+        atgarder = ['förbered ett metodförsök, om ett ska göras: .venv/bin/python kontroller/ab.py forbered-skiss %s --kandidat k01 '
+                    '--variabel effort|metodvariant; ta sedan vid hos skaparna med .venv/bin/python kontroller/prototyp.py %s --fortsatt '
+                    '(inte --om: en ny körning arkiverar planen)' % (slug, slug)]
     underlag = []
     for namn in ('FORBEREDELSE.json', 'KANDIDATPLAN.json', 'FORSKNING.md', 'PLANPROVNING.md', 'STARTKVITTO.md', 'VAL.md', 'SLUTDOM.md', 'FORFINING.md'):
         if (rot / namn).is_file():

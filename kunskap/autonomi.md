@@ -121,8 +121,12 @@ annat hålls fast. Provet är förberett, inte kört: verkliga sessioner och hel
 - **Två armar:** `ab.py forbered-skiss <slug> --kandidat k01 --variabel metodvariant` lottar grund och h01 på två
   kandidater med samma uppdrag, material, modell, effort, budget och metod i övrigt. Det kräver att k01:s uppdrag är
   planprövat i sin nuvarande version, och klonen bär samma prövning (`PLANPROVNING.json`, `klonade`), så att ingen arm
-  prövas om för sig. Identitetslåset nekar jämförelsen om något gemensamt ändras. Efter mandatet kör `prototyp.py <slug>
-  --fortsatt` båda armarna.
+  prövas om för sig. Identitetslåset nekar jämförelsen om något gemensamt ändras. Armarnas eget arbete i delade
+  kataloger fäller det inte, men redovisas: basprojektets typsnitt (`typsnitt.py`; `package.json` jämförs utan
+  `@fontsource`-beroenden, `package-lock.json` ingår inte) och filer som tillkommer i underlaget, till exempel ett
+  referenspaket ur research på begäran (`tillkomna_under_forsoket` i `ab.py skissresultat`). Efter mandatet kör
+  `prototyp.py <slug> --fortsatt` båda armarna från `planprovad`. `--om` är en ny körning som flyttar planen till
+  `atelje/foregaende/` och börjar forska.
 - **Bedömningen börjar med bilderna:** ägaren väljer blint i dashboardens Prototyp, före skaparnas förklaringar. Valet
   får vara ingen av dem, och en arm som bytt grundkomposition med skäl är inte felaktig.
 - **Var kvaliteten bevaras eller försvagas:** efter domen ställs referensbilderna, det visuella målet (h01), referenslåset

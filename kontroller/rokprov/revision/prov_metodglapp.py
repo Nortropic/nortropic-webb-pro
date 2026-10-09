@@ -46,6 +46,7 @@ import korregister  # noqa: E402
 import skapande  # noqa: E402
 import stadning  # noqa: E402
 import ab  # noqa: E402
+import ab_skiss  # noqa: E402
 import prov_ab_skiss  # noqa: E402  fixturen för metodförsöket
 import prov_omgranskning  # noqa: E402  fixturen för planversionen (N01)
 import referenstjanster  # noqa: E402
@@ -563,6 +564,51 @@ class Metodforsoket(unittest.TestCase):
         self.assertFalse(kd.kdir(self.slug, 'k02').exists())
 
 
+class Forsokslaset(unittest.TestCase):
+    """Kvalitetsprovet 2026-10-09, försök 1: armarnas typsnitt (typsnitt.py i basprojektet) fällde låset. Låset tål nu
+    armarnas tillägg men inte ändrade förutsättningar."""
+
+    def setUp(self):
+        prov_ab_skiss.Skissforsok.setUp(self)
+        self.pj = atelje.KUNDER / self.slug / 'sajt' / 'package.json'
+        self.pj.write_text(json.dumps({'dependencies': {'astro': '7.3.5'}}))
+        self.post = ab.forbered_skiss(self.slug, 'k01', 'metodvariant')
+
+    def krav(self):
+        return ab_skiss.krav(ab, self.slug)
+
+    def test_armarnas_typsnitt_faller_inte_laset(self):
+        self.pj.write_text(json.dumps({'dependencies': {'astro': '7.3.5', '@fontsource-variable/archivo': '^5.3.0'}}))
+        (self.pj.parent / 'package-lock.json').write_text('{"lockfileVersion": 3, "ny": true}')
+        self.assertEqual(self.krav()['id'], self.post['id'])
+
+    def test_en_andrad_verktygskedja_faller_laset(self):
+        self.pj.write_text(json.dumps({'dependencies': {'astro': '8.0.0'}}))
+        with self.assertRaises(ValueError):
+            self.krav()
+
+    def test_ett_tillagt_referenspaket_redovisas(self):
+        ny = self.u / 'referenser' / 'paket-v02' / 'ny.png'
+        ny.parent.mkdir(parents=True); ny.write_bytes(b'png')
+        (self.u / 'INNEHALL.md').write_text('# saknades vid förberedelsen')
+        self.assertEqual(self.krav()['id'], self.post['id'])
+        res = ab_skiss.resultat(ab, self.slug)
+        self.assertEqual(sorted(res['tillkomna_under_forsoket']['underlag']), ['INNEHALL.md', 'referenser/paket-v02/ny.png'])
+        (self.u / 'REFERENSER.md').write_text('# ändrad')  # fanns vid förberedelsen: en ändring, inget tillägg
+        with self.assertRaises(ValueError):
+            self.krav()
+
+    def test_en_andrad_eller_borttagen_kundfil_faller_laset(self):
+        (self.u / 'BRIEF.md').write_text('ändrad')
+        with self.assertRaises(ValueError):
+            self.krav()
+        (self.u / 'BRIEF.md').write_text('syntetiskt BRIEF.md')
+        self.krav()
+        (self.u / 'referenser' / 'paket-v01' / 'referens.png').unlink()
+        with self.assertRaises(ValueError):
+            self.krav()
+
+
 class Stoppefterplanen(unittest.TestCase):
     """NWP_KANDIDAT_STOPP_EFTER=planprovning: skisskörningen stannar efter planprövningen, före skaparna, som ett avslutat
     läge (planprovad) med slutkod 0; prototyp.py utan --fortsatt startar inget nytt omtag därifrån."""
@@ -594,6 +640,23 @@ class Stoppefterplanen(unittest.TestCase):
             lage, skal = prototyp.lage('stopp-prov')
         self.assertEqual(lage, 'stopp', skal)
         self.assertIn('--fortsatt', skal)
+
+    def test_fortsatt_tar_vid_efter_planprovad_men_inte_efter_avslutad(self):
+        nekas = getattr(atelje, 'fortsatt_nekas', None)
+        self.assertIsNotNone(nekas, 'spärren går inte att pröva för sig')
+        self.assertIsNone(nekas({'steg': 'planprovad'}), 'skaparna nås inte från planprovad')
+        self.assertIsNone(nekas({'steg': 'fel'}))
+        for steg in ('klar_for_bedomning', 'klar', 'forberedd', None):
+            self.assertIsNotNone(nekas({'steg': steg}), steg)
+
+    def test_slutposten_sager_vad_som_finns_att_gora(self):
+        import ateljeslut
+        st = {'steg': 'planprovad', 'kandidatflode': True, 'kandidater': {'k01': 'planerad'}}
+        ag = ateljeslut.tillstanden('stopp-prov', st, 'klar', [{'id': 'k01', 'valbar': False, 'status': 'planerad'}],
+                                    {'efter': [], 'olasbara': []})
+        text = json.dumps(ag, ensure_ascii=False)
+        self.assertNotIn('en ny körning behövs', text)
+        self.assertIn('planprövningen', text)
 
     def test_okant_varde_stoppar_vid_import(self):
         import subprocess
