@@ -60,6 +60,15 @@ def bygg(rot, slug=SLUG, mallsajt=MALLSAJT, med_sajt=True):
         for namn in ('package.json', 'package-lock.json', 'astro.config.mjs', 'tsconfig.json', 'DESIGN.md'):
             if (mallsajt / namn).is_file():
                 shutil.copyfile(mallsajt / namn, sajt / namn)
+        if (sajt / 'DESIGN.md').is_file():  # designens huvudreferens som riktningens (egen), som designkontrollen kräver före ett godkännande
+            import json as _json
+            import re as _re
+            t = (sajt / 'DESIGN.md').read_text(encoding='utf-8')
+            m = _re.search(r'```json design\n(.*?)\n```', t, _re.S)
+            if m:
+                v_ = _json.loads(m.group(1))
+                v_['huvudreferens'] = 'egen'
+                (sajt / 'DESIGN.md').write_text(t[:m.start(1)] + _json.dumps(v_, ensure_ascii=False, indent=1) + t[m.end(1):], encoding='utf-8')
         if (mallsajt / 'node_modules').is_dir():
             # kundens delade beroenden (processgränsen kräver att kandidatens länk pekar dit): en APFS-klon av mallens, så att
             # byggets cacher aldrig skrivs i huvudutcheckningen
