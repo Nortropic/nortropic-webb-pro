@@ -4932,9 +4932,13 @@ try:
         (huvud_kd / f_).parent.mkdir(parents=True, exist_ok=True)
         (huvud_kd / f_).write_text(t_) if not (huvud_kd / f_).exists() else None
     (huvud_kd / 'node_modules').mkdir(exist_ok=True)
+    plan_n6_kd = dict(referensfixtur.planfalt(sl_kd, 'paket-v02'), paket='paket-v02', referenskontrakt={'version': 1, 'brister': [], 'tid': '2026-10-10T00:00:00Z'},
+                      kandidater={'k01': {'titel': 'k01', 'referensbidrag': referensfixtur.bidrag(sl_kd, 'paket-v02')}})  # omtaget tog bort ateljén: en plan i kontraktets form
+    (kd.rot(sl_kd) / 'KANDIDATPLAN.json').write_text(json.dumps(plan_n6_kd))
+    referensfixtur.uppdrag(kd_u, sl_kd, plan_n6_kd, 'k01')
     kd.satt_status(sl_kd, 'k01', 'planerad', 'x', forsok=0)
     kd.skapa(sl_kd, 'k01')
-    assert len(komp_n6_kd) == 1 and len(n6_kd) == 2, (len(komp_n6_kd), len(n6_kd))
+    assert len(komp_n6_kd) == 1 and len(n6_kd) == 2, (len(komp_n6_kd), len(n6_kd), kd.las_status(sl_kd, 'k01').get('referenskontrakt_brister'))
     assert 'högst en gång per kandidat' in n6_kd[0][0] and 'högst en gång per kandidat' not in n6_kd[1][0]
     assert any(v_.endswith('/KOMPLETTERING.json)') for v_ in n6_kd[0][1]) and not any('KOMPLETTERING' in v_ for v_ in n6_kd[1][1])
     assert len(list((kd.kdir(sl_kd, 'k01') / 'kompletteringar').glob('*-obesvarad.json'))) == 1 and kd.las_status(sl_kd, 'k01')['kompletterad']
@@ -5048,9 +5052,9 @@ try:
     pp_sk_n, omp_sk_n = [0], [0]  # planprövningens rundor och omplaneringarna (2E: återgången; R01: en misslyckad tas upp igen)
     trasig_k03, dod_k05 = [True], [True]
 
-    def sess_sk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None):
+    def sess_sk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None, webb=False):
         sess_sk.append({'prompt': prompt, 'verktyg': verktyg, 'ut': Path(ut).name, 'schema': schema, 'effort': effort, 'frist': frist,
-                        'nekas': list(nekas), 'slug': slug})
+                        'nekas': list(nekas), 'slug': slug, 'webb': webb})
         so, sid_sk = None, None
         if vid_start:
             vid_start(999999990)
@@ -5146,6 +5150,8 @@ try:
         kd.kor(sl_sk, st_sk, lambda: None, n=5)
     finally:
         thr_sk.excepthook = spara_hook_sk
+    forskn_sk = (kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED)
+    assert any(s_['schema'] in forskn_sk for s_ in sess_sk) and all(s_['webb'] == (s_['schema'] in forskn_sk) for s_ in sess_sk), 'bara researchen får webben'
     assert kd.las_status(sl_sk, 'k05')['status'] == 'under_arbete'
     # R01 (GR-20261008-06af6ff-omgranskning-codex): k02:s omplanering gav inget användbart uppdrag; kandidaten stoppas med sitt
     # skäl, och ingen skapare startar med det förkastade uppdraget (bara den lyckade k03 omplaneras)
