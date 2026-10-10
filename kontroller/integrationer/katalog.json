@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.4",
+  "version": "2026-10-10.5",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -254,7 +254,7 @@
       "begransningar": [], "paverkar": {"brief": "roller", "design": null, "kod": "innehållsmodellen", "externt": "tjänsten"}, "manniska": []
     },
     {
-      "id": "k09-bokningslank", "version": "1.0.0", "omrade": "K09", "niva": "lank", "grund": false,
+      "id": "k09-bokningslank", "version": "1.1.0", "omrade": "K09", "niva": "lank", "grund": false,
       "funktion": "Länk till verksamhetens bokningssida i en etablerad bokningstjänst (befintlig tjänst först, annars Cal.com).",
       "passar": "En eller några personers bokningar.", "passar_inte": "Resurser, kapacitet eller betalning som måste låsa en tid (utreds).",
       "kunduppgifter": ["befintligt bokningssystem", "tjänster och längder", "vem som bokas"], "bevara": ["befintligt bokningssystem"],
@@ -264,8 +264,9 @@
       "rattigheter": {}, "dataflode": "Besökaren direkt till bokningstjänsten.", "lagring": "Bokningstjänsten.",
       "kostnad": {"modell": "beror på tjänst och plan", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Nivåerna i kunskap/integrationer.md och integrationer-standardvagar.md; Digitalas återläsning av Cal-bokningar finns inte här.", "prov": [], "driftkontroll": null,
-      "begransningar": ["En länk är inte en verifierad bokning."], "paverkar": {"brief": "bokningsbehovet", "design": "primär handling", "kod": "länken", "externt": null}, "manniska": ["en testbokning i kundens konto"]
+      "komponent": "mall/astro/src/components/Bokning.astro",
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Mallens komponent byggd med mallens Astro: länken till bokningssidan, inget skript, ingen iframe och ingen förhandshämtning; bygget faller på en adress som inte är https. Ingen bokning är gjord i en tjänst; återläsning av bokningar finns inte.", "prov": ["kontroller/rokprov/revision/prov_lankkomponenter.py"], "driftkontroll": null,
+      "begransningar": ["En länk är inte en verifierad bokning.", "Kapacitet, påminnelser och avbokning sköts av bokningstjänsten."], "paverkar": {"brief": "bokningsbehovet", "design": "primär handling", "kod": "länken", "externt": null}, "manniska": ["en testbokning i kundens konto"]
     },
     {
       "id": "k10-csv-export", "version": "1.0.0", "omrade": "K10", "niva": "forvaltning", "grund": false,
@@ -297,7 +298,7 @@
       "begransningar": [], "paverkar": {"brief": "uppföljningen", "design": null, "kod": "Workerns utkorg", "externt": "kundregistret"}, "manniska": []
     },
     {
-      "id": "k11-stripe-betallank", "version": "1.0.0", "omrade": "K11", "niva": "lank", "grund": false,
+      "id": "k11-stripe-betallank", "version": "1.1.0", "omrade": "K11", "niva": "lank", "grund": false,
       "funktion": "Betalning eller deposition genom en betallänk där leverantören håller kassan (kort, och Swish eller Klarna där de passar).",
       "passar": "Fristående engångsbetalning i SEK.", "passar_inte": "Betalning som måste låsa en bokad tid (utreds med bokningstjänstens egen betalning).",
       "kunduppgifter": ["vad som betalas", "pris och moms", "verksamhetens Stripe-konto"], "bevara": ["befintlig kassa"],
@@ -306,7 +307,8 @@
       "konto": {"agare": "kund", "typ": "kundens Stripe-konto", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Besökaren direkt till Stripe.", "lagring": "Stripe.",
       "kostnad": {"modell": "Stripes avgifter per transaktion (okänt belopp i katalogen)", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Svenska betalval i integrationer-standardvagar.md; Digitalas testlägesverktyg finns inte här.", "prov": [], "driftkontroll": null,
+      "komponent": "mall/astro/src/components/Betallank.astro",
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Mallens komponent byggd med mallens Astro: bara betallänkar hos Stripe (https://buy.stripe.com/<id>), priset hos Stripe och inget belopp på sidan, testlänkar bara i uttryckligt testläge, inget skript och ingen förhandshämtning. Ingen betalning är gjord i ett Stripe-konto.", "prov": ["kontroller/rokprov/revision/prov_lankkomponenter.py"], "driftkontroll": null,
       "begransningar": ["Ingen verklig betalning i ett prov; juridikflaggan e-handel."], "paverkar": {"brief": "betalningen", "design": "knappen", "kod": "länken", "externt": "Stripe"}, "manniska": ["betallänken skapas i kundens konto"]
     },
     {

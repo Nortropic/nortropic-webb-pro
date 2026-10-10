@@ -1,0 +1,30 @@
+---
+// Bokning (integrationskatalogen k09-bokningslank; kunskap/integrationer.md, Bokning): en vanlig länk till verksamhetens
+// bokningssida i dess bokningstjänst, befintlig tjänst först, annars Cal.com. Ingen inbäddning, inget skript och ingenting
+// som hämtas från tjänsten innan besökaren klickar. En länk är inte en verifierad bokning: tider, kapacitet, bekräftelse,
+// ombokning och avbokning sköts av tjänsten. En inbäddad bokningsvy är ett eget val med samtycke och CSP-ändring.
+//   <Bokning adress="https://cal.com/verksamheten/besok" tjanst="Cal.com" />
+// Bygget faller på en adress som inte är https eller som bär inloggningsuppgifter, och på ett tomt tjänstnamn.
+interface Props { adress: string; tjanst: string; rubrik?: string; lanktext?: string; text?: string }
+const { adress, tjanst, rubrik = 'Boka en tid', lanktext = 'Boka en tid', text } = Astro.props;
+let url: URL;
+try {
+  url = new URL(adress);
+} catch {
+  throw new Error(`Bokning: ogiltig adress (${adress})`);
+}
+if (url.protocol !== 'https:' || url.username || url.password) {
+  throw new Error('Bokning: adressen ska vara https:// utan inloggningsuppgifter');
+}
+if (!tjanst || !tjanst.trim()) throw new Error('Bokning: ange bokningstjänstens namn');
+---
+<section class="bokning" aria-labelledby="bokning-rubrik">
+  <h2 id="bokning-rubrik">{rubrik}</h2>
+  {text && <p>{text}</p>}
+  <p><a href={url.href}>{lanktext}</a> <span class="bokning-tjanst">(öppnas hos {tjanst})</span></p>
+</section>
+
+<style>
+  /* Neutral grund som bygget skriver över; länken har minst 24 px klickyta (byggstandarden 3.3). */
+  .bokning a { display: inline-block; min-height: 24px; padding-block: 0.25rem; }
+</style>

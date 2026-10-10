@@ -28,11 +28,18 @@ bokning i kundens system med bekräftelse. Välj lägsta nivå som uppfyller beh
 Kontroll: en riktig testbokning i testmiljö eller kontrollerat konto, inklusive ombokning och avbokning; verklig
 räckvidd redovisas (vad som prövades, vad som inte kunde prövas).
 
+Nivå 1 i mallen är `Bokning.astro` (katalogens k09-bokningslank): en vanlig länk till bokningssidan, utan skript och
+utan något som hämtas från tjänsten före klicket. Bygget faller på en adress som inte är https. Komponenten prövas i
+`kontroller/rokprov/revision/prov_lankkomponenter.py`.
+
 ## Kundregister, betalning och övriga verksamhetssystem
 
 Koppla bara det uppdraget behöver: datamappning per kund (vilka fält, vart), tillåtna rättigheter (minsta åtkomst,
 egen nyckel, aldrig kundens huvudinloggning), rätt miljö (test kontra produktion), felhantering och prov. Betalning
 på webbplatsen sätter juridikflaggan e-handel/distansavtal (juridikflaggor.md) och görs genom etablerad betaltjänst.
+Fristående betalning görs i mallen med `Betallank.astro` (katalogens k11-stripe-betallank), en länk till en Stripe
+Payment Link i verksamhetens konto. Priset ligger hos Stripe, och sidan sätter aldrig ett belopp. En testlänk byggs
+bara med `testlage`, och då visar sidan att ingen verklig betalning görs (samma prov som bokningen).
 Åtkomst begärs på säker väg (åtkomstfil 0600 utanför repot), aldrig i intervjusvar.
 
 ## Redaktörsupplevelse

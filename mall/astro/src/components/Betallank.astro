@@ -1,0 +1,38 @@
+---
+// Betallänk (integrationskatalogen k11-stripe-betallank; kunskap/integrationer-standardvagar.md): en vanlig länk till
+// en Stripe Payment Link i verksamhetens Stripe-konto. Priset, valutan, betalsätten och kvittot ligger hos Stripe, så
+// webbplatsen sätter aldrig ett belopp och ser aldrig kortuppgifter. Inget skript och ingenting hämtas från Stripe innan
+// besökaren klickar.
+//   <Betallank lank="https://buy.stripe.com/<id>" vad="Deposition för bokad tid" />
+// Bygget faller på en adress som inte är en betallänk hos Stripe (https://buy.stripe.com/<id>), och på en testlänk
+// (test_…) om inte testlage är satt; i testläge säger sidan att ingen verklig betalning görs.
+interface Props { lank: string; vad: string; rubrik?: string; lanktext?: string; testlage?: boolean }
+const { lank, vad, rubrik = 'Betala', lanktext = 'Gå till betalningen', testlage = false } = Astro.props;
+let url: URL;
+try {
+  url = new URL(lank);
+} catch {
+  throw new Error(`Betallänk: ogiltig adress (${lank})`);
+}
+const id = url.pathname.slice(1);
+if (url.protocol !== 'https:' || url.hostname !== 'buy.stripe.com' || url.username || url.password || url.search || url.hash
+    || !/^[A-Za-z0-9_]{6,120}$/.test(id)) {
+  throw new Error('Betallänk: adressen ska vara en betallänk hos Stripe, https://buy.stripe.com/<id>');
+}
+const arTest = id.startsWith('test_');
+if (arTest && !testlage) throw new Error('Betallänk: en testlänk (test_…) får bara användas med testlage');
+if (!arTest && testlage) throw new Error('Betallänk: testlage är satt men länken är en riktig betallänk');
+if (!vad || !vad.trim()) throw new Error('Betallänk: ange vad betalningen gäller');
+---
+<section class="betallank" aria-labelledby="betallank-rubrik">
+  <h2 id="betallank-rubrik">{rubrik}</h2>
+  <p>{vad}</p>
+  {arTest && <p class="betallank-test"><strong>Testläge:</strong> ingen verklig betalning görs.</p>}
+  <p><a href={url.href}>{lanktext}</a></p>
+  <p class="betallank-info">Betalningen sker hos Stripe. Priset och betalsätten visas där, och webbplatsen ser aldrig dina kortuppgifter.</p>
+</section>
+
+<style>
+  /* Neutral grund som bygget skriver över; länken har minst 24 px klickyta (byggstandarden 3.3). */
+  .betallank a { display: inline-block; min-height: 24px; padding-block: 0.25rem; }
+</style>
