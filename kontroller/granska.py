@@ -241,7 +241,7 @@ def godkand(resultat):
     k = resultat.get('kriterier') or {}
     betyg_ok = all(isinstance((k.get(n) or {}).get('betyg'), int) and k[n]['betyg'] >= TROSKEL[n] for n in KRITERIER)
     visa_ok = all((k.get(n) or {}).get('visa', True) is not False for n in KRITERIER)  # ja/nej utöver betyget
-    return betyg_ok and visa_ok and not resultat.get('blockerande')
+    return betyg_ok and visa_ok and not resultat.get('blockerande') and not resultat.get('metodbrister')
 
 
 # --- underlag till granskaren ---
@@ -706,11 +706,17 @@ def arbetare(rdir):
                 s_['lasning'] = bildkedja.lasning(s_.get('session_id'), granskarkrav(ankare, frysta, bilder, vinnare))
             except Exception as e:  # noqa: BLE001
                 s_['lasning'] = {'verifierad': False, 'grupper': {}, 'bilder_lasta': None, 'skal': 'bildkedjan föll: %s' % e}
+        # Granskarens kompetens är det frysta kriteriepaketet (metod_sha), inte ateljéns Skill-aktivering: sessionen har
+        # inget Skill-verktyg (lucka 4 i GR-20261010-kompetens-integration). Att instruktionen och designreglerna lästs
+        # är observerat ur transkriptet; en granskare som bevisligen inte läste dem kan inte godkänna. Ett saknat
+        # transkript är inte observerat och står så, utan att fälla en dom.
+        metodbrister = kriteriebrister(sessioner)
         if len(delar) < antal:
             # alla konfigurerade granskare måste ha svarat giltigt: en ensam granskare får inte godkänna det två skulle
             # dömt (revisionen 2026-10-03, F8). Omgången slutar med fel; stoppvakten startar en ny.
             raise RuntimeError('ofullständig granskning, %d av %d granskare svarade; ingen dom: %s' % (len(delar), antal, '; '.join(fel)))
         res = sla_ihop(delar)
+        res['metodbrister'] = metodbrister
         svar = {'num_turns': sum(s.get('num_turns') or 0 for s in sessioner), 'duration_ms': max(s.get('duration_ms') or 0 for s in sessioner),
                 'session_id': sessioner[0].get('session_id')}
         lage = upp.get('originalitet', 'skugga')
@@ -732,6 +738,8 @@ def arbetare(rdir):
         post = {'schema': 1, 'slug': slug, 'runda': upp['runda'], 'korning': upp['korning'], 'tid': nu(),
                 'startad': upp['tid'], 'dist_sha256': upp['dist_sha256'], 'modell': upp['modell'], 'effort': upp['effort'],
                 'metod_sha': upp.get('metod_sha'), 'granskare': antal, 'originalitet': lage,
+                'kompetens': {'mekanism': 'fryst kriteriepaket', 'metod_sha': upp.get('metod_sha'), 'skill_aktivering': False,
+                              'kriterier': list(KRITERIEFILER), 'lasta': {str(s_.get('granskare')): s_.get('kriterier_lasta') for s_ in sessioner}},
                 'troskel': TROSKEL, 'godkand': godkand(res), 'niva': niva(res), **res, 'visuell_jamforelse': jamforelse,
                 'kalibrering': kalibreringsstatus(),  # sanningsenlig: okalibrerad utan ankare efter den rena designstarten
                 'metodberoenden': [f for _n, f in METODBEROENDEN] + ['underlag/%s/%s' % (slug, f) for _n, f in KUNDBEROENDEN],
@@ -763,11 +771,29 @@ def arbetare(rdir):
     return 0
 
 
+KRITERIEFILER = (INSTRUKTION, 'kunskap/designregler.md')  # det granskaruppdraget och GRANSKARE.md steg 1 säger läs först
+
+
+def kriteriebrister(sessioner):
+    """Granskarnas läsning av kriteriepaketet ur deras läskvitton (lucka 4 i GR-20261010-kompetens-integration): sätter
+    kriterier_lasta (True, False eller None för inte observerat) per session och ger bristerna för dem som bevisligen
+    inte läste instruktionen och designreglerna. Ett saknat transkript fäller ingen dom men står som inte observerat."""
+    ut = []
+    for s_ in sessioner:
+        las_ = s_.get('lasning') or {}
+        saknas_ = ((las_.get('grupper') or {}).get('kriterier') or {}).get('saknas') if las_.get('verifierad') else None
+        s_['kriterier_lasta'] = None if saknas_ is None else not saknas_
+        if saknas_:
+            ut.append('granskare %s läste inte kriteriepaketets %s före domen' % (s_.get('granskare'), ', '.join(saknas_)))
+    return ut
+
+
 def granskarkrav(ankare, frysta, bilder, vinnare=None):
-    """Det en granskare bör ha läst: ägarens ord och varje ankare (första vyn), referensernas utpekade bilder,
-    startsidans första ruta i 390 och 1440, och med en godkänd prototyp jämförelsens båda sidor: prototypens bilder och
-    byggets motsvarande bilder, sida för sida och bredd för bredd (T02 i GR-20261009-metod-till-resultat-codex)."""
-    krav = {}
+    """Det en granskare bör ha läst: det frysta kriteriepaketets två första filer (instruktionen och designreglerna),
+    ägarens ord och varje ankare (första vyn), referensernas utpekade bilder, startsidans första ruta i 390 och 1440, och
+    med en godkänd prototyp jämförelsens båda sidor: prototypens bilder och byggets motsvarande bilder, sida för sida och
+    bredd för bredd (T02 i GR-20261009-metod-till-resultat-codex)."""
+    krav = {'kriterier': list(KRITERIEFILER)}
     if ankare:
         krav['ankare'] = bildkedja.ankarkrav(ankare, vag)
     if frysta:
@@ -969,6 +995,12 @@ def markdown(g):
                g['tid'], g['modell'], g['effort'], g['dist_sha256'][:12],
                ', '.join('%s ≥ %d' % (k, g['troskel'][k]) for k in KRITERIER)), '',
            *(['Granskarens kalibrering: %s' % g['kalibrering']['text'], ''] if isinstance(g.get('kalibrering'), dict) else []),
+           *(['Granskarnas kompetens: det frysta kriteriepaketet (metod %s), ingen Skill-aktivering; instruktionen och '
+              'designreglerna lästa: %s.' % (str(g['kompetens'].get('metod_sha') or 'ej angivet')[:12], ', '.join(
+                  'granskare %s %s' % (n, {True: 'ja', False: 'nej'}.get(v, 'inte observerat')) for n, v in sorted((g['kompetens'].get('lasta') or {}).items()))
+                  or 'inte observerat'), ''] if isinstance(g.get('kompetens'), dict) else []),
+           *(['**Metodbrist:** ' + '; '.join(g['metodbrister']) + '. Ingen godkänd dom utan observerad läsning av kriterierna.', '']
+             if g.get('metodbrister') else []),
            '| Kriterium | Betyg | Motivering |', '|---|---|---|']
     for k in KRITERIER:
         x = (g.get('kriterier') or {}).get(k) or {}

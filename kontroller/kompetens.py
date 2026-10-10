@@ -99,7 +99,8 @@ VERKTYG = {
                  'canvas-design, `--anvand <m-id> --plats <plats>` lägger en genererad tillgång i src/assets/material/ (en video kräver '
                  '`--poster <bild-id>`), `--visa` visar kandidatens egna tillgångar och det gemensamma kundmaterialet, och '
                  '`--anvandning` säger vad som är kopierat, importerat i källan och renderat i bygget; '
-                 'en leverantörsbeställning sparas med --leverantor och --bestall; den betrodda materialkörningen kräver '
+                 'en leverantörsbeställning sparas med --leverantor och --bestall (med --fran <m-id> redigeras en egen bild ur '
+                 'registret, eller blir den första rutan i en Seedance-video); den betrodda materialkörningen kräver '
                  'konto, uppdragets hash, uttryckligt kostnadsmandat och rättigheter (kunskap/materialtransport.md). '
                  'En väntande beställning är ingen genererad tillgång'),
     'skillskript': (['Bash(.venv/bin/python kontroller/skillskript.py <slug> --kandidat <id> --uppdrag *)',
@@ -623,18 +624,33 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
             continue
         sedda += 1
         las_s, fore_s = set((ml.get('fore') or []) + (ml.get('efter') or [])), set(ml.get('fore') or [])
+        t = bildkedja.transkript(sid)
+        h = bildkedja.handelser(t) if t else []
+        # Underagenterna (lucka 1 i GR-20261010-kompetens-integration): varje Task/Agent har en egen kontext som inte
+        # ser huvudsessionens skills eller läsningar. Deras egna transkript läses med samma metodkvitto; en underagent
+        # som ändrar i koden prövas som en egen session (kravbrister), och en underagent utan transkript är okänd.
+        ua = []
+        for u in bildkedja.underagenter(sid):
+            mu = bildkedja.metodlasning(sid, filer + val, skrivprefix=skrivprefix, fil=u['fil'], kedja=u['kedja'])
+            if not mu.get('verifierad'):
+                continue
+            lu, fu = set((mu.get('fore') or []) + (mu.get('efter') or [])), set(mu.get('fore') or [])
+            ua.append({'agent': u['agent'], 'andrade': bool(mu.get('forsta_skrivning')), 'forsta_via': mu.get('forsta_via'),
+                       'lasta': [f for f in filer if f in lu], 'fore_forsta_andring': [f for f in filer if f in fu],
+                       'skill_anrop': sorted(set(mu.get('skill_anrop') or [])), 'skill_fore': sorted(set(mu.get('skill_fore') or [])),
+                       'valda': [f for f in val if f in lu and f not in (mu.get('via_metod') or [])]})
         per.append({'session': str(sid), 'lasta': [f for f in filer if f in las_s], 'saknas': [f for f in filer if f not in las_s],
                     'fore_forsta_andring': [f for f in filer if f in fore_s], 'andrade': bool(ml.get('forsta_skrivning')),
+                    'forsta_via': ml.get('forsta_via'), 'bash': ml.get('bash'),
                     'skill_anrop': sorted(set(ml.get('skill_anrop') or [])),
                     'skill_fore': sorted(set(ml.get('skill_fore') or [])),
-                    'valda': [f for f in val if f in las_s and f not in (ml.get('via_metod') or [])]})
+                    'valda': [f for f in val if f in las_s and f not in (ml.get('via_metod') or [])],
+                    'underagenter': ua, 'underagentuppdrag': bildkedja.uppdragsanrop(h)})
         fore.update(ml.get('fore') or [])
         lasta.update((ml.get('fore') or []) + (ml.get('efter') or []))
         egna.update(set((ml.get('fore') or []) + (ml.get('efter') or [])) - set(ml.get('via_metod') or []))
         skill += ml.get('skill_anrop') or []
         skill_fel += ml.get('skill_fel') or []
-        t = bildkedja.transkript(sid)
-        h = bildkedja.handelser(t) if t else []
         felade = {x[1] for x in h if x[0] == 'svar' and x[3]}
         svarade = {x[1] for x in h if x[0] == 'svar'}
         for x in h:
@@ -762,6 +778,7 @@ def kravbrister(kv, pass_, k=None):
                     fel.append('session %d: Skill-aktivering saknas: %s' % (i, namn))
                 elif skrivande and p.get('andrade') and namn not in tidiga:
                     fel.append('session %d: Skill aktiverades inte före första ändringen: %s' % (i, namn))
+            fel += underagentbrister(p, i, karnafiler, karna, alternativ)
     for m in dict.fromkeys(m for r in roller for m in r.get('mcp_krav', [])):
         utfall = kv.get('mcp_utfall')
         lyckade = sum(n for a, u in (utfall or {}).items() if a.startswith('mcp__%s__' % m)
@@ -769,6 +786,111 @@ def kravbrister(kv, pass_, k=None):
         if not lyckade:
             fel.append('obligatorisk MCP-undersökning saknar observerat resultat: %s' % m)
     return list(dict.fromkeys(fel))
+
+
+def _redovisade(so):
+    """Det en session själv redovisar som valt eller lyckat aktiverat, ur svarets schema: valda (text eller {fil}),
+    aktivering med lyckades, och skillen bakom en kodändring. passade_inte är inget påstående om aktivering."""
+    if not isinstance(so, dict):
+        return [], []
+    texter, skills = [], []
+    for v in so.get('valda') or []:
+        if isinstance(v, str):
+            texter.append(v)
+        elif isinstance(v, dict) and isinstance(v.get('fil'), str):
+            texter.append(v['fil'])
+    for v in so.get('aktivering') or []:
+        if isinstance(v, dict) and v.get('lyckades') is True and isinstance(v.get('skill'), str):
+            skills.append(v['skill'])
+    for v in so.get('kod_andrad') or []:
+        if isinstance(v, dict) and isinstance(v.get('skill'), str) and v['skill'].strip():
+            skills.append(v['skill'])
+    return texter, skills
+
+
+def redovisade_brister(kv, pass_, so, k=None):
+    """Fri text om ett valt alternativ eller en lyckad aktivering bevisar ingenting (lucka 2 i
+    GR-20261010-kompetens-integration): varje alternativ eller skill som svaret redovisar som valt, aktiverat eller som
+    grund för en kodändring måste vara observerat i transkriptet, läst helt eller aktiverat med Skill i någon av passets
+    sessioner eller underagenter. Ett namn som inte motsvarar en lokal skill eller en fil i rollen (till exempel CSS)
+    prövas inte. Ger bristerna; tom lista när allt redovisat också är observerat eller svaret saknar redovisning."""
+    import bildkedja
+    texter, skills = _redovisade(so)
+    if not texter and not skills:
+        return []
+    if not isinstance(kv, dict) or not kv.get('verifierad'):
+        return ['redovisade skills kan inte prövas: kompetensen är inte observerad']
+    k = tolka() if k is None else k
+    filer = list(dict.fromkeys([f for r in for_pass(pass_, k) for f in r['karna'] + r['valj']]))
+    kontexter = [p for p in kv.get('per_session') or [] if isinstance(p, dict)]
+    kontexter += [u for p in kontexter for u in (p.get('underagenter') or []) if isinstance(u, dict)]
+    lasta = {f for p in kontexter for f in (p.get('lasta') or []) + (p.get('valda') or [])} | set(kv.get('valda') or [])
+    aktiverade = {bildkedja.skillnamn(n) or n for p in kontexter for n in p.get('skill_anrop') or []}
+
+    def observerad(f):
+        delar = f.split('/')
+        if len(delar) == 2 and delar[1] == 'SKILL.md' and (bildkedja.skillnamn(delar[0]) or delar[0]) in aktiverade:
+            return True
+        return vag(f) in lasta or f in lasta
+
+    def id_for(f):
+        delar = f.split('/')
+        ids = {f, vag(f)}
+        if len(delar) == 2 and delar[1] == 'SKILL.md':
+            ids |= {delar[0], bildkedja.skillnamn(delar[0]) or delar[0]}
+        elif delar[-1] == 'SKILL.md':
+            ids.add(delar[-2])  # en nästlad skill (gsap/gsap-core/SKILL.md) heter som sin mapp
+        elif delar[-1] not in ('index.md', 'README.md', 'SKILL.md'):
+            ids.add(delar[-1])  # ett eget filnamn (macrostructures.md); index.md och README.md är tvetydiga
+        return {i for i in ids if i}
+
+    fel = []
+    for text in texter:
+        for f in filer:
+            if any(re.search(r'(?<![A-Za-z0-9_.-])%s(?![A-Za-z0-9_-])' % re.escape(i), text) for i in id_for(f)) and not observerad(f):
+                fel.append('redovisat alternativ utan observerad läsning eller aktivering: %s' % f)
+    for namn in skills:
+        kanon = bildkedja.skillnamn(namn.strip().split()[0].strip('/:')) if namn.strip() else None
+        if kanon and not (bildkedja.ROOT / '.claude' / 'skills' / kanon / 'SKILL.md').is_file():
+            continue  # inget lokalt skillnamn (CSS, ett främmande plugin): prövas inte
+        if kanon and kanon not in aktiverade and '.claude/skills/%s/SKILL.md' % kanon not in lasta:
+            fel.append('redovisad skill utan observerat Skill-anrop eller läsning: %s' % kanon)
+    return list(dict.fromkeys(fel))
+
+
+def redovisat_i_text(kv, pass_, text, k=None):
+    """Alternativ som en fritext (DESIGN.md, rubriken Kompetenserna) nämner utan att de observerats lästa eller
+    aktiverade. Bara en iakttagelse: texten får också säga att en skill inte passade, så ett nämnt namn är inget
+    påstående om aktivering, och ingenting här räknas som aktivering (lucka 2)."""
+    m = re.search(r'^#+\s*Kompetenserna\s*$(.*?)(?=^#+\s|\Z)', text or '', re.M | re.S)
+    if not m:
+        return []
+    rader = [r for r in m.group(1).splitlines() if r.strip() and not re.search(r'passade inte|valdes bort|inte (?:valt|vald|använd)|avstod', r, re.I)]
+    return [f.split(': ', 1)[1] for f in redovisade_brister(kv, pass_, {'valda': rader}, k) if ': ' in f]
+
+
+def underagentbrister(p, i, karnafiler, karna, alternativ):
+    """Underagenternas egna krav (lucka 1 i GR-20261010-kompetens-integration): en underagent ser varken huvudsessionens
+    skills eller läsningar, så en underagent som ändrar i koden läser kärnan och aktiverar rollens skills själv före sin
+    första ändring. En läsande underagent (till exempel ett blint rubrikprov) har inga krav men står i kvittot. Fler
+    startade underagenter än observerade transkript är okänt, aldrig genomfört."""
+    import bildkedja
+    fel = []
+    ua = p.get('underagenter') or []
+    if not isinstance(ua, list):
+        return ['session %d: underagenternas kvitto är ogiltigt' % i]
+    if isinstance(p.get('underagentuppdrag'), int) and p['underagentuppdrag'] > len(ua):
+        fel.append('session %d: %d underagent(er) utan observerat transkript; deras kontext är okänd' % (i, p['underagentuppdrag'] - len(ua)))
+    for u in ua:
+        if not isinstance(u, dict) or not u.get('andrade'):
+            continue
+        namn_u = 'session %d, underagent %s' % (i, str(u.get('agent') or '?')[:12])
+        fel += ['%s: ändrade utan kärnan före första ändringen: %s' % (namn_u, Path(f).name)
+                for f in sorted(karnafiler - set(u.get('fore_forsta_andring') or []))]
+        krav, _ = aktiverbara(karna + [f for f in alternativ if vag(f) in (u.get('valda') or [])])
+        tidiga = {bildkedja.skillnamn(n) for n in u.get('skill_fore') or []}
+        fel += ['%s: Skill aktiverades inte före första ändringen: %s' % (namn_u, n) for n in krav if n not in tidiga]
+    return fel
 
 
 def mcp_tillstand(m, anrop, utfall, lage, sett):

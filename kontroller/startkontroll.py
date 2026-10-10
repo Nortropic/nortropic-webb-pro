@@ -238,6 +238,16 @@ def prova_formagan(k, version, start='ny', vag=None):
                    provad=p.get('tid'), nodvandig=krav_refero, tillstand=provtillstand(res_refero),
                    detalj=(p.get('detalj') or '') + (' (återanvänt prov)' if p.get('ateranvant') else '')))
     upptackta = {'refero': set(p['verktyg']) if p.get('verktyg') else None, 'mobbin': None, **{t: None for t in DOKUMENTATIONS_MCP + KOMPONENT_MCP}}
+    # 21st.dev direkt: kontots upptäckta verktyg med scheman, get_usage och en sökning med verktygens felstatus
+    # (ägarens uppdrag 2026-10-10, punkt 3). Upptäckten kräver nyckeln, så listan speglar kontots faktiska åtkomst.
+    p21 = vl.prova_21st(k, k.prov_dir) if ateljen else {'resultat': 'okand', 'detalj': 'inte provad för helbyggets start'}
+    krav_21 = ateljen and bool(krav.get('21st'))
+    res_21 = 'okand' if p21.get('resultat') == 'ok' and p21.get('gammalt') else p21.get('resultat')
+    ut.append(post('tjänst', '21st.dev (direkt)', 'fel' if krav_21 and res_21 != 'ok' else res_21,
+                   provad=p21.get('tid'), nodvandig=krav_21, tillstand=provtillstand(res_21),
+                   detalj=(p21.get('detalj') or '') + (' (återanvänt prov)' if p21.get('ateranvant') else '')))
+    if p21.get('verktyg') and '21st' in upptackta:
+        upptackta['21st'] = set(p21['verktyg'])
     # Det fullständiga provet görs i underhållet; ateljéns start gör om det bara när det fallit eller gått ut (M1).
     # Här läser helbygget bara det sparade tjänsteprovet, som inte bevisar dess egen sessionsåtkomst.
     ansluten = servrar is not None and (servrar.get('mobbin') or {}).get('status') == 'ok'

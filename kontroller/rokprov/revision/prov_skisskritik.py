@@ -309,7 +309,10 @@ def sess_falsk(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, eff
         elif schema is kd.PASS_SCHEMA:
             pass_ = next(p for p, namn in kompetens.PASSNAMN.items() if 'specialisten för %s' % namn in prompt)
         if pass_:
-            sid = kompetens_transkript(pass_)
+            # det svaret redovisar som valt är också läst (kompetens.redovisade_brister): en framgångsfixtur bär sin evidens
+            valda_ = [('Read', {'file_path': str(atelje.ROOT / v['fil'])}, 'syntetiskt läskvitto')
+                      for v in (so or {}).get('valda') or [] if isinstance(v, dict) and isinstance(v.get('fil'), str)]
+            sid = kompetens_transkript(pass_, valda_)
     svar_ = {'structured_output': so, 'num_turns': 9, 'duration_ms': 60000, 'total_cost_usd': 0.1, 'session_id': sid}
     Path(ut).write_text(json.dumps(svar_))
     return svar_

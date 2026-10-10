@@ -4585,3 +4585,39 @@ Verifieringen hittade också ett tidsfönster i axe-kontrollens formulärläge: 
 ha bytt dokument innan webbadressen ändrats. Kontrollen följer nu huvudramens navigationsbegäran och
 publicerar inga formulärfynd från ett annat dokument, även om URL:en ligger kvar. Regressionen använder
 riktig Chromium, läsvakt och axe med en kontrollerat kvarhållen URL; vanliga required-fel mäts fortfarande.
+
+## Tillägg 2026-10-10: kompetensens körvägar integrerade, luckorna rättade och verklig användning visad
+
+**Status:** gäller som uppdrag; integrationen och rättelserna genomförs av Claude i separata grenar och slås ihop med
+main efter grönt fullprov.
+
+Ägarens uppdrag ~08:16Z (inklistrat), inledningen ordagrant:
+
+> Arbeta vidare i Nortropic/nortropic-webb-pro med Codex införande av kompetensens körvägar.
+> Målet: få de genomförda rättelserna säkert integrerade och visa vad verktyg, skills och MCP:er faktiskt tillför i det riktiga flödet. Återanvänd befintlig mekanik. Skilj konsekvent mellan installerat, tillgängligt, anropat, lyckat resultat, tillämpat och bedömd kvalitet.
+
+Uppdraget har sex punkter: stäm av nuläget; integrera Codex gren `codex/kompetens-inforande-20261010` (4c6db22) med
+aktuell main; visa verklig användning i rätt steg med små förmågeprov och en avgränsad kandidat med fiktivt material;
+rätta de fyra observationsluckorna (underagenternas kontexter, fri text om skillval, Bash-skrivningar i läsordningen,
+slutgranskarens frysta kriteriepaket); slutför materialstegets avstämning; bedöm resultatet och lämna ett slutbesked.
+Gränser ur uppdraget, ordagrant: "Ett tungt prov åt gången. Ändra aldrig körande skript. Använd inte nohup eller
+skalbakgrund som förändrar signalhanteringen." "Lägg inte hela kompetensbiblioteket i varje sessions kontext."
+"Befintliga gränser för kostnad, rättigheter, kunddata och konton gäller. Återanvänd givna mandat; ange exakt vad som
+saknas när ett verkligt anrop kräver ett nytt beslut. Starta inte helbygge eller publicering genom detta uppdrag."
+"Ett grönt kompetenskvitto är inte ett designgodkännande."
+
+Genomförarens tillämpning (Claude), inget nytt ägarbeslut om konton, kostnader eller publicering:
+
+- Integrationen förenar Codex gren med main bb120d6 som union; mains K04-beslut och märkningen av ersatta Vercel- och
+  Resend-beslut står kvar orörda.
+- Luckorna rättas med minsta prövbara ändring (`kunskap/metodkarta.md`, Underagenter, skalet och slutgranskaren):
+  underagenter läses ur sina egna transkript, redovisade skillval prövas mot det observerade, skalets skrivningar och
+  okända program räknas i läsordningen, och slutgranskarens läsning av kriteriepaketet observeras och krävs för ett ja.
+- Materialsteget: redigering och bild till video med registrets egna bilder (ägarens uppdrag 2026-10-07, punkt 5B,
+  Nano Banana → bild → Seedance), en materialkö utan automatisk verkställighet och härdning efter
+  dokumentationskontrollen (`kunskap/materialtransport.md`). Kundens bilder skickas aldrig den vägen. Higgsfields bild
+  till video kräver en publik uppladdning och väntar på ett eget beslut; ett stående kostnadsmandat för kön finns inte.
+- 21st prövas direkt mot den samlade MCP:n (`https://21st.dev/api/mcp`) med kontots upptäckta verktyg, scheman och
+  felstatus; gamla `@21st-dev/magic` installeras inte.
+
+Redovisningen: `underlag/granskningar/GR-20261010-kompetens-integration.md` (privat).

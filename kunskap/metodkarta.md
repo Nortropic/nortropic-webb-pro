@@ -221,9 +221,25 @@ alltid som inte observerat; kvaliteten bedöms av kritiken och ägaren). Saknad 
 Skill-aktivering fäller arbetskravet: i passen rörelse och granskning får sessionen ett omförsök
 (`kontroller/kandidater.py`), i skissen står passet som inte genomfört (`genomford`), planprövningen redovisar kvittot
 och kritiken sparar kvittot i SKISSKRITIK.json. Ett alternativ som inte gick att ladda ska skrivas i svaret med felet
-och får inte redovisas som använt. Grinden fångar dock inte ett deklarerat alternativ som aldrig observerats läst,
-så den delen är en instruktion och ingen garanterad kontroll. Att ett verktyg finns installerat räcker inte:
-tillståndsorden nedan skiljer tillgängligt, provat, tilldelat och använt med resultat.
+och får inte redovisas som använt. Ett alternativ eller en skill som svaret redovisar som valt, lyckat aktiverat eller som
+grund för en kodändring (schemafälten `valda`, `aktivering` och `kod_andrad`) måste vara observerat läst eller aktiverat i
+någon av passets sessioner; annars är det en brist (`kompetens.redovisade_brister`). DESIGN.md:s rubrik Kompetenserna
+ställs mot det observerade som en iakttagelse (`redovisat_ej_observerat`), eftersom texten också får säga att en skill
+inte passade. Fri text räknas aldrig som aktivering. Att ett verktyg finns installerat räcker inte: tillståndsorden
+nedan skiljer tillgängligt, provat, tilldelat och använt med resultat.
+
+**Underagenter, skalet och slutgranskaren** (GR-20261010-kompetens-integration, luckorna 1, 3 och 4). En underagent
+(Task eller Agent) har en egen kontext som varken ser huvudsessionens skills eller läsningar; dess transkript
+(`<session>/subagents/agent-<id>.jsonl`) läses med samma kvitto. En underagent som ändrar i koden måste själv ha läst
+kärnan och aktiverat rollens skills före sin första ändring, en läsande underagent (till exempel helbyggets blinda
+rubrikprov) har inga krav, och en startad underagent utan transkript är okänd och aldrig genomförd. Bara helbygget
+tillåter underagenter; ateljéns och granskarnas sessioner nekar Task. Läsordningen omfattar skalet: ett Bash-anrop som
+skriver under kodens väg, eller ett program som inte känns igen som läsande (ett eget skript, `python -c`, `npm install`,
+en relativ väg efter `cd`), räknas som första ändringen (`bildkedja.bash_andring`). Klassningen är konservativ och avgör
+bara ordningen; den är ingen sandlåda, och ett program som skriver utan att det syns i kommandot fångas bara som en
+möjlig ändring. Slutgranskarens kompetens är det frysta kriteriepaketet (`metod_sha`), inte Skill-aktivering: sessionen
+har inget Skill-verktyg. Läsningen av instruktionen och designreglerna observeras ur transkriptet, och en granskare som
+bevisligen inte läste dem kan inte godkänna (`metodbrister`); ett saknat transkript står som inte observerat.
 
 Rollerna arbetar där de gör nytta, en gång:
 

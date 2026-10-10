@@ -79,6 +79,7 @@ class Startkompetens(unittest.TestCase):
         direkt = direkt or {'refero': {'resultat': 'fel'}, 'mobbin': {'resultat': 'fel'}}
         vl_patchar = {'claude_bin': 'syntetisk-claude', 'flaggor_saknas': [], 'mcp_lista': (servrar, 'syntetisk'),
                      'prova_refero': direkt['refero'], 'prova_mobbin': direkt['mobbin'],
+                     'prova_21st': direkt.get('21st', {'resultat': 'ok', 'verktyg': ['search', 'get_component', 'get_inspiration', 'get_theme']}),
                      'prova_sessionen': sess, 'prova_vakten': {'resultat': kundvakt},
                      'prova_webblasaren': {'resultat': 'ok'}, 'prova_detektorn': {'resultat': 'ok'},
                      'kor': (0, 'v1'), 'venv_python': 'syntetisk-python'}

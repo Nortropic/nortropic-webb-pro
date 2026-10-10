@@ -1715,7 +1715,12 @@ def skapa(slug, kid):
     kv = kompetens.kvitto(sessioner, 'skapa', skrivprefix=rel(ksajt(slug, kid) / 'src') + '/')
     kr = kompetens.kravbrister(kv, 'skapa')
     kompetenser = dict(st.get('kompetens') or {})
-    kompetenser['full:skapa'] = {'fas': 'full', 'pass': 'skapa', 'kvitto': kompetens_kort(kv), 'kompetenskravbrister': kr}
+    try:  # DESIGN.md:s egen redovisning ställd mot det observerade; en iakttagelse, aldrig aktivering (lucka 2)
+        design_text = (ksajt(slug, kid) / 'DESIGN.md').read_text(encoding='utf-8') if not (ksajt(slug, kid) / 'DESIGN.md').is_symlink() else ''
+    except OSError:
+        design_text = ''
+    kompetenser['full:skapa'] = {'fas': 'full', 'pass': 'skapa', 'kvitto': kompetens_kort(kv), 'kompetenskravbrister': kr,
+                                 'redovisat_ej_observerat': kompetens.redovisat_i_text(kv, 'skapa', design_text) if kv.get('verifierad') else None}
     return satt_status(slug, kid, 'ofullstandig' if kr else st['status'],
                        ('skaparens kompetenskrav uppfylldes inte: ' + '; '.join(kr)) if kr else st.get('skal', ''),
                        kompetens=kompetenser, kompetenskravbrister=kr, tekniskt_fel=False if kr else st.get('tekniskt_fel'))
@@ -1947,6 +1952,7 @@ def skisskritik_giltig(slug, kid, post=None):
         post = post if post is not None else atelje.las_json(kdir(slug, kid) / 'SKISSKRITIK.json')
         return (isinstance(post, dict) and bool(post.get('rekommendation'))
                 and not kompetens.kravbrister(post.get('kompetens'), 'skisskritik')
+                and not kompetens.redovisade_brister(post.get('kompetens'), 'skisskritik', post)
                 and las_status(slug, kid).get('status') != 'avbruten'
                 and post.get('identitet') == skisskritik_identitet(slug, kid))
     except (OSError, ValueError):
@@ -1984,7 +1990,7 @@ def skisskritik(slug, kid):
     if not isinstance(so, dict) or not so.get('rekommendation'):
         return None
     kv = kompetens.kvitto([svar], 'skisskritik')
-    kravbrister = kompetens.kravbrister(kv, 'skisskritik')
+    kravbrister = kompetens.kravbrister(kv, 'skisskritik') + kompetens.redovisade_brister(kv, 'skisskritik', so)
     post = dict(so, tid=nu(), varv=v[-1], version=version_, identitet=identitet, karta=metod.sha(metod.KARTA.read_text(encoding='utf-8')),
                 bilder=[rel(p) for p in bilder], bedomt=bedomt(svar.get('session_id'), slug, kid, so), kompetens=kompetens_kort(kv), blind=rel(tillatet),
                 svar=ut.name, sekunder=int(time.monotonic() - start), kompetenskravbrister=kravbrister,
@@ -2318,16 +2324,19 @@ def pass_prompt(slug, kid, pass_, saknade=None, dom=None, lage='andra'):
 
 
 def passbrister(pass_, svar, kv):
-    """En redovisad Motion-implementation kräver sökverktygets observerade resultat.
-    Andra teknikval kräver inget Motion-anrop. Resultatet bevisar inte tillämpning eller kvalitet."""
+    """En redovisad Motion-implementation kräver sökverktygets observerade resultat, och varje skill eller alternativ
+    som svaret redovisar som valt, aktiverat eller som grund för en ändring måste vara observerat
+    (kompetens.redovisade_brister). Andra teknikval kräver inget Motion-anrop. Resultatet bevisar inte tillämpning
+    eller kvalitet."""
+    fel = kompetens.redovisade_brister(kv, pass_, svar)
     if pass_ != 'rorelse' or not any(isinstance(v, dict) and v.get('teknik') == 'motion'
                                     for v in svar.get('teknikval') or []):
-        return []
+        return fel
     namn = 'mcp__motion__search-motion-docs'
     utfall = (kv.get('mcp_utfall') or {}).get(namn) or {}
     if (kv.get('mcp_anrop') or {}).get(namn) and any(utfall.get(u, 0) > 0 for u in kompetens.MED_INNEHALL):
-        return []
-    return ['Motion-valet saknar observerat svar med innehåll från search-motion-docs']
+        return fel
+    return fel + ['Motion-valet saknar observerat svar med innehåll från search-motion-docs']
 
 
 def bedomningsverktyg(slug, kid, pass_):

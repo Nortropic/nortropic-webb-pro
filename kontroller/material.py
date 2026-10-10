@@ -24,6 +24,9 @@ med Egen nej och påstår verksamhet nej; atelje.egna_bilder tar aldrig med den.
     material.py <slug> --kandidat k01 --anvandning   # vad som är kopierat, importerat i källan och renderat i bygget
     material.py <slug> --visa
     material.py <slug> --generera <id> --uppdrag-sha <sha256> --godkann-kostnad --rattigheter "<belägg>"
+    material.py <slug> --bestall "<ändringen>" --leverantor nano-banana --fran <id>[@vN]          # redigering av egen bild
+    material.py <slug> --bestall "<rörelsen>" --leverantor seedance --typ video --fran <id>[@vN]  # bild till video
+    material.py <slug> --ko     # materialkön: det som väntar på mandat, konto eller resultat (verkställer inget)
 
 Skaparens session når verktyget bara kandidatavgränsat (kompetens.VERKTYG['material'], R05 i
 GR-20261008-06af6ff-omgranskning-codex): kommandot börjar med `<slug> --kandidat <id>`, --kandidat får stå en gång, och en
@@ -297,14 +300,64 @@ def webb(typ, ext):
             'hinder': ['posterbild krävs före användning (--poster <bild-id>)', 'mobilvariant saknas: leverantörens eller egen']}
 
 
+KALLMIME = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp'}
+
+
+def kallbild(slug, d, ref, kandidat):
+    """--fran <id>[@vN]: en genererad eller importerad illustrativ version i materialregistret som källbild för redigering
+    eller bild till video (ägarens uppdrag 2026-10-07, punkt 5B: Nano Banana → bild → Seedance). Tillåten uppladdning är
+    bara registrets egna material (roll illustrativ eller koncept, påstår aldrig verksamheten), som kandidaten själv äger
+    eller som är gemensamt; kundens egna bilder står inte i registret och kan aldrig skickas den här vägen. Ger
+    identiteten (aldrig bilden) som uppdraget binder med sha256."""
+    import hashlib
+    m = re.fullmatch(r'(m\d{3,})(?:@v?(\d+))?', ref or '')
+    t = d['tillgangar'].get(m.group(1)) if m else None
+    if not isinstance(t, dict) or not tillhor(t, kandidat):
+        raise ValueError('okänd källbild %s' % ref + (' för kandidaten %s' % kandidat if kandidat else ''))
+    if t.get('roll') not in ROLLER or t.get('pastar_verksamhet') is not False or t.get('typ') != 'bild':
+        raise ValueError('källbilden måste vara registrets egen illustrativa bild')
+    kandidater_ = [v for v in t.get('versioner') or [] if v.get('status') == 'genererad' and v.get('fil')]
+    v = next((x for x in kandidater_ if x.get('version') == int(m.group(2))), None) if m.group(2) else (kandidater_[-1] if kandidater_ else None)
+    if not v:
+        raise ValueError('källbilden %s har ingen färdig version' % ref)
+    mime = KALLMIME.get(Path(v['fil']).suffix.lower())
+    if not mime:
+        raise ValueError('källbilden måste vara PNG, JPEG eller WebP')
+    data = _version_las(slug, t['id'], v)
+    return {'material': t['id'], 'version': v['version'], 'mime': mime, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+
+
+def ko(slug, kandidat=None):
+    """Materialkön: varje beställd version som väntar på ägarens mandat, ett konto, ett resultat eller en kontroll av ett
+    okänt utfall, med exakt uppdragshash. Kön verkställer ingenting: varje generation kräver --generera med hashen,
+    kostnadsmedgivandet och rättigheterna (ett mandat gäller en version)."""
+    d = las(slug)
+    ut = []
+    for t in d['tillgangar'].values():
+        if not tillhor(t, kandidat):
+            continue
+        for v in t.get('versioner') or []:
+            if v.get('status') in ('vantar_mandat_konto', 'saknar_konto', 'vantar_resultat', 'oklart', 'skickar'):
+                job = v.get('bestallning') or {}
+                ut.append({'id': t['id'], 'version': v.get('version'), 'status': v.get('status'), 'leverantor': t.get('leverantor'),
+                           'modell': job.get('modell'), 'typ': t.get('typ'), 'kandidat': t.get('kandidat'), 'uppdrag': t.get('uppdrag'),
+                           'parametrar': job.get('parametrar'), 'kalla_bild': job.get('kalla_bild'), 'uppdrag_sha': v.get('uppdrag_sha'),
+                           'hinder': v.get('hinder'), 'tid': v.get('tid')})
+    return {'ok': True, 'ko': sorted(ut, key=lambda x: (x.get('tid') or '', x['id']))}
+
+
 @last
-def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', igen=None, prompt=None, kandidat=None, modell=None, parametrar=None):
+def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', igen=None, prompt=None, kandidat=None, modell=None, parametrar=None,
+            fran=None):
     """Ett visuellt uppdrag blir en tillgång (ny, eller en ny version av igen) hos leverantören. Ger tillgången. kandidat:
-    kandidatens privata tillgång, och en ny version bara av kandidatens egen (N02); utan kandidat ägarens, gemensam."""
+    kandidatens privata tillgång, och en ny version bara av kandidatens egen (N02); utan kandidat ägarens, gemensam.
+    fran: en egen bild i registret som källbild (kallbild) för Nano Bananas redigering eller Seedance-videons första ruta."""
     if typ not in TYPER or roll not in ROLLER or leverantor not in LEVERANTORER:
         raise ValueError('typ, roll eller leverantör är okänd')
     if typ not in LEVERANTORER[leverantor]['typer']:
         raise ValueError('%s gör inte %s' % (leverantor, typ))
+    if fran and leverantor == 'stubb':
+        raise ValueError('attrappen tar ingen källbild')
     d = las(slug)
     if igen:
         t = d['tillgangar'].get(igen)
@@ -320,7 +373,7 @@ def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', i
         f = _version_skriv(slug, t, n, '.svg', stubb_svg(uppdrag, typ).encode())
         v.update(status='stubb', fil='material/%s/%s' % (t['id'], f.name), kalla='attrapp: kontroller/material.py (mekanikprov)', rattigheter='inget material')
     else:
-        job = transport.uppdrag(leverantor, typ, prompt or uppdrag, modell, parametrar)
+        job = transport.uppdrag(leverantor, typ, prompt or uppdrag, modell, parametrar, kallbild(slug, d, fran, kandidat) if fran else None)
         job.update(slug=slug, kandidat=kandidat, id=t['id'], version=n, roll=roll)
         v.update(status='vantar_mandat_konto', fil=None, bestallning=job, uppdrag_sha=transport.sha(job),
                  hinder='beställningen är sparad; betrodd --generera kräver exakt uppdragshash, kostnadsmedgivande, rättigheter och API-konto; inget konto har lästs')
@@ -391,7 +444,15 @@ def generera(slug, tid, uppdrag_sha, godkann_kostnad=False, rattigheter='', *, k
             t['status'] = v['status']; skriv(slug, d)
 
         try:
-            resultat = transport.kor(job, key, befintligt=v.get('jobb'), registrera=registrera, http=http, timeout=timeout)
+            bilddata = None
+            kb = job.get('kalla_bild')
+            if kb:  # källbilden läses ur registret igen och måste vara samma byte som beställningen band
+                kt = d['tillgangar'].get(kb.get('material'))
+                kv_ = next((x for x in (kt or {}).get('versioner') or [] if x.get('version') == kb.get('version')), None)
+                if not kt or not kv_ or not tillhor(kt, job.get('kandidat')):
+                    raise transport.TransportFel('källbilden finns inte längre i registret', terminal=True)
+                bilddata = _version_las(slug, kt['id'], kv_)
+            resultat = transport.kor(job, key, befintligt=v.get('jobb'), registrera=registrera, http=http, timeout=timeout, bilddata=bilddata)
             f = _version_skriv(slug, t, v['version'], resultat['ext'], resultat['data'], aterhamtning=True)
             v.update(status='genererad', fil='material/%s/%s' % (tid, f.name), sha256=resultat['sha256'], bytes=resultat['bytes'],
                      mime=resultat['mime'], kalla='%s / %s (API)' % (job['leverantor'], job['modell']), genererad=nu())
@@ -586,6 +647,8 @@ def main(argv=None):
     p.add_argument('--plats')
     p.add_argument('--poster')
     p.add_argument('--visa', action='store_true')
+    p.add_argument('--fran', help='källbild ur registret (<id> eller <id>@vN) för redigering eller videons första ruta')
+    p.add_argument('--ko', action='store_true', help='materialkön: beställningar som väntar på mandat, konto eller resultat')
     p.add_argument('--anvandning', action='store_true')
     try:
         a = p.parse_args(argv)
@@ -601,11 +664,13 @@ def main(argv=None):
         if a.kandidat is not None and not re.fullmatch(r'k\d\d', a.kandidat):
             raise ValueError('kandidaten anges som kNN')
         if a.generera:
-            if any((a.bestall, a.typ, a.igen, a.fil, a.canvas, a.anvand, a.visa, a.anvandning, a.modell, a.parametrar)):
+            if any((a.bestall, a.typ, a.igen, a.fil, a.canvas, a.anvand, a.visa, a.anvandning, a.modell, a.parametrar, a.fran, a.ko)):
                 raise ValueError('--generera verkställer bara befintlig beställning; andra åtgärder får inte kombineras')
             ut = generera(a.slug, a.generera, a.uppdrag_sha, a.godkann_kostnad, a.rattigheter, kandidat=a.kandidat)
         elif a.visa:
             ut = synliga(las(a.slug), a.kandidat)
+        elif a.ko:
+            ut = ko(a.slug, a.kandidat)
         elif a.anvandning:
             if not a.kandidat:
                 raise ValueError('--anvandning kräver --kandidat')
@@ -626,7 +691,8 @@ def main(argv=None):
                 parametrar = json.loads(a.parametrar) if a.parametrar else None
             except ValueError:
                 raise ValueError('--parametrar måste vara giltig JSON') from None
-            ut = bestall(a.slug, a.bestall, a.typ or 'bild', a.leverantor, a.roll, a.igen, kandidat=a.kandidat, modell=a.modell, parametrar=parametrar)
+            ut = bestall(a.slug, a.bestall, a.typ or 'bild', a.leverantor, a.roll, a.igen, kandidat=a.kandidat, modell=a.modell, parametrar=parametrar,
+                         fran=a.fran)
         else:
             p.print_usage()
             return 2

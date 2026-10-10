@@ -94,7 +94,10 @@ class Lasordning(unittest.TestCase):
                 steg = aktivera + las[1:] + skriv + verktyg_
             else:
                 steg = aktivera + las + skriv + verktyg_
-            so = {'kod_andrad': [{'skill': 'emil-animate', 'vad': 'menyns övergång', 'var': 'sidhuvudet', 'varfor': 'syfte'}],
+            # skillen bakom ändringen är en som passet självt laddade (kompetens.redovisade_brister): rörelsens emil-animate,
+            # granskningens better-accessibility
+            so = {'kod_andrad': [{'skill': 'emil-animate' if pass_ == 'rorelse' else 'better-accessibility', 'vad': 'menyns övergång',
+                                  'var': 'sidhuvudet', 'varfor': 'syfte'}],
                   'beteende_provat': [{'vad': 'menyn', 'hur': 'forhandsvisa --meny', 'resultat': 'öppnas',
                                        'bild': kd.rel(self.d / 'bilder' / 'start' / 'vy-390-forsta.png')}],
                   'visuell_bedomning': {'fore': 'a', 'efter': 'b', 'omdome': 'battre', 'skal': 'tydligare'}, 'ingen_andring': '',

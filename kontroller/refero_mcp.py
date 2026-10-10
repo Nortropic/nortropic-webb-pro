@@ -33,9 +33,11 @@ def nyckel(fil=None):
 
 
 class Klient:
-    def __init__(self, fil=None, url=URL, timeout=90):
-        self.huvuden = {'Authorization': 'Bearer ' + nyckel(fil), 'Content-Type': 'application/json',
-                        'Accept': 'application/json, text/event-stream'}
+    """JSON-RPC över Streamable HTTP. Utan huvuden: Referos server med nyckeln ur hemlighetsmappen. Med huvuden (och url):
+    en annan HTTP-tjänst med egen autentisering, till exempel 21st.dev (verktygslada.prova_21st)."""
+    def __init__(self, fil=None, url=URL, timeout=90, huvuden=None):
+        bas = {'Authorization': 'Bearer ' + nyckel(fil)} if huvuden is None else dict(huvuden)
+        self.huvuden = dict(bas, **{'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'})
         self.url, self.timeout, self.sid, self.n = url, timeout, None, 0
         self.opp = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -80,6 +82,24 @@ class Klient:
 
     def verktyg(self):
         return [x.get('name') for x in (self.anrop('tools/list').get('tools') or [])]
+
+    def verktyg_fullt(self, max_sidor=20):
+        """Hela verktygslistan med scheman, sida för sida (tools/list med cursor och nextCursor, MCP 2025-11-25)."""
+        ut, cursor = [], None
+        for _ in range(max_sidor):
+            r = self.anrop('tools/list', {'cursor': cursor} if cursor else {})
+            ut += [x for x in r.get('tools') or [] if isinstance(x, dict)]
+            cursor = r.get('nextCursor')
+            if not cursor:
+                break
+        return ut
+
+    def kalla_utfall(self, namn, args):
+        """(isError, text, structuredContent) utan undantag för körfel: ett körfel står i resultatet med isError, ett
+        protokollfel (okänt verktyg, felaktig begäran) ger ReferoFel (MCP 2025-11-25, Tools, Error Handling)."""
+        r = self.anrop('tools/call', {'name': namn, 'arguments': args})
+        text = ''.join(d.get('text', '') for d in r.get('content') or [] if isinstance(d, dict) and d.get('type') == 'text')
+        return bool(r.get('isError')), text, r.get('structuredContent')
 
     def kalla(self, namn, args):
         """Verktygets textsvar (JSON-text när response_format är json); ReferoFel när verktyget svarar med fel."""

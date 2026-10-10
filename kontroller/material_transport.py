@@ -30,11 +30,32 @@ STANDARD = {('nano-banana', 'bild'): 'gemini-nano-banana-2.1',
             ('higgsfield', 'video'): 'bytedance/seedance-2.0/text-to-video',
             ('seedance', 'video'): 'dreamina-seedance-2-0-260128'}
 FORMAT = ('1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3')
+# Källbild för redigering (Nano Banana: bilden som objekt i input) och bild till video (BytePlus LAS: första bildrutan som
+# data-URL). Bara materialregistrets egna illustrativa versioner kan bli källbild; kundens bilder når aldrig vägen
+# (material.bestall, --fran). Higgsfields bild till video kräver en publik uppladdningsadress och är inte infört.
+KALLBILD = {('nano-banana', 'bild'): 15 * 1024 * 1024, ('seedance', 'video'): 30 * 1024 * 1024}
+BILDMIME = {'image/png': b'\x89PNG\r\n\x1a\n', 'image/jpeg': b'\xff\xd8\xff', 'image/webp': b'RIFF'}
+SYNKRON_BILD = 90  # s: Interactions-anropet är synkront; HTTP-anrop stängs normalt efter ungefär 60 s (Geminis dokumentation)
 MAX_JSON = 48 * 1024 * 1024
 MAX_FIL = 128 * 1024 * 1024
 
 
-def uppdrag(leverantor, typ, prompt, modell=None, parametrar=None):
+def kallbild(leverantor, typ, kalla):
+    """Källbildens identitet i uppdraget (aldrig själva bilden): material-id, version, mime, storlek och sha256."""
+    if kalla is None:
+        return None
+    if (leverantor, typ) not in KALLBILD:
+        raise TransportFel('källbild stöds bara för Nano Bananas bildredigering och Seedance via BytePlus (första bildrutan); '
+                           'Higgsfields bild till video kräver en publik uppladdning och är inte infört')
+    if (not isinstance(kalla, dict) or set(kalla) != {'material', 'version', 'mime', 'bytes', 'sha256'}
+            or kalla['mime'] not in BILDMIME or not isinstance(kalla['sha256'], str) or not re.fullmatch(r'[0-9a-f]{64}', kalla['sha256'])
+            or type(kalla['bytes']) is not int or not 12 <= kalla['bytes'] <= KALLBILD[(leverantor, typ)]
+            or type(kalla['version']) is not int or not isinstance(kalla['material'], str) or not re.fullmatch(r'm\d{3,}', kalla['material'])):
+        raise TransportFel('ogiltig eller för stor källbild')
+    return dict(kalla)
+
+
+def uppdrag(leverantor, typ, prompt, modell=None, parametrar=None, kalla=None):
     """Tillåt bara dokumenterade parametrar för de fyra uttryckliga integrationerna."""
     modell = modell or STANDARD.get((leverantor, typ))
     if (leverantor, typ) not in STANDARD or modell != STANDARD[(leverantor, typ)]:
@@ -59,7 +80,10 @@ def uppdrag(leverantor, typ, prompt, modell=None, parametrar=None):
             raise TransportFel('ogiltigt format eller upplösning')
     if typ == 'video' and (type(defaults['duration']) is not int or not 4 <= defaults['duration'] <= 15 or type(defaults['generate_audio']) is not bool):
         raise TransportFel('video kräver 4–15 hela sekunder och ett booleskt ljudval')
-    return {'leverantor': leverantor, 'typ': typ, 'modell': modell, 'prompt': prompt, 'parametrar': defaults}
+    ut = {'leverantor': leverantor, 'typ': typ, 'modell': modell, 'prompt': prompt, 'parametrar': defaults}
+    if kalla is not None:
+        ut['kalla_bild'] = kallbild(leverantor, typ, kalla)
+    return ut
 
 
 def sha(uppdrag_):
@@ -129,9 +153,14 @@ class HTTP:
 
 
 def fil(data, mime, typ):
-    """Inga HTML-felsidor eller godtyckliga filer in i materialregistret."""
+    """Inga HTML-felsidor eller godtyckliga filer in i materialregistret. En lagringsvärd som svarar med en allmän binär
+    typ (application/octet-stream) får sin typ ur filsignaturen; en annan uttrycklig typ som strider mot signaturen nekas."""
     if not isinstance(data, bytes) or not 12 <= len(data) <= MAX_FIL:
         raise TransportFel('tom eller för stor materialfil')
+    if mime in ('application/octet-stream', 'binary/octet-stream'):
+        mime = ('image/png' if data.startswith(b'\x89PNG\r\n\x1a\n') else 'image/jpeg' if data.startswith(b'\xff\xd8\xff')
+                else 'image/webp' if data[:4] == b'RIFF' and data[8:12] == b'WEBP' else 'video/mp4' if data[4:8] == b'ftyp'
+                else 'video/webm' if data[:4] == b'\x1aE\xdf\xa3' else mime)
     if typ == 'bild':
         if data.startswith(b'\x89PNG\r\n\x1a\n') and mime == 'image/png':
             ext = '.png'
@@ -156,32 +185,44 @@ def jobbid(varde):
     return varde
 
 
-def kor(job, nyckel, *, befintligt=None, registrera=None, http=None, timeout=180, clock=time.monotonic, sleep=time.sleep):
+def kor(job, nyckel, *, befintligt=None, registrera=None, http=None, timeout=180, clock=time.monotonic, sleep=time.sleep,
+        bilddata=None, slump=None):
     """Ett POST, sedan GET. registrera(id) måste beständigt spara id:t före första pollningen.
 
     Återupptagning av ett accepterat asynkront jobb gör bara GET. Ett timeoutfel avbryter
     vår väntan, aldrig leverantörens jobb. Ingen automatisk ny generering vid fel.
+    bilddata: källbildens byte när uppdraget har kalla_bild; samma sha256 och signatur krävs.
     """
-    rent = uppdrag(job['leverantor'], job['typ'], job['prompt'], job['modell'], job['parametrar'])
+    rent = uppdrag(job['leverantor'], job['typ'], job['prompt'], job['modell'], job['parametrar'], job.get('kalla_bild'))
     if any(job.get(k) != v for k, v in rent.items()) or not isinstance(nyckel, str) or not nyckel or re.search(r'[\r\n]', nyckel):
         raise TransportFel('ogiltigt uppdrag eller konto')
+    kb = rent.get('kalla_bild')
+    if kb is not None:
+        if (not isinstance(bilddata, bytes) or hashlib.sha256(bilddata).hexdigest() != kb['sha256'] or len(bilddata) != kb['bytes']
+                or not bilddata.startswith(BILDMIME[kb['mime']]) or (kb['mime'] == 'image/webp' and bilddata[8:12] != b'WEBP')):
+            raise TransportFel('källbilden stämmer inte med uppdragets sha256 eller format')
+    elif bilddata is not None:
+        raise TransportFel('uppdraget har ingen källbild')
     if type(timeout) not in (float, int) or not 1 <= timeout <= 600:
         raise TransportFel('ogiltig transporttidsgräns')
     http = http or HTTP()
     slut = clock() + timeout
 
-    def kvar():
+    def kvar(tak=30):
         t = slut - clock()
         if t <= 0:
             raise TransportFel('väntetiden tog slut; inget nytt jobb skickades')
-        return min(t, 30)
+        return min(t, tak)
 
     lev, p = rent['leverantor'], rent['parametrar']
     if lev == 'nano-banana':
         if befintligt:
             raise TransportFel('det synkrona bildanropet kan inte återupptas')
-        d = http.json(GEMINI, {'x-goog-api-key': nyckel}, {'model': rent['modell'], 'input': [{'type': 'text', 'text': rent['prompt']}],
-                      'store': False, 'stream': False, 'response_format': dict(p, type='image', delivery='inline')}, timeout=kvar())
+        inmatning = [{'type': 'text', 'text': rent['prompt']}]
+        if kb is not None:  # redigering: källbilden som objekt före instruktionen (Interactions, image input)
+            inmatning.insert(0, {'type': 'image', 'data': base64.b64encode(bilddata).decode('ascii'), 'mime_type': kb['mime']})
+        d = http.json(GEMINI, {'x-goog-api-key': nyckel}, {'model': rent['modell'], 'input': inmatning,
+                      'store': False, 'stream': False, 'response_format': dict(p, type='image', delivery='inline')}, timeout=kvar(SYNKRON_BILD))
         if d.get('status') != 'completed' or not isinstance(d.get('steps'), list):
             raise TransportFel('bildanropet blev inte fullständigt')
         images = [c for s in d['steps'] if isinstance(s, dict) and s.get('type') == 'model_output'
@@ -208,10 +249,14 @@ def kor(job, nyckel, *, befintligt=None, registrera=None, http=None, timeout=180
         else:
             url, submit_headers = SEEDANCE, headers
             body = dict(p, model=rent['modell'], content=[{'type': 'text', 'text': rent['prompt']}])
+            if kb is not None:  # bild till video: första bildrutan som data-URL (BytePlus LAS, role first_frame)
+                body['content'].append({'type': 'image_url', 'role': 'first_frame', 'image_url': {
+                    'url': 'data:%s;base64,%s' % (kb['mime'], base64.b64encode(bilddata).decode('ascii'))}})
         d = http.json(url, submit_headers, body, timeout=kvar())
         rid = jobbid(d.get('request_id' if lev == 'higgsfield' else 'id'))
         registrera(rid)
     poll = HIGGSFIELD + '/requests/' + rid + '/status' if lev == 'higgsfield' else SEEDANCE + '/' + rid
+    vantan = 2.0
     while True:
         d = http.json(poll, headers, timeout=kvar())
         if d.get('request_id' if lev == 'higgsfield' else 'id') != rid:
@@ -228,10 +273,19 @@ def kor(job, nyckel, *, befintligt=None, registrera=None, http=None, timeout=180
             if not url_ok(url):
                 raise TransportFel('leverantören gav ingen giltig materialadress')
             # Ingen nyckel och inga leverantörshuvuden till bild-/videovärden.
-            data, mime = http.las(url, timeout=kvar(), max_bytes=MAX_FIL)
+            try:
+                data, mime = http.las(url, timeout=kvar(), max_bytes=MAX_FIL)
+            except TransportFel as e:
+                # Resultatadresser lever en begränsad tid (BytePlus LAS 24 h, Higgsfield minst sju dagar): ett nekande efter
+                # färdigt jobb fastnar inte som väntande, och ingen ny generation beställs automatiskt.
+                if re.search(r'HTTP-status (403|404|410)\b', str(e)):
+                    raise TransportFel('resultatets adress har gått ut eller nekas; en ny version beställs uttryckligen', terminal=True) from None
+                raise
             return dict(fil(data, mime, rent['typ']), jobb=rid)
         if status in ('failed', 'nsfw', 'canceled', 'cancelled', 'expired'):
             raise TransportFel('leverantören avslutade materialjobbet utan material', terminal=True)
         if status not in (('queued', 'in_progress') if lev == 'higgsfield' else ('queued', 'running')):
             raise TransportFel('materialjobbet avbröts eller gav okänd status')
-        sleep(min(2, kvar()))
+        # Higgsfield: börja på 2 s och öka mot 10 s med slumpad spridning (leverantörens råd); samma för BytePlus
+        sleep(min(vantan * (0.8 + 0.4 * (slump() if slump else __import__('random').random())), kvar()))
+        vantan = min(10.0, vantan * 1.5)

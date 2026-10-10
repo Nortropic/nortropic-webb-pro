@@ -149,6 +149,52 @@ class Wire(unittest.TestCase):
         self.assertEqual([c[0] for c in h.calls], ['POST', 'GET'])
 
 
+class Kallbild(unittest.TestCase):
+    """Redigering och bild till video ur registrets egna bild (GR-20261010-kompetens-integration, materialsteget)."""
+    def setUp(self):
+        self.no_network = patch.object(socket, 'create_connection', side_effect=AssertionError('nät är förbjudet i provet'))
+        self.no_network.start(); self.addCleanup(self.no_network.stop)
+        import hashlib
+        self.kb = {'material': 'm001', 'version': 1, 'mime': 'image/png', 'bytes': len(PNG), 'sha256': hashlib.sha256(PNG).hexdigest()}
+
+    def test_redigering_skickar_kallbilden_som_objekt_fore_texten(self):
+        h = HTTP([gemini()]); j = mt.uppdrag('nano-banana', 'bild', 'Make the background warmer', kalla=self.kb)
+        mt.kor(j, 'syntetisk', http=h, bilddata=PNG)
+        inp = h.calls[0][3]['input']
+        self.assertEqual(inp[0], {'type': 'image', 'data': base64.b64encode(PNG).decode(), 'mime_type': 'image/png'})
+        self.assertEqual(inp[1], {'type': 'text', 'text': 'Make the background warmer'})
+
+    def test_bild_till_video_forsta_rutan_som_data_url(self):
+        h = HTTP([{'id': 'lsd-syntetisk-01'}, {'id': 'lsd-syntetisk-01', 'status': 'succeeded', 'content': {'video_url': 'https://media.example/v.mp4'}}], MP4, 'video/mp4')
+        j = mt.uppdrag('seedance', 'video', 'Slow camera push', kalla=self.kb)
+        mt.kor(j, 'syntetisk', http=h, bilddata=PNG, registrera=lambda _: None, sleep=lambda _: None)
+        bild = [c for c in h.calls[0][3]['content'] if c['type'] == 'image_url']
+        self.assertEqual(bild[0]['role'], 'first_frame')
+        self.assertTrue(bild[0]['image_url']['url'].startswith('data:image/png;base64,'))
+
+    def test_kallbilden_maste_stamma_och_higgsfield_kraver_publik_uppladdning(self):
+        j = mt.uppdrag('nano-banana', 'bild', 'edit', kalla=self.kb)
+        for data in (None, PNG + b'x', MP4):
+            with self.assertRaises(mt.TransportFel):
+                mt.kor(j, 'syntetisk', http=HTTP([gemini()]), bilddata=data)
+        with self.assertRaises(mt.TransportFel):
+            mt.uppdrag('higgsfield', 'video', 'motion', kalla=self.kb)
+        with self.assertRaises(mt.TransportFel):
+            mt.kor(mt.uppdrag('nano-banana', 'bild', 'ny'), 'syntetisk', http=HTTP([gemini()]), bilddata=PNG)
+
+    def test_octet_stream_far_typen_ur_signaturen_och_utgangen_adress_ar_slutgiltig(self):
+        self.assertEqual(mt.fil(PNG, 'application/octet-stream', 'bild')['mime'], 'image/png')
+        with self.assertRaises(mt.TransportFel):
+            mt.fil(PNG, 'text/html', 'bild')
+
+        class Utgangen(HTTP):
+            def las(self, url, **kwargs):
+                raise mt.TransportFel('leverantörens HTTP-status 403')
+        with self.assertRaises(mt.TransportFel) as fel:
+            mt.kor(mt.uppdrag('higgsfield', 'bild', 'shape'), 'syntetisk', http=Utgangen(higgs()), registrera=lambda _: None)
+        self.assertTrue(fel.exception.terminal)
+
+
 class Bestallning(unittest.TestCase):
     def setUp(self):
         self.stack = contextlib.ExitStack(); self.addCleanup(self.stack.close)
@@ -171,6 +217,25 @@ class Bestallning(unittest.TestCase):
 
     def generera(self, t, h, **kwargs):
         return material.generera(self.slug, t['id'], t['versioner'][-1]['uppdrag_sha'], True, 'Syntetiskt rättighetsbelägg', http=h, **kwargs)
+
+    def test_kallbild_ur_registret_genom_bestallning_generering_och_ko(self):
+        forsta = self.generera(self.bestall('nano-banana'), HTTP([gemini()]))
+        self.assertEqual(forsta['status'], 'genererad')
+        with patch.object(material, 'las_nyckel', side_effect=AssertionError('beställningen får inte läsa konton')):
+            red = material.bestall(self.slug, 'Warmer light on the same composition', 'bild', 'nano-banana', kandidat='k01', fran=forsta['id'])
+            vid = material.bestall(self.slug, 'Slow push in', 'video', 'seedance', kandidat='k01', fran=forsta['id'] + '@v1')
+        self.assertEqual(red['versioner'][-1]['bestallning']['kalla_bild']['sha256'], forsta['versioner'][-1]['sha256'])
+        kon = material.ko(self.slug)['ko']
+        self.assertEqual(sorted(x['id'] for x in kon), sorted([red['id'], vid['id']]))
+        self.assertTrue(all(x['uppdrag_sha'] for x in kon))
+        h = HTTP([gemini()]); done = self.generera(red, h)
+        self.assertEqual(done['status'], 'genererad')
+        self.assertEqual(h.calls[0][3]['input'][0]['type'], 'image')
+        for ref, kid in (('m999', 'k01'), (forsta['id'], 'k02'), ('underlag/%s/bilder/foto.jpg' % self.slug, 'k01')):
+            with self.assertRaises(ValueError):
+                material.bestall(self.slug, 'edit', 'bild', 'nano-banana', kandidat=kid, fran=ref)
+        with self.assertRaises(ValueError):
+            material.bestall(self.slug, 'edit', 'bild', 'stubb', kandidat='k01', fran=forsta['id'])
 
     def test_bestallning_laser_inga_nycklar_och_hela_vagen_till_anvand(self):
         with patch.object(material, 'las_nyckel', side_effect=AssertionError('beställningen får inte läsa konton')):

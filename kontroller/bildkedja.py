@@ -184,8 +184,12 @@ def brister(las):
     return ['%s %d av %d' % (g, x['lasta'], x['kravda']) for g, x in las['grupper'].items() if x['saknas']]
 
 
-def handelser(fil):
-    """Transkriptets verktygsanrop och svar i ordning: ('anrop', id, namn, input) och ('svar', tool_use_id, text, fel)."""
+def handelser(fil, kedja=None):
+    """Transkriptets verktygsanrop och svar i ordning: ('anrop', id, namn, input) och ('svar', tool_use_id, text, fel).
+    kedja=None ger bara sessionens egen kontext: en underagents poster (isSidechain) hör till underagenten och räknas
+    aldrig som huvudsessionens läsning eller ändring (lucka 1 i GR-20261010-kompetens-integration). kedja='alla' ger
+    varje post (en underagents egen fil, <session>/subagents/agent-*.jsonl), och ett agentId bara den underagentens
+    poster i huvudfilen (äldre format)."""
     ut = []
     try:
         with open(fil, encoding='utf-8', errors='replace') as f:
@@ -196,6 +200,10 @@ def handelser(fil):
                     r = json.loads(rad)
                 except ValueError:
                     continue
+                if isinstance(r, dict) and kedja != 'alla':
+                    sido = r.get('isSidechain') is True
+                    if (kedja is None and sido) or (kedja is not None and (not sido or r.get('agentId') != kedja)):
+                        continue
                 innehall = (r.get('message') or {}).get('content') if isinstance(r, dict) else None
                 for c in innehall if isinstance(innehall, list) else []:
                     if not isinstance(c, dict):
@@ -312,7 +320,145 @@ def levererade_hela(metodfiler, krav):
     return ut
 
 
-def metodlasning(session_id, filer, skills=(), skrivprefix=None):
+# Bash i läsordningen (lucka 3 i GR-20261010-kompetens-integration): ett skalkommando kan skriva i koden utan Write
+# eller Edit. Klassningen är konservativ: det som inte känns igen som läsande räknas som en möjlig ändring, så att
+# "kärnan läst före första ändringen" aldrig påstås när ett okänt program körts före kärnan.
+LASANDE_BASH = {'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'egrep', 'fgrep', 'rg', 'find', 'file', 'sort', 'uniq', 'cut',
+                'tr', 'sed', 'awk', 'echo', 'printf', 'pwd', 'cd', 'stat', 'du', 'diff', 'jq', 'basename', 'dirname',
+                'realpath', 'test', 'true', 'which', 'date'}
+SKRIVANDE_BASH = {'cp', 'mv', 'mkdir', 'touch', 'tee', 'ln', 'rsync', 'install', 'rm', 'rmdir', 'unzip', 'tar', 'dd',
+                  'sips', 'curl', 'wget', 'chmod', 'truncate'}
+# flödets egna verktyg som aldrig skriver i sajtens källkod (de skriver bilder, rapporter och prov utanför den)
+LASANDE_VERKTYG = {'uxsok', 'forhandsvisa', 'detektor', 'prova', 'granska', 'rubriker', 'copy_kontroll', 'seo_kontroll',
+                   'standard_kontroll', 'bilddatum', 'sida_till_text', 'stegbevis', 'prelaunch', 'verksamhetsuppgifter',
+                   'upptagna_val', 'referens', 'referenstjanster', 'hamta_sajt', 'hamta_bokadirekt', 'skillskript',
+                   'backlog', 'sida', 'inspektera'}
+OMDIRIGERING = re.compile(r'(?<![0-9&])>>?(?!&)\s*(?!/dev/null\b)')
+NEKAT_SVAR = re.compile(r"has been denied|haven.t granted|permission to use|blocked by|nekad|nekas", re.I)
+
+
+def _segment(kommando):
+    return [x.strip() for x in re.split(r'\|\||&&|[;|\n]', kommando) if x.strip()]
+
+
+def _ord(segment):
+    import shlex
+    try:
+        return shlex.split(segment)
+    except ValueError:
+        return segment.split()
+
+
+def bash_andring(kommando, skrivprefix):
+    """'lasande', 'andring' (skriver under skrivprefix) eller 'oklar' (kan skriva: ett okänt program, ett eget skript
+    eller en relativ väg efter cd). Klassningen avgör bara läsordningen; den säger inget om vad kommandot gjorde."""
+    kommando = str(kommando or '')
+    prefix = utan_punkt(relativ((skrivprefix or '').strip())).strip('/')
+    if not prefix:
+        return 'lasande'
+    rensat = re.sub(r'\d?>&\d|&>\s*/dev/null|\d?>>?\s*/dev/null', ' ', kommando)
+    cd = re.search(r'(?:^|[;&|(]\s*)cd\s', rensat) is not None
+
+    def under(ordet):
+        v = utan_punkt(relativ(ordet.strip('\'"'))).rstrip('/')
+        return bool(v) and (v == prefix or v.startswith(prefix + '/') or (prefix.startswith(v + '/') and v.count('/') >= 2))
+
+    def relativ_efter_cd(ordet):
+        return cd and not ordet.startswith(('/', '~'))
+
+    rang = ('lasande', 'oklar', 'andring')
+    varst = 'lasande'
+    for seg in _segment(rensat):
+        klass = 'lasande'
+        for mal in re.findall(r'>>?\s*([^\s;|&]+)', seg):  # omdirigering: målet avgör
+            klass = max(klass, 'andring' if under(mal) else 'oklar' if relativ_efter_cd(mal) else 'lasande', key=rang.index)
+        ord_ = _ord(re.sub(r'\d?>>?\s*[^\s;|&]+', ' ', seg))
+        while ord_ and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*=.*', ord_[0]):  # VAR=värde före kommandot
+            ord_ = ord_[1:]
+        if not ord_:
+            varst = max(varst, klass, key=rang.index)
+            continue
+        prog, args = Path(ord_[0]).name, ord_[1:]
+        rena, hoppa = [], False
+        for a_ in args:  # flaggor med värde (npm --prefix <väg>) räknas inte som kommandots ord
+            if hoppa:
+                hoppa = False
+                continue
+            if a_ in ('--prefix', '-C', '--cwd', '--dir'):
+                hoppa = True
+                continue
+            if not a_.startswith('-'):
+                rena.append(a_)
+        traff = any(under(a_) for a_ in rena)
+        if prog in ('python', 'python3') or re.fullmatch(r'python[0-9.]+', prog):
+            m = re.search(r'(?:^|/)kontroller/([a-z_]+)\.py$', rena[0]) if rena else None
+            if m and m.group(1) == 'material':
+                klass = max(klass, 'andring' if '--anvand' in args else 'lasande', key=rang.index)
+            elif m and m.group(1) == 'design':
+                klass = max(klass, 'andring' if '--skriv' in args else 'lasande', key=rang.index)
+            elif not (m and m.group(1) in LASANDE_VERKTYG):
+                klass = max(klass, 'oklar', key=rang.index)  # ett eget skript eller python -c kan skriva var som helst
+        elif prog == 'node':
+            m = re.search(r'(?:^|/)kontroller/(?:webblasare/)?([a-z_]+)\.mjs$', rena[0]) if rena else None
+            if not (m and m.group(1) in LASANDE_VERKTYG):
+                klass = max(klass, 'oklar', key=rang.index)
+        elif prog in ('npm', 'npx', 'pnpm', 'yarn', 'bun'):
+            # npm ci och bygget skriver node_modules och dist, inte källkoden; install och okända kommandon kan ändra
+            # package.json eller källor
+            ok = (prog == 'npm' and (rena[:1] in (['ci'], ['view'], ['ls'], ['info']) or rena[:2] == ['run', 'build'])) \
+                or (prog == 'npx' and rena[:2] in (['astro', 'build'], ['astro', 'check']))
+            if not ok:
+                klass = max(klass, 'oklar', key=rang.index)
+        elif prog == 'sed' and any(a_.startswith('-i') or a_ == '--in-place' for a_ in args):
+            klass = max(klass, 'andring' if traff else 'oklar', key=rang.index)
+        elif prog == 'find' and any(a_ in ('-exec', '-execdir', '-ok', '-okdir', '-delete', '-fprint', '-fprintf') for a_ in args):
+            klass = max(klass, 'andring' if traff else 'oklar', key=rang.index)
+        elif prog in SKRIVANDE_BASH:
+            klass = max(klass, 'andring' if traff else 'oklar' if any(relativ_efter_cd(a_) for a_ in rena) else 'lasande', key=rang.index)
+        elif prog not in LASANDE_BASH:
+            klass = max(klass, 'oklar', key=rang.index)
+        varst = max(varst, klass, key=rang.index)
+    return varst
+
+
+def underagenter(session_id, fil=None):
+    """Sessionens underagenter (Task/Agent): [{'agent', 'fil', 'kedja'}]. Claude Code sparar en underagents egna poster
+    i <session>/subagents/agent-<id>.jsonl; i äldre format står de i huvudfilen med isSidechain och agentId."""
+    t = Path(fil) if fil else transkript(session_id)
+    if t is None:
+        return []
+    ut = []
+    katalog = t.parent / t.stem / 'subagents'
+    if katalog.is_dir():
+        for p in sorted(katalog.glob('agent-*.jsonl')):
+            if p.is_file() and not p.is_symlink():
+                ut.append({'agent': p.stem[len('agent-'):], 'fil': p, 'kedja': 'alla'})
+    sedda, inline = {u['agent'] for u in ut}, []
+    try:
+        with open(t, encoding='utf-8', errors='replace') as f:
+            for rad in f:
+                if '"isSidechain":true' not in rad.replace(' ', ''):
+                    continue
+                try:
+                    r = json.loads(rad)
+                except ValueError:
+                    continue
+                a = r.get('agentId') if isinstance(r, dict) else None
+                if isinstance(a, str) and a and a not in sedda:
+                    sedda.add(a)
+                    inline.append({'agent': a, 'fil': t, 'kedja': a})
+    except OSError:
+        pass
+    return ut + inline
+
+
+def uppdragsanrop(h):
+    """Antalet underagenter sessionen startade: Task- eller Agent-anrop som inte nekades."""
+    nekade = {x[1] for x in h if x[0] == 'svar' and x[3] and NEKAT_SVAR.search(x[2] or '')}
+    return sum(1 for x in h if x[0] == 'anrop' and x[2] in ('Task', 'Agent') and x[1] not in nekade)
+
+
+def metodlasning(session_id, filer, skills=(), skrivprefix=None, fil=None, kedja=None):
     """Metodkvittot (Codex 2026-10-05, glapp 2: prototypens skapare läste inga designskills): vilka av metodfilerna
     sessionen fick ett matchat lyckat svar från Read eller Skill, och om svaret kom före första skrivningen under
     skrivprefix (en väg relativt roten, till exempel kunder/<slug>/sajt/src/). En skill räknas också som läst när dess
@@ -323,12 +469,16 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
     'delvis': [...], 'via_metod': [...], 'skill_anrop': [...], 'skill_fel': [...], 'skill_fore': [...],
     'skill_efter': [...], 'skill_okanda': [...]}; saknas omfattar de delvis lästa. Skillnamnen är kanoniska lokala
     mappnamn när de kan lösas entydigt; ett främmande pluginprefix ger aldrig lokal läskredit. Ordningen avser lyckade
-    verktygssvar före första Write/Edit/MultiEdit under skrivprefix; den mäter inte godtyckliga Bash-skrivningar."""
-    t = transkript(session_id)
+    verktygssvar före första ändringen under skrivprefix: Write/Edit/MultiEdit där, eller ett Bash-anrop som inte nekades
+    och som bash_andring inte känner igen som läsande (ett okänt program räknas som en möjlig ändring, lucka 3 i
+    GR-20261010-kompetens-integration). fil och kedja läser en underagents kontext (underagenter, handelser)."""
+    t = Path(fil) if fil else transkript(session_id)
     if t is None:
         return {'verifierad': False, 'skal': 'transkriptet saknas'}
-    h = handelser(t)
+    h = handelser(t, kedja)
     felade = {x[1] for x in h if x[0] == 'svar' and x[3]}
+    nekade = {x[1] for x in h if x[0] == 'svar' and x[3] and NEKAT_SVAR.search(x[2] or '')}
+    forsta_via, bash_klass = None, {'lasande': 0, 'oklar': 0, 'andring': 0}
     skill_fel = sorted({skillnamn(x[3]['skill']) or x[3]['skill'] for x in h if x[0] == 'anrop' and x[1] in felade
                         and x[2] == 'Skill' and isinstance(x[3].get('skill'), str)})
     krav = [relativ(f).strip('/') for f in filer] + ['.claude/skills/%s/SKILL.md' % (skillnamn(s) or s) for s in skills]
@@ -344,7 +494,12 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
     for i, x in enumerate(h):
         if x[0] == 'anrop':
             if forsta is None and skrivprefix and x[2] in ('Write', 'Edit', 'MultiEdit') and relativ(x[3].get('file_path', '')).startswith(skrivprefix):
-                forsta = i
+                forsta, forsta_via = i, x[2]
+            elif skrivprefix and x[2] == 'Bash' and x[1] not in nekade:
+                klass = bash_andring(x[3].get('command'), skrivprefix)
+                bash_klass[klass] += 1
+                if forsta is None and klass != 'lasande':
+                    forsta, forsta_via = i, 'Bash' if klass == 'andring' else 'Bash (möjlig ändring)'
             if x[1] and x[1] not in felade:
                 vantar[x[1]] = x
             continue
@@ -390,7 +545,7 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
             'skill_anrop': anrop, 'skill_fel': skill_fel, 'skill_okanda': sorted(set(skill_okanda)),
             'skill_fore': sorted(s for s, i in skill_tid.items() if forsta is None or i < forsta),
             'skill_efter': sorted(s for s, i in skill_tid.items() if forsta is not None and i >= forsta),
-            'forsta_skrivning': forsta is not None}
+            'forsta_skrivning': forsta is not None, 'forsta_via': forsta_via, 'bash': bash_klass}
 
 
 def klass(v):

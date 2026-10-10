@@ -336,7 +336,7 @@ class Register:
 # förmågeprov som starten kan göra själv; ett misslyckat görs om i stället för att stoppa starter tills det går ut, och
 # underhållet gör dem om varje dygn (Mobbins prov är en liten session och görs i starten bara när det fallit eller gått
 # ut; granskningen av r72, M1)
-OMPROVBARA = ('prov:refero', 'prov:webblasare', 'prov:detektor', 'prov:vakt', 'prov:mobbin', 'prov:session')
+OMPROVBARA = ('prov:refero', 'prov:21st', 'prov:webblasare', 'prov:detektor', 'prov:vakt', 'prov:mobbin', 'prov:session')
 
 
 class Kontext:
@@ -1202,6 +1202,52 @@ def prova_refero(k, prov_dir):
     return k.spara('prov:refero', avtryck, resultat=res, detalj=detalj, verktyg=verktyg)
 
 
+TJUGOFORSTA_URL = 'https://21st.dev/api/mcp'  # den samlade 21st-MCP:n (kontroller/mcp/21st.json), inte gamla @21st-dev/magic
+
+
+def prova_21st(k, prov_dir=None):
+    """21st.dev direkt, utan modell (ägarens uppdrag 2026-10-10, punkt 3): upptäckten av kontots verktyg med scheman
+    (tools/list med paginering; upptäckten kräver nyckeln och speglar kontots åtkomst), kontots användning (get_usage,
+    läsande) och en generisk komponentsökning, med verktygens felstatus (isError) skild från protokollfel. Ett lyckat
+    anrop visar åtkomsten, inte att en komponent passar. Nyckeln läses av atelje.envvarde och skrivs aldrig ut."""
+    import atelje
+    import kompetens
+    import refero_mcp
+    nyckel = atelje.envvarde(atelje.TJUGOFORSTA_ENV, 'TWENTYFIRST_API_KEY')
+    if not nyckel:
+        return {'resultat': 'fel', 'detalj': '21st.dev:s nyckel saknas (%s)' % atelje.TJUGOFORSTA_ENV.name, 'tid': nu()}
+    avtryck = sha(nyckel)[:16]
+    x = k.minns('prov:21st', avtryck, GILTIGHET['prov'])
+    if x:
+        return dict(x, ateranvant=True)
+    if not k.prova:
+        return {'resultat': 'okand', 'detalj': 'inte provad (utan prov)'}
+    verktyg, scheman, anrop_ = [], {}, {}
+    try:
+        kl = refero_mcp.Klient(url=TJUGOFORSTA_URL, huvuden={'x-api-key': nyckel})
+        kl.starta()
+        lista = kl.verktyg_fullt()
+        verktyg = sorted(str(v.get('name')) for v in lista)
+        scheman = {str(v.get('name')): sha(json.dumps(v.get('inputSchema') or {}, sort_keys=True))[:12] for v in lista}
+        saknas = [v.split('__')[-1] for v in kompetens.MCP['21st'] if v.split('__')[-1] not in verktyg]
+        for namn, args in (('get_usage', {}), ('search', {'query': 'pricing section with three plans'})):
+            if namn not in verktyg:
+                continue
+            fel, text, _sc = kl.kalla_utfall(namn, args)
+            anrop_[namn] = {'isError': fel, 'tecken': len(text)}
+            if namn == 'get_usage' and not fel:
+                m = re.search(r'"?aiGenerationEnabled"?\s*[:=]\s*(true|false)', text)
+                anrop_[namn]['aiGenerationEnabled'] = (m.group(1) == 'true') if m else None
+        brister = (['flödets verktyg saknas hos kontot: ' + ', '.join(saknas)] if saknas else []) + \
+            ['%s svarade med verktygsfel (isError)' % n for n, a in anrop_.items() if a.get('isError')] + \
+            (['sökningen gav inget innehåll'] if anrop_.get('search', {}).get('tecken', 1) == 0 else [])
+        res = 'fel' if brister else 'ok'
+        detalj = '; '.join(brister) if brister else '%d verktyg upptäckta med scheman; get_usage och search svarade utan verktygsfel' % len(verktyg)
+    except Exception as e:  # noqa: BLE001 — ett protokoll- eller nätfel beskrivs utan nyckeln
+        res, detalj = 'fel', sista(e, 200)
+    return k.spara('prov:21st', avtryck, resultat=res, detalj=detalj, verktyg=verktyg, scheman=scheman, anrop=anrop_)
+
+
 def mobbin_bevis(max_alder):
     """Ett färskt resultat ur en riktig körning: Mobbin ok med levererade bilder (referenser/tjanster/TJANSTER.json)."""
     bast = None
@@ -1411,15 +1457,19 @@ def prova_sessionen(k):
     if not k.prova:
         return {'resultat': 'okand', 'detalj': 'inte provad (utan prov)'}
     flaggor = [a for a in args if a in ('--setting-sources', '--strict-mcp-config', '--mcp-config', '--settings')]
-    init, fel = sessionens_init(args, env=atelje.session_miljo(PROVKUND))
+    # utan upptäcktscachen: en cachad verktygslista är ingen anslutning (Claude Codes MCP-dokumentation, status cached/pending)
+    init, fel = sessionens_init(args, env=dict(atelje.session_miljo(PROVKUND), MCP_DISCOVERY_CACHE='0'))
     if not init:
         return k.spara('prov:session', avtryck, resultat='fel', detalj=fel, flaggor=flaggor)
     servrar = {str(s.get('name')): str(s.get('status')) for s in init.get('mcp_servers') or [] if isinstance(s, dict)}
+    serverfel = {str(s.get('name') or s.get('server') or '?'): sista(s.get('error') or s.get('message') or s, 160)
+                 for s in init.get('mcp_server_errors') or [] if isinstance(s, dict)}
     verktyg = sorted(str(t) for t in init.get('tools') or [] if str(t).startswith('mcp__'))
     skills = sorted(str(s) for s in init.get('skills') or [])
-    return k.spara('prov:session', avtryck, resultat='ok', servrar=servrar, verktyg=verktyg, skills=skills, flaggor=flaggor,
-                   detalj='en session med ateljéns argument: %s; %d MCP-verktyg och %d skills' % (
-                       ', '.join('%s %s' % i_ for i_ in sorted(servrar.items())) or 'inga MCP-servrar', len(verktyg), len(skills)))
+    return k.spara('prov:session', avtryck, resultat='ok', servrar=servrar, verktyg=verktyg, skills=skills, flaggor=flaggor, serverfel=serverfel,
+                   detalj='en session med ateljéns argument: %s; %d MCP-verktyg och %d skills%s' % (
+                       ', '.join('%s %s' % i_ for i_ in sorted(servrar.items())) or 'inga MCP-servrar', len(verktyg), len(skills),
+                       ('; serverfel: ' + '; '.join('%s: %s' % i_ for i_ in sorted(serverfel.items()))) if serverfel else ''))
 
 
 def mcp_lista(k):
