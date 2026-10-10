@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.9",
+  "version": "2026-10-10.10",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -54,7 +54,7 @@
       "rattigheter": {}, "dataflode": "Inga personuppgifter.", "lagring": "Ingen.",
       "kostnad": {"modell": "okänd: planbeslut för ägaren", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Utredningsväg; ingen standardväg.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av plan och mandat: en Workers Custom Domain kräver kundens zon på Cloudflare; att kunden behåller sin DNS kräver partiell zon eller Cloudflare for SaaS, som båda är planfrågor (lansering.md). Standardvägen är k01-zon-pa-cloudflare.", "prov": [], "driftkontroll": null,
       "begransningar": ["Ett planbeslut, aldrig en uppgradering som bieffekt."], "paverkar": {"brief": "domänvägen", "design": null, "kod": null, "externt": "plan"},
       "manniska": ["ägarens planbeslut"]
     },
@@ -259,7 +259,7 @@
       "rattigheter": {}, "dataflode": "Beror på verktyget; [OSÄKER] för varje alternativ i kunskap/uppfoljning.md.", "lagring": "Beror på verktyget.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Alternativen och samtyckesfrågan i kunskap/uppfoljning.md; inget valt verktyg.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Klickhändelser och kampanjkällor kräver ett verktyg med händelser och samtycke (GA4/GTM eller kvalificerat alternativ), valt per kund och prövat mot samtyckesfrågan (uppfoljning.md). Grundnivån är k07-konverteringar-d1.", "prov": [], "driftkontroll": null,
       "begransningar": ["Inget verktyg installeras före bedömd samtyckesfråga."], "paverkar": {"brief": "mål", "design": null, "kod": "händelser", "externt": "verktyget"}, "manniska": ["val av verktyg"]
     },
     {
@@ -284,7 +284,7 @@
       "konto": {"agare": "kund", "typ": "väljs", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Innehåll.", "lagring": "Beror på tjänsten.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Kandidat ej kvalificerad mot Astro på Workers.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av val och mandat: ett redaktörsgränssnitt för Astro på Workers kräver antingen en git-baserad redigerare med inloggning (en OAuth-app, alltså en publik app och eget mandat) eller en hostad headless-tjänst med konto och avtal. Tills dess är k08-nortropic-forvaltning vägen.", "prov": [], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": "roller", "design": null, "kod": "innehållsmodellen", "externt": "tjänsten"}, "manniska": []
     },
     {
@@ -347,7 +347,7 @@
       "konto": {"agare": "kund", "typ": "kundregistrets API-nyckel med minsta behörighet", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Förfrågans fält till kundregistret.", "lagring": "Kundregistret.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "CRM-kopplingen fanns i Digitalas verktyg, som inte finns här; filen för kundregistret är k10-csv-export.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Ett annat kundregister än Pipedrive kvalificeras per namngivet system när kunden har ett; huvudvägen är k10-pipedrive-lead och filnivån k10-csv-export.", "prov": [], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": "uppföljningen", "design": null, "kod": "Workerns utkorg", "externt": "kundregistret"}, "manniska": []
     },
     {
@@ -372,7 +372,7 @@
       "konto": {"agare": "kund", "typ": "väljs", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Order och kunddata hos plattformen.", "lagring": "Plattformen.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Kandidat (till exempel Shopify) ej kvalificerad.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av kundens plattform och mandat: en butik kräver verksamhetens handelsplattform (till exempel Shopify) med konto, juridikflaggan e-handel och betalningsavtal. Betallänken (k11) är ingen butik.", "prov": [], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": "sortiment", "design": "butiken", "kod": null, "externt": "plattformen"}, "manniska": []
     },
     {
@@ -383,7 +383,7 @@
       "konto": {"agare": "kund", "typ": "väljs (Fortnox som första kandidat)", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Underlag till ekonomisystemet.", "lagring": "Ekonomisystemet.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej kvalificerad.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av mandat: en ekonomikoppling (Fortnox först) kräver en registrerad integration med OAuth, alltså en publik app med leverantörens avtal, och kundens licens. Inga bokförda fakturor skapas i prov.", "prov": [], "driftkontroll": null,
       "begransningar": ["Inga bokförda fakturor i prov."], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "ekonomisystemet"}, "manniska": []
     },
     {
@@ -413,7 +413,7 @@
       "konto": {"agare": "kund", "typ": "väljs", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "E-postadresser till tjänsten.", "lagring": "Tjänsten.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej kvalificerad; inte samma ändamål som K04.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "En annan tjänst än Brevo kvalificeras per namngiven tjänst när kunden har en; huvudvägen är k14-brevo-dubbel.", "prov": [], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": null, "design": "anmälan", "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
@@ -448,7 +448,7 @@
       "konto": {"agare": "kund", "typ": "Google Ads, Merchant Center eller Meta", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Konverteringar och produktdata.", "lagring": "Annonstjänsten.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Digitalas annonsberedning (PAUSED-överföring) finns inte här.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av mandat: Google Ads, Merchant Center och Meta kräver OAuth-appar och kontoåtkomst, och en anslutning får aldrig skapa kampanj, ändra budget eller spendera. Ingen väg byggd.", "prov": [], "driftkontroll": null,
       "begransningar": ["Ingen spendering utan uttryckligt mandat."], "paverkar": {"brief": null, "design": null, "kod": "konverteringshändelser", "externt": "annonskonton"}, "manniska": []
     },
     {
@@ -459,7 +459,7 @@
       "konto": {"agare": "kund", "typ": "väljs", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Medlems- och kunddata.", "lagring": "Tjänsten.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej kvalificerad; ingen egen identitetsmotor.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av val: en etablerad identitets-, medlems- eller eventtjänst väljs per kund; ingen egen identitetsmotor. Cloudflare Access skyddar förhandsvisningar men är ingen kundportal.", "prov": [], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
@@ -470,7 +470,7 @@
       "konto": {"agare": "kund", "typ": "väljs", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Avtal och identitet.", "lagring": "Tjänsten.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej kvalificerad.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "tjänsten"}, "manniska": []
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av val och avtal: e-signering kräver verksamhetens avtal med en signeringstjänst; första nivån är en länk till tjänstens eget flöde.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
       "id": "k18-bankid-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
@@ -480,7 +480,7 @@
       "konto": {"agare": "kund", "typ": "avtal med en BankID-förmedlare", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Personnummer och identitet.", "lagring": "Förmedlaren.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Saknat avtal blockerar.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "förmedlaren"}, "manniska": []
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av avtal: BankID kräver avtal genom en bank eller en förmedlare av e-legitimation; inget stöd påstås utan det.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "förmedlaren"}, "manniska": []
     },
     {
       "id": "k18-branschsystem-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
@@ -490,7 +490,7 @@
       "konto": {"agare": "kund", "typ": "systemets avtal", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Beror på systemet.", "lagring": "Systemet.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Varje namngivet system kvalificeras för sig.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "systemet"}, "manniska": []
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Varje namngivet branschsystem kvalificeras för sig; ett ospecificerat system går till komplettering hos kunden, aldrig till generell åtkomst.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "systemet"}, "manniska": []
     },
     {
       "id": "k18-flersprak-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
@@ -500,7 +500,7 @@
       "konto": {"agare": "ingen", "typ": "ingen", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Innehåll.", "lagring": "Kundrepot.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej byggt i mallen.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": "språk", "design": "språkval", "kod": "sidstruktur", "externt": null}, "manniska": []
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Inte byggt, men byggbart utan konto: Astros inbyggda språkrouting, hreflang i mallens Bas och en språkväxlare; översättningarna är kundens innehåll.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": "språk", "design": "språkval", "kod": "sidstruktur", "externt": null}, "manniska": []
     },
     {
       "id": "k18-sok-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
@@ -510,7 +510,7 @@
       "konto": {"agare": "ingen", "typ": "ingen", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Sökfrågor.", "lagring": "Ingen.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej byggt.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": "sökfältet", "kod": "sökindex", "externt": null}, "manniska": []
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Inte byggt: en statisk sökning som byggs med sajten (till exempel Pagefind) kräver ett nytt beroende genom verktygslådans underhåll; ingen extern tjänst.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": "sökfältet", "kod": "sökindex", "externt": null}, "manniska": []
     },
     {
       "id": "k18-ai-assistent-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
@@ -520,7 +520,7 @@
       "konto": {"agare": "nortropic", "typ": "AI-tjänst på API (aldrig Claude-prenumerationen)", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Besökarens frågor till AI-tjänsten.", "lagring": "Tjänsten.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej kvalificerad; prenumerationen får inte driva kundtjänster.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": "assistenten", "kod": null, "externt": "AI-tjänsten"}, "manniska": []
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av konto och mandat: en kundvänd assistent kräver API-åtkomst (Gateway eller Console), aldrig Claude-prenumerationen; publik hjälp utan privat åtkomst (T32).", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": "assistenten", "kod": null, "externt": "AI-tjänsten"}, "manniska": []
     }
   ]
 }
