@@ -79,7 +79,7 @@ class Kundrepo(unittest.TestCase):
         self.state = self.root / 'gh-state'
         self.cf = self.root / 'hemligt' / 'cloudflare.env'  # finns inte förrän ett prov ansluter kontot
         self.stack.enter_context(patch.dict(os.environ, {'PATH': str(self.bin) + os.pathsep + os.environ['PATH'], 'PROV_GH_STATE': str(self.state),
-                                                         'NWP_CLOUDFLARE_FIL': str(self.cf)}))
+                                                         'NWP_CLOUDFLARE_FIL': str(self.cf), 'NWP_FLODE_START_ID': 'prov-release-0001'}))
         self.uppladdat, self.skyddsprov = [], []
         self.deploy_fel, self.skydd_svar, self.under_uppladdning = None, [], None
         self.skriv_verksamhet(True)
@@ -107,6 +107,11 @@ class Kundrepo(unittest.TestCase):
 
     def forhandsvisa(self):
         return kundrepo.preview(self.slug, deploy=self.deploy, skydd=self.skydd)
+
+    def releasemandat(self, start='prov-release-0001'):
+        # ägarens klick: dashboarden skickar den commit och export som knappen visade (prototyp.handlingar, bindning)
+        pv = kundrepo.preview_aktuell(self.slug)
+        return kundrepo.releasemandat(self.slug, 'dashboard', pv['commit'], pv['export'], start)
 
     def skriv_verksamhet(self, fiktiv):
         (self.u / 'VERKSAMHET.json').write_text(json.dumps({'schema': 1, 'namn': 'Provfirman AB', 'fiktiv': fiktiv, 'tjanster': ['Prov', 'Kontroll'], 'kontaktvagar': []}))
@@ -349,7 +354,7 @@ class Kundrepo(unittest.TestCase):
         self.skriv_verksamhet(False)
         self.assertIn('D1-databasen är inte kopplad', kundrepo.release_krav(self.slug))
         with self.assertRaises(ValueError):
-            kundrepo.releasemandat(self.slug, 'dashboard')
+            self.releasemandat()
         (self.u / 'CLOUDFLARE.json').write_text(json.dumps({'database_id': '12345678-1234-4123-8123-123456789abc',
                                                             'forfragan_till': 'kontakt@exempel.invalid', 'forfragan_fran': 'webb@exempel.invalid'}))
         with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
@@ -362,22 +367,46 @@ class Kundrepo(unittest.TestCase):
         uppladdat_fore = len(self.uppladdat)
         rel = kundrepo.release(self.slug, deploy=self.deploy)
         self.assertEqual(rel['status'], 'vantar_pa_mandat'); self.assertEqual(len(self.uppladdat), uppladdat_fore, 'ingen release utan mandat')
+        pv = kundrepo.preview_aktuell(self.slug)
         with self.assertRaises(ValueError):
-            kundrepo.releasemandat(self.slug, 'session')
-        kundrepo.releasemandat(self.slug, 'dashboard')
+            kundrepo.releasemandat(self.slug, 'session', pv['commit'], pv['export'], 'prov-release-0001')
+        with self.assertRaises(ValueError):  # förhandsvisningen ändrades efter att knappen visades
+            kundrepo.releasemandat(self.slug, 'dashboard', '0' * 40, pv['export'], 'prov-release-0001')
+        # mandatet gäller klickets start och en kort tid
+        self.releasemandat('en-annan-start-0002')
+        self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'vantar_pa_mandat')
+        m = self.releasemandat(); m['giltig_till'] = 1; kundrepo.mandatfil(self.slug).write_text(json.dumps(m))
+        self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'vantar_pa_mandat')
+        self.assertEqual(len(self.uppladdat), uppladdat_fore)
+        self.releasemandat()
+        pa_disken = []
+        def las_disken():  # mandatet förbrukas och kvittot säger okänt utfall före driftsättningen
+            k = max((self.k / 'leverans').glob('RELEASE-*.json'), key=lambda f: f.stat().st_mtime_ns)
+            pa_disken.append((json.loads(kundrepo.mandatfil(self.slug).read_text()).get('anvant_av') == k.stem, json.loads(k.read_text())['status']))
+        self.under_uppladdning = las_disken
         rel = kundrepo.release(self.slug, deploy=self.deploy)
+        self.under_uppladdning = None
+        self.assertEqual(pa_disken, [(True, 'osaker')])
         self.assertEqual((rel['status'], rel['produktion'], rel['version_id'], rel['commit'], rel['export']), ('klar', True, VERSION, res['commit'], res['id']))
         self.assertEqual(rel['worker'], 'kund-prov-kund'); self.assertNotIn(TOKEN, json.dumps(rel))
         self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'vantar_pa_mandat', 'mandatet gäller en release')
-        # ett okänt utfall spärrar nästa release
-        kundrepo.releasemandat(self.slug, 'dashboard')
-        with patch.object(self, 'deploy', return_value=(124, 'tidsgränsen nåddes')):
+        # ett okänt utfall (också 504 från Cloudflare) spärrar nästa release tills det stämts av
+        self.releasemandat()
+        with patch.object(self, 'deploy', return_value=(1, 'X [ERROR] 504 Gateway Timeout')):
             self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'osaker')
-        kundrepo.releasemandat(self.slug, 'dashboard')
+        self.releasemandat()
         self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'vantar_pa_avstamning')
-        # handlingen i Byggflöde visas när releasen är möjlig
+        oklar = kundrepo.osakert_forsok(self.slug, 'RELEASE')
+        markor = 'nortropic_commit=%s nortropic_export=%s' % (oklar['commit'], oklar['export'])
+        lista = lambda konto, tmp: {'versioner': [{'id': VERSION, 'annotations': {'workers/message': markor}}],  # noqa: E731
+                                    'deployments': [{'versions': [{'version_id': VERSION, 'percentage': 100}]}]}
+        av = kundrepo.avstam(self.slug, lista=lista)
+        self.assertEqual((av['status'], av['produktion'], av['version_id'], av['id'][:8]), ('klar', True, VERSION, 'RELEASE-'))
+        self.assertIsNone(kundrepo.osakert_forsok(self.slug, 'RELEASE'), 'avstämningen stänger releasens okända utfall')
+        # handlingen i Byggflöde visas när releasen är möjlig, med det som mandatet binds till
         with patch.object(prototyp, 'lage', return_value=('valda', None)), patch.object(flodesstart, 'pagande', return_value=False):
-            self.assertIn('release', [h['id'] for h in prototyp.handlingar(self.slug)])
+            h = next(h for h in prototyp.handlingar(self.slug) if h['id'] == 'release')
+            self.assertEqual(h['bindning'], {'commit': pv['commit'], 'export': pv['export']})
         flodesstart.krav(self.slug, 'release')
         # felaktiga driftvärden hamnar aldrig i kundrepot
         (self.u / 'CLOUDFLARE.json').write_text(json.dumps({'database_id': 'inte-ett-id'}))

@@ -142,7 +142,15 @@ try{
  await page.locator('#handlingslista article').first().waitFor();
  const NY='xkeysib-SYNTETISK-KUNDYTA-0001';
  await page.locator('#nyckeldel summary').click();
+ // ett tappat svar: nyckelns begäran lämnar ingen journal (inte ens en hash av nyckeln) i webbläsaren
+ let tappad=false;
+ await page.route('**/api/arende/**',r=>{if(!tappad&&r.request().method()==='POST'&&(r.request().postData()||'').includes('"handling":"nyckel"')){tappad=true;return r.abort();}return r.continue();});
  await page.locator('#nyckellev').selectOption('brevo');await page.locator('#nyckelvarde').fill(NY);await page.locator('#nyckelfalt').fill('lista=12\nmall=7');
+ await page.locator('#nyckelknapp').click();await page.waitForFunction(()=>!document.querySelector('[role=status]')?.textContent.includes('Sparar'));
+ assert(tappad,'begäran tappades');
+ {const j=await page.evaluate(k=>localStorage.getItem(k),'kundstart-operation-'+init.ko_arende);assert(!j||j==='{}','nyckelns begäran i journalen: '+j);}
+ await page.unrouteAll({behavior:'wait'});
+ await page.locator('#nyckelvarde').fill(NY);
  await page.locator('#nyckelknapp').click();await page.getByRole('status').filter({hasText:'Lämnat. Nyckeln visas inte igen.'}).waitFor();
  assert.equal(await page.locator('#nyckelvarde').inputValue(),'','nyckelfältet töms');
  {const lagrat=await page.evaluate(()=>JSON.stringify([{...localStorage},{...sessionStorage}]));assert(!lagrat.includes(NY),'nyckeln i webbläsarens lagring');}

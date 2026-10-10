@@ -32,18 +32,22 @@ NYCKEL = 'xkeysib-SYNTETISK-AKTIVERINGSNYCKEL-0001'
 NYCKEL2 = 'xkeysib-SYNTETISK-AKTIVERINGSNYCKEL-0002'
 UUID = '0f0e0d0c-0b0a-4908-8706-050403020100'
 ANNAN = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
+START = 'prov-start-0001'
 
 
 class Wrangler:
     """Märkt attrapp: protokollför varje anrop (utan stdin) och svarar som Wrangler för just de här kommandona."""
     def __init__(self):
         self.anrop, self.stdin, self.d1, self.r2, self.hemligheter, self.fel = [], [], {}, set(), set(), {}
+        self.fore = None  # anropas med argumenten före svaret (provet läser då kvittot på disken)
 
     def fabrik(self, slug, konto, tmp):
         return self
 
     def __call__(self, args, stdin=None):
         self.anrop.append(list(args)); self.stdin.append(stdin)
+        if self.fore:
+            self.fore(args)
         nyckel = ' '.join(args[:3])
         if nyckel in self.fel:
             return self.fel[nyckel]
@@ -84,7 +88,8 @@ class Aktivera(unittest.TestCase):
         konto.chmod(0o600)
         self.stack.enter_context(patch.multiple(atelje, ROOT=self.root, KUNDER=self.root / 'kunder', UNDERLAG=self.root / 'underlag'))
         self.stack.enter_context(patch.multiple(exportera, ROOT=self.root, KUNDER=self.root / 'kunder', UNDERLAG=self.root / 'underlag'))
-        self.stack.enter_context(patch.dict(os.environ, {'NWP_NYCKELINTAG': str(self.tmp / 'intag'), 'NWP_CLOUDFLARE_FIL': str(konto)}))
+        self.stack.enter_context(patch.dict(os.environ, {'NWP_NYCKELINTAG': str(self.tmp / 'intag'), 'NWP_CLOUDFLARE_FIL': str(konto),
+                                                         'NWP_FLODE_START_ID': START}))
         self.valda = ['k02-cloudflare-workers', 'k03-formular-worker', 'k04-cloudflare-epost', 'k14-brevo-dubbel']
         self.stack.enter_context(patch.object(aktivera, 'valda_paket', lambda slug: self.valda))
         self.export = None
@@ -99,13 +104,18 @@ class Aktivera(unittest.TestCase):
         ni.lamna(SLUG, 'brevo', NYCKEL, {'lista': '12', 'mall': '7'}, 'kund')
 
     def exportera_fn(self, slug):
+        # exportens wrangler.jsonc: mallens, med driftvärdena (exportera.wrangler_namn, som den riktiga exporten)
         drift = json.loads((self.root / 'underlag' / slug / 'CLOUDFLARE.json').read_text())
-        (self.root / 'kunder' / slug / 'kundrepo' / 'wrangler.jsonc').write_text(json.dumps({'name': 'kund-%s' % slug, **drift}))
+        (self.root / 'kunder' / slug / 'kundrepo' / 'wrangler.jsonc').write_text(
+            exportera.wrangler_namn((exportera.LEVERANS / 'wrangler.jsonc').read_text(encoding='utf-8'), slug, drift))
         self.export = {'ok': True, 'aktuell': True, 'id': 'E2'}
         return {'ok': True, 'id': 'E2'}
 
-    def mandat(self):
-        return aktivera.aktiveringsmandat(SLUG, 'dashboard', aktivera.torr(SLUG)['plan_sha256'])
+    def mandat(self, start=START):
+        return aktivera.aktiveringsmandat(SLUG, 'dashboard', aktivera.torr(SLUG)['plan_sha256'], start)
+
+    def release(self):
+        (kundrepo.leveransdir(SLUG) / 'RELEASE-20261010T120000Z-0000.json').write_text(json.dumps({'status': 'klar', 'id': 'RELEASE-x', 'tid': '2026-10-10T12:00:00Z'}))
 
     def kor(self):
         return aktivera.kor(SLUG, wrangler=self.w.fabrik, exportera_fn=self.exportera_fn)
@@ -136,9 +146,16 @@ class Aktivera(unittest.TestCase):
         r = self.kor()
         self.assertEqual(r['status'], 'vantar_pa_mandat'); self.assertEqual(self.w.anrop, [])
         with self.assertRaises(aktivera.Fel):
-            aktivera.aktiveringsmandat(SLUG, 'session', aktivera.torr(SLUG)['plan_sha256'])
+            aktivera.aktiveringsmandat(SLUG, 'session', aktivera.torr(SLUG)['plan_sha256'], START)
         with self.assertRaises(aktivera.Fel):
-            aktivera.aktiveringsmandat(SLUG, 'dashboard', '0' * 64)
+            aktivera.aktiveringsmandat(SLUG, 'dashboard', '0' * 64, START)
+        with self.assertRaises(aktivera.Fel):
+            aktivera.aktiveringsmandat(SLUG, 'dashboard', aktivera.torr(SLUG)['plan_sha256'], None)
+        # mandatet gäller klickets start och en kort tid: en annan start eller ett gammalt klick kör ingenting
+        self.mandat('en-annan-start-0002')
+        self.assertEqual(self.kor()['status'], 'vantar_pa_mandat'); self.assertEqual(self.w.anrop, [])
+        m = self.mandat(); m['giltig_till'] = 1; aktivera.mandatfil(SLUG).write_text(json.dumps(m))
+        self.assertEqual(self.kor()['status'], 'vantar_pa_mandat'); self.assertEqual(self.w.anrop, [])
         self.mandat()
         r = self.kor()
         self.assertEqual(r['status'], 'klar', r)
@@ -159,7 +176,7 @@ class Aktivera(unittest.TestCase):
 
     def test_nycklar_efter_releasen_rotation_och_aterkallelse(self):
         self.intag(); self.mandat(); self.kor()
-        (kundrepo.leveransdir(SLUG) / 'RELEASE-20261010T120000Z-0000.json').write_text(json.dumps({'status': 'klar', 'id': 'RELEASE-x', 'tid': '2026-10-10T12:00:00Z'}))
+        self.release()
         t = aktivera.torr(SLUG)
         self.assertEqual(self.status(t)['hemlighet:BREVO_API_NYCKEL'], 'gors')
         self.mandat(); self.w.anrop.clear(); self.w.stdin.clear()
@@ -176,6 +193,11 @@ class Aktivera(unittest.TestCase):
         t = aktivera.torr(SLUG)
         self.assertEqual(self.status(t)['hemlighet:BREVO_API_NYCKEL'], 'gors')
         self.assertIn('wrangler secret delete BREVO_API_NYCKEL', ' '.join(s['kommando'] or '' for s in t['steg']))
+        # en borttagning som faller är inte gjord: steget står kvar
+        self.mandat(); self.w.fel['secret delete BREVO_API_NYCKEL'] = (1, 'Error: Authentication error [code: 10000]')
+        self.assertEqual(self.kor()['status'], 'fel')
+        self.assertEqual(self.status(aktivera.torr(SLUG))['hemlighet:BREVO_API_NYCKEL'], 'gors', 'en misslyckad borttagning visas aldrig som klar')
+        del self.w.fel['secret delete BREVO_API_NYCKEL']
         self.mandat(); self.kor()
         self.assertNotIn('BREVO_API_NYCKEL', self.w.hemligheter)
         self.assertEqual(self.status(aktivera.torr(SLUG))['hemlighet:BREVO_API_NYCKEL'], 'klar')
@@ -187,6 +209,88 @@ class Aktivera(unittest.TestCase):
             aktivera.main([SLUG])
         self.assertNotIn(NYCKEL2, ut.getvalue())
         self.assertNotIn('SYNTETISK-KONTOTOKEN', json.dumps([json.loads(f.read_text()) for f in kundrepo.leveransdir(SLUG).glob('*.json')]))
+
+    def test_avvalt_paket_tar_bort_nyckeln_och_driftvardena(self):
+        self.intag(); self.mandat(); self.kor(); self.release()
+        self.mandat(); self.assertEqual(self.kor()['status'], 'klar')
+        self.assertIn('BREVO_API_NYCKEL', self.w.hemligheter)
+        self.valda = [p for p in self.valda if p != 'k14-brevo-dubbel']  # kunden har valt bort nyhetsbrevet
+        t = aktivera.torr(SLUG)
+        self.assertEqual({k: v for k, v in self.status(t).items() if v != 'klar'},
+                         {'driftvarden': 'gors', 'export': 'gors', 'hemlighet:BREVO_API_NYCKEL': 'gors'}, t['steg'])
+        self.assertIn('wrangler secret delete BREVO_API_NYCKEL', ' '.join(s['kommando'] or '' for s in t['steg']))
+        self.mandat(); self.assertEqual(self.kor()['status'], 'klar')
+        self.assertNotIn('BREVO_API_NYCKEL', self.w.hemligheter)
+        drift = json.loads((self.root / 'underlag' / SLUG / 'CLOUDFLARE.json').read_text())
+        self.assertNotIn('nyhetsbrev_lista', drift); self.assertNotIn('nyhetsbrev_mall', drift)
+        self.assertNotIn('"NYHETSBREV_LISTA": "12"', (self.root / 'kunder' / SLUG / 'kundrepo' / 'wrangler.jsonc').read_text())
+        t = aktivera.torr(SLUG)
+        self.assertNotIn('hemlighet:BREVO_API_NYCKEL', self.status(t)); self.assertEqual(t['att_gora'], 0)
+
+    def test_avbruten_korning_ar_okand_och_ompaket_skickas_om(self):
+        self.intag(); self.mandat()
+        pa_disken = []
+
+        def las_kvittot(args):
+            if args[:3] == ['r2', 'bucket', 'create']:
+                k = json.loads(max(kundrepo.leveransdir(SLUG).glob('AKTIVERING-*.json'), key=lambda f: f.stat().st_mtime_ns).read_text())
+                pa_disken.append((k['status'], k['steg'][-1]['id'], k['steg'][-1]['status']))
+        self.w.fore = las_kvittot
+        self.kor()
+        self.assertEqual(pa_disken, [('osaker', 'r2', 'pagar')], 'under operationen säger kvittot okänt utfall')
+        # en process som dör mitt i en put lämnar kvittot så; avstämningen ser steget som okänt och skickar om nyckeln
+        self.release()
+        krasch = {'schema': 1, 'id': 'AKTIVERING-20261010T130000Z-dead', 'typ': 'aktivering', 'slug': SLUG, 'tid': '2026-10-10T13:00:00Z',
+                  'status': 'osaker', 'steg': [{'id': 'hemlighet:BREVO_API_NYCKEL', 'status': 'pagar', 'detalj': None}]}
+        (kundrepo.leveransdir(SLUG) / (krasch['id'] + '.json')).write_text(json.dumps(krasch))
+        self.assertTrue(any('okänt utfall' in h for h in aktivera.torr(SLUG)['hinder']))
+        self.w.hemligheter.add('BREVO_API_NYCKEL')  # en äldre version finns: namnet i listan bevisar inte versionen
+        self.w.fel['d1 list --json'] = (1, 'Error: 504 Gateway Timeout')
+        a = aktivera.stam_av(SLUG, wrangler=self.w.fabrik)
+        self.assertEqual(a['status'], 'klar', 'hemligheten stäms av utan D1-listan')
+        self.assertEqual([(s['id'], s['status']) for s in a['steg']], [('hemlighet:BREVO_API_NYCKEL', 'avstamd_ingen')])
+        self.assertIsNone(aktivera.osaker(SLUG))
+        self.assertEqual(self.status(aktivera.torr(SLUG))['hemlighet:BREVO_API_NYCKEL'], 'gors', 'nyckeln skickas om')
+
+    def test_avstamning_som_faller_stanger_inget(self):
+        self.intag(); self.mandat()
+        self.w.fel['r2 bucket create'] = (1, 'Error: 504 Gateway Timeout')
+        self.assertEqual(self.kor()['status'], 'osaker', '504 är ett okänt utfall')
+        self.w.fel['r2 bucket list'] = (1, 'Error: fetch failed')
+        a = aktivera.stam_av(SLUG, wrangler=self.w.fabrik)
+        self.assertEqual(a['status'], 'osaker'); self.assertEqual(a['steg'], [], 'en lista som faller är ingen slutsats')
+        self.assertIsNotNone(aktivera.osaker(SLUG), 'en misslyckad avstämning lämnar utfallet okänt')
+        # ett annat kvitto med samma id som avstämningen pekar på stänger inget: bara en lyckad avstämning gör det
+        falsk = {'schema': 1, 'id': 'AKTIVERING-20261010T140000Z-beef', 'typ': 'aktivering', 'slug': SLUG, 'tid': '2026-10-10T14:00:00Z',
+                 'status': 'hinder', 'avstammer': aktivera.osaker(SLUG)['id'], 'steg': []}
+        (kundrepo.leveransdir(SLUG) / (falsk['id'] + '.json')).write_text(json.dumps(falsk))
+        self.assertIsNotNone(aktivera.osaker(SLUG))
+        del self.w.fel['r2 bucket list']
+        self.assertEqual(aktivera.stam_av(SLUG, wrangler=self.w.fabrik)['status'], 'klar')
+        self.assertIsNone(aktivera.osaker(SLUG))
+
+    def test_exporten_i_korningen_under_kundens_las(self):
+        import flodesstart
+        with patch.object(exportera, '_exportera', return_value={'ok': True, 'id': 'E9'}) as ex:
+            with flodesstart.las(atelje.ROOT, SLUG):  # kor håller låset; exporten tar det inte en gång till
+                self.assertEqual(aktivera._exportera(SLUG), {'ok': True, 'id': 'E9'})
+        ex.assert_called_once_with(SLUG, git=True)
+
+    def test_kundstart_lases_i_lasläge_och_planens_hinder_stoppar(self):
+        import sqlite3
+        with patch.object(aktivera, 'planens_hinder', return_value=['ett val saknar accepterat erbjudande: k14-brevo-dubbel']):
+            self.intag()
+            t = aktivera.torr(SLUG)
+            self.assertFalse(t['kan_koras']); self.assertIn('ett val saknar accepterat erbjudande: k14-brevo-dubbel', t['hinder'])
+        with patch.object(aktivera, '_kundstart_plan', side_effect=sqlite3.OperationalError('database is locked')):
+            t = aktivera.torr(SLUG, valda=None)
+            self.assertFalse(t['kan_koras']); self.assertTrue(any('kunde inte läsas' in h for h in t['hinder']), t['hinder'])
+
+    def test_slug_som_ar_en_forhandsvisning_nekas(self):
+        with self.assertRaises(ValueError):
+            kundrepo.identitet('kund-x-forhandsvisning'.replace('kund-', ''))
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(aktivera.main(['x-forhandsvisning']), 2)
 
     def test_okant_utfall_stoppar_och_stams_av(self):
         self.intag(); self.mandat()
@@ -232,7 +336,8 @@ class Aktivera(unittest.TestCase):
             self.assertNotIn('aktivera', [h['id'] for h in prototyp.handlingar(SLUG)])
             self.intag()
             flodesstart.krav(SLUG, 'aktivera')
-            self.assertIn('aktivera', [h['id'] for h in prototyp.handlingar(SLUG)])
+            h = next(h for h in prototyp.handlingar(SLUG) if h['id'] == 'aktivera')
+            self.assertEqual(h['bindning'], {'plan_sha256': aktivera.torr(SLUG)['plan_sha256']}, 'mandatet binds till planen som knappen visar')
         self.assertIn('aktivera', flodesstart.HANDLINGAR)
         self.assertIn('ditt beslut', prototyp.HANDLINGAR['aktivera'])
 

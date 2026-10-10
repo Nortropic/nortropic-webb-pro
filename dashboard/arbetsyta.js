@@ -725,7 +725,9 @@
     const slug = A.slug, nyckel = 'nwp-start:' + slug + ':' + id, startId = nyttId(nyckel);
     A.pagar = id; A.svar = 'Skickar begäran…'; rita();
     try {
-      const r = await postJson('/api/flode/' + encodeURIComponent(slug) + '/start', { handling: id, start_id: startId });
+      // releasen och aktiveringen binder ägarens mandat till det som knappen visade (commit och export, torrkörd plan)
+      const bindning = ((A.lage && A.lage.handlingar) || []).find((h) => h.id === id)?.bindning;
+      const r = await postJson('/api/flode/' + encodeURIComponent(slug) + '/start', Object.assign({ handling: id, start_id: startId }, bindning ? { bindning } : {}));
       let d = null;
       try { d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); slappId(nyckel, startId); } catch { /* läget lästes inte om: samma start-id används vid nästa försök */ }
       if (A.slug !== slug) { A.pagar = null; rita(); return; }

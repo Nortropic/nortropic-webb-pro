@@ -9,7 +9,8 @@ när varje belägg finns: ett kvitto eller en observation (kontot, förhandsvisn
 VERKSAMHET.json, aktiveringens kvitton) eller, där inget verktyg kan observera handlingen, ägarens intyg med en
 referens till vad som visar att den är gjord (intyga) — aldrig ett kryss. Läsningen har inga sidoeffekter.
 
-Kundens vy (kundvy) visar samma poster med status och ansvarig, utan beläggens detaljer och utan ägarens handlingar.
+Kundens vy (kundvy) visar posterna med status och ansvarig, utan beläggens detaljer, utan ägarens interna planposter och
+utan ägarens funktioner (intyg).
 """
 import hashlib
 import json
@@ -114,12 +115,16 @@ def ko(d, katalog=None):
 
 
 def kundvy(k):
-    """Kundens vy av kön: handling, skäl, ansvarig, vad som kan fortsätta och status, utan beläggens detaljer."""
+    """Kundens vy av kön: handling, skäl, ansvarig, vad som kan fortsätta och status, utan beläggens detaljer och utan
+    ägarens interna planposter (planens hinder och saknade beroenden)."""
     if 'poster' not in k:
         return {'fel': 'Kön kunde inte läsas.'}
+    poster = [p for p in k['poster'] if not (p['paket'] == 'plan' and p['ansvarig'] == 'agare')]
+    summa = {s: sum(1 for p in poster if p['status'] == s) for s in ('vantar', 'klar', 'inaktuell')}
+    summa['vantar_pa_kunden'] = sum(1 for p in poster if p['status'] == 'vantar' and p['ansvarig'] == 'kund')
     return {'poster': [{n: p[n] for n in ('id', 'handling', 'ansvarig', 'ansvarig_text', 'skal', 'under_vantan', 'status')}
                        | {'nyckel': next((b['typ'].split(':', 1)[1] for b in p['belagg'] if b['typ'].startswith('nyckel:')), None)}
-                       for p in k['poster']], 'sammanfattning': k['sammanfattning']}
+                       for p in poster], 'sammanfattning': summa}
 
 
 def intyga(lager, eid, revision, data):

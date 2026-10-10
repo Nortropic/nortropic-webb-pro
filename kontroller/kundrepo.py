@@ -45,6 +45,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -77,8 +78,8 @@ class Hinder(Exception):
 
 
 def identitet(slug):
-    if not SLUG.match(slug or ''):
-        raise ValueError('ogiltig slug')
+    if not SLUG.match(slug or '') or slug.endswith('-forhandsvisning'):
+        raise ValueError('ogiltig slug')  # kund-<slug>-forhandsvisning är en annan kunds förhandsvisning
     namn = 'kund-%s' % slug
     return {'slug': slug, 'namn': namn, 'org': ORG, 'worker': namn, 'worker_forhandsvisning': namn + '-forhandsvisning', 'lokal': 'kunder/%s/kundrepo' % slug,
             'fjarr_adress': 'https://github.com/%s/%s' % (ORG, namn)}
@@ -637,7 +638,8 @@ def _preview(slug, deploy, skydd):
     return post
 
 
-NATFEL = re.compile(r'ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket hang up|fetch failed|network|tidsgränsen', re.I)
+NATFEL = re.compile(r'ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket hang up|fetch failed|network|tidsgränsen|\b50[234]\b|Bad Gateway|'
+                    r'Service Unavailable|Gateway Time-?out|timed out', re.I)
 
 
 def _kvitton(slug, slag='PREVIEW'):
@@ -665,7 +667,7 @@ def osakert_forsok(slug, slag='PREVIEW'):
     return oklar
 
 
-def wrangler_deployments(underlag, konto, tmp):
+def wrangler_deployments(underlag, konto, tmp, miljo='forhandsvisning'):
     """Förhandsvisningens versioner och deployments ur Cloudflare (läsande): {'versioner', 'deployments'}. Meddelandet ur
     wrangler deploy --message ligger på versionen; deploymenten visar vilka versioner som är driftsatta."""
     r = kommando(['npm', 'ci', '--no-audit', '--no-fund', '--ignore-scripts'], underlag, frist=900,
@@ -674,7 +676,7 @@ def wrangler_deployments(underlag, konto, tmp):
         raise RuntimeError('npm ci föll')
     ut = {}
     for namn, kmd in (('versioner', 'versions'), ('deployments', 'deployments')):
-        res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), kmd, 'list', '--env', 'forhandsvisning', '--json'],
+        res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), kmd, 'list', *(['--env', miljo] if miljo else []), '--json'],
                        underlag, frist=120, env=cloudflare_miljo(konto, tmp))
         if res.returncode:
             raise RuntimeError('wrangler %s list: %s' % (kmd, (res.stderr or res.stdout)[-200:]))
@@ -683,17 +685,20 @@ def wrangler_deployments(underlag, konto, tmp):
     return ut
 
 
-def avstam(slug, lista=None, skydd=None):
-    """Stämmer av ett försök med okänt utfall mot Cloudflares lista över deployments (läsande). Hittas en deployment
-    med försökets commit och export blir den kvittot; annars är det säkert att försöka igen. Ger det nya kvittot."""
+def avstam(slug, lista=None, skydd=None, slag=None):
+    """Stämmer av ett försök med okänt utfall mot Cloudflares lista över deployments (läsande): en release (slag RELEASE,
+    produktionens Worker) före en förhandsvisning. Hittas en deployment med försökets commit och export blir den kvittot;
+    annars är det säkert att försöka igen. Ger det nya kvittot."""
     import exportera
     import flodesstart
     import korregister
     with flodesstart.las(_root(), slug, arv=True):
-        fore = osakert_forsok(slug)
+        slag = slag or ('RELEASE' if osakert_forsok(slug, 'RELEASE') else 'PREVIEW')
+        produktion = slag == 'RELEASE'
+        fore = osakert_forsok(slug, slag)
         tid = nu()
-        post = {'schema': 2, 'id': 'PREVIEW-%s-%s' % (tid.replace(':', '').replace('-', ''), os.urandom(2).hex()), 'typ': 'avstämning',
-                'plattform': 'cloudflare-workers', 'slug': slug, 'tid': tid, 'produktion': False, 'status': 'fel', 'hinder': [],
+        post = {'schema': 2, 'id': '%s-%s-%s' % (slag, tid.replace(':', '').replace('-', ''), os.urandom(2).hex()), 'typ': 'avstämning',
+                'plattform': 'cloudflare-workers', 'slug': slug, 'tid': tid, 'produktion': produktion, 'status': 'fel', 'hinder': [],
                 'url': None, 'commit': None, 'export': None, 'version_id': None, 'skydd': None, 'konto': None,
                 'avstammer': fore['id'] if fore else None}
         if not fore:
@@ -709,7 +714,7 @@ def avstam(slug, lista=None, skydd=None):
                 tmp = korregister.egen_tmp('nwp-preview-', 'förhandsvisningens avstämning')
                 if lista is None:
                     underlag = fryst_underlag(repo(slug), fore['commit'], tmp)
-                    deps = wrangler_deployments(underlag, konto, tmp)
+                    deps = wrangler_deployments(underlag, konto, tmp, miljo=None if produktion else 'forhandsvisning')
                 else:
                     deps = lista(konto, tmp)
                 markor = 'nortropic_commit=%s nortropic_export=%s' % (fore['commit'], fore['export'])
@@ -723,6 +728,9 @@ def avstam(slug, lista=None, skydd=None):
                     post['status'] = 'avstamd_ingen'
                     post['text_avstamning'] = ('ingen version med försökets commit och export' if hittad is None else
                                                'versionen %s finns men är inte driftsatt' % hittad.get('id')) + ': ett nytt försök är säkert'
+                elif produktion:  # produktionen är publik: deploymenten är kvittot
+                    post['version_id'] = hittad.get('id')
+                    post['status'] = 'klar'
                 else:
                     post['version_id'] = hittad.get('id')
                     ok, obs = (skydd or access_skyddar)(post['url'])
@@ -780,17 +788,26 @@ def mandatfil(slug):
     return leveransdir(slug) / 'RELEASEMANDAT.json'
 
 
-def releasemandat(slug, kalla):
+MANDATTID = 15 * 60  # sekunder: ett klick i Byggflöde gäller en start, strax efter klicket
+
+
+def releasemandat(slug, kalla, commit, export, start_id):
     """Ägarens mandat för en release: skrivs av dashboardens skrivande väg när ägaren klickar på releasen i Byggflöde
-    (kalla 'dashboard'), bundet till förhandsvisningens commit, export och kvitto. En session skriver det aldrig."""
+    (kalla 'dashboard'), bundet till den commit och export som ägaren såg vid knappen, till förhandsvisningens kvitto,
+    till klickets start-id och till en kort giltighetstid. En session skriver det aldrig."""
     if kalla != 'dashboard':
         raise ValueError('mandatet för en release är ägarens klick i dashboarden')
+    if not isinstance(start_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,80}', start_id):
+        raise ValueError('mandatet binds till klickets start-id')
     hinder = preview_krav(slug) or release_krav(slug)
     if hinder:
         raise ValueError('ingen release: ' + hinder)
     pv = preview_aktuell(slug)
-    post = {'schema': 1, 'typ': 'releasemandat', 'slug': slug, 'tid': nu(), 'kalla': kalla, 'commit': pv['commit'],
-            'export': pv['export'], 'forhandsvisning': pv['id'], 'forhandsvisning_version': pv.get('version_id')}
+    if (commit, export) != (pv['commit'], pv['export']):
+        raise ValueError('förhandsvisningen har ändrats sedan du såg den: läs läget igen')
+    post = {'schema': 2, 'typ': 'releasemandat', 'slug': slug, 'tid': nu(), 'kalla': kalla, 'commit': pv['commit'],
+            'export': pv['export'], 'forhandsvisning': pv['id'], 'forhandsvisning_version': pv.get('version_id'),
+            'start_id': start_id, 'giltig_till': int(time.time()) + MANDATTID}
     leveransdir(slug).mkdir(parents=True, exist_ok=True)
     atelje.skriv_json_atomiskt(mandatfil(slug), post)
     return post
@@ -824,15 +841,17 @@ def _release(slug, deploy):
             m = json.loads(mandatfil(slug).read_text(encoding='utf-8'))
         except (OSError, ValueError):
             m = None
-        if (not m or m.get('kalla') != 'dashboard' or m.get('anvant_av')
-                or (m.get('commit'), m.get('export')) != (post['commit'], post['export'])):
-            post['hinder'].append('inget mandat från ägaren för den här commiten och exporten: releasen startas av ägarens klick i Byggflöde')
+        if (not m or m.get('kalla') != 'dashboard' or m.get('anvant_av') or m.get('slug') != slug
+                or (m.get('commit'), m.get('export')) != (post['commit'], post['export'])
+                or not m.get('start_id') or m.get('start_id') != os.environ.get('NWP_FLODE_START_ID')
+                or not isinstance(m.get('giltig_till'), int) or m['giltig_till'] < time.time()):
+            post['hinder'].append('inget giltigt mandat från ägaren för den här commiten, exporten och starten: releasen startas av ägarens klick i Byggflöde')
             post['status'] = 'vantar_pa_mandat'
         else:
-            post['mandat'] = {k: m.get(k) for k in ('tid', 'kalla', 'forhandsvisning')}
+            post['mandat'] = {k: m.get(k) for k in ('tid', 'kalla', 'forhandsvisning', 'start_id')}
     oklar = osakert_forsok(slug, 'RELEASE') if not post['hinder'] else None
     if oklar:
-        post['hinder'].append('en tidigare release (%s) har okänt utfall: stäm av i Cloudflare (wrangler deployments list) innan ett nytt försök' % oklar['id'])
+        post['hinder'].append('en tidigare release (%s) har okänt utfall: stäm av med kundrepo.py %s --stam-av innan ett nytt försök' % (oklar['id'], slug))
         post['status'] = 'vantar_pa_avstamning'
     konto = None
     if not post['hinder']:
@@ -851,6 +870,11 @@ def _release(slug, deploy):
             except (RuntimeError, OSError, ValueError) as e_:
                 post['hinder'].append('det frysta underlaget kunde inte skapas: %s' % str(e_)[:200])
     if konto and underlag is not None and not post['hinder']:
+        # mandatet gäller en release: det förbrukas före driftsättningen, och kvittot säger okänt utfall tills svaret finns
+        atelje.skriv_json_atomiskt(mandatfil(slug), dict(m, anvant_av=post['id']))
+        d = leveransdir(slug)
+        d.mkdir(parents=True, exist_ok=True)
+        atelje.skriv_json_atomiskt(d / (post['id'] + '.json'), dict(post, status='osaker', hinder=['releasen pågår eller avbröts']))
         try:
             rc, ut, steg = (tuple(deploy(underlag, konto, post, tmp)) + ('uppladdning',))[:3]
         except (OSError, subprocess.SubprocessError) as e_:
@@ -859,13 +883,11 @@ def _release(slug, deploy):
         post['version_id'] = m_.group(1) if m_ else None
         if steg == 'uppladdning' and (rc == 124 or (rc and not post['version_id'] and NATFEL.search(ut or ''))):
             post['status'] = 'osaker'
-            post['hinder'].append('utfallet är okänt: stäm av i Cloudflare (wrangler deployments list) innan ett nytt försök')
+            post['hinder'].append('utfallet är okänt: stäm av med kundrepo.py %s --stam-av innan ett nytt försök' % slug)
         elif rc or not post['version_id']:
             post['hinder'].append('wrangler deploy: %s' % ((ut or '')[-300:].strip() or 'inget versions-id i svaret'))
         else:
             post['status'] = 'klar'
-            # mandatet gäller en release: nästa kräver ett nytt klick
-            atelje.skriv_json_atomiskt(mandatfil(slug), dict(m, anvant_av=post['id']))
             post['kontroll'] = ('pröva domänen: .venv/bin/python kontroller/driftkoll.py https://<kundens domän> --lage produktion '
                                 '--formular; återgång: wrangler rollback <föregående version> i kundrepot (rör inte data eller DNS)')
     if tmp:

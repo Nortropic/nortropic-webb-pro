@@ -142,6 +142,7 @@ def handlingar(slug):
     """Nästa uttryckliga handling; läsning får aldrig starta ett arbete eller spara en dom."""
     import flodesstart
     if flodesstart.pagande(slug):return [{'id':'stoppa-overgang','text':HANDLINGAR['stoppa-overgang']}]
+    bindning = {}
     st = atelje.las_json(atelje.UNDERLAG / slug / 'atelje/STATUS.json') or {}
     if st.get('pid') and atelje.lever(st['pid']) and st.get('steg') not in atelje.AVSLUTADE + ('fel',):
         val = ['stoppa']
@@ -163,13 +164,19 @@ def handlingar(slug):
             val.append('exportera')
             import kundrepo
             if kundrepo.preview_mojlig(slug):val.append('preview')  # exportens commit är kundrepots HEAD (kundrepo.py)
-            if kundrepo.release_mojlig(slug):val.append('release')  # aktuell förhandsvisning, verklig verksamhet, driftvärden
+            if kundrepo.release_mojlig(slug):
+                val.append('release')  # aktuell förhandsvisning, verklig verksamhet, driftvärden
+                pv=kundrepo.preview_aktuell(slug)
+                bindning['release']={'commit':pv['commit'],'export':pv['export']}  # mandatet binds till det knappen visar
         try:
             import aktivera
-            if aktivera.torr(slug)['kan_koras']:val.append('aktivera')  # torrkörningen har steg att göra och inget saknas
+            t=aktivera.torr(slug)
+            if t['kan_koras']:
+                val.append('aktivera')  # torrkörningen har steg att göra och inget saknas
+                bindning['aktivera']={'plan_sha256':t['plan_sha256']}
         except (OSError,ValueError,KeyError):
             pass
-    ut=[{'id': n, 'text': HANDLINGAR[n]} for n in val]
+    ut=[dict({'id': n, 'text': HANDLINGAR[n]}, **({'bindning': bindning[n]} if n in bindning else {})) for n in val]
     for h in ut:  # benämningen är det som faktiskt startas (ägarens uppdrag 2026-10-09, punkt 8)
         if h['id'] == 'valda':
             h['text'] = valda_text(slug)

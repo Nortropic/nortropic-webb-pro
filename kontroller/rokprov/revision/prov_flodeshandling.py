@@ -261,6 +261,37 @@ class Flodeshandling(unittest.TestCase):
         self.assertIn('#nyckel=$NYCKEL', (rot / 'dashboard.sh').read_text(encoding='utf-8'))
         self.assertEqual(len([l for l in html.splitlines() if "method: 'POST'" in l]), 1, 'ett enda POST-anrop i sidan, med nyckeln')
 
+    def test_mandatet_binds_till_det_knappen_visade(self):
+        # releasen och aktiveringen: dashboarden skriver ägarens mandat med det som knappen visade (commit och export, den
+        # torrkörda planen) och klickets start-id, aldrig det som råkar gälla när begäran kommer fram
+        import aktivera
+        import kundrepo
+        srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
+        self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        host = '127.0.0.1:%d' % srv.server_port
+        self.stack.enter_context(patch.dict(dash.VARD, {'tillatna': {host}}))
+        self.stack.enter_context(patch.dict(dash.NYCKEL, {'varde': 'provnyckel-0123456789'}))
+        def anrop(data):
+            c = http.client.HTTPConnection('127.0.0.1', srv.server_port, timeout=4)
+            try:
+                c.request('POST', '/api/flode/' + self.slug + '/start', json.dumps(data), {'Origin': 'http://' + host, 'X-Nyckel': 'provnyckel-0123456789'})
+                r = c.getresponse(); return r.status, json.loads(r.read().decode())
+            finally:
+                c.close()
+        with patch.object(prototyp, 'fran_dashboard', return_value=0), patch.object(aktivera, 'aktiveringsmandat') as am, \
+                patch.object(kundrepo, 'releasemandat') as rm:
+            anrop({'handling': 'aktivera', 'start_id': 'prov-akt-00000001', 'bindning': {'plan_sha256': 'a' * 64}})
+            am.assert_called_once_with(self.slug, 'dashboard', 'a' * 64, 'prov-akt-00000001')
+            anrop({'handling': 'release', 'start_id': 'prov-rel-00000001', 'bindning': {'commit': 'c' * 40, 'export': 'EXPORT-1'}})
+            rm.assert_called_once_with(self.slug, 'dashboard', 'c' * 40, 'EXPORT-1', 'prov-rel-00000001')
+            am.reset_mock()
+            anrop({'handling': 'aktivera', 'start_id': 'prov-akt-00000002'})
+            am.assert_called_once_with(self.slug, 'dashboard', None, 'prov-akt-00000002')  # utan det knappen visade: inget mandat
+        js = (Path(__file__).resolve().parents[3] / 'dashboard' / 'arbetsyta.js').read_text(encoding='utf-8')
+        block = js[js.index('async function handling(id, bekraftad)'):js.index('// --- byggflödet ---')]
+        self.assertIn('.bindning', block); self.assertIn('{ bindning }', block)
+
     def test_http_start_delar_cli_och_upprepat_id_startar_inte_igen(self):
         srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
         self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)

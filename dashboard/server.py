@@ -3311,20 +3311,21 @@ class H(BaseHTTPRequestHandler):
                 slug = m.group(1)
                 if data.get('handling') not in ('stoppa','stoppa-overgang') and ab_oavgjord(slug):
                     raise ValueError('en blind jämförelse pågår; inga steg startas från flödesvyn')
+                bindning = data.get('bindning') if isinstance(data.get('bindning'), dict) else {}
                 if data.get('handling') == 'release':
-                    # ägarens klick i Byggflöde är releasens mandat, bundet till förhandsvisningens commit och export
+                    # ägarens klick i Byggflöde är releasens mandat, bundet till den commit och export som knappen visade
                     import atelje as atelje_rel
                     import kundrepo as kundrepo_rel
                     sf_rel = atelje_rel.startfil(UNDERLAG / slug / 'atelje', str(data.get('start_id')))
                     if not (sf_rel and sf_rel.is_file()):
-                        kundrepo_rel.releasemandat(slug, 'dashboard')
+                        kundrepo_rel.releasemandat(slug, 'dashboard', bindning.get('commit'), bindning.get('export'), str(data.get('start_id')))
                 if data.get('handling') == 'aktivera':
-                    # ägarens klick i Byggflöde är aktiveringens mandat, bundet till torrkörningens plan just nu
+                    # ägarens klick i Byggflöde är aktiveringens mandat, bundet till den torrkörda plan som knappen visade
                     import atelje as atelje_akt
                     import aktivera as aktivera_akt
                     sf_akt = atelje_akt.startfil(UNDERLAG / slug / 'atelje', str(data.get('start_id')))
                     if not (sf_akt and sf_akt.is_file()):
-                        aktivera_akt.aktiveringsmandat(slug, 'dashboard', aktivera_akt.torr(slug)['plan_sha256'])
+                        aktivera_akt.aktiveringsmandat(slug, 'dashboard', bindning.get('plan_sha256'), str(data.get('start_id')))
                 rc = prototyp_kor.fran_dashboard(slug, data.get('handling'), data.get('start_id'))
                 import atelje
                 avslutad = False

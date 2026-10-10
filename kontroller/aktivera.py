@@ -31,6 +31,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import atelje  # noqa: E402
@@ -39,8 +40,9 @@ import nyckelintag  # noqa: E402
 
 ROUTINGDOMAN = 'notis.nortropic.se'  # Nortropics routing-domän för formulärets avsändare (K04, BESLUT.md 2026-10-10)
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
-NATFEL = re.compile(r'ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket hang up|fetch failed|network|tidsgränsen', re.I)
+NATFEL = kundrepo.NATFEL
 FRIST = 300
+MANDATTID = 15 * 60  # sekunder: ett klick i Byggflöde gäller en start, strax efter klicket
 
 
 class Fel(ValueError):
@@ -60,20 +62,33 @@ def mandatfil(slug):
     return kundrepo.leveransdir(slug) / 'AKTIVERINGSMANDAT.json'
 
 
-def valda_paket(slug):
-    """Paketen i omfattningen ur kundens Kundstart-plan (kundval och grund), eller None utan ärende. Läser bara: ett
-    ärendelager som inte finns skapas inte."""
-    fil = atelje.UNDERLAG / 'kundstart' / 'arenden.sqlite3'
-    if not fil.is_file():
-        return None
-    import kundstart as ks
+def _kundstart_plan(slug):
+    """Kundens Kundstart-plan, läst ur ärendelagret i läsläge (inget skapas, inget låses), eller None utan ärende."""
+    import sqlite3
     import kundstart_integration as ki
-    lager = ks.Lager(atelje.UNDERLAG / 'kundstart')
-    with lager.trans() as c:
-        r = c.execute('SELECT id FROM arenden WHERE slug = ?', (slug,)).fetchone()
-    if not r:
+    fil = atelje.UNDERLAG / 'kundstart' / 'arenden.sqlite3'
+    if not fil.is_file() or fil.is_symlink():
         return None
-    return sorted({x['paket'] for x in ki.plan(lager.internt(r[0]))['omfattning']})
+    c = sqlite3.connect('file:%s?mode=ro' % fil.as_posix(), uri=True, timeout=2)
+    try:
+        r = c.execute('SELECT dokument FROM arenden WHERE slug = ?', (slug,)).fetchone()
+    finally:
+        c.close()
+    return ki.plan(json.loads(r[0])) if r else None
+
+
+def valda_paket(slug):
+    """Paketen i omfattningen ur kundens Kundstart-plan (kundval och grund), eller None utan ärende."""
+    pl = _kundstart_plan(slug)
+    return None if pl is None else sorted({x['paket'] for x in pl['omfattning']})
+
+
+def planens_hinder(slug):
+    """Kundstart-planens hinder (till exempel ett val utan accepterat erbjudande); en aktivering väntar på dem."""
+    pl = _kundstart_plan(slug)
+    if pl is None:
+        return []
+    return list(pl['hinder']) + ['ett val är inaktuellt: %s' % x['skal'] for x in pl.get('inaktuella_val') or []]
 
 
 def _sha(obj):
@@ -96,18 +111,35 @@ def senaste_steg(slug):
     ut = {}
     for k in kvitton(slug):
         for s in k.get('steg') or []:
-            if s.get('status') in ('klar', 'fel', 'osaker', 'avstamd_ingen'):
-                ut[s['id']] = {'status': s['status'], 'tid': s.get('klar_tid') or k.get('tid'), 'detalj': s.get('detalj')}
+            if s.get('status') in ('klar', 'fel', 'osaker', 'avstamd_ingen', 'pagar'):
+                ut[s['id']] = {'status': 'osaker' if s['status'] == 'pagar' else s['status'], 'tid': s.get('klar_tid') or k.get('tid'),
+                               'detalj': s.get('detalj')}
     return ut
+
+
+def hemlighet_kan_finnas(slug, sid):
+    """Om Workern kan ha hemligheten: en put som lyckades eller har okänt utfall, efter den senaste bekräftade
+    borttagningen. Ett misslyckat försök ändrar inget; en avstämning som visar borttagningen räknas som en."""
+    finns = False
+    for k in kvitton(slug):
+        for s in k.get('steg') or []:
+            if s.get('id') != sid:
+                continue
+            if s.get('detalj') == 'borttagen':
+                if s.get('status') == 'klar':
+                    finns = False
+            elif s.get('status') in ('klar', 'osaker', 'pagar', 'avstamd_ingen'):
+                finns = True
+    return finns
 
 
 def osaker(slug):
     """Det senaste kvittot om det har ett okänt utfall som inte stämts av, annars None."""
     oklar = None
     for k in kvitton(slug):
-        if k.get('status') == 'osaker':
+        if k.get('typ') == 'aktivering' and k.get('status') == 'osaker':
             oklar = k
-        elif oklar and k.get('avstammer') == oklar.get('id'):
+        elif oklar and k.get('typ') == 'avstämning' and k.get('avstammer') == oklar.get('id') and k.get('status') == 'klar':
             oklar = None
     return oklar
 
@@ -140,7 +172,6 @@ def torr(slug, valda=None):
     """Torrkörningen: stegen med status klar, gors, saknas eller vantar, och vad som saknas. Inga sidoeffekter, inget nät."""
     import exportera
     n = namn(slug)
-    valda = valda_paket(slug) if valda is None else valda
     intag = nyckelintag.status(slug)
     befintliga = _las_json(driftfil(slug)) or {}
     gjort = senaste_steg(slug)
@@ -150,6 +181,12 @@ def torr(slug, valda=None):
     def lagg(sid, text, status, extern, kommando=None, varfor=None):
         steg.append({'id': sid, 'text': text, 'status': status, 'extern': extern, 'kommando': kommando, 'varfor': varfor})
 
+    import sqlite3
+    try:
+        hinder = planens_hinder(slug)
+        valda = valda_paket(slug) if valda is None else valda
+    except (sqlite3.Error, ValueError) as e_:
+        hinder, valda = ['Kundstart-ärendet kunde inte läsas (%s): torrkör igen' % type(e_).__name__], valda
     lagg('konto', 'Nortropics Cloudflare-konto', 'klar' if konto else 'saknas', False, varfor=konto_hinder)
     if befintliga.get('database_id'):
         lagg('d1', 'D1 %s med EU-jurisdiktion' % n['d1'], 'klar', True, varfor='database_id finns i CLOUDFLARE.json')
@@ -158,7 +195,7 @@ def torr(slug, valda=None):
     lagg('r2', 'R2 %s med EU-jurisdiktion' % n['r2'], 'klar' if (gjort.get('r2') or {}).get('status') == 'klar' else 'gors', True,
          'wrangler r2 bucket create %s --jurisdiction eu (om den saknas)' % n['r2'])
     onskade, saknas = onskade_driftvarden(slug, valda, intag, befintliga)
-    lika = all(befintliga.get(k) == v for k, v in onskade.items())
+    lika = befintliga == onskade  # exakt: ett värde för ett paket som inte längre är valt tas bort
     if saknas:
         lagg('driftvarden', 'Driftvärdena i CLOUDFLARE.json', 'saknas', False, varfor='saknas: ' + '; '.join(saknas))
     else:
@@ -169,12 +206,12 @@ def torr(slug, valda=None):
         e = exportera.aktuell(slug)
     except (OSError, ValueError):
         e = None
-    konfig = ''
-    try:
+    try:  # kundrepots wrangler.jsonc ska vara exakt mallens med de önskade driftvärdena, inga kvarlämnade
         konfig = (kundrepo.repo(slug) / 'wrangler.jsonc').read_text(encoding='utf-8')
-    except OSError:
-        pass
-    i_export = bool(e and e.get('aktuell')) and all(str(v) in konfig for v in onskade.values()) and 'AKTIVERAS-VID-LANSERING' not in konfig
+        vantad = exportera.wrangler_namn((exportera.LEVERANS / 'wrangler.jsonc').read_text(encoding='utf-8'), slug, onskade)
+    except (OSError, RuntimeError):
+        konfig, vantad = '', None
+    i_export = bool(e and e.get('aktuell')) and konfig == vantad and 'AKTIVERAS-VID-LANSERING' not in konfig
     lagg('export', 'Ny export med driftvärdena', 'klar' if i_export and steg[-1]['status'] == 'klar' else 'gors', False,
          'exportera.py %s --git' % slug)
     migreringar = sorted(f.name for f in (atelje.ROOT / 'mall' / 'leverans' / 'migrations').glob('*.sql'))
@@ -183,15 +220,20 @@ def torr(slug, valda=None):
          True, 'wrangler d1 migrations apply DB --remote')
     releasad = any(k.get('status') == 'klar' for k in kundrepo._kvitton(slug, 'RELEASE'))
     for lev, info in nyckelintag.LEVERANTORER.items():
-        if not info['hemlighet'] or info['paket'] not in (valda or []):
+        if not info['hemlighet']:
             continue
         sid = 'hemlighet:%s' % info['hemlighet']
         s = intag[lev]
         tidigare = gjort.get(sid) or {}
-        if s.get('aterkallad'):
-            status = 'klar' if tidigare.get('detalj') == 'borttagen' else 'gors'
-            lagg(sid, 'Ta bort %s ur Workern (återkallad)' % info['hemlighet'], status if releasad else 'vantar', True,
-                 'wrangler secret delete %s --name %s' % (info['hemlighet'], n['worker']))
+        vald = info['paket'] in (valda or [])
+        kan_finnas = hemlighet_kan_finnas(slug, sid)
+        if not vald and not kan_finnas:
+            continue
+        if not vald or s.get('aterkallad'):
+            # återkallad, eller paketet är inte längre valt: hemligheten tas bort ur Workern; klar först när en borttagning lyckats
+            lagg(sid, 'Ta bort %s ur Workern (%s)' % (info['hemlighet'], 'återkallad' if s.get('aterkallad') else 'paketet är inte valt'),
+                 'gors' if kan_finnas else 'klar', True, 'wrangler secret delete %s --name %s' % (info['hemlighet'], n['worker']),
+                 varfor=None if kan_finnas else 'ingen hemlighet i Workern')
         elif not s.get('nyckel'):
             lagg(sid, 'Nyckeln %s i Workern' % info['hemlighet'], 'saknas', True, varfor='nyckeln saknas i nyckelintaget (%s)' % info['namn'])
         elif not releasad:
@@ -201,7 +243,6 @@ def torr(slug, valda=None):
             status = 'klar' if tidigare.get('status') == 'klar' and tidigare.get('detalj') == 'version %s' % s.get('version') else 'gors'
             lagg(sid, 'Nyckeln %s i Workern (version %s)' % (info['hemlighet'], s.get('version')), status, True,
                  'wrangler secret put %s --name %s' % (info['hemlighet'], n['worker']))
-    hinder = []
     if kundrepo.fiktiv(slug):
         hinder.append('en fiktiv verksamhet torrkörs men aktiveras aldrig')
     if valda is None:
@@ -217,17 +258,21 @@ def torr(slug, valda=None):
             'kan_koras': not hinder and not saknade and bool(att_gora), 'plan_sha256': _sha(plan)}
 
 
-def aktiveringsmandat(slug, kalla, plan_sha256):
-    """Ägarens mandat för en aktivering, skrivet av dashboardens skrivande väg vid klicket i Byggflöde och bundet till
-    torrkörningens plan_sha256. En session skriver det aldrig."""
+def aktiveringsmandat(slug, kalla, plan_sha256, start_id):
+    """Ägarens mandat för en aktivering, skrivet av dashboardens skrivande väg vid klicket i Byggflöde: bundet till den
+    plan_sha256 som ägaren såg vid knappen, till klickets start-id och till en kort giltighetstid. En session skriver
+    det aldrig."""
     if kalla != 'dashboard':
         raise Fel('mandatet för en aktivering är ägarens klick i dashboarden')
+    if not isinstance(start_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,80}', start_id):
+        raise Fel('mandatet binds till klickets start-id')
     t = torr(slug)
     if not t['kan_koras']:
         raise Fel('ingen aktivering: ' + '; '.join(t['hinder'] + t['saknas'] or ['inget att göra']))
     if t['plan_sha256'] != plan_sha256:
         raise Fel('planen har ändrats sedan du såg den: läs torrkörningen igen')
-    post = {'schema': 1, 'typ': 'aktiveringsmandat', 'slug': slug, 'tid': kundrepo.nu(), 'kalla': kalla, 'plan_sha256': plan_sha256}
+    post = {'schema': 2, 'typ': 'aktiveringsmandat', 'slug': slug, 'tid': kundrepo.nu(), 'kalla': kalla, 'plan_sha256': plan_sha256,
+            'start_id': start_id, 'giltig_till': int(time.time()) + MANDATTID}
     kundrepo.leveransdir(slug).mkdir(parents=True, exist_ok=True)
     atelje.skriv_json_atomiskt(mandatfil(slug), post)
     return post
@@ -298,8 +343,10 @@ def kor(slug, wrangler=None, exportera_fn=None):
             post['status'] = 'vantar_pa_avstamning' if osaker(slug) else 'hinder'
         elif not t['att_gora']:
             post['status'] = 'inget_att_gora'
-        elif not m or m.get('kalla') != 'dashboard' or m.get('anvant_av') or m.get('slug') != slug or m.get('plan_sha256') != t['plan_sha256']:
-            post['hinder'].append('inget mandat från ägaren för den här planen: aktiveringen startas av ägarens klick i Byggflöde')
+        elif (not m or m.get('kalla') != 'dashboard' or m.get('anvant_av') or m.get('slug') != slug or m.get('plan_sha256') != t['plan_sha256']
+              or not m.get('start_id') or m.get('start_id') != os.environ.get('NWP_FLODE_START_ID')
+              or not isinstance(m.get('giltig_till'), int) or m['giltig_till'] < time.time()):
+            post['hinder'].append('inget giltigt mandat från ägaren för den här planen och starten: aktiveringen startas av ägarens klick i Byggflöde')
             post['status'] = 'vantar_pa_mandat'
         if post['hinder'] or post['status'] == 'inget_att_gora':
             post['text'] = 'ingen aktivering: ' + ('; '.join(post['hinder']) or 'inget att göra')
@@ -307,7 +354,7 @@ def kor(slug, wrangler=None, exportera_fn=None):
             return post
         # mandatet gäller en körning: det förbrukas före första operationen, så att en ny start aldrig återanvänder det
         atelje.skriv_json_atomiskt(mandatfil(slug), dict(m, anvant_av=post['id']))
-        post['mandat'] = {k: m.get(k) for k in ('tid', 'kalla', 'plan_sha256')}
+        post['mandat'] = {k: m.get(k) for k in ('tid', 'kalla', 'plan_sha256', 'start_id')}
         konto, hinder = kundrepo.cloudflare_konto()
         post['konto'] = konto['konto'] if konto else None
         n = namn(slug)
@@ -320,6 +367,7 @@ def kor(slug, wrangler=None, exportera_fn=None):
                     continue
                 rad = {'id': s['id'], 'status': 'pagar', 'avsikt_tid': kundrepo.nu(), 'klar_tid': None, 'detalj': None, 'fel': None}
                 post['steg'].append(rad)
+                post['status'] = 'osaker'  # avbryts processen under operationen är utfallet okänt och stäms av först
                 spara()  # avsikten före operationen
                 if s['id'] == 'd1':
                     rc, ut = w(['d1', 'list', '--json'])
@@ -404,8 +452,11 @@ def kor(slug, wrangler=None, exportera_fn=None):
 
 
 def _exportera(slug):
+    """Exporten under kundens lås, som kor redan håller (exportera.exportera skulle ta det en gång till)."""
     import exportera
-    return exportera.exportera(slug, git=True)
+    import flodesstart
+    flodesstart.atelje_ledig(atelje.ROOT, slug)
+    return exportera._exportera(slug, git=True)
 
 
 def stam_av(slug, wrangler=None):
@@ -427,24 +478,30 @@ def stam_av(slug, wrangler=None):
                 raise RuntimeError(hinder)
             w = wrangler(slug, konto, tmp) if wrangler else standard_wrangler(slug, konto, tmp)
             for s in fore.get('steg') or []:
-                if s.get('status') != 'osaker':
+                if s.get('status') not in ('osaker', 'pagar'):
                     continue
                 rad = {'id': s['id'], 'status': 'fel', 'klar_tid': kundrepo.nu(), 'detalj': None}
                 if s['id'] == 'd1':
                     rc, ut = w(['d1', 'list', '--json'])
-                    uuid = _d1_id(ut, n['d1']) if rc == 0 else None
+                    if rc:
+                        raise RuntimeError('wrangler d1 list föll')
+                    uuid = _d1_id(ut, n['d1'])
                     rad.update(status='klar' if uuid else 'avstamd_ingen', detalj=uuid)
                 elif s['id'] == 'r2':
                     rc, ut = w(['r2', 'bucket', 'list', '--jurisdiction', 'eu'])
-                    finns = rc == 0 and re.search(r'(^|\s|")%s("|\s|$)' % re.escape(n['r2']), ut or '', re.M)
+                    if rc:
+                        raise RuntimeError('wrangler r2 bucket list föll')
+                    finns = re.search(r'(^|\s|")%s("|\s|$)' % re.escape(n['r2']), ut or '', re.M)
                     rad['status'] = 'klar' if finns else 'avstamd_ingen'
-                elif s['id'].startswith('hemlighet:'):
+                elif s['id'].startswith('hemlighet:') and s.get('detalj') == 'borttagen':
                     rc, ut = w(['secret', 'list', '--name', n['worker']])
                     if rc:
                         raise RuntimeError('wrangler secret list föll')
                     finns = re.search(r'\b%s\b' % re.escape(s['id'].split(':', 1)[1]), ut or '') is not None
-                    gjord = (not finns) if s.get('detalj') == 'borttagen' else finns  # borttagning är gjord när hemligheten saknas
-                    rad.update(status='klar' if gjord else 'avstamd_ingen', detalj=s.get('detalj'))
+                    rad.update(status='avstamd_ingen' if finns else 'klar', detalj='borttagen')  # gjord när hemligheten saknas
+                elif s['id'].startswith('hemlighet:'):
+                    # listan visar namnet, inte versionen: en äldre nyckel kan finnas kvar, så nyckeln skickas om (put är idempotent)
+                    rad.update(status='avstamd_ingen', detalj=s.get('detalj'))
                 else:  # migreringar och lokala steg: ett nytt försök är säkert (migreringarna är idempotenta per fil)
                     rad['status'] = 'avstamd_ingen'
                 post['steg'].append(rad)

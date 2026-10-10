@@ -4,8 +4,9 @@ fullständigt torrkörd aktivering för en fiktiv kund, med ett riktigt Kundstar
 planen (katalogens människors handlingar, planens hinder och saknade beroenden) med ansvarig, skäl och vad som kan
 fortsätta; en post blir klar bara med belägg (nyckelintaget, uppgifter, kontot, ägarens intyg med referens, aldrig ett
 kryss); kundens ändrade behov gör posterna inaktuella; kundens vy har kön utan beläggens detaljer och utan ägarens
-handlingar; kundens nyckel kräver kundens beslutsfattare och syns aldrig i svar, ärende eller kön; och aktiveringens
-torrkörning för den fiktiva kunden listar varje steg utan att något saknas och utan sidoeffekter."""
+planposter; kundens nyckel kräver kundens beslutsfattare och syns aldrig i svar, ärende eller kön; och den fiktiva kunden
+går från val via accepterat erbjudande till en torrkörning som listar varje steg utan att något saknas och utan
+sidoeffekter (planens hinder stoppar aktiveringen tills erbjudandet är accepterat)."""
 import contextlib
 import json
 import os
@@ -109,6 +110,10 @@ class Handlingsko(unittest.TestCase):
         d = self.db.las(self.e, self.token)
         kv = d['handlingsko']
         self.assertTrue(kv['poster'])
+        plan = [p['id'] for p in self.ko()['poster'] if p['paket'] == 'plan']
+        self.assertTrue(plan, 'ägarvyn har planens poster')
+        self.assertFalse(set(plan) & {p['id'] for p in kv['poster']}, 'kundens vy har inte ägarens interna planposter')
+        self.assertEqual(kv['sammanfattning']['vantar'], sum(1 for p in kv['poster'] if p['status'] == 'vantar'))
         self.assertTrue(all(set(p) == {'id', 'handling', 'ansvarig', 'ansvarig_text', 'skal', 'under_vantan', 'status', 'nyckel'} for p in kv['poster']))
         self.assertEqual(next(p['nyckel'] for p in kv['poster'] if p['handling'].startswith('Lämna Brevo-nyckeln')), 'brevo')
         svar = self.gor('nyckel', {'leverantor': 'brevo', 'nyckel': NYCKEL, 'falt': {'lista': '12', 'mall': '7'}})
@@ -127,6 +132,15 @@ class Handlingsko(unittest.TestCase):
         self.assertIsNone(ni.las_for_aktivering(SLUG, 'brevo'))
 
     def test_fiktiv_kund_fran_val_till_torrkord_aktivering(self):
+        self.assertIn('kundens val ingår, men inget accepterat erbjudande gäller den aktuella omfattningen', aktivera.torr(SLUG)['hinder'],
+                      'planens hinder stoppar aktiveringen')
+        # kunden skickar uppdraget, ägaren ger ett erbjudande och kundens beslutsfattare accepterar det
+        self.gor('uppgift', {'id': 'mal', 'amne': 'A', 'text': 'Besökare ska kunna anmäla sig till nyhetsbrevet.'})
+        self.gor('bekrafta', {'ids': ['mal']})
+        d = self.gor('forfragan', {})
+        erb = self.db.erbjudande(self.e, d['revision'], 'Syntetisk omfattning.', 'Syntetiska villkor.', 'Provägare')
+        self.gor('acceptera', {'erbjudande': erb['id']})
+        self.assertFalse(any(p['paket'] == 'plan' for p in self.ko()['poster']), 'planen har inga hinder kvar')
         self.konto.write_text('CLOUDFLARE_API_TOKEN=SYNTETISK\nCLOUDFLARE_ACCOUNT_ID=%s\nCLOUDFLARE_WORKERS_UNDERDOMAN=prov\n' % ('c' * 32)); self.konto.chmod(0o600)
         self.gor('nyckel', {'leverantor': 'brevo', 'nyckel': NYCKEL, 'falt': {'lista': '12', 'mall': '7'}})
         ka.handling(self.root, self.e, 'nyckelintag', {'leverantor': 'epost', 'falt': {'mottagare': 'post@kund.example.invalid'}})

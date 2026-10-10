@@ -112,13 +112,21 @@ resurser, utan handpåläggning i filer och utan att nycklar passerar chatten:
    - en ny export;
    - D1-schemat;
    - nycklarna i produktionens Worker.
-4. **Körningen** startas med ditt klick på Aktivera i Byggflöde. Klicket skriver `AKTIVERINGSMANDAT.json`, som är
-   bundet till torrkörningens plan och gäller en körning.
+
+   Kundstarts plan läses i läsläge. Planens hinder, till exempel ett val utan accepterat erbjudande, stoppar
+   aktiveringen. Ett paket som kunden valt bort ger två steg: dess driftvärden tas bort ur `CLOUDFLARE.json` och
+   exporten, och dess nyckel tas bort ur Workern.
+4. **Körningen** startas med ditt klick på Aktivera i Byggflöde. Klicket skriver `AKTIVERINGSMANDAT.json`. Mandatet
+   är bundet till planen som knappen visade (dashboarden skickar dess `plan_sha256`), till klickets start-id och till
+   15 minuter, och det gäller en körning.
    - Allt sker under kundens lås, med avsikten i kvittot (`kunder/<slug>/leverans/AKTIVERING-*.json`) före varje
      operation.
    - D1 och R2 skapas bara om de saknas, och bara under kundens namn.
    - Före schemat prövas att `database_id` är kundens egen databas.
-   - Ett okänt utfall stoppar körningen och stäms av med `aktivera.py <slug> --stam-av` före ett nytt försök.
+   - Under en operation säger kvittot okänt utfall. Ett okänt utfall stoppar körningen och stäms av med
+     `aktivera.py <slug> --stam-av` före ett nytt försök. Avstämningen läser Cloudflares listor, och en lista som
+     faller ger ingen slutsats. Bara en lyckad avstämning släpper spärren. En nyckel med okänt utfall skickas om,
+     eftersom listan visar namnet men inte versionen. En borttagning är klar först när namnet saknas.
    - En fiktiv verksamhet torrkörs men aktiveras aldrig.
 5. **Nycklarna** läggs med `wrangler secret put` först när produktionens Worker finns. Kommandot driftsätter en ny
    version direkt, så före första releasen väntar steget. Aktiveringen efter releasen lägger dem, och nästa aktivering
@@ -234,8 +242,11 @@ laddas upp till produktionens Worker (`kund-<slug>`, toppnivån i `wrangler.json
 kundens lås, med kvittot `RELEASE-*.json`. Den kräver en verklig verksamhet, en aktuell och klar förhandsvisning av
 samma commit och kundens driftvärden: `underlag/<slug>/CLOUDFLARE.json` (privat) med `database_id`, `forfragan_till`
 och `forfragan_fran`, som exporten skriver in i kundrepots `wrangler.jsonc`. Mandatet är ägarens klick på releasen i
-Byggflöde: dashboarden skriver då `RELEASEMANDAT.json`, bundet till förhandsvisningens commit och export, och mandatet
-gäller en release. Ett okänt utfall spärrar nästa release tills den stämts av. Releasen gör inte domänen: Custom Domain
+Byggflöde: dashboarden skriver då `RELEASEMANDAT.json`, bundet till den commit och export som knappen visade, till
+klickets start-id och till 15 minuter, och mandatet gäller en release. Det förbrukas före driftsättningen, och kvittot
+säger okänt utfall tills svaret finns. Ett okänt utfall, också 502–504 från Cloudflare, spärrar nästa release.
+`kundrepo.py <slug> --stam-av` stämmer först av releasen mot produktionens deployments och sedan
+förhandsvisningen. Releasen gör inte domänen: Custom Domain
 och DNS är egna handlingar (nedan), och återgången är `wrangler rollback`. Inget av detta är prövat mot ett konto.
 
 **Migreringsläget** (`kontroller/migreringslage.py <slug>`, i Byggflöde under Leveransen) har fem skilda besked, vart och

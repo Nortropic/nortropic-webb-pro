@@ -30,18 +30,22 @@ async function api(method='GET',body){const r=await fetch('/api/arende/'+eid,{me
 async function hamta(tyst=false){if(!eid||!token||busy)return;try{const next=await api();const andrad=!doc||doc.revision!==next.revision||JSON.stringify(doc.modell)!==JSON.stringify(next.modell);doc=next;if(andrad||!tyst)visa();if(!tyst)status('Senaste versionen är hämtad. Dina osparade utkast är kvar.');else if(andrad)status('Uppdraget har uppdaterats. Dina utkast är kvar.');}catch(e){tillgangsfel(e);}}
 async function handling(n,data,revision=doc?.revision){if(busy||!doc)return false;busy=true;status('Sparar…');
  let digest;
+ // En nyckel lämnar inga spår i webbläsaren, inte heller en hash i journalen: ett nytt försök är en ny operation.
+ const journalfri=n==='nyckel';
  try{
- digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([n,data])))),b=>b.toString(16).padStart(2,'0')).join('');
  const payload={handling:n,data,revision,operation:id()};let journal={};
+ if(!journalfri){
+ digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([n,data])))),b=>b.toString(16).padStart(2,'0')).join('');
  try{journal=JSON.parse(las(opKey)||'{}');}catch{}
  const fore=journal[digest];
  // Journalen bevarar identiteten, inte en extra kopia av text eller bilagor.
  if(fore){payload.operation=fore.operation;payload.revision=fore.revision;}
  journal[digest]={operation:payload.operation,revision:payload.revision};
  if(!lagra(opKey,JSON.stringify(journal)))return false;
- doc=await api('POST',payload);delete journal[digest];lagra(opKey,JSON.stringify(journal));visa();status('Sparat.');return true;
  }
- catch(e){if(e.http===409){let journal={};try{journal=JSON.parse(las(opKey)||'{}');}catch{}delete journal[digest];lagra(opKey,JSON.stringify(journal));try{doc=await api();visa();if(n==='uppgift'||n==='klarlagg_uppgift')$('jamfort-utkast').hidden=false;if(n==='integrationsbehov')$('jamfort-integration').hidden=false;if(n==='materialratt')$('jamfort-ratt').hidden=false;status('Uppdraget ändrades i en annan flik. Senaste versionen visas ovan. Jämför den med ditt bevarade utkast innan du sparar igen.',true);}catch(f){tillgangsfel(f);}}else tillgangsfel(e);return false;}
+ doc=await api('POST',payload);if(!journalfri){delete journal[digest];lagra(opKey,JSON.stringify(journal));}visa();status('Sparat.');return true;
+ }
+ catch(e){if(e.http===409){if(digest){let journal={};try{journal=JSON.parse(las(opKey)||'{}');}catch{}delete journal[digest];lagra(opKey,JSON.stringify(journal));}try{doc=await api();visa();if(n==='uppgift'||n==='klarlagg_uppgift')$('jamfort-utkast').hidden=false;if(n==='integrationsbehov')$('jamfort-integration').hidden=false;if(n==='materialratt')$('jamfort-ratt').hidden=false;status('Uppdraget ändrades i en annan flik. Senaste versionen visas ovan. Jämför den med ditt bevarade utkast innan du sparar igen.',true);}catch(f){tillgangsfel(f);}}else tillgangsfel(e);return false;}
  finally{busy=false;}
 }
 function visa(){
@@ -109,8 +113,8 @@ $('integrationsform').addEventListener('submit',async e=>{e.preventDefault();if(
 $('rattighetsform').addEventListener('submit',async e=>{e.preventDefault();if(!sparaRatt())return;const data=rattData();if(await handling('materialratt',data,rattRev)){if(JSON.stringify(rattData())===JSON.stringify(data)){$('rattfil').value='';rattRev=null;lagra(rattKey,'null');visaRatt();}}});
 $('jamfort-integration').addEventListener('click',()=>{intRev=doc.revision;sparaInt();$('jamfort-integration').hidden=true;});
 $('jamfort-ratt').addEventListener('click',()=>{rattRev=doc.revision;sparaRatt();$('jamfort-ratt').hidden=true;});
-// Nyckeln skickas direkt och fältet töms före svaret; den sparas aldrig i webbläsarens lagring (handling() sparar bara
-// begärans id och revision, inte innehållet).
+// Nyckeln skickas direkt och fältet töms före svaret; den sparas aldrig i webbläsarens lagring, och handling() för
+// ingen journal för nyckeln (inte ens en hash av den).
 $('nyckelform').addEventListener('submit',async e=>{e.preventDefault();const nyckel=$('nyckelvarde').value.trim();$('nyckelvarde').value='';
  const falt=Object.fromEntries($('nyckelfalt').value.split('\n').map(r=>r.split('=')).filter(x=>x.length===2&&x[0].trim()).map(([k,v])=>[k.trim(),v.trim()]));
  const data={leverantor:$('nyckellev').value,...(nyckel?{nyckel}:{}),...(Object.keys(falt).length?{falt}:{})};

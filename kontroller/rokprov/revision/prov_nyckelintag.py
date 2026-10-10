@@ -105,6 +105,15 @@ class Nyckelintag(unittest.TestCase):
                      and f.is_file() and 'las_for_aktivering' in f.read_text(encoding='utf-8', errors='replace'))
         self.assertEqual(anv, ['kontroller/aktivera.py', 'kontroller/nyckelintag.py'] if 'kontroller/aktivera.py' in anv else ['kontroller/nyckelintag.py'], anv)
 
+    def test_exportens_lackagekontroll_kanner_nycklarna(self):
+        # en Brevo-nyckel eller ett nyckelvärde under hemligheternas namn i en fil fäller exporten till kundrepot
+        import exportera
+        traff = lambda t: [skal for m, skal in exportera.LACKA if m.search(t)]  # noqa: E731
+        self.assertEqual(traff('const k = "%s";' % NYCKEL1), ['en nyckel'])
+        self.assertEqual(traff('BREVO_API_NYCKEL=abc123'), ['ett nyckelvärde'])
+        self.assertEqual(traff('"PIPEDRIVE_TOKEN": "abc123"'), ['ett nyckelvärde'])
+        self.assertEqual(traff('if (!env.BREVO_API_NYCKEL) return demo();'), [], 'namnet ensamt är ingen läcka')
+
 
 if __name__ == '__main__':
     unittest.main()
