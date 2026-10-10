@@ -23,8 +23,10 @@
 
     .venv/bin/python kontroller/rokprov/revision/prov_dokumentationsvy.py <repo>
 
-Allt skrivs i en temporär katalog; repots egna filer läses men ändras inte, och inga privata data läses. Varje fall
-redovisas för sig på stderr; slutkod 1 när något fall föll.
+Allt skrivs i en temporär katalog; repots egna filer läses men ändras inte. I huvudutcheckningen med privat
+FORTECKNING.jsonl läses även registrets rapportsökvägar för den historiska inventeringen. En worktree eller kopia
+förutsätts aldrig ha huvudutcheckningens privata historik; regelproven med syntetiska register körs alltid.
+Varje fall redovisas för sig på stderr; slutkod 1 när något fall föll.
 """
 import http.client
 import http.server
@@ -846,13 +848,37 @@ def _renderingen():
         assert namn in flikar, namn
 
 
+def _historikmiljo(rot):
+    """Historisk täckning gäller huvudutcheckningens privata register, inte en worktrees egna rapporter.
+
+    Git-identiteten avgör miljön före registerinnehållet: ett tunt register får aldrig användas som skäl att hoppa
+    över huvudutcheckningens kontroll. Kopior utan Git och länkade worktrees har bara de syntetiska regelproven.
+    """
+    rot = Path(rot).resolve()
+    if not (rot / '.git').exists():
+        return False, 'kopia utan egen Git-identitet'
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+    r = subprocess.run(['git', '--no-optional-locks', '-C', str(rot), 'rev-parse', '--path-format=absolute',
+                        '--show-toplevel', '--git-dir', '--git-common-dir'], env=env, capture_output=True, text=True, timeout=30)
+    assert r.returncode == 0, 'utcheckningens Git-identitet kunde inte läsas: %s' % r.stderr[:300]
+    delar = r.stdout.splitlines()
+    assert len(delar) == 3, 'utcheckningens Git-identitet hade oväntad form'
+    topp, gitdir, gemensam = (Path(p).resolve() for p in delar)
+    if topp != rot or gitdir != gemensam:
+        return False, 'worktree eller kopia utan huvudutcheckningens privata historik'
+    register = rot / 'underlag' / 'granskningar' / 'FORTECKNING.jsonl'
+    if not register.is_file():
+        return False, 'huvudutcheckningen saknar privat FORTECKNING.jsonl'
+    return True, 'huvudutcheckning med privat register'
+
+
 def _registret():
     """Registret som vyn läser det, ur repots egen underlag/: GR-filerna i underlag/granskningar/ och förteckningens rader
-    (dash.forteckningen). None när underlag/ saknas, som i en worktree eller kopia utan det privata materialet
+    (dash.forteckningen). None utanför huvudutcheckningen med privat register, också när worktreen har egna rapporter
     (granskningen GR-20261007-r99-om, KAN-3: registret läses, det skrivs inte av i provet)."""
-    g_ = ROOT / 'underlag' / 'granskningar'
-    if not g_.is_dir():
+    if not _historikmiljo(ROOT)[0]:
         return None
+    g_ = ROOT / 'underlag' / 'granskningar'
     rapporter = [{'slag': 'systemgranskning', 'fil': {'sokvag': 'underlag/granskningar/%s' % p.name}} for p in sorted(g_.glob('GR-*.md'))]
     spara = dash.UNDERLAG
     dash.UNDERLAG = ROOT / 'underlag'
@@ -861,6 +887,32 @@ def _registret():
     finally:
         dash.UNDERLAG = spara
     return rapporter, rader or []
+
+
+@fall('historikkontrollens miljö: huvudutcheckning med register prövas, worktree och kopia med egna rapporter kräver aldrig privat historik')
+def _historikmiljons_grans():
+    rot = TMP / 'historikmiljo'
+    rot.mkdir()
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+
+    def git(*args):
+        return subprocess.run(['git', '--no-optional-locks', '-C', str(rot), '-c', 'user.name=prov',
+                               '-c', 'user.email=prov@example.invalid', '-c', 'commit.gpgsign=false', *args],
+                              env=env, capture_output=True, text=True, check=True)
+
+    git('init', '-q', '-b', 'main')
+    git('commit', '--allow-empty', '-q', '-m', 'syntetisk huvudutcheckning')
+    assert not _historikmiljo(rot)[0], 'utan privat register finns ingen historisk inventering'
+    skriv(rot / 'underlag/granskningar/FORTECKNING.jsonl', '')
+    assert _historikmiljo(rot)[0], 'också ett tomt huvudregister ska prövas, inte användas för att dölja saknad historik'
+    kopia = TMP / 'historik-kopia'
+    lankad = TMP / 'historik-worktree'
+    git('worktree', 'add', '-q', '-b', 'syntetisk-worktree', str(lankad))
+    for r in (kopia, lankad):
+        skriv(r / 'underlag/granskningar/FORTECKNING.jsonl', '{"fil":"granskningar/egen.md"}\n')
+        skriv(r / 'underlag/granskningar/egen.md', '# Syntetisk egen rapport\n')
+        assert not _historikmiljo(r)[0], ('lokala egna rapporter gjorde kopian till huvudregister', r.name)
+    assert _historikmiljo(rot)[0], 'den länkade worktreen får inte stänga av huvudutcheckningens kontroll'
 
 
 def _beslutets_saknade():
@@ -885,7 +937,7 @@ def _saknade_i_repot():
     i_proven = [v for x in s for v in x['var'] if 'prov_dokumentationsvy' in v]
     assert not i_proven, ('provets egen fixturtext räknas som en hänvisning', i_proven)
     if register is None:
-        print('obs: underlag/ finns inte i den här utcheckningen; repots register prövas inte, bara regeln med fixturen', file=sys.stderr)
+        print('obs: historisk registertäckning inte prövad här (%s); generiska registerregler prövas alltid med fixturer' % _historikmiljo(ROOT)[1], file=sys.stderr)
         return
     lo, hi = _beslutets_saknade()
     till_r99 = [x['runda'] for x in s if dash._rundnyckel(x['runda']) <= (99, 'z')]

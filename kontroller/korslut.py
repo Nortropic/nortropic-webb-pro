@@ -10,7 +10,8 @@ slutpost (ägarens uppdrag 2026-10-07, punkt 4 och 5; granskningen av r101).
 
 Slutkod: 0 provet grönt för just det bygge som ligger i dist/, RAPPORT.md skriven i körningen (samma sha256 som
 stoppvakten band och släppte), stoppvakten själv släppte med gröna kontroller och godkänd granskning, och granskningen
-gäller samma bygge och samma metod som nu · 1 avslutat utan det (också när en äldre godkänd granskningsfil ligger kvar;
+gäller samma bygge och samma metod som nu, och helbyggets kompetenskrav har observerats i körningens egen session
+· 1 avslutat utan det (också när en äldre godkänd granskningsfil ligger kvar;
 omgång tre, F11) · 3 mekaniken (provet, kriterierna, mallen, krokarna, kor.sh, dashboarden) eller gränsen (en post
 tillkom eller försvann direkt under kunder/ eller underlag/, eller flaggan uchg lyftes; kor.sh:s grans(), Codex
 2026-10-04 F1), ägarens domlogg eller dom (DOM.json), eller körningarnas protokoll (kunder/<slug>/korningar/ och
@@ -369,6 +370,7 @@ def sessionen(k, korning, rc, avbruten=None):
         ut.update(logg=_rel(k, logg.name), resultat=(slut or {}).get('subtype') or EJ, turer=(slut or {}).get('num_turns'),
                   minuter=round(((slut or {}).get('duration_ms') or 0) / 60000, 1) if slut else None,
                   modell=(init or {}).get('model'), claude_code=(init or {}).get('claude_code_version'))
+        ut['session_id'] = (init or {}).get('session_id') or (slut or {}).get('session_id')
         if slut:
             ut['text'] += ' (%s, %s turer)' % (ut['resultat'], ut['turer'] if ut['turer'] is not None else '?')
     return ut
@@ -707,7 +709,7 @@ def _skiljer(h):
 
 
 def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, domlogg, skal_ej, slutkod, slutkod_text, dom=None, lasfel=(),
-             bevis=None, avbruten=None, processer=None, listor=None):
+             bevis=None, avbruten=None, processer=None, listor=None, kompetensbevis=None):
     """Körningens slutpost: rapporthuvudets fält, de fem tillstånden var för sig, kontrollerna, granskningen, metoden,
     startsidan, bristerna, nästa steg och länkarna. Bara uppgifter som avslutet har; det som saknas står som ej angivet.
     dom: (tillstånd, protokoll) för ägarens dom (agaren_vid_slut); bevis: {namn: relativ väg} för provets och stoppvaktens
@@ -799,7 +801,7 @@ def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, do
     repo = repo_identitet()
     bygget = {'modell': os.environ.get('NWP_MODELL') or 'opus[1m]', 'effort': os.environ.get('NWP_EFFORT') or 'medium',
               'max_turns': os.environ.get('NWP_MAX_TURNS') or '400', 'atelje': os.environ.get('NWP_ATELJE') or 'pa',
-              'sandlada': os.environ.get('NWP_SANDLADA') or 'av', 'mcp': os.environ.get('NWP_MCP_CONFIG') or 'av'}
+              'sandlada': os.environ.get('NWP_SANDLADA') or 'av', 'mcp': os.environ.get('NWP_MCP_CONFIG') or 'refero,mobbin,motion,21st'}
     sida = startsidan(k)
     ident = ['repo nortropic-webb-pro commit %s%s' % (repo['commit'], ' (%d ändrade spårade filer)' % repo['andrade_filer'] if repo.get('andrade_filer') else '')
              if repo else 'repo: ' + EJ, 'körning %s' % (korning or EJ), 'dist %s' % (nu_hash or EJ), 'granskningsmetod %s' % (metod.get('metod_sha') or EJ)]
@@ -861,7 +863,7 @@ def slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, do
             'slutkod': slutkod, 'slutkod_text': slutkod_text,
             'tillstand': tillstand,
             'kontroller': {'provet': provet, 'stoppvakten': stoppvakten, 'rapporten': rapporten, 'mekaniken': mek, 'agarens_dom': dom_p,
-                           'processer': processer, 'hashlistorna': listor if isinstance(listor, dict) else
+                           'kompetens': kompetensbevis, 'processer': processer, 'hashlistorna': listor if isinstance(listor, dict) else
                            {'varde': None, 'text': 'ej prövade mot kor.sh:s minne'}},
             'designgranskning': design, 'metod': {'granskning': metod, 'bygget': bygget, 'repo': repo}, 'startsida': sida,
             'brister': brister, 'inte_godkant': skal_ej or None, 'titta': 'cd %s && npx astro preview' % _rel(k, 'sajt')}
@@ -932,6 +934,10 @@ def text(post):
                  else t['sessionen_avslutad'].get('text') or 'claudes slutkod är okänd']
     if isinstance(kn.get('processer'), dict):
         r.append('Byggets processer: %s' % kn['processer'].get('text'))
+    kb = kn.get('kompetens')
+    if isinstance(kb, dict):
+        r.append('Helbyggets kompetens: %s' % ('huvudsessionens observerade arbetskrav uppfyllda (underagenters egna sessioner ej prövade; ingen kvalitetsdom)' if kb.get('uppfyllt') is True
+                 else '; '.join(kb.get('brister') or ['inte observerad'])))
     mek = kn['mekaniken']
     if mek['antal']:
         r.append('VARNING: skyddade filer ändrades under körningen, av bygget eller någon annan (kirurgen, ägarens dom):\n' + '\n'.join(mek['andrade'])
@@ -1152,6 +1158,7 @@ def aktuell(k, korning=None):
       UTEBLEV.json). En körning som dödas med SIGKILL får sin post av vakten, så ägarens senare dom räknas (KAN 4). Dog
       också vakten (ingen post och inget protokoll) är domen ej belagd så länge DOM.json ändrats sedan den körningen
       startade; nästa körning räknar inte domar som tillkom efter det.
+    - Utan observerat kompetensbevis är leveransklar inte belagt nu. Äldre slutkod och designomdömen skrivs inte om.
     Ger None utan post."""
     k = Path(k)
     dist = k / 'sajt' / 'dist'
@@ -1263,6 +1270,13 @@ def aktuell(k, korning=None):
         t['klart_for_leverans'] = dict(leverans(t, post.get('slutkod'), k.name), varde=False, text=orsak)
     else:
         t['klart_for_leverans'] = leverans(t, post.get('slutkod'), k.name)
+    kb = (post.get('kontroller') or {}).get('kompetens')
+    if not isinstance(kb, dict) or kb.get('uppfyllt') is not True:
+        skal_k = 'helbyggets kompetens ej observerad' if not isinstance(kb, dict) else 'helbyggets kompetenskrav inte uppfyllda'
+        provad['kompetens'] = {'varde': None if not isinstance(kb, dict) else False, 'text': skal_k}
+        lev = t['klart_for_leverans']
+        t['klart_for_leverans'] = dict(lev, varde=False, text='; '.join(x for x in
+            (lev.get('text') if lev.get('varde') is not True else None, skal_k) if x))
     return post
 
 
@@ -1349,6 +1363,11 @@ def main(argv):
                                                 'kunder/%s/atelje/korningar/' % k.name))]
     mekanik = [f for f in skydd if f.startswith(MEKANIK)] + domlogg + agarfil + protokoll + lista_fel
     godkant, skal = ar_godkant(k, s, v, g, korning)
+    import byggmcp
+    kompetensbevis = byggmcp.kompetensbevis(k, korning)
+    if not kompetensbevis['uppfyllt']:
+        godkant = False
+        skal = (skal + '; ' if skal else '') + 'helbyggets kompetenskrav: ' + '; '.join(kompetensbevis['brister'])
     slutkod, slutkod_text = _slutkod(k, rc, v, mekanik, godkant)
     processer = processer_efter()
     hinder = [x for x, galler in (
@@ -1366,7 +1385,7 @@ def main(argv):
         vin_fel = las_objekt(_vinnare(k))[1]
         post = slutpost(k, rc, korning, s, v, g, nu_hash, senaste, gfel, skydd, mekanik, domlogg, '' if godkant else skal, slutkod, slutkod_text,
                         dom=dom, lasfel=[s_fel, v_fel, dom_lasfel, ('VINNARE.json: %s' % vin_fel) if vin_fel else None, bevis_fel],
-                        bevis=bevis, avbruten=avbruten, processer=processer, listor=listor)
+                        bevis=bevis, avbruten=avbruten, processer=processer, listor=listor, kompetensbevis=kompetensbevis)
     except Exception as e:  # noqa: BLE001 — slutkoden står kvar; att posten uteblir sägs och får en egen slutkod
         post, fel = None, 'slutposten kunde inte byggas: %s: %s' % (type(e).__name__, str(e)[:300])
     if post is not None and korning:

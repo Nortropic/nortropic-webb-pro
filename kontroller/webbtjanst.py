@@ -59,6 +59,8 @@ VERKTYG = {
     'referens': {'kmd': (PY, '-B', 'kontroller/referens.py'), 'slug': True, 'flaggor': {'uppdrag': 'vag', 'torr': 'flagga'}},
     # referenstjanster: Refero/Mobbin via egna sessioner utanför byggsessionen; belägg ur sessionsloggen, bilder till paketet
     'referenstjanster': {'kmd': (PY, '-B', 'kontroller/referenstjanster.py'), 'slug': True, 'flaggor': {'uppdrag': 'vag', 'torr': 'flagga'}},
+    'skillskript-canvas': {'kmd': (PY, '-B', 'kontroller/skillskript.py', '--bara-canvas'), 'slug': True,
+                          'flaggor': {'kandidat': 'text', 'uppdrag': 'vag'}},
     'lighthouse': {'kmd': ('node', 'kontroller/lighthouse.mjs'), 'slug': False,  # Chrome utan route-vakt: bara byggets lokala server
                    'flaggor': {'url': 'lokal_url', 'sidor': 'text', 'ut': 'vag', 'omgangar': 'tal', 'enheter': 'text', 'representativa': 'text'}},
     'axe': {'kmd': ('node', 'kontroller/axe.mjs'), 'slug': False, 'flaggor': {'url': 'url', 'sidor': 'text', 'ut': 'vag', 'tillstand': 'text'}},

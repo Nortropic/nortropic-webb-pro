@@ -94,23 +94,35 @@ try {
         const form = page.locator('form').filter({ visible: true }).first();
         const knapp = form.locator('button[type=submit], button:not([type]), input[type=submit]').filter({ visible: true }).first();
         if (await form.count() && await knapp.count()) {
+          const fore = page.url();
+          let navigerade = false;
+          // URL:en kan ligga kvar fast dokumentet redan har bytts till webbläsarens felsida.
+          // Begäran syns också när läsvakten stoppar själva inskicket.
+          const vidNavigation = (req) => {
+            if (req.isNavigationRequest() && req.frame() === page.mainFrame()) navigerade = true;
+          };
+          const bytteSida = () => navigerade || page.url() !== fore;
+          const ejMatt = () => ({ vy, sida, tillstand: 'formularfel', matt: false, adress: page.url().slice(0, 200),
+            overtradelser: [], ofullstandiga: [], godkanda: 0,
+            skal: 'formuläret försökte byta sida; inget feltillstånd på ursprungssidan att pröva' });
+          page.on('request', vidNavigation);
           try {
-            const fore = page.url();
             await knapp.click({ timeout: 5000 });
             await page.waitForTimeout(400);
             await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
-            if (page.url() !== fore) {
+            if (bytteSida()) {
               // inskicket gick iväg (inget fält stoppade det tomt): det finns inget feltillstånd att pröva, och sidan som
               // visas nu (svaret, eller webbläsarens felsida när läsvakten stoppat inskicket) är inte sajtens
-              rader.push({ vy, sida, tillstand: 'formularfel', matt: false, adress: page.url().slice(0, 200), overtradelser: [], ofullstandiga: [], godkanda: 0,
-                skal: 'formuläret skickades tomt utan att något fält stoppade det; inget feltillstånd att pröva' });
-              await ga(sida).catch(() => {});
+              rader.push(ejMatt());
               continue;
             }
             const ogiltiga = await page.evaluate(() => document.querySelectorAll('[aria-invalid="true"], form :invalid').length).catch(() => 0);
-            rader.push({ vy, sida, tillstand: 'formularfel', http: svar?.status() ?? null, ogiltiga_falt: ogiltiga, ...await korAxe(page) });
+            const resultat = await korAxe(page);
+            rader.push(bytteSida() ? ejMatt() : { vy, sida, tillstand: 'formularfel', http: svar?.status() ?? null, ogiltiga_falt: ogiltiga, ...resultat });
           } catch (e) {
-            rader.push({ vy, sida, tillstand: 'formularfel', http: null, fel: 'formuläret gick inte att skicka tomt: ' + String(e.message).split('\n')[0].slice(0, 160), overtradelser: [], ofullstandiga: [], godkanda: 0 });
+            rader.push(bytteSida() ? ejMatt() : { vy, sida, tillstand: 'formularfel', http: null, fel: 'formuläret gick inte att skicka tomt: ' + String(e.message).split('\n')[0].slice(0, 160), overtradelser: [], ofullstandiga: [], godkanda: 0 });
+          } finally {
+            page.off('request', vidNavigation);
           }
         }
       }

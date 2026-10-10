@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialsteget (kontroller/material.py) som mekanik utan konton och utan nät: uppdrag → attrapp eller saknar_konto,
+"""Materialsteget (kontroller/material.py) som mekanik utan konton och utan nät: uppdrag → attrapp eller väntande beställning,
 versioner som aldrig skrivs över, import av en färdig tillgång med källa och rättigheter, koncept ur canvas-design, och
 den faktiska användningen i en kandidat (bara genererat material; video kräver poster; Egen nej, påstår verksamhet nej)."""
 import contextlib
@@ -48,17 +48,18 @@ class Material(unittest.TestCase):
     def test_leverantorer_utan_konto_gor_inget_anrop(self):
         for lev, typ in (('higgsfield', 'bild'), ('nano-banana', 'bild'), ('seedance', 'video')):
             t = material.bestall(self.slug, 'uppdrag', typ, lev)
-            self.assertEqual(t['status'], 'saknar_konto'); self.assertIsNone(t['versioner'][0]['fil'])
-            self.assertIn(material.LEVERANTORER[lev]['env'], t['versioner'][0]['hinder']); self.assertIn('konto', t['versioner'][0]['hinder'])
+            self.assertEqual(t['status'], 'vantar_mandat_konto'); self.assertIsNone(t['versioner'][0]['fil'])
+            self.assertIn('inget konto har lästs', t['versioner'][0]['hinder'])
             self.assertFalse(material.anvand(self.slug, t['id'], 'k01', 'hero')['ok'])
         (self.root / 'hem').mkdir(); (self.root / 'hem' / 'higgsfield.env').write_text('HIGGSFIELD_API_KEY=prov\n')
         t = material.bestall(self.slug, 'uppdrag', 'video', 'higgsfield')
-        self.assertEqual(t['status'], 'fel'); self.assertIn('inte infört', t['versioner'][0]['hinder'])
+        self.assertEqual(t['status'], 'vantar_mandat_konto'); self.assertIn('inget konto har lästs', t['versioner'][0]['hinder'])
         with self.assertRaises(ValueError):
             material.bestall(self.slug, 'x', 'video', 'nano-banana')
 
     def test_import_canvas_och_anvandning(self):
-        png = self.root / 'koncept.png'; png.write_bytes(b'\x89PNG\r\n\x1a\nprov')
+        png = kandidater.kdir(self.slug, 'k01') / 'koncept.png'
+        png.parent.mkdir(parents=True, exist_ok=True); png.write_bytes(b'\x89PNG\r\n\x1a\nprov')
         k = material.canvas(self.slug, png, 'k01', 'kompositionsstudie för hero')
         self.assertEqual((k['status'], k['roll'], k['leverantor'], k['typ']), ('genererad', 'koncept', 'canvas-design', 'bild'))
         self.assertIn('canvas-design @', k['versioner'][0]['kalla']); self.assertIn('k01', k['versioner'][0]['kalla'])

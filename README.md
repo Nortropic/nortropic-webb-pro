@@ -25,6 +25,16 @@ som avsnittet Var information finns anger.
 
 ## Tre loopar och en backlog
 
+Kompetensens uppgifter per steg finns i `kunskap/metodkarta.md`, Kompetenserna. Refero, Mobbin och 21st används i
+researchen före planeringen; skaparen för vidare hämtat material till kod och rendering. Skapandeflödets obligatoriska
+skills och undersökningar prövas genom sessionskvitton (`kompetens.kravbrister`); saknad observation ger ingen grön
+kompetensstatus. Helbygget ansluter Refero, Mobbin, Motion och 21st med kundvakt och prövar sitt eget sessionsbundna
+kompetenskvitto före slutkod 0. Valda referenssidor får bundna DevTools-profiler före skaparna
+(`kunskap/referensprofil.md`). Brand-, token-, Tailwind- och canvashjälpmedel har avgränsade körvägar
+(`kunskap/skillskript.md`). Materialets bild- och videotransporter finns genom en betrodd CLI med uttryckligt
+kostnadsmandat (`kunskap/materialtransport.md`); lokala kontraktsprov bevisar inte kontoåtkomst eller bildkvalitet.
+Mekaniska prov med attrapper verifierar kopplingarna, inte extern åtkomst, modellens tillämpning eller designkvaliteten.
+
 | Loop | Vad | Var |
 |---|---|---|
 | 1. Inne i ett bygge | kontrollera, rätta, kör igen tills grönt och granskaren godkänner | `kontroller/prova.py`, `kontroller/granska.py`, stoppvakten i `.claude/hooks/` |

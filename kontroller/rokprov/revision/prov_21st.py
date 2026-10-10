@@ -77,6 +77,7 @@ class Tjugoforsta(unittest.TestCase):
         self.assertTrue(skapande.forbjudna_termer(self.slug, atelje.UNDERLAG).get('ord'), 'fixturen ger kundens ord')
         self.assertIsNone(self.vakt('mcp__21st__search', {'query': 'hero section for a local service company', 'type': 'component', 'limit': 5}))
         self.assertIsNone(self.vakt('mcp__21st__get_component', {'id': 31460}))
+        self.assertIsNone(self.vakt('mcp__21st__get_theme', {'id': 31460}))
         self.assertIsNone(self.vakt('mcp__21st__get_inspiration', {}))
         self.assertIsNone(self.vakt('mcp__21st__get_theme', {'id': '017e937d-377c-4f24-ba4a-dad5d75eb9e4'}))
         self.assertIn('kundens namn', self.vakt('mcp__21st__search', {'query': 'hero for Provfirman Trä'}) or '')
@@ -111,8 +112,9 @@ class Tjugoforsta(unittest.TestCase):
         self.assertNotIn('övriga MCP i ateljéns session', rader, '21st står aldrig bland de övriga')
         utan = dict(med, servrar={'refero': 'connected', 'mobbin': 'connected', 'motion': 'connected'}, verktyg=[v for v in alla if not v.startswith('mcp__21st__')])
         r = {x['namn']: x for x in sk.atkomstrader(utan, True)}['21st.dev i ateljéns session']
-        self.assertEqual(r['resultat'], 'fel'); self.assertIn('tilldelad men åtkomst saknas', r['detalj']); self.assertIn('stoppar inte starten', r['detalj'])
-        self.assertIn('21st.json', r['detalj']); self.assertIn('komponenter', r['detalj'])
+        self.assertEqual(r['resultat'], 'fel'); self.assertIn('tilldelad men åtkomst saknas', r['detalj'])
+        self.assertIn('Starten stoppas', r['detalj']); self.assertIn('obligatoriska undersökning', r['detalj'])
+        self.assertIn('21st.json', r['detalj']); self.assertIn('ersätter inte', r['detalj'])
         roll = {x['roll']: x for x in sk.roller(med, [], True)}['komposition']
         self.assertEqual(roll['atkomst']['mcp']['21st']['tillstand'], 'provat')
 

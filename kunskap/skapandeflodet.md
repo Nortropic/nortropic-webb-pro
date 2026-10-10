@@ -275,12 +275,12 @@ arbetsyta i ett avgränsat metodprov med tre moment, som prövas var för sig: *
 stark, namngiven referens återskapas noggrant med material vi får använda; **B**, kompositionen anpassas till kundens verkliga innehåll och material; **C**, den valda
 designversionen överförs till fungerande webb och jämförs med webbläsarens rendering i samma bredder.
 
-- Normalflödet går utan Figma: ingen kod i repot slår på Figma-pluginen eller anropar Figma, och flödets sessioner
-  nekas varje MCP-anrop utom Refero och Mobbin (`kunskap/metodkarta.md`).
+- Normalflödet går utan Figma: ingen kod i repot slår på Figma-pluginen eller anropar Figma. Rollernas tillåtna
+  MCP-verktyg kommer från Refero, Mobbin, 21st och Motion genom kundvakten (`kunskap/metodkarta.md`); övriga
+  MCP-anrop nekas. Chrome DevTools har en separat lokal inspektionsväg.
 - Pilotens material är arkiverat vid den rena designstarten 2026-10-09 och kan återställas ur arkivet; piloten startas
   bara om genom ett beslut av ägaren. Dess sessioner slog på Figma-pluginen i sin egen `--settings` och hade kundvakten kvar, men
-  körskripten ingår inte i repot, och ingen kod prövar vad som laddas upp till Figma (kundvakten gäller Refero och
-  Mobbin).
+  körskripten ingår inte i repot, och ingen kod prövar vad som laddas upp till Figma (designtjänsternas kundvakt ger inget skydd för Figma-anrop).
 - Privat kundmaterial laddas upp bara till ett nytt projekt i ägarens team, bara för den kund som ägarens besked
   2026-10-06 gäller, med metadata borttagen (foton utan EXIF och GPS), texterna som de står i underlaget och inga
   uppgifter om privatpersoner utöver det som redan står på kundens sajt. Det ger ingen allmän rätt att föra

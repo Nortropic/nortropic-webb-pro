@@ -22,6 +22,7 @@ import atelje
 import ateljeslut
 import forberedelse
 import startkontroll
+from prov_kompetensflode import giltigt_kvitto
 
 
 def kf(text, namn):
@@ -36,13 +37,14 @@ class Kallgap(unittest.TestCase):
     def setUp(self):
         self.stack = contextlib.ExitStack()
         self.addCleanup(self.stack.close)
-        self.root = Path(self.stack.enter_context(korregister.egen_tmp_med('nwp-kallgap-', 'syntetiskt flödesprov')))
+        self.root = Path(self.stack.enter_context(korregister.egen_tmp_med('nwp-kallgap-', 'syntetiskt flödesprov'))).resolve()
         self.slug = 'prov-forberedelse'
         self.u = self.root / 'underlag' / self.slug
         (self.u / 'atelje').mkdir(parents=True)
         self.stack.enter_context(patch.multiple(atelje, ROOT=self.root, UNDERLAG=self.root / 'underlag', KUNDER=self.root / 'kunder'))
         self.stack.enter_context(patch.dict(os.environ, {'NWP_SANDLADA': 'av', 'NWP_OBSERVATION': 'av'}))
         self.stack.enter_context(patch.object(atelje, 'krav_slug'))
+        self.stack.enter_context(patch.object(forberedelse.kompetens, 'kvitto', side_effect=lambda _s, pass_, **_kw: giltigt_kvitto(pass_)))
         self.stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
         v = {'schema': 1, 'namn': 'Syntetisk verksamhet', 'fiktiv': True, 'kontaktvagar': [],
              'rackvidd': {'typ': 'nationell'}, 'tjanster': ['Syntetisk tjänst']}
@@ -87,6 +89,7 @@ class Kallgap(unittest.TestCase):
     def test_ofullstandigt_paket_skrivs_inte_till_arbetsytan(self):
         paket = self.u / 'atelje/paket'
         paket.mkdir()
+        (paket / 'KOMPETENS.json').write_text(json.dumps(giltigt_kvitto('forbered')))
         (paket / 'RESEARCH.md').write_text('Nytt syntetiskt utkast')
         (self.u / 'RESEARCH.md').write_text('Befintligt syntetiskt utkast')
         with self.assertRaises(ValueError):
@@ -134,6 +137,7 @@ class Kallgap(unittest.TestCase):
 
     def test_avbrott_vid_publicering_ar_aldrig_forberett_underlag(self):
         paket = self.u / 'atelje/paket'; paket.mkdir()
+        (paket / 'KOMPETENS.json').write_text(json.dumps(giltigt_kvitto('forbered')))
         for n in forberedelse.FILER:
             (paket / n).write_text(kf('Syntetiskt nytt underlag', n))
         replace = os.replace
@@ -150,6 +154,7 @@ class Kallgap(unittest.TestCase):
 
     def test_slutkvitto_skrivs_inte_genom_planterad_templank(self):
         paket = self.u / 'atelje/paket'; paket.mkdir()
+        (paket / 'KOMPETENS.json').write_text(json.dumps(giltigt_kvitto('forbered')))
         for n in forberedelse.FILER:
             (paket / n).write_text(kf('Syntetiskt nytt underlag', n))
         marker = self.root / 'markor.txt'; marker.write_text('orörd')
@@ -209,6 +214,7 @@ class Kallgap(unittest.TestCase):
         forberedelse.krav(self.slug)
         grund = forberedelse.indata(self.slug)
         paket = self.u / 'atelje/paket'; paket.mkdir()
+        (paket / 'KOMPETENS.json').write_text(json.dumps(giltigt_kvitto('forbered')))
         for n in forberedelse.FILER:
             (paket / n).write_text(kf('Syntetiskt nytt underlag ' + n, n))
         research.write_text('Syntetisk källa B')

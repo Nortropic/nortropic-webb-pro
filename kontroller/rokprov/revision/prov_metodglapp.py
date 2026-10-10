@@ -68,6 +68,7 @@ class Planprovningstackning(unittest.TestCase):
             self.provningar.append(prompt)
             self.handelser.append('planprovning')
             svar = self.svar_pp.pop(0)
+            svar['session_id'] = prov_omgranskning.transkript(prov_omgranskning.kompetenssteg('planprovning'))
             Path(ut).write_text(json.dumps(svar))
             return svar
         self.stack.enter_context(patch.object(atelje, 'session', session))
@@ -531,6 +532,9 @@ class Metodforsoket(unittest.TestCase):
 
     def setUp(self):
         prov_ab_skiss.Skissforsok.setUp(self)
+        p = kd.rot(self.slug) / 'PLANPROVNING.json'
+        post = json.loads(p.read_text()); post['kvitto'] = prov_omgranskning.giltigt_kvitto('planprovning')
+        p.write_text(json.dumps(post))
 
     def test_armarna_far_var_sin_variant_och_samma_ovriga_installningar(self):
         with patch.object(atelje, 'session') as s:
@@ -621,6 +625,7 @@ class Stoppefterplanen(unittest.TestCase):
         self.enterContext(patch.multiple(atelje, UNDERLAG=tmp / 'underlag', KUNDER=tmp / 'kunder'))
         (kd.rot('stopp-prov')).mkdir(parents=True)
         (kd.rot('stopp-prov') / kd.UPPDRAGSMATERIAL).write_text('{}')
+        (kd.rot('stopp-prov') / 'KANDIDATPLAN.json').write_text(json.dumps({'kompetens': prov_omgranskning.giltigt_kvitto('planera')}))
         status, skrivna = {}, []
         with patch.multiple(kd, create=True, STOPP_EFTER='planprovning', lista=lambda slug: ['k01'], leverera_metod=lambda slug: {},
                             planprovning_behov=lambda slug, ids: [], korlage=lambda slug, status: 'skiss',

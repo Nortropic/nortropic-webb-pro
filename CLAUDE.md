@@ -21,7 +21,9 @@ besvarar en konkret fråga.
 - `backlog`: genomför den vilande backloggen när ägaren säger "implementera enligt backlog".
 - Övriga mappar i `.claude/skills/` är designkompetensen. Vilka roller i skapandeflödet som har vilka skills (kärna och
   alternativ), vilka skills som saknar uppgift och varför, och beslutet för varje verktyg hos Refero och Mobbin står i
-  `kunskap/metodkarta.md`, avsnittet Kompetenserna (ägarens ord 2026-10-05: alla skills och MCP:er ska användas). Var
+  `kunskap/metodkarta.md`, avsnittet Kompetenserna (ägarens ord 2026-10-05: alla skills och MCP:er ska användas).
+  Obligatoriska arbetskrav prövas per session; kvitto på tillgång är aldrig bevis för användning eller designkvalitet.
+  Refero, Mobbin och 21st undersöks före planeringen, och helbyggets MCP-väg använder samma kundvakt som ateljén. Var
   och en har `KALLA.md` med källa, commit och licens. `writing-for-agents` är för sessioner som ändrar en skill,
   `CLAUDE.md` eller `kunskap/`, inte för byggena.
 

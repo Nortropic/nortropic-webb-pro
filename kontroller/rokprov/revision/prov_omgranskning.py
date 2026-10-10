@@ -23,6 +23,7 @@ import bildkedja  # noqa: E402
 import kandidater as kd  # noqa: E402
 import kompetens  # noqa: E402
 import korregister  # noqa: E402
+from prov_kompetensflode import giltigt_kvitto
 
 
 def transkript(steg):
@@ -38,6 +39,14 @@ def transkript(steg):
     p.mkdir(parents=True, exist_ok=True)
     (p / (sid + '.jsonl')).write_text('\n'.join(rader) + '\n')
     return sid
+
+
+def kompetenssteg(pass_):
+    """Det giltiga modellunderlaget i fixturen aktiverar rollen och läser dess filer före arbetet."""
+    roller = kompetens.for_pass(pass_)
+    skills, _ = kompetens.aktiverbara([f for roll in roller for f in roll['karna']])
+    return [('Skill', {'skill': bildkedja.skillkommando(s) or s}) for s in skills] + [
+        ('Read', {'file_path': str(atelje.ROOT / f)}) for f in kompetens.lasfiler(pass_)]
 
 
 class Lasordning(unittest.TestCase):
@@ -73,16 +82,18 @@ class Lasordning(unittest.TestCase):
         def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
             self.prompter.append(prompt)
             pass_ = prompt.split()[1]
-            las = [('Read', {'file_path': str(atelje.ROOT / f)}) for f in kompetens.lasfiler(pass_)]
+            steg_ = kompetenssteg(pass_)
+            aktivera = [x for x in steg_ if x[0] == 'Skill']
+            las = [x for x in steg_ if x[0] == 'Read']
             skriv = [('Write', {'file_path': str(self.src / 'pages' / 'index.astro')})]
             verktyg_ = [('Bash', {'command': '.venv/bin/python -B kontroller/forhandsvisa.py %s --kandidat k01 --meny' % self.SLUG})]
             ordning = self.ordning.pop(0) if self.ordning else 'fore'
             if ordning == 'sen':  # arbetet först, kärnan sedan
-                steg = skriv + las + verktyg_
+                steg = skriv + aktivera + las + verktyg_
             elif ordning == 'saknar':  # en kärnfil saknas helt
-                steg = las[1:] + skriv + verktyg_
+                steg = aktivera + las[1:] + skriv + verktyg_
             else:
-                steg = las + skriv + verktyg_
+                steg = aktivera + las + skriv + verktyg_
             so = {'kod_andrad': [{'skill': 'emil-animate', 'vad': 'menyns övergång', 'var': 'sidhuvudet', 'varfor': 'syfte'}],
                   'beteende_provat': [{'vad': 'menyn', 'hur': 'forhandsvisa --meny', 'resultat': 'öppnas',
                                        'bild': kd.rel(self.d / 'bilder' / 'start' / 'vy-390-forsta.png')}],
@@ -171,7 +182,7 @@ class Planversion(unittest.TestCase):
         self.r = kd.rot(self.SLUG)
         self.handelser, self.provningar = [], []
         self.omplanering_lyckas, self.provning_faller = [False], [False]
-        plan = {'tid': '2026-10-09T05:00:00Z', 'lage': 'skiss', 'kandidater': {
+        plan = {'tid': '2026-10-09T05:00:00Z', 'lage': 'skiss', 'kompetens': giltigt_kvitto('planera'), 'kandidater': {
             k: dict({f: '%s %s' % (f, k) for f, _r in kd.PLANFALT}, titel='Förslag %s' % k, hypotes='GAMMAL %s' % k, huvudreferens='egen riktning',
                     referensbilder=[]) for k in ('k01', 'k02')}}
         self.r.mkdir(parents=True)
@@ -198,17 +209,18 @@ class Planversion(unittest.TestCase):
                                                                      hypotes='NY HYPOTES k01', huvudreferens=hr, referensbilder=[])]}
             else:
                 raise AssertionError('oväntad session: %s' % prompt[:80])
-            svar = {'structured_output': so, 'session_id': None}
+            svar = {'structured_output': so, 'session_id': transkript(kompetenssteg('planprovning' if schema is kd.PLANPROVNING_SCHEMA else 'planera'))}
             Path(ut).write_text(json.dumps(svar))
             return svar
 
         def skissa(slug, kid, fel=None):
             uppdrag = (kd.kdir(slug, kid) / 'UPPDRAG.md').read_text()
             self.handelser.append('skapare:%s:%s' % (kid, 'NY HYPOTES' if 'NY HYPOTES' in uppdrag else 'GAMMAL'))
-            return kd.satt_status(slug, kid, 'klar', 'skiss klar', forsok=1)
+            return kd.satt_status(slug, kid, 'klar', 'skiss klar', forsok=1,
+                                  kompetens={'skiss:skapa': {'kvitto': giltigt_kvitto('skapa')}})
 
         self.stack.enter_context(patch.object(atelje, 'session', session))
-        self.stack.enter_context(patch.multiple(kd, skissa=skissa, leverera_metod=lambda slug: {}, uppdragsmaterial=lambda *a, **k: {},
+        self.stack.enter_context(patch.multiple(kd, skissa=skissa, leverera_metod=lambda slug: {'skapa': {'sha': 'syntetisk-skaparmetod'}}, uppdragsmaterial=lambda *a, **k: {},
                                                 plan_prompt=lambda *a, **k: 'PLANEN', regel_rader=lambda: [], metod_rader=lambda *a: [],
                                                 research_rader=lambda *a: [], material_rader=lambda *a: [], PARALLELLT=1))
         self.stack.enter_context(patch.multiple(skapande, kritikrader=lambda *a, **k: [], fakta_rader=lambda *a, **k: [],
@@ -498,6 +510,7 @@ class Blindning(unittest.TestCase):
         self.stack.enter_context(patch.multiple(atelje, UNDERLAG=self.tmp / 'underlag', KUNDER=self.tmp / 'kunder',
                                                 REFERO_ENV=self.tmp / 'saknas' / 'refero.env', TJUGOFORSTA_ENV=self.tmp / 'saknas' / '21st.env'))
         self.stack.enter_context(patch.object(atelje, 'observerad', return_value=(None, None)))
+        self.stack.enter_context(patch.object(kompetens, 'kvitto', side_effect=lambda _s, pass_, **_kw: giltigt_kvitto(pass_)))
         self.stack.enter_context(patch.object(bildkedja, 'PROJEKT', self.tmp / 'projekt'))
         self.stack.enter_context(patch.object(tempfile, 'tempdir', str(self.tmp)))  # den blinda arbetskatalogen i provets katalog
         self.u = self.tmp / 'underlag' / self.SLUG

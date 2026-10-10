@@ -53,7 +53,7 @@ def kor(g):
             skriv(paket / namn, '# Syntetiskt arbetsunderlag\nService, nationell räckvidd. Öppna materialfrågor kvar.\n')
         skriv(paket / 'KUNDFORSTAELSE.md', '# Kundförståelse\n\n' + '\n\n'.join(  # förberedelsens sex rubriker (2026-10-09)
             '## %s\n\n%s' % (r, '- Antaget: syntetiskt.' if r == fb.KUNDFORSTAELSE_RUBRIKER[-1] else 'Syntetiskt.') for r in fb.KUNDFORSTAELSE_RUBRIKER) + '\n')
-        return {'klar': True, 'saknas': []}, None
+        return {'klar': True, 'saknas': []}, g['kompetens_transkript']('forbered')
     g['SVAR'][lambda p, s: s is fb.SCHEMA] = bered
     status = {'fas': 'forberedelse'}
     fb.kor(slug, status, lambda: a.skriv_status(u / 'atelje', status))
@@ -133,9 +133,17 @@ def kor(g):
         kandidater=[{'id': 'k01', 'version': version}], belagg='endast isolerat teknikprov',
         uppdrag={'typ': 'bygg_ut', 'resultat': 'startsidan och tjänstesidan /service/', 'omfattning': ['/service/'], 'bevara': ['första vyn']})
     fordjupning = True
-    g['SVAR'][lambda p, s: s is kd.PASS_SCHEMA] = lambda p, s: ({
-        'kod_andrad': [], 'beteende_provat': [], 'visuell_bedomning': {'fore': '', 'efter': '', 'omdome': 'ej_bedomd', 'skal': 'Syntetiskt prov.'},
-        'ingen_andring': 'Prov av passets övergång, ingen verklig modell.', 'valda': [], 'passade_inte': [], 'kvarstar': []}, None)
+    def specialist(p, s):
+        import kompetens
+        pass_ = next(x for x, namn in kompetens.PASSNAMN.items() if 'specialisten för %s' % namn in p)
+        bild = kd.rel(kd.kdir(slug, 'k01') / 'bilder/start/vy-390-forsta.png')
+        kommando = '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat k01 --meny' % slug
+        return ({'kod_andrad': [], 'beteende_provat': [{'vad': 'syntetisk kontroll', 'hur': kommando,
+                  'resultat': 'syntetiskt svar, ingen verklig renderingsbedömning', 'bild': bild}],
+                 'visuell_bedomning': {'fore': bild, 'efter': bild, 'omdome': 'ej_bedomd', 'skal': 'Syntetiskt prov.'},
+                 'ingen_andring': 'Prov av passets övergång, ingen verklig modell.', 'valda': [], 'passade_inte': [], 'kvarstar': []},
+                g['kompetens_transkript'](pass_, [('Bash', {'command': kommando}, 'syntetiskt renderingskvitto')]))
+    g['SVAR'][lambda p, s: s is kd.PASS_SCHEMA] = specialist
     valda = kd.forfina_valda(slug, status, lambda: a.skriv_status(u / 'atelje', status))
     assert valda == ['k01'], (valda, kd.las_status(slug, 'k01'))
     st = kd.las_status(slug, 'k01')
@@ -143,7 +151,7 @@ def kor(g):
     assert st['version'] != version and st['forfining']['fran'] == version
     pass_ = [x for x in st['kompetens'].values() if x.get('pass') in kd.KOMPETENSPASS]
     assert {x['pass'] for x in pass_} == set(kd.KOMPETENSPASS), st['kompetens']
-    assert all(x['genomford'] is None for x in pass_), 'attrapper blev kompetensbevis'
+    assert all(x['genomford'] is True and x['uppfyllt'] is True for x in pass_), 'syntetiskt kompletta pass ska pröva godkännandevägen'
     a.doma(slug, 'ägaren', 'godkand', 'Syntetiskt godkännande enbart av startsidans testversion.',
         kandidater=[{'id': 'k01', 'version': st['version']}], belagg='endast isolerat teknikprov')
     assert skapande.godkand_giltig(slug)[0]
@@ -168,9 +176,16 @@ def kor(g):
     # Riktig kor.sh/processvakt i kopian. Körbart lokalt program med namnet claude
     # är en deklarerad testdubbel och startar ingen Claude-session.
     bin_ = tmp / 'forlopp-bin'; bin_.mkdir()
-    script = '#!/bin/sh\ncat >/dev/null\nprintf \'%s\\n\' \'{"type":"result","subtype":"success","is_error":false,"num_turns":1,"duration_ms":1}\'\n'
+    from prov_helbygge_fixtur import KOMPETENS_FIXTUR
+    skriv(bin_ / 'kompetens.py', KOMPETENS_FIXTUR)
+    script = r'''#!/bin/sh
+cat >/dev/null
+SID="$(.venv/bin/python -B -c 'import sys; print(sys.argv[sys.argv.index("--session-id")+1])' "$@")"
+.venv/bin/python -B "$PROV_KOMPETENS_FIXTUR" "$PWD" "$HOME" "$NWP_SLUG" "$SID"
+printf '%s\n' "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"session_id\":\"$SID\",\"num_turns\":1,\"duration_ms\":1}"
+'''
     skriv(bin_ / 'claude', script); (bin_ / 'claude').chmod(0o700)
-    env = dict(os.environ, PATH=str(bin_) + os.pathsep + os.environ['PATH'], NWP_STARTKONTROLL='av', NWP_SANDLADA='av', NWP_ATELJE='pa', NWP_MCP_CONFIG='av', NWP_STADNING='av', NWP_FRIST='1')
+    env = dict(os.environ, PATH=str(bin_) + os.pathsep + os.environ['PATH'], NWP_STARTKONTROLL='av', NWP_SANDLADA='av', NWP_ATELJE='pa', NWP_MCP_CONFIG='av', NWP_STADNING='av', NWP_FRIST='1', HOME=str(tmp / 'forlopp-hem'), PROV_KOMPETENS_FIXTUR=str(bin_ / 'kompetens.py'))
     env.pop('NWP_SLUG', None)
     neka = subprocess.run(['bash', str(root / 'kor.sh'), slug, 'Syntetisk serviceverksamhet'], cwd=root, env=env, capture_output=True, text=True, timeout=10)
     assert neka.returncode == 2 and 'Kundstarts ärendelager kräver sandlådan' in neka.stdout, (neka.stdout, neka.stderr)
@@ -179,6 +194,7 @@ def kor(g):
     assert r.returncode == 1, (r.returncode, r.stdout[-5000:], r.stderr[-1000:])
     fil, slut = korslut.senaste_slutpost(a.KUNDER / slug)
     assert fil and slut['slutkod'] == 1
+    assert slut['kontroller']['kompetens']['uppfyllt'] is True, slut['kontroller']['kompetens']
     assert slut['tillstand']['sessionen_avslutad']['varde'] is True, slut['tillstand']
     assert slut['tillstand']['designgranskaren_godkanner']['varde'] is not True
     assert slut['tillstand']['klart_for_leverans']['varde'] is not True
@@ -203,4 +219,4 @@ def kor(g):
     assert not skapande.godkand_giltig(slug)[0]
     assert not fb.giltig(slug)
     print('FÖRLOPP: Kundstart → förberedelse → skiss → stopp → nytt försök/kritik → val → förfining → syntetiskt startsidesgodkännande → kor.sh → slutkod 1 → intern export; senare kundändring nekar fortsatt godkännande.')
-    print('DUBBLAR: modeller, rendering/bilder/axe; ingen verklig AI-, design-, användar- eller leverantörsbedömning.')
+    print('DUBBLAR: modeller, kompetensens transkript, rendering/bilder/axe; syntetiska kompletta kvitton prövar grindarna, ingen verklig AI-, design-, användar- eller leverantörsbedömning.')

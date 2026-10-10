@@ -444,11 +444,13 @@ def f8():
     assert post['verklig'] is False and rc == 0 and post['svar']['prestanda']['lcp_ms'] == 1200, 'provklienten är mekanik, aldrig verklig åtkomst'
     md = las(ut / 'DEVTOOLS.md')
     assert '## Kvittot i tre nivåer' in md and '- aktivering: ansluten' in md and 'uppgiften genomförd' in md and 'mekanik, inte verklig åtkomst' in md and 'bedöms av kritiken och ägaren' in md and 'LCP 1200 ms' in md, md
-    # research_rader pekar bara på profiler med verklig, genomförd användning
+    # Legacyprofiler går att inventera, men obundet material injiceras inte i researchen.
+    # Exakt kandidat/paket/metod prövas via referensprofilens egna integrationsprov.
     atelje.UNDERLAG = kd.atelje.UNDERLAG = U
     assert not kd.devtools_profiler(SLUG), 'en provklients profil pekas aldrig ut som underlag'
     post['verklig'] = True; (ut / 'DEVTOOLS.json').write_text(json.dumps(post), encoding='utf-8')
-    assert [d['vard'] for d in kd.devtools_profiler(SLUG)] == ['127.0.0.1'] and 'DevTools-profilen för 127.0.0.1' in '\n'.join(kd.research_rader(SLUG))
+    assert [d['vard'] for d in kd.devtools_profiler(SLUG)] == ['127.0.0.1']
+    assert 'DevTools-profilen för 127.0.0.1' not in '\n'.join(kd.research_rader(SLUG)), 'obunden legacyprofil får inte styra den nya researchen'
     # ett misslyckat anrop och en MCP som inte anslöt: användningen blockerad, aktiveringen blockerad
     kat2 = TMP / 'klient2'; kat2.mkdir()
     os.environ['NWP_CLAUDE'] = str(provklient(kat2, status='failed', fel_anrop=True, blockprov=False))

@@ -17,7 +17,8 @@ Så körs den: konfigurationen kontroller/mcp/chrome-devtools.json (npx chrome-d
 på användarnivån) ges med --strict-mcp-config till en nästlad session utan läs-, skriv- och skalverktyg. Chrome är
 Playwrights egen Chromium (NWP_DEVTOOLS_CHROME ur kontroller/node_modules), inte ägarens installerade, och startas med
 --proxy-server mot nätgränsen (kontroller/webblasare/natproxy.mjs, NWP_DEVTOOLS_PROXY): domänlistan är referensens egna
-värdar och resursursprungen ur det senaste referenspaketet, som i webbtjänsten; allt annat nekas och loggas. Utan de
+värdar och resursursprungen ur det uttryckligen valda paketet (automatbeställningen i referensprofil.py), annars det
+senaste referenspaketet, som i webbtjänsten; allt annat nekas och loggas. Utan de
 variablerna vägrar startvägen att köra. Läsande HTTP-metoder och WebSocket/WebTransport begränsas även i Chromium
 med det låsta tillägget devtools-lasande, eftersom proxyn inte kan se metoden i en HTTPS-tunnel. Detta är ingen
 OS-sandlåda och ingen garanti mot en server som ändrar tillstånd på GET. Verklig MCP-start med tillägget måste provas.
@@ -228,20 +229,58 @@ def chrome_sokvag():
     return v if v and Path(v).is_file() else None
 
 
-def resursursprung(slug, adress, underlag=None):
-    """Resursursprungen för referensen ur det senaste referenspaketet (kandidaten med samma adress eller www-tvilling), så
-    att profilen mäter sidan med dess typsnitt och bilder; annars bara sajtens egna ursprung."""
+def profiladress(adress, lokala_portar=()):
+    """Sid-URL med referensstegets värdgräns. Automatbeställningen får en exakt paketerad undersida."""
+    if not isinstance(adress, str) or any(c in adress for c in '\\\n\r\t\x00 '):
+        raise ValueError('ogiltig profiladress')
+    try:
+        d = urllib.parse.urlsplit(adress)
+        kanon, fel = referens.kanon_adress(urllib.parse.urlunsplit((d.scheme, d.netloc, '/', '', '')), lokala_portar)
+    except ValueError:
+        raise ValueError('ogiltig profiladress') from None
+    if fel or d.fragment:
+        raise ValueError(fel or 'profiladressen får inte ha fragment')
+    k = urllib.parse.urlsplit(kanon)
+    return urllib.parse.urlunsplit((k.scheme, k.netloc, d.path or '/', d.query, ''))
+
+
+def resursursprung(slug, adress, underlag=None, paket=None, referensnamn=None):
+    """Resurser ur exakt beställt paket, annars senaste paketet för den manuella ingången.
+
+    Ett uttryckligt paket måste innehålla just den fångade sidan. Det ersätts aldrig med senaste paketet.
+    """
     import skapande
-    paket = skapande.senaste_paket(slug, Path(underlag or UNDERLAG))
+    explicit = paket is not None
+    bas = Path(underlag or UNDERLAG)
+    paket = Path(paket) if explicit else skapande.senaste_paket(slug, bas)
+    if explicit:
+        ref, fel = referens.forankrad_rot(bas, slug)
+        if fel or not paket.is_absolute() or paket.parent != ref or not re.fullmatch(r'paket-v\d{2,}', paket.name):
+            raise ValueError('DevTools-paketet är inte förankrat i körningens referenser')
+        for f in (paket, paket / 'PAKET.json'):
+            if f.is_symlink() or not f.exists():
+                raise ValueError('DevTools-paketet saknas eller är en länk')
+        if not (paket / 'PAKET.json').is_file() or (paket / 'PAKET.json').stat().st_nlink != 1:
+            raise ValueError('DevTools-paketets manifest är ingen ensam vanlig fil')
     if not paket:
         return []
     try:
         pk = json.loads((paket / 'PAKET.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
+        if explicit:
+            raise ValueError('DevTools-paketets manifest kunde inte läsas') from None
         return []
+    if explicit and (not isinstance(pk, dict) or pk.get('slug') != slug or pk.get('version') != paket.name or pk.get('torr')):
+        raise ValueError('DevTools-paketet har fel identitet eller är en torrkörning')
     for k in pk.get('kandidater') or []:
         if isinstance(k, dict) and referens.samma_referens(str(k.get('adress') or ''), adress):
+            if referensnamn is not None and k.get('namn') != referensnamn:
+                continue
+            if explicit and not any(isinstance(s, dict) and s.get('ok') is True and s.get('adress') == adress for s in k.get('sidor') or []):
+                continue
             return [o for o in (k.get('resursursprung') or []) if isinstance(o, str)]
+    if explicit:
+        raise ValueError('profiladressen saknar en fångad sida i det angivna paketet')
     return []
 
 
@@ -494,7 +533,7 @@ def skriv_kvitto(ut, post):
     (ut / 'DEVTOOLS.md').write_text('\n'.join(rader), encoding='utf-8')
 
 
-def profilera(slug, adress, ut, underlag=None, torr=False, lokala_portar=(), provblock=False):
+def profilera(slug, adress, ut, underlag=None, torr=False, lokala_portar=(), provblock=False, paket=None, referensnamn=None):
     """Kör profilen och skriver kvittot. Ger (post, None) eller (None, skäl)."""
     k, version, fel = konfig()
     if fel:
@@ -503,15 +542,21 @@ def profilera(slug, adress, ut, underlag=None, torr=False, lokala_portar=(), pro
     fel = forankra_skrivmal(slug, ut, underlag)
     if fel:
         return None, fel
+    try:
+        adress = profiladress(adress, lokala_portar)
+        resurser = resursursprung(slug, adress, underlag, paket, referensnamn)
+    except ValueError as e:
+        return None, str(e)
     ut.mkdir(parents=True, exist_ok=True)
     chrome = chrome_sokvag()
     if not chrome:
         return None, 'Playwrights Chromium hittades inte (kontroller/node_modules); profilen körs aldrig med ägarens Chrome'
     egna = referens.kandidat_ursprung(adress)
-    ursprung = list(dict.fromkeys(egna + [o for o in resursursprung(slug, adress, underlag) if referens.tillatet_resursursprung(o + '/', lokala_portar)]))
+    ursprung = list(dict.fromkeys(egna + [o for o in resurser if referens.tillatet_resursursprung(o + '/', lokala_portar)]))
     klient = 'claude' if not os.environ.get('NWP_CLAUDE') else 'NWP_CLAUDE (provklient)'
     post = {'schema': 1, 'verktyg': 'devtools', 'slug': slug, 'adress': adress, 'vard': urllib.parse.urlsplit(adress).hostname, 'tid': nu(), 'version': version,
-            'konfig': KONFIG.name, 'konfig_sha256': hashlib.sha256(KONFIG.read_bytes()).hexdigest(), 'chrome': chrome, 'klient': klient, 'modell': MODELL, 'torr': torr}
+            'konfig': KONFIG.name, 'konfig_sha256': hashlib.sha256(KONFIG.read_bytes()).hexdigest(), 'chrome': chrome, 'klient': klient, 'modell': MODELL, 'torr': torr,
+            'paket': Path(paket).name if paket is not None else None, 'referensnamn': referensnamn}
     if torr:
         post.update(aktivering={'tillstand': 'ej_observerat', 'ansluten': False, 'status': 'torrkörning', 'verktyg_listade': 0, 'verktyg': [], 'klient': klient, 'not': 'ingen session'},
                     anvandning=anvandning([], set()), kvalitet=kvalitet(), verklig=False, natgrans={'domaner': domaner(ursprung), 'ursprung': ursprung, 'blockerade': []},
