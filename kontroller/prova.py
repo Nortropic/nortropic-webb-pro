@@ -82,16 +82,119 @@ def bygg_inom_grans(sajt, timeout=600):
     delar = sajt.parts  # <root>/kunder/<slug>/sajt eller <root>/kunder/<slug>/kandidater/<id>/sajt (skapandeflödets kandidater)
     i = max(j for j, d in enumerate(delar) if d == 'kunder')
     root, slug = Path(*delar[:i]), delar[i + 1]
-    kmd = ['npm', 'run', 'build', '--prefix', str(sajt)]
-    if os.environ.get('NWP_PROCESSGRANS') != '1':
-        kmd = [sys.executable, '-B', str(KONTROLLER / 'processgrans.py'), slug, '--root', str(root), '--utan-nat', '--skrivbar', str(sajt), '--', *kmd]
+    kmd = byggkommando(sajt)
+    # en kandidats bygge av exakt samma indata återanvänds (ägarens förenklingsuppdrag 2026-10-10, E): skaparens sista
+    # förhandsvarv, kritikerns förhandsvisning och fotograferingen byggde förr samma version var för sig. Stämpeln ligger
+    # utanför det byggbara projektet (kandidatens katalog, som varken bygget eller skaparens verktyg skriver i) och binder
+    # indata, beroenden, verktyg och kommando till hashen över dist/; bilderna tas alltid av den dist som serveras nu.
+    kandidat = len(delar) == i + 5 and delar[i + 2] == 'kandidater' and bool(re.fullmatch(r'k\d{2}', delar[i + 3])) and delar[i + 4] == 'sajt'
+    stampel = sajt.parent / 'BYGGE.json' if kandidat else None
+    t0 = time.monotonic()
+    kalla = kallidentitet(sajt, kmd) if stampel else None
+    if kalla and _bygge_ateranvandbart(sajt, stampel, kalla):
+        _byggrad(sajt.parent, kalla=kalla, ateranvant=True, rc=0, sekunder=round(time.monotonic() - t0, 2))
+        return 0, 'bygget återanvänt: samma indata (%s) och samma dist som förra bygget' % kalla[:12]
     # ett bygge i taget per kund: kandidaterna delar sajtens beroenden, och byggena skriver deras cacher (node_modules/.vite)
     with open(root / 'kunder' / slug / '.bygglas', 'w') as las:
         fcntl.flock(las, fcntl.LOCK_EX)
+        vantade = time.monotonic() - t0
         try:
-            return kor(kmd, timeout=timeout)
+            if stampel:  # ett annat bygge kan ha gjort just den här versionen medan vi väntade
+                kalla = kallidentitet(sajt, kmd)
+                if kalla and _bygge_ateranvandbart(sajt, stampel, kalla):
+                    _byggrad(sajt.parent, kalla=kalla, ateranvant=True, rc=0, vantade=round(vantade, 2), sekunder=round(time.monotonic() - t0, 2))
+                    return 0, 'bygget återanvänt: samma indata (%s) och samma dist som förra bygget' % kalla[:12]
+            t1 = time.monotonic()
+            rc, out = kor(kmd, timeout=timeout)
+            if stampel:
+                efter = kallidentitet(sajt, kmd)
+                if rc == 0 and kalla and efter == kalla and (sajt / 'dist' / 'index.html').is_file():
+                    _skriv_stampel(stampel, {'kalla': kalla, 'dist': dist_hash(sajt / 'dist'), 'tid': nu()})
+                elif stampel.exists():
+                    stampel.unlink()  # ett fallerat bygge eller ändrade indata under bygget: ingen stämpel gäller dist/
+                _byggrad(sajt.parent, kalla=kalla, ateranvant=False, rc=rc, vantade=round(vantade, 2), bygg=round(time.monotonic() - t1, 2),
+                         sekunder=round(time.monotonic() - t0, 2), andrat_under=bool(kalla and efter != kalla))
+            return rc, out
         finally:
             fcntl.flock(las, fcntl.LOCK_UN)
+
+
+def byggkommando(sajt):
+    """Byggets kommando för <root>/kunder/<slug>/sajt eller en kandidats projekt: innanför processgränsen, utom när
+    anroparen redan är innanför den (NWP_PROCESSGRANS=1)."""
+    sajt = Path(sajt)
+    delar = sajt.parts
+    i = max(j for j, d in enumerate(delar) if d == 'kunder')
+    root, slug = Path(*delar[:i]), delar[i + 1]
+    kmd = ['npm', 'run', 'build', '--prefix', str(sajt)]
+    if os.environ.get('NWP_PROCESSGRANS') != '1':
+        kmd = [sys.executable, '-B', str(KONTROLLER / 'processgrans.py'), slug, '--root', str(root), '--utan-nat', '--skrivbar', str(sajt), '--', *kmd]
+    return kmd
+
+
+BYGGVERKTYG = ('prova.py', 'processgrans.py')
+_NODE_VERSION = []
+
+
+def kallidentitet(sajt, kmd):
+    """sha256 över allt som en kandidats bygge läser och som kan ändras: projektets filer utom node_modules, dist och .astro
+    (src/, public/, konfigurationen, package.json, DESIGN.md), beroendena (node_modules-länkens mål och dess
+    .package-lock.json, som typsnittsinstallationen skriver), Node-versionen, byggkommandot och byggvägens egen kod.
+    None när projektet bär en annan länk än node_modules: då byggs det alltid."""
+    sajt = Path(sajt)
+    h = hashlib.sha256()
+    for katalog, kataloger, filer in os.walk(sajt, followlinks=False):
+        k_ = Path(katalog)
+        if k_ == sajt:
+            kataloger[:] = [x for x in kataloger if x not in ('node_modules', 'dist', '.astro')]
+        kataloger.sort()
+        if any((k_ / x).is_symlink() for x in kataloger):
+            return None
+        for fn in sorted(filer):
+            p = k_ / fn
+            if p.is_symlink():
+                if k_ == sajt and fn == 'node_modules':
+                    continue
+                return None
+            h.update(b'F\0' + p.relative_to(sajt).as_posix().encode() + b'\0' + hashlib.sha256(p.read_bytes()).digest())
+    nm = sajt / 'node_modules'
+    mal = os.path.realpath(nm) if nm.exists() else ''
+    lock = Path(mal) / '.package-lock.json' if mal else None
+    h.update(b'N\0' + mal.encode() + b'\0' + (hashlib.sha256(lock.read_bytes()).digest() if lock and lock.is_file() else b'-'))
+    if not _NODE_VERSION:  # direkt, inte genom kor(): identiteten är ingen del av bygget eller kontrollerna
+        try:
+            _NODE_VERSION.append(subprocess.run([NODE, '--version'], capture_output=True, text=True, timeout=30).stdout.strip())
+        except (OSError, subprocess.SubprocessError):
+            _NODE_VERSION.append('okänd')
+    h.update(b'V\0' + _NODE_VERSION[0].encode() + b'\0' + json.dumps([str(x) for x in kmd]).encode())
+    for n in BYGGVERKTYG:
+        h.update(b'T\0' + n.encode() + b'\0' + hashlib.sha256((KONTROLLER / n).read_bytes()).digest())
+    return h.hexdigest()
+
+
+def _bygge_ateranvandbart(sajt, stampel, kalla):
+    try:
+        s = json.loads(Path(stampel).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    return (isinstance(s, dict) and s.get('kalla') == kalla and (Path(sajt) / 'dist' / 'index.html').is_file()
+            and not (Path(sajt) / 'dist').is_symlink() and s.get('dist') == dist_hash(Path(sajt) / 'dist'))
+
+
+def _skriv_stampel(stampel, post):
+    tmp = Path(stampel).with_name('.%s.%d.tmp' % (Path(stampel).name, os.getpid()))
+    tmp.write_text(json.dumps(post, ensure_ascii=False) + '\n', encoding='utf-8')
+    os.replace(tmp, stampel)
+
+
+def _byggrad(kat, **post):
+    """Kandidatens bygglogg (BYGGEN.jsonl): återanvänt eller byggt, väntan på kundens bygglås, byggtid. Mätningen bakom
+    beslutet om låset (ägarens förenklingsuppdrag 2026-10-10: kötid och omarbete skiljs från arbetet)."""
+    try:
+        with open(Path(kat) / 'BYGGEN.jsonl', 'a', encoding='utf-8') as f:
+            f.write(json.dumps(dict(tid=nu(), **post), ensure_ascii=False) + '\n')
+    except OSError:
+        pass
 
 def svans(text, n=25):
     return '\n'.join(text.strip().splitlines()[-n:])

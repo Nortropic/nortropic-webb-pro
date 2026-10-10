@@ -179,6 +179,13 @@ varje körning låser sina versioner. Två verktyg delar komponenterna och läge
   utan bild och bilder som saknas på disken står som blockerade eller misslyckade, aldrig som använda. Den äldre
   utforskningen prövar REFERENSER.md:s rader, och en tom eller inaktuell fil godtas inte; helbygget och putsningen
   prövar VINNARE.json. Kontrollen skriver aldrig i underlaget och skapar aldrig REFERENSER.md.
+- **Aktiveringskraven** (ägarens förenklingsuppdrag 2026-10-10, A). Raden "aktiveringskraven i fasens roller" klassar
+  varje fil i fasens rollers kärna och alternativ som kvittot gör (`kompetens.aktiverbara`): skills som aktiveras med
+  Skill, skills som källan gjort användaranropade (läses hela), väntande skills med Initial Response (läses) och
+  dokument (läses). Ett aktiveringskrav som sessionen inte kan uppfylla stoppar starten före den första sessionen: en
+  användaranropad eller väntande skill som ändå krävs aktiverad, ett Skill-namn som inte är entydigt, eller en skill som
+  skillverktyget saknar i en session med ateljéns argument. Raden prövar förutsättningen; varje session lämnar sitt eget
+  kvitto, och en tidigare sessions kvitto gäller aldrig nästa.
 - **Vad sessionerna når.** Raderna ur `claude mcp list` säger vad maskinen har. Vad ateljéns sessioner laddar prövas med
   en kort session med flödets egna argument (`verktygslada.prova_sessionen`: samma `--setting-sources`,
   `--strict-mcp-config`, `--mcp-config` och `--settings`), som bara läser sitt init-besked och avslutas före modellens svar, utan verktygsanrop och utan

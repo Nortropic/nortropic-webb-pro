@@ -4877,3 +4877,166 @@ bygger om. Ingen publik portal, ingen kunddistribution, inga köp, inga skarpa l
 
 Genomfört, provat och kvar: `kunskap/desktop.md` och den privata rapporten
 `underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md` (täckningsmatrisen U01–U40, D01–D28, J01–J12).
+
+## Tillägg 2026-10-10: förenklingen av skapandeflödet (tio riktningar bedömbara tidigare)
+
+**Status:** gäller; genomfört av Claude i grenen `claude/forenkla-skapandet-20261010`. Räckvidd: skissläget i
+kandidatflödet, från research till fotograferade skisser, och startkontrollen. Helbygge, driftsättning och
+kundgodkännande ingår inte.
+
+Ägarens uppdrag (inklistrat ~19:53Z), ordagrant:
+
+> Du ska genomföra en avgränsad förenkling av Nortropics befintliga skapandeflöde så att tio kundanpassade designriktningar blir bedömbara tidigare, med bibehållen designambition, kompetens och säkerhet.
+> Arbeta praktiskt: verifiera nuläget, prioritera de verkliga flaskhalsarna, implementera, pröva och uppdatera dokumentationen. Stanna inte vid en rapport eller nya backlogposter för det som kan rättas inom uppdraget.
+> 1. Målet: full verktygslåda, mindre upprepat arbete
+> Vår ”middle out”-princip är att organisera arbetet runt nästa värdefulla resultat: tio tydligt olika, visuellt genomarbetade kompositioner med kundens information, som jag kan jämföra.
+> Behåll:
+> - kundförståelse och verifierade uppgifter;
+> - obligatorisk undersökning av starka branschsajter och inspirationskällor, inklusive Awwwards;
+> - faktisk användning av Refero, Mobbin, 21st och övrig tilldelad kompetens i rätt steg;
+> - referensbilder, relevanta DOM/CSS-mätningar, interaktioner och användbara implementationsgrunder;
+> - tio riktningar med jämförbar omfattning i mobil och dator;
+> - självständig kvalitetsbedömning, kundisolering, blindning där den gäller och versionsbundna godkännanden;
+> - slutkontrollerna före leverans.
+> Förkorta vägen genom återanvändning, bättre ordningsföljd, avgränsade uppgifter och säkert parallellt arbete. Antalet verktygsanrop, sessionsstarter eller rapporter är inget kvalitetsmått.
+> Detta är ett förbättringsuppdrag i den befintliga motorn. Börja med små ändringar i befintliga funktioner.
+> 2. Verifiera nuläget och använd befintliga mätningar
+> Läs aktuella arbetsregler, skapandeflödet, metodkartan och relevanta ägarbeslut. Kontrollera pågående körningar och andra sessioners arbete.
+> Codex granskade commit 1353214. Följande observationer ska verifieras mot aktuell kod:
+> - Tre arkiverade försök stannade i researchen efter ungefär 69, 63 respektive 23 minuter. Dessa tider beskriver misslyckade försök, inte normal tid för tio riktningar.
+> - Senaste rättelsen vid granskningen hanterade skills med disable-model-invocation: true. Gör inte om en redan genomförd rättelse.
+> - Alla skapare väntade på research, referensinsamling, plan, uppdragsmaterial, planprövning och referensprofiler.
+> - Uppdragsmaterial hämtades före planprövningen och kunde därför behöva hämtas igen.
+> - Webbfångst och referenstjänster kördes efter varandra.
+> - Referensprofiler hade redan cache och deduplicering, men behandlades seriellt och kunde stoppa samtliga skapare.
+> - Samma kodversion kunde byggas och fotograferas igen av skaparen, kritikern och slutkontrollen.
+> - Skaparpoolen hade högst tre samtidiga arbetare. Byggmoment hade dessutom ett gemensamt lås per kund.
+> Utgå bland annat från:
+> kontroller/kandidater.py
+> kontroller/skapande.py
+> kontroller/referensprofil.py
+> kontroller/referenstjanster.py
+> kontroller/forhandsvisa.py
+> kontroller/prova.py
+> kontroller/kompetens.py
+> Skilj konfigurerade tidsgränser från uppmätt tid. Identifiera vad som ligger på den kritiska vägen till första bedömbara riktningen och till alla tio.
+> Återanvänd befintliga loggar och tidsfält. Komplettera bara den mätning som saknas för att fatta konkreta beslut.
+> 3. Genomför förenklingarna där observationerna håller
+> A. Upptäck felaktiga förutsättningar tidigt
+> Använd befintlig startkontroll för att kontrollera att tilldelade skills och verktyg faktiskt kan användas på avsett sätt.
+> Skilj på skills som aktiveras, användaranropade skills och dokument som läses. Ett motsägelsefullt aktiveringskrav ska upptäckas före en lång researchsession.
+> Varje session ska fortfarande få sin tilldelade kompetens korrekt. En tidigare sessions kvitto bevisar inte att nästa session har fått eller använt samma kompetens.
+> B. Återanvänd insamlingen
+> Samla gemensam kundförståelse, branschanalys, inspirationsmaterial och återkommande tjänsteresultat en gång när indata är oförändrade.
+> Bevara originalbilder, relevanta mätningar, källor och eventuell kod. Sammanfattningar ska hjälpa nästa steg att hitta informationen, inte ersätta det visuella underlaget.
+> Utveckla befintlig cache där upprepat arbete kan beläggas. Skapa ingen generell cacheplattform.
+> Återanvändning ska ta hänsyn till kundgräns, relevanta indata, versioner och aktualitet. Ett misslyckat eller ofullständigt resultat får aldrig räknas som komplett.
+> C. Flytta arbete till rätt plats
+> Pröva planens relevans och variation med det gemensamma referensunderlaget innan dyrt, kandidatspecifikt material hämtas.
+> Behöver planprövningen ytterligare material ska just det hämtas. Efter en planändring ska bara berörda uppdrag och beroenden göras om.
+> Undersök överlappningen mellan den första referensfångsten och DevTools-profileringen. Återanvänd redan verifierade observationer och komplettera det som saknas.
+> D. Ta bort onödiga väntetider
+> Efter den gemensamma prövningen av riktningarnas relevans och variation ska en kandidat kunna börja när dess egna förutsättningar är uppfyllda. Ett fel i en annan kandidats referens ska inte automatiskt stoppa den.
+> Parallellisera bara faktiskt oberoende insamling. Använd isolerade skrivmål och säker publicering av resultaten. Behåll kundvakter, åtkomstregler och begränsad samtidighet.
+> Ta inte bara bort lås. Utred vilka gemensamma filer, webbläsarresurser och byggcachar de skyddar.
+> Frys underlaget för varje startad kandidat. Senare kompletteringar får inte ändra dess förutsättningar tyst.
+> E. Återanvänd byggda och fotograferade versioner
+> Undvik ombyggnad och omfotografering av exakt samma verifierade version när det redan finns rätt underlag.
+> Identiteten måste omfatta relevanta källfiler, material, beroenden, bygginställningar, verktyg samt de bredder och tillstånd som efterfrågas. Browsermiljö och typsnitt behöver vara tillräckligt kontrollerade.
+> Kritikern ska få neutrala, versionsbundna bilder utan skaparens förklaringar eller bedömningar. Den ska fortfarande kunna göra egen interaktionskontroll när uppgiften kräver det.
+> Ändrade indata eller saknade tillstånd kräver ny mätning. Gamla bilder får aldrig intyga ny kod.
+> F. Återuppta rätt del
+> Bevara fungerande uppdrag, insamlat material och färdiga kandidater. Reparera eller kör om det steg som brast.
+> Ändras en förutsättning ska berörda efterföljande resultat göras inaktuella. Återanvändning får inte behålla inaktuella godkännanden.
+> Kontrollera också hur begärda tio förslag hanteras: behåll giltiga uppdrag och komplettera saknade. Redovisa tydligt om färre än tio blir bedömbara, med orsaken. Starta ingen obegränsad omförsöksslinga.
+> 4. Gör rätt mängd arbete före mitt val
+> Varje tidig riktning ska visa:
+> - första vyn och den viktigaste innehållssektionen;
+> - kundens riktiga eller tydligt märkta preliminära innehåll;
+> - genomarbetad typografi, bildbehandling, komposition och innehållshierarki;
+> - navigation och den centrala interaktion som behövs för att bedöma riktningen;
+> - fungerande mobil och dator.
+> Tio färgvarianter av samma layout är inte tio riktningar. Bevara den gemensamma prövningen av variation.
+> Behåll snabba kontroller som behövs för ett rättvisande och användbart förslag: rendering, centrala interaktioner, fokus, allvarliga tillgänglighetsfel, konsolfel, spill och faktaunderlag.
+> Specificera vilka djupare kontroller som hör till vald riktning och helbygge. Flyttad kontroll ska ha en tydlig senare plats och omfattas av leveransvillkoren.
+> Varje granskningspass ska besvara en tydlig fråga och kunna påverka resultatet. Undersök om upprepade sessionsstarter och omläsningar kan minskas utan att blanda roller eller förstöra oberoendet.
+> 5. Verifiera förbättringen
+> Följ repots aktuella prov- och samarbetsregler. Ändra inte filer som en pågående fryst körning använder.
+> Pröva berörda beteenden, särskilt:
+> - återanvändning vid oförändrade indata;
+> - korrekt omkörning efter ändring;
+> - ofullständiga resultat och avbrott;
+> - samtidighet utan sammanblandning;
+> - fortsatt blindning och kundisolering;
+> - att färdiga kandidater bevaras;
+> - att bilderna gäller versionen som visas.
+> Kör riktade prov och föreskrivet fullprov. Ett tungt prov åt gången enligt repots regler.
+> Redovisa:
+> - tid till första bedömbara riktningen;
+> - tid till tio, eller uppnått antal och kvarstående hinder;
+> - modellarbete, verktygsväntan, kötid och omarbete;
+> - återanvända respektive nyproducerade resultat;
+> - bedömbar kvalitet och variation.
+> Summera inte parallella arbetstider som väggtid. Jämför likvärdig omfattning och skilj kall insamling från återanvändning.
+> Attrapper bevisar mekanik. Ett verkligt körprov behövs för verklig tidsåtgång, och bildbedömning behövs för designkvalitet. Använd befintligt mandat för verkliga prov; redovisa annars exakt det avgränsade prov som återstår. Helbygge, driftsättning och kundgodkännande ingår inte i detta uppdrag.
+> 6. Dokumentation och leverans
+> Uppdatera befintlig dokumentation och flödesvy där beteendet ändras. Bevara historiken och återanvänd befintligt rapportregister.
+> Leverera ett samlat besked:
+> - vad som ändrats och varför;
+> - vad som redan var rättat;
+> - vilka väntetider eller upprepningar som försvunnit;
+> - provresultat och exakta versioner;
+> - uppmätt effekt respektive ännu oprövad hypotes;
+> - eventuella kvarstående begränsningar.
+> Kalla inte systemet snabbare eller bättre enbart för att testerna är gröna. Visa beläggen.
+> 7. Källor och principer
+> Läs originalkällorna och kontrollera deras aktualitet. Följande tekniska ändringar är Nortropic-specifika förslag; källorna stödjer principerna men bevisar inte varje implementation.
+> - Anthropic — Building effective agents. Enkel, begriplig orkestrering; parallellisera oberoende arbete och motivera komplexitet med observerad nytta. Artikeln har en aktualitetsnot om senare verktyg, så skilj principerna från gamla produktdetaljer.
+>   https://www.anthropic.com/engineering/building-effective-agents
+> - Anthropic — Effective context engineering for AI agents. Ge varje uppgift relevant kontext och åtkomst till detaljerna. Bevara information som behövs för korrekt fortsatt arbete.
+>   https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+> - Nielsen Norman Group — Parallel and iterative design. Utforska alternativa lösningar och fördjupa dem genom utvärdering. Anpassa detaljnivån till frågan som ska besvaras.
+>   https://www.nngroup.com/articles/parallel-and-iterative-design/
+> - Ryan Singer/Basecamp — Shape Up: Principles of Shaping. Avgränsa problemet och lös centrala osäkerheter innan detaljerna byggs ut. Översätt principerna till vårt flöde; inför inte hela deras organisation.
+>   https://basecamp.com/shapeup/1.1-chapter-02
+> - Playwright — Visual comparisons. Kontrollerad miljö och rätt referensbilder är viktiga för reproducerbara bildjämförelser. En bilddiff visar förändring, inte automatiskt god design.
+>   https://playwright.dev/docs/test-snapshots
+> Börja med den minsta ändring som tar bort ett belagt hinder. Genomför sedan nästa motiverade förbättring inom samma befintliga flöde.
+
+**Det uppmätta nuläget** (befintliga loggar, `kunder/kompetensprov-lerverket/atelje/korningar/`): de tre arkiverade
+försöken stannade i researchen efter 69,5, 63,2 och 22,5 minuter (misslyckade försök, ingen normaltid). Fångsten nådde
+sin tidsgräns (1 800 s) två gånger, och tjänsterna kördes efter den (9 respektive 6 minuter). Två försök (63 och 22
+minuter) föll på ett aktiveringskrav som sessionen inte kunde uppfylla (better-explain-interface, rättat i 1353214 och
+inte gjort om här). Den senaste verkliga skisskörningen som nådde skaparna (navet, 2026-10-09, två förslag) mätte
+research 19 min, plan 6, material 1,3, planprövning 6,2 och skiss med kritik och svar 21–23 min per kandidat, första
+valbara efter 55 min. Ingen verklig DevTools-profil har körts i flödet; dess tid är inte uppmätt (tidsgräns 1 500 s per
+sida).
+
+**Genomförarens tillämpning (Claude):**
+- A: startkontrollens rad "aktiveringskraven i fasens roller" (`startkontroll.aktiveringsrader`) klassar fasens
+  filer som kvittot gör och stoppar ett aktiveringskrav som sessionen inte kan uppfylla före den första sessionen.
+  Startkontrollens äldre rollkvitto sade "filerna läses med Read" när skillverktyget saknade en skill, medan kvittot
+  krävde aktivering; den motsägelsen stoppar nu starten.
+- B/D: `skapande.komplettera` kör fångsten och tjänsterna i samma begäran samtidigt; ett fel kastas vidare när båda är
+  klara, som förut.
+- C: planprövningen ligger före uppdragens material; materialet är bundet till sina indata och märkt komplett, och bara
+  saknat, ändrat eller bristfälligt material hämtas (`material_behov`). Återgången hämtar inget själv. Mobbins
+  sökfras får ändras i prövningen; Referos stil står fast med huvudreferensen.
+- D: DevTools-profilen beställs i kandidatens kedja (`referensprofil_klar`) som egen process, med lås per sida och
+  kandidatens egen rapport; en brist stoppar bara den kandidaten och görs om en gång vid nästa start. Profilerna når
+  skaparen i prompten (`profil_rader`), så UPPDRAG.md och metodförsökens bindning står still. Försökets underlag fryses
+  (`underlag_vid_start`), och en ändring före nästa försök står i statusen.
+- E: ett kandidatbygge av exakt samma indata återanvänds (`prova.bygg_inom_grans`, stämpel utanför projektet, dist-hash);
+  varje förhandsvarv bär sin version (`KALLA.json`); kritikern får flödets neutrala bilder av exakt den version den
+  bedömer och kör egen förhandsvisning bara vid behov. Bygglåset står kvar (det skyddar sajtens delade node_modules);
+  väntan på det mäts (`BYGGEN.jsonl`).
+- F: planen behåller giltiga uppdrag och kompletterar de saknade i en session till, en gång (`komplettera_plan`).
+- Punkt 4: fokus (tangentbordets steg) är en av skissens snabba kontroller; de djupare kontrollerna har sin plats i
+  steg 7 och helbygget (`kunskap/skapandeflodet.md`, Kontrollerna före valet och senare).
+- REDOVISNING.md: avsnittet Väntan och återanvändning.
+
+**Det som är mekanik och det som är hypotes:** proven (`prov_forenkling.py`, 24 fall, 19 röda på basen) visar
+mekaniken med attrapper. Tidsvinsten är uppmätt bara för tjänsterna i researchen (6–9 minuter som nu ligger inom
+fångstens tid); att profilerna per kandidat ger en tidigare första skiss, att återanvända byggen kortar kön och att
+kritikerns färdiga bilder kortar dess session är hypoteser tills ett verkligt körprov har mätt dem. Skaparpoolens tak
+(tre samtidigt) och kundvakterna är oförändrade.

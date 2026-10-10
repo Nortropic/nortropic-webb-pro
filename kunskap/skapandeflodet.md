@@ -60,8 +60,10 @@ före valet. Går tio inte att göra inom resurserna redovisas bristen (`brist_m
 - **Researchen** är gemensam före planen och återanvänder kundens befintliga referenspaket och tjänsterapport där det
   passar briefen och är fångat; nytt hämtas där materialet saknar något eller referenskontraktet kräver det (för ett
   förslag högst sex sajter och sex frågor, för en omgång med flera grundidéer högst 8 sajter och 14 frågor). Webbsökningen,
-  gallerierna med Awwwards och kontraktet: `kunskap/referensjakt.md`, Webbupptäckten och kontraktet. En skapare kan begära en avgränsad
-  komplettering en gång, inom sitt försöks tid.
+  gallerierna med Awwwards och kontraktet: `kunskap/referensjakt.md`, Webbupptäckten och kontraktet. I en och samma
+  begäran körs fångsten (`referens.py`) och tjänsterna (`referenstjanster.py`) samtidigt: de har egna skrivmål, egna
+  processgrupper och ingen gemensam indata (ägarens förenklingsuppdrag 2026-10-10; förr i följd, och tjänsterna lade
+  6–9 minuter till fångstens 30). En skapare kan begära en avgränsad komplettering en gång, inom sitt försöks tid.
 - **Budgeten** är ett försöksvillkor: högst tre skisser samtidigt, högst 45 minuter per inledande skaparförsök med
   verktygsväntan, ett omförsök på 15 minuter bara vid ett identifierat tekniskt fel (bygget föll, bilderna saknas,
   sessionen föll), ingen förlängning för att nå antalet. Av försökets 45 minuter hålls 15 för den kritiska granskaren
@@ -138,12 +140,20 @@ kandidaterna och granskningarna.
    Ett uppdrag vars huvudreferens inte är "egen" avvisas i planen när ingen av dess referensbilder finns i kundens
    referenser (KANDIDATPLAN.json, Avvisade; `kandidater.referensbrist`): en misslyckad referensleverans följs inte av
    planering på den referensen, och planeraren får veta när researchen levererade med brister (FORSKNING.json,
-   slutkoderna). Sedan hämtas uppdragens material (huvudreferensens stilpaket och Mobbins skärmar, UPPDRAGSMATERIAL.json), och
-   planprövningen prövar uppdragen mot kunden, materialet och referenserna innan någon skiss byggs; titel, hypotes och
-   huvudreferens står fast i prövningen (PLANPROVNING.md), men en invändning som gör ett uppdrag ohållbart blir en
-   återgång: kompletterande research på specialisternas begäran, omplanering av de uppdragen med samma identitet (ny
-   hypotes eller huvudreferens, referensbrist avvisas) och nytt uppdragsmaterial för dem, och sedan en andra prövning,
-   en gång per plan (PLANPROVNING-runda-1.json; uppdraget 2026-10-08, 2E). Ett konstaterat problem bokförs alltså inte
+   slutkoderna). Ger planen färre giltiga uppdrag än begärt står de giltiga fast och de saknade kompletteras i en
+   planeringssession till, en gång (`kandidater.komplettera_plan`; ägarens förenklingsuppdrag 2026-10-10, F); det som
+   ändå saknas redovisas i `brist_mot_begart` med skälen, och färre än hälften stoppar planen. Planprövningen prövar
+   sedan uppdragen mot kunden, kundens material och det gemensamma referensunderlaget innan något kandidatspecifikt
+   material hämtas eller någon skiss byggs; titel, hypotes, huvudreferens och Referos stil (som hör till
+   huvudreferensen) står fast i prövningen (PLANPROVNING.md), och Mobbins sökfras får ändras. En invändning som gör ett
+   uppdrag ohållbart blir en återgång: kompletterande research på specialisternas begäran, omplanering av de uppdragen
+   med samma identitet (ny hypotes eller huvudreferens, referensbrist avvisas) och sedan en andra prövning, en gång per
+   plan (PLANPROVNING-runda-1.json; uppdraget 2026-10-08, 2E). Efter prövningen hämtas uppdragens material
+   (huvudreferensens stilpaket och Mobbins skärmar, UPPDRAGSMATERIAL.json) för den plan som skaparna får. Varje post är
+   bunden till sina indata i uppdraget (stilen och sökfrasen med typ) och märkt komplett eller inte; bara uppdrag vars
+   material saknas, gäller äldre indata eller brast hämtas, en gång per start (`kandidater.material_behov`). En ändrad
+   formuppgift i prövningen hämtar inget om, och en återgång hämtar inget själv (förr hämtades materialet före
+   prövningen och kunde behöva hämtas igen efter en återgång). Ett konstaterat problem bokförs alltså inte
    bara medan körningen fortsätter med samma låsta plan. Ger omplaneringen inget användbart uppdrag för en kandidat
    stoppas den (status fel med `atergang_fel` och invändningen sparad); skaparen får aldrig det förkastade uppdraget, och
    en körning som tas upp med Återuppta gör ett nytt omplaneringsförsök för den (R01). Prövningen är bunden till
@@ -157,7 +167,15 @@ kandidaterna och granskningarna.
    node_modules som länk till sajtens) och en egen skaparsession med samma faktaunderlag; några körs åt gången
    (`NWP_KANDIDATER_PARALLELLT`, högst tre), och ingen kan läsa de andras kataloger: Read, Grep och Glob nekas dem, och
    de läsande skalkommandona nekas varje session som arbetar med en kandidat (`kandidater.andra_nekas`; skapandets egna
-   verktyg och det egna projektet berörs inte). Skaparen skriver RIKTNING.md först
+   verktyg och det egna projektet berörs inte). Varje kandidats kedja börjar med dess egna förutsättningar: DevTools för
+   dess valda referenssidor (`kandidater.referensprofil_klar`, `kunskap/referensprofil.md`), beställd i kedjan i stället
+   för i ett gemensamt steg före alla skapare. En kandidat börjar när dess egna profiler finns, olika sidor profileras
+   samtidigt (högst så många som skissar samtidigt) och samma sida en gång; en kandidats profilbrist stoppar bara den
+   kandidaten, och nästa start gör om profileringen en gång (ägarens förenklingsuppdrag 2026-10-10, D). Profilerna når
+   skaparen i uppdragets prompt (`kandidater.profil_rader`), bundna till uppdraget, så att UPPDRAG.md inte skrivs om.
+   Försökets förutsättningar fryses när det startar (`underlag_vid_start`: uppdraget, materialet, profilerna och
+   paketet); en annan kandidats komplettering ändrar dem inte, och en ändring före nästa försök står i statusen
+   (`underlag_andrat`). Skaparen skriver RIKTNING.md först
    och bygger skissen: första vyn, den viktigaste innehållssektionen, navigationen och de interaktioner som behövs för
    att förstå förslaget, inte hela startsidan och ingen undersida. Förhandsvarven görs med `--mellan` i 390, 768, 1280
    och 1440, och i varje varv läses bilderna och en referensbild (vad varven prövar: metodkartan, Avgörandena, Process).
@@ -168,9 +186,12 @@ kandidaterna och granskningarna.
    mot sessionens tillåtelselista, `kandidater.blind_tillatet` och `kontroller/blindvakt.py`, så att en fil som tillkommer
    efter starten inte blir läsbar; sessionen startar i en egen tom arbetskatalog utanför motorns rot,
    `atelje.blind_arbetsyta`, där dontAsk nekar det som vakten inte tillåtit, så att också en krok som inte svarar
-   öppnar ingenting): skaparens senaste bilder och sin egen förhandsvisning (`forhandsvisa.py --granskare`,
-   bilderna i kandidatens `granskare/`, aldrig i skaparens varv), detektorn utan kodutdrag och förebilder ur Refero och
-   Mobbin. SKISSKRITIK.json bär kandidatens version, det granskaren bevisligen såg (en tom eller saknad bild räknas
+   öppnar ingenting): neutrala bilder av exakt den version den bedömer, som flödet tar med granskarens förhandsvisning
+   strax före sessionen (`forhandsvisa.py --granskare`: fyra bredder, menyn, tangentbordet och reflow, utan kod, i
+   kandidatens `granskare/`, aldrig i skaparens varv; ägarens förenklingsuppdrag 2026-10-10, E), sin egen förhandsvisning
+   när bedömningen kräver ett annat tillstånd, detektorn utan kodutdrag och förebilder ur Refero och Mobbin. Skaparens
+   varv ges bara när flödets förhandsvisning inte gick att ta och varvet är byggt av samma version (`KALLA.json` i
+   varvet, `forhandsvisa.varvets_version`); gamla bilder intygar aldrig ny kod. SKISSKRITIK.json bär kandidatens version, det granskaren bevisligen såg (en tom eller saknad bild räknas
    aldrig som sedd) och kompetenskvittot, och skaparen svarar i en egen session ("Svar på granskningen" i RIKTNING.md).
    Den sessionen är ny, som en fortsättning är: den får kompetensens rader och steg 0 igen och sägs aldrig ha läst
    kärnan i en tidigare session; kvittot räknar sessionerna var för sig (motorinventeringen 2026-10-08, K06).
@@ -180,12 +201,27 @@ kandidaterna och granskningarna.
    till `/api/forfragan/` och landar på `/tack/` (lokal demonstration). Tiden och vad som gäller före ägarens val står
    under Skissläget ovan.
 5. **Fotografera och de snabba kontrollerna.** Bygget körs innanför processgränsen; startsidan fotograferas i 390, 768,
-   1280 och 1440, med menyns knapp klickad i 390 och 768, och axe prövar startsidan med menyn öppen och formulären
-   skickade tomma. Koden bevaras i `kod/` och `kod-src/`, DESIGN.md bredvid och bilderna i `bilder/`; versionen är
+   1280 och 1440, med menyns knapp klickad i 390 och 768 och tangentbordets steg (fokus) i varje bredd, och axe prövar
+   startsidan med menyn öppen och formulären skickade tomma. Ett bygge av exakt samma indata återanvänds
+   (`prova.bygg_inom_grans`, `BYGGE.json` i kandidatens katalog utanför det byggbara projektet): identiteten omfattar
+   projektets filer, beroendena (node_modules-målet och dess .package-lock.json), Node-versionen, kommandot och byggvägens
+   kod, och dist/ måste ha samma hash som efter bygget; en ändrad källa, ändrade beroenden, ett fallerat bygge, en länk i
+   projektet eller en ändrad dist byggs om. Bilderna tas alltid av den dist som serveras nu, så skaparens sista varv,
+   kritikerns bilder och fotograferingen bygger samma version en gång (ägarens förenklingsuppdrag 2026-10-10, E). Koden bevaras i `kod/` och `kod-src/`, DESIGN.md bredvid och bilderna i `bilder/`; versionen är
    hashen över koden och DESIGN.md, så en ny fotografering av samma kod ger samma version. Ett hinder (bygget föll,
    startsidan eller bilderna saknas) gör skissen ofullständig med skälen; bristerna (konsolfel, spill, axe, siffror utan
-   belägg, menyn, huvudreferensraden) markeras, och skissen går ändå att bedöma. Ett omförsök ges bara vid ett
+   belägg, menyn, fokus, huvudreferensraden) markeras, och skissen går ändå att bedöma. Ett omförsök ges bara vid ett
    identifierat tekniskt fel.
+
+   **Kontrollerna före valet och senare** (ägarens förenklingsuppdrag 2026-10-10, punkt 4). Före ägarens val görs det som
+   behövs för ett rättvisande och användbart förslag: bygget och renderingen i fyra bredder, menyn i verkligt tillstånd,
+   fokus genom tangentbordet, axe:s allvarliga fynd med menyn öppen och formulären skickade tomma, konsolfel, sidled-spill
+   och siffror utan belägg i underlaget, och den blinda kritikens bedömning när tiden räcker. De djupare kontrollerna har
+   sin plats efter valet: undersidorna, axe på varje sida och DESIGN.md i den riktade förbättringen (Omarbeta designen
+   och Bygg ut, steg 7); helbyggets grindar i `kontroller/prova.py` (designkontraktet, SEO, byggstandarden, axe och
+   Lighthouse i mobil och dator, spill i alla sidor, sidorna utan JavaScript, besökarnas resor) och de två oberoende
+   granskarna, som villkor för leveransen (`README.md`, kedjan steg 6–9). En kontroll som flyttats hit från skissen
+   gäller fortfarande före leveransen.
 6. **Ägarens val.** Arbetsytans Förslagen visar alla kandidater med neutrala namn (Förslag A–L, slumpad ordning ur planens tid)
    och lika stora bilder, mobil och dator bredvid varandra eller en bredd i taget (surfplattan, och mellanbredden 1280
    när den finns); bilderna öppnas i full storlek, varje prototyp klickbar med sina undersidor, och markerade förslag
@@ -478,6 +514,11 @@ utforskningen skrivs REDOVISNING.md ur sessionernas transkript
 Claude Codes medietak (omkring 24 MiB bilddata per anrop) tränger undan de äldsta bilderna ur kontexten. Därför läses
 huvudreferensen om i varje varv. Ett räknat antal bildläsningar är inget belägg för en jämförelse.
 
+REDOVISNING.md har också **Väntan och återanvändning** (`kandidater.vantan_rader`): stegens minuter (research, plan,
+planprövning och material), fångstens och tjänsternas sekunder var för sig (de körs samtidigt; väggtiden är den
+längsta), och per kandidat profilens tid med återanvända profiler, byggena, de återanvända byggena, väntan på kundens
+bygglås och byggtiden (`kunder/<slug>/kandidater/<id>/BYGGEN.jsonl`). Parallella tider summeras aldrig som väggtid.
+
 Var körningens rapporter och bevis hör hemma i övrigt: `README.md`, Var information finns.
 
 ## Sandlådan
@@ -501,7 +542,9 @@ byggets läsgräns per kandidat): sidans kod läser bara kandidatens eget projek
 kandidatens egen temp, systemets delar och repots .gitignore och .git. De andra kandidaterna, underlaget med skaparens
 text, sajtens grund, resten av repot och hemkatalogen är stängda, också när kritiken bygger kandidaten
 (`forhandsvisa.py --granskare`), så kandidatens direkta filåtkomst är avgränsad även vid bygget. Kund- och kandidatrötterna måste vara förankrade utan länkar. Kandidatens angivna id bevaras före länkupplösning; länkar till andra projekt och skiftlägesalias i kundträdet vägras. Reporotens `/tmp`-alias tillåts. Sajtens eget bygge har ingen läsgräns. Byggen i samma kunds
-projekt köas (`kunder/<slug>/.bygglas`), liksom typsnittsinstallationerna. Kandidaternas projekt delar sajtens
+projekt köas (`kunder/<slug>/.bygglas`), liksom typsnittsinstallationerna: låset skyddar sajtens delade node_modules,
+där byggena skriver Vites och Astros cacher och installationerna paketen. Det tas inte bort; ett bygge av exakt samma
+indata återanvänds i stället och ställer sig aldrig i kön, och väntan mäts per bygge (`BYGGEN.jsonl`). Kandidaternas projekt delar sajtens
 node_modules. Där skriver deras byggen bara i Vites och Astros cacher, och det ett bygge lämnar i dem kan nästa
 kandidats bygge läsa; Vites förbuntade paket därifrån kör bygget inte (prövat 2026-10-07). Det är samma gräns som för
 sajtens eget bygge, nu delad av fler skapare. Ett sandlådat bygge (`NWP_SANDLADA=pa`)

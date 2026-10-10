@@ -634,7 +634,7 @@ class Stoppefterplanen(unittest.TestCase):
         with patch.multiple(kd, create=True, STOPP_EFTER='planprovning', lista=lambda slug: ['k01'], leverera_metod=lambda slug: {},
                             planprovning_behov=lambda slug, ids: [], korlage=lambda slug, status: 'skiss',
                             las_status=lambda slug, kid: {'status': 'planerad'},
-                            forbered_referensprofiler=lambda slug, ids: {'ok': True, 'syntetisk': True},  # profileringen prövas för sig
+                            profilrapport=referensfixtur.profilrapport(kd),  # profileringen prövas för sig
                             kor_pool=lambda *a, **k: self.fail('en skapare startade')), \
                 patch.object(urval, 'vid_start', return_value={}):
             self.assertEqual(kd.kor('stopp-prov', status, lambda: skrivna.append(status.get('steg'))), [])

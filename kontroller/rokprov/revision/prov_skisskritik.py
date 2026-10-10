@@ -238,6 +238,7 @@ class ServerFalsk:
 
 BILD = {}
 prova.bygg_inom_grans, prova.kor, prova.Server = bygg_falsk, kor_falsk, ServerFalsk
+kd.profilrapport = referensfixtur.profilrapport(kd)  # DevTools-profilen i kandidatens kedja prövas i prov_forenkling
 
 
 # --- falska sessioner med transkript i provets egen projektkatalog ---
@@ -567,7 +568,12 @@ def _kvitto():
     assert v == kd.projektets_version(SLUG, 'k01'), v
     kd.fotografera(SLUG, 'k01', skiss=True)
     assert kd.version(SLUG, 'k01') == v, 'kritikens version och fotograferingens ska vara samma hash för samma kod'
-    assert f['bilder'] == [kd.rel(kd.kdir(SLUG, 'k01') / 'varv' / 'start' / 'varv-01' / ('vy-%s-%s.png' % (b_, s_))) for b_ in ('390', '1440') for s_ in ('forsta', 'hela')], f['bilder']
+    # kritikern får flödets egna, neutrala bilder av exakt den version den bedömer (ägarens förenklingsuppdrag 2026-10-10, E):
+    # granskarens förhandsvisning, tagen av flödet före sessionen (varv-02; provet tog själv varv-01), aldrig skaparens varv
+    g2 = kd.kdir(SLUG, 'k01') / forhandsvisa.GRANSKARE / 'start' / 'varv-02'
+    assert f['bilder'] == [kd.rel(g2 / ('vy-%s-%s.png' % (b_, s_))) for b_ in forhandsvisa.BREDDER for s_ in ('forsta', 'hela', 'meny', 'reflow320')
+                           if (g2 / ('vy-%s-%s.png' % (b_, s_))).is_file()], f['bilder']
+    assert all('/varv/start/' not in b_ for b_ in f['bilder']) and len(f['bilder']) >= 8, f['bilder']
     bed = f['bedomt']
     assert bed['verifierad'] and bed['bedomda_bredder'] == list(forhandsvisa.BREDDER) and bed['tillstand']['meny'] and bed['tillstand']['tangentbord'], bed
     assert not bed['pastadda_utan_belagg'], bed
@@ -752,12 +758,18 @@ def _tom768():
     assert '768' in bed['pastadda_utan_belagg'] and bed['bedomda_bredder'] == ['390', '1280', '1440'], bed
     rader = '\n'.join(kd.skisskritik_rader(post))
     assert 'inte bedömt: 768' in rader and 'vilar inte på en bild' in rader, rader
-    # en tom bild hos skaparen erbjuds aldrig kritiken som sedd
+    # en tom bild hos skaparen erbjuds aldrig kritiken som sedd, och inte heller en tom bild i flödets egen förhandsvisning
     skriv(d / 'varv' / 'start' / 'varv-01' / 'vy-1440-hela.png', b'')
     kritiker()
     SESSIONER.clear()
-    post = kd.skisskritik(SLUG, 'k01')
-    assert 'vy-1440-hela.png' not in SESSIONER[-1]['prompt'] and all('1440-hela' not in b_ for b_ in post['bilder']), post['bilder']
+    BILD.update(tom='768')
+    try:
+        post = kd.skisskritik(SLUG, 'k01')
+    finally:
+        BILD.clear()
+    assert kd.rel(d / 'varv' / 'start' / 'varv-01' / 'vy-1440-hela.png') not in SESSIONER[-1]['prompt'], SESSIONER[-1]['prompt']
+    assert all('768-forsta' not in b_ and '768-hela' not in b_ for b_ in post['bilder']), post['bilder']
+    assert all(forhandsvisa.giltig_bild(KOPIA / b_) or forhandsvisa.giltig_bild(Path(b_)) for b_ in post['bilder']), post['bilder']
 
 
 # ===== 8. metodlåset =====
@@ -851,7 +863,7 @@ def _oberoende():
                     utan.add(fn.name)
                 else:
                     med.setdefault(fn.name, set()).add(ast.unparse(nek).split('(')[0])
-    assert utan == {'forska', 'planera', 'planprovning', 'omplanera', 'jamfor'}, utan  # omplanera: återgångens planeringssession (2E), som planera
+    assert utan == {'forska', 'planera', 'planprovning', 'omplanera', 'komplettera_plan', 'jamfor'}, utan  # omplanera och komplettera_plan: planeringssessioner som planera
     assert all(v <= {'andra_nekas', 'blind'} for v in med.values()) and {'skissa', 'skapa', 'forbattra', 'uppdrag_session', 'kompetenspass'} <= set(med), med
     # uppdragets session (2026-10-10, samma anrop som Dyad-provet kör) startas av forfina_kandidat
     assert 'uppdrag_session' in {x.func.id for fn in fns if fn.name == 'forfina_kandidat' for x in ast.walk(fn) if isinstance(x, ast.Call) and isinstance(x.func, ast.Name)}

@@ -201,21 +201,28 @@ def forbered(slug, plan, metod, underlag=None, root=None):
                             order['kandidater'].append(kid)
             except (OSError, ValueError, TypeError, AttributeError) as e:
                 post['brister'].append(str(e))
-        if any(p['brister'] for p in rapport['kandidater'].values()):
-            raise ValueError('referensvalet måste rättas före profilbeställning')
+        # En kandidat vars referensval brister får bristen och ingen profil; de andra kandidaternas beställningar görs ändå
+        # (ägarens förenklingsuppdrag 2026-10-10, D: ett fel i en annan kandidats referens stoppar inte en kandidat).
+        felaktiga = {kid for kid, p in rapport['kandidater'].items() if p['brister']}
+        for order in bestallningar.values():
+            order['kandidater'] = [kid for kid in order['kandidater'] if kid not in felaktiga]
+        bestallningar = {i: o for i, o in bestallningar.items() if o['kandidater']}
         if bestallningar:
             motor = motoridentitet()
             bas.mkdir(parents=True, exist_ok=True)
-            las = bas / '.profil.las'
-            fd = os.open(las, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-            try:
-                if not stat.S_ISREG(os.fstat(fd).st_mode) or os.fstat(fd).st_nlink != 1:
-                    raise ValueError('profillåset är ingen ensam vanlig fil')
-                fcntl.flock(fd, fcntl.LOCK_EX)
-                for order in bestallningar.values():
-                    sida = order['sida']
-                    bindning = {'schema': 1, 'slug': slug, 'sida': sida, 'metod': metod, 'motor': motor}
-                    nyckel = _jsonsha(bindning)
+            for order in bestallningar.values():
+                sida = order['sida']
+                bindning = {'schema': 1, 'slug': slug, 'sida': sida, 'metod': metod, 'motor': motor}
+                nyckel = _jsonsha(bindning)
+                # Låset gäller sidan (bindningen), inte hela beställningen: olika sidor profileras samtidigt av olika
+                # kandidaters kedjor (egen nätgräns, egen isolerad Chrome och egen session per profil, devtools.profilera),
+                # och en sida som en annan kedja redan profilerar väntas in och återanvänds i stället för att beställas två gånger.
+                las = bas / ('.profil-%s.las' % nyckel[:32])
+                fd = os.open(las, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+                try:
+                    if not stat.S_ISREG(os.fstat(fd).st_mode) or os.fstat(fd).st_nlink != 1:
+                        raise ValueError('profillåset är ingen ensam vanlig fil')
+                    fcntl.flock(fd, fcntl.LOCK_EX)
                     d = next((p for p in sorted(bas.glob('profil-' + nyckel + '-*')) if _giltig(p, bindning, ref)), None)
                     aterbruk = d is not None
                     fel = None
@@ -243,8 +250,8 @@ def forbered(slug, plan, metod, underlag=None, root=None):
                         else:
                             kp['profiler'].append({'namn': sida['namn'], 'adress': sida['adress'], 'paket': sida['paket'],
                                                    'fil': str(d / 'DEVTOOLS.md'), 'ateranvand': aterbruk, 'identitet': nyckel})
-            finally:
-                os.close(fd)
+                finally:
+                    os.close(fd)
         for kid, kp in rapport['kandidater'].items():
             if kp['brister']:
                 rapport['brister'].extend('%s: %s' % (kid, f) for f in kp['brister'])
@@ -270,3 +277,50 @@ def prompt_rader(rapport, kid):
     if k.get('brister') or not k.get('profiler'):
         r += ['Ofullständigt: ' + '; '.join(k.get('brister') or ['inga giltiga profiler']), '']
     return r
+
+
+def kandidatrapport(slug, kid, underlag=None):
+    """Kandidatens egen rapport (ett isolerat skrivmål per kandidat): underlag/<slug>/atelje/kandidater/<id>/REFERENSPROFIL.json."""
+    return Path(underlag or devtools.UNDERLAG).absolute() / slug / 'atelje' / 'kandidater' / kid / 'REFERENSPROFIL.json'
+
+
+def for_kandidat(slug, kid, metod, underlag=None, root=None):
+    """En kandidats beställning ur den sparade planen, med rapporten sparad atomiskt i kandidatens egen katalog. Körs som
+    egen process av kandidatens kedja (kandidater.profilrapport), så att DevTools-sessionens startskydd och processgrupp
+    gäller som i huvudtråden och stoppet når hela trädet. Rapporten bär uppdragets sha256 (kandidater.uppdrag_sha)."""
+    underlag = Path(underlag or devtools.UNDERLAG).absolute()
+    if not re.fullmatch(r'[a-z0-9-]{2,60}', slug) or not re.fullmatch(r'k\d{2}', kid):
+        raise ValueError('ogiltig slug eller kandidat')
+    plan = json.loads((underlag / slug / 'atelje' / 'KANDIDATPLAN.json').read_text(encoding='utf-8'))
+    k = (plan.get('kandidater') or {}).get(kid)
+    if not isinstance(k, dict):
+        raise ValueError('kandidaten saknas i planen')
+    rapport = forbered(slug, {'kandidater': {kid: k}}, metod, underlag=underlag, root=root)
+    rapport['uppdrag'] = {kid: hashlib.sha256(json.dumps(k, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()}
+    fil = kandidatrapport(slug, kid, underlag)
+    fil.parent.mkdir(parents=True, exist_ok=True)
+    tmp = fil.with_name('.%s.%s.tmp' % (fil.name, uuid.uuid4().hex[:8]))
+    tmp.write_text(json.dumps(rapport, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    os.replace(tmp, fil)
+    return rapport
+
+
+def main(argv=None):
+    import argparse
+    import sys
+    p = argparse.ArgumentParser(prog='referensprofil', description='DevTools för en kandidats valda referenssidor (kandidatens kedja).')
+    p.add_argument('slug')
+    p.add_argument('--kandidat', required=True)
+    p.add_argument('--metod', required=True)
+    a = p.parse_args(argv)
+    try:
+        rapport = for_kandidat(a.slug, a.kandidat, a.metod)
+    except (OSError, ValueError) as e:
+        print(json.dumps({'ok': False, 'brister': [str(e)]}, ensure_ascii=False))
+        return 2
+    print(json.dumps({'ok': rapport.get('ok'), 'brister': rapport.get('brister') or []}, ensure_ascii=False))
+    return 0 if rapport.get('ok') else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

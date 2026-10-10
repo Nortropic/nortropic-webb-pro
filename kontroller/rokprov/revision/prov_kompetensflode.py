@@ -61,7 +61,8 @@ class Kompetensflode(unittest.TestCase):
             metodinfo=lambda *a: {'sha': 'metod'}, skaparval=lambda *a: {}, metodvariant=lambda *a: 'grund',
             forbered_projekt=lambda *a: None, stilpaket_i_projekt=lambda *a: None, varvnummer=lambda *a: [],
             kopiera_bilder=lambda *a: [], material_anvandning=lambda *a: {}, bevara_version=lambda *a, **k: None,
-            designkontroll=lambda *a: {'ok': True, 'fel': []}, lasningen=lambda *a: {}, varv_antal=lambda *a, **k: 1))
+            designkontroll=lambda *a: {'ok': True, 'fel': []}, lasningen=lambda *a: {}, varv_antal=lambda *a, **k: 1,
+            referensprofil_klar=lambda *a: True))  # profilen i kandidatens kedja prövas i prov_forenkling
         self.stack.enter_context(patch.multiple(skapande, fakta_rader=lambda *a, **k: [], kritikrader=lambda *a, **k: [],
                                                forbjudna_termer=lambda *a, **k: {}, senaste_paket=lambda *a: None))
         self.so = {}

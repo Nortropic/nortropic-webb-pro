@@ -60,7 +60,7 @@ class Startkompetens(unittest.TestCase):
             'vanta_pa_intag': True, 'diskvakt': ({'grupp': 'disk', 'namn': 'diskvakten', 'resultat': 'ok'}, {}),
             'korvag': vag if vag is not None else {'id': 'kandidatflodet', 'namn': 'prov', 'fas': 'fore_research'},
             'prova_formagan': formaga if formaga is not None else ([], {}, sess, {}),
-            'tjanstverktyg_rader': [], 'kunskap': [], 'regler': [],
+            'tjanstverktyg_rader': [], 'aktiveringsrader': [], 'kunskap': [], 'regler': [],  # aktiveringskraven: prov_forenkling
             'uppdraget': [], 'bevakningen': [], 'referensunderlag': [], 'roller': [], 'las_for_korning': {},
             'till_byggaren': '', 'matinstrument': {}, 'repo_identitet': {'commit': 'syntetisk'}, 'dokumentationen': {},
         }

@@ -1815,6 +1815,13 @@ def flode(slug):
             kontroller.append({'text': 'startkontrollen: %s' % KVITTOSTATUS.get(kv.get('status'), kv.get('status') or '?')})
         if (a / 'PLANPROVNING.json').is_file():
             kontroller.append({'text': 'planprövningen gjord'})
+        if kand:  # profilen beställs i varje kandidats kedja (ägarens förenklingsuppdrag 2026-10-10, D); neutrala namn
+            st_k = {x['id']: kandidater.las_status(slug, x['id']) for x in kand}
+            klara_p = sum(1 for s_ in st_k.values() if s_.get('referensprofil'))
+            brist_p = [x.get('etikett') or x['id'] for x in kand if st_k[x['id']].get('referensprofil_brister')]
+            if klara_p or brist_p:
+                kontroller.append({'text': 'referensprofilerna i förslagens kedjor: %d klara%s' % (
+                    klara_p, ('; stoppade av en profilbrist (görs om vid nästa start): %s' % ', '.join(brist_p)) if brist_p else '')})
         if kand:
             kontroller.append({'text': '%d av %d förslag klara att bedöma' % (sum(1 for x in kand if x.get('status') in kandidater.VISBARA), len(kand))})
         brister = []

@@ -537,6 +537,8 @@ class Blindning(unittest.TestCase):
         (kd.rot(self.SLUG) / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': {'uppgift': 'ringa'}, 'k02': {}}}))
         for k in ('k01', 'k02'):
             kd.ksajt(self.SLUG, k).mkdir(parents=True)
+        import prova  # skaparens varv är byggt av den version kritiken bedömer (KALLA.json, ägarens förenklingsuppdrag 2026-10-10, E)
+        (varv / 'KALLA.json').write_text(json.dumps({'kalla': prova.kallidentitet(kd.ksajt(self.SLUG, 'k01'), prova.byggkommando(kd.ksajt(self.SLUG, 'k01')))}))
         falsk = self.tmp / 'claude'; falsk.write_text(FALSK_BLIND); falsk.chmod(0o700)
         self.stack.enter_context(patch.object(atelje, 'claude', return_value=str(falsk)))
         self.logg, self.plan = self.tmp / 'session.json', self.tmp / 'plan.json'

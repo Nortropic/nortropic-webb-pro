@@ -127,6 +127,13 @@ def hela(kat):
     return all((Path(kat) / n).is_file() for n in LAS)
 
 
+def varvets_version(kat):
+    """Byggets indata (prova.kallidentitet) som varvets bilder gäller, ur KALLA.json, eller None: ett varv utan den, eller
+    vars indata ändrades medan det fotograferades, är inte bundet till någon version."""
+    j = las_json(Path(kat) / 'KALLA.json')
+    return j.get('kalla') if isinstance(j, dict) and isinstance(j.get('kalla'), str) else None
+
+
 def nasta_varv(rot):
     nr = [int(p.name.split('-')[1]) for p in varv(rot)]
     return Path(rot) / ('varv-%02d' % (max(nr or [0]) + 1))
@@ -151,6 +158,7 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
         return 2, '%s saknas; %s' % (sajt.relative_to(ROOT) if sajt.is_relative_to(ROOT) else sajt,
                                      'kandidatens projekt förbereds av kontroller/kandidater.py' if kandidat else
                                      'skapa den med kontroller/ny_sajt.py %s --installera' % slug), None
+    kalla = prova.kallidentitet(sajt, prova.byggkommando(sajt))  # versionen som bilderna gäller (KALLA.json i varvet)
     rc, out = prova.bygg_inom_grans(sajt)  # innanför processgränsen: sidornas kod körs vid bygget (omgranskningen, fynd 8)
     if rc:
         if granskare:  # byggloggen kan visa sidans källkod, som kritiken aldrig ser
@@ -177,6 +185,8 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
         if granskare:  # webbläsarens logg kan bära sidans skript och fel med källkod
             return 2, 'fotograferingen gav inte %s (rc %d); loggen visas inte för granskaren.' % (', '.join(saknas), rc), ut
         return 2, 'fotograferingen gav inte %s (rc %d):\n%s' % (', '.join(saknas), rc, prova.svans(out, 15)), ut
+    if kalla and kalla == prova.kallidentitet(sajt, prova.byggkommando(sajt)):  # oförändrat från bygget till sista bilden
+        (ut / 'KALLA.json').write_text(json.dumps({'kalla': kalla, 'tid': prova.nu()}) + '\n', encoding='utf-8')
     ins = las_json(ut / 'INSPEKTION.json') or {}
     ogiltig = ogiltig_sida(ins)
     if ogiltig:  # bilderna visar något annat än sidan: inget att bedöma

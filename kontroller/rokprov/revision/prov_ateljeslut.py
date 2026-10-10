@@ -214,7 +214,7 @@ def ersatt_stegen(slug, ids, fel_i=None):
         return plan
 
     kandidater.leverera_metod, kandidater.forska, kandidater.planera = leverera_metod, forska, planera
-    kandidater.uppdragsmaterial = lambda s, klient=None: skriv(kandidater.rot(s) / kandidater.UPPDRAGSMATERIAL, {'tid': kandidater.nu()}) and {}
+    kandidater.uppdragsmaterial = lambda s, klient=None, bara=None: skriv(kandidater.rot(s) / kandidater.UPPDRAGSMATERIAL, {'tid': kandidater.nu()}) and {}
     # samma form som den riktiga prövningen, med bindningen till planversionen (N01: provade)
     kandidater.planprovning = lambda s, bara=None: skriv(kandidater.rot(s) / 'PLANPROVNING.json', {'tid': kandidater.nu(), 'andrade': 0, 'sekunder': 1,
                                                                                                     'kvitto': KOMPETENS_FIXTUR['planprovning'], 'provade': kandidater.provade_uppdrag(s)}) and {'andrade': 0, 'sekunder': 1}
@@ -384,7 +384,7 @@ def planera(slug, n, lage=None):
         kandidater.satt_status(slug, k, 'planerad', 'uppdraget skrivet', titel='Förslag %s' % k, hypotes='h', huvudreferens='egen')
     return plan
 kandidater.forska, kandidater.planera = forska, planera
-kandidater.uppdragsmaterial = lambda slug, klient=None: skriv(kandidater.rot(slug) / kandidater.UPPDRAGSMATERIAL, {'tid': atelje.nu()}) and {}
+kandidater.uppdragsmaterial = lambda slug, klient=None, bara=None: skriv(kandidater.rot(slug) / kandidater.UPPDRAGSMATERIAL, {'tid': atelje.nu()}) and {}
 kandidater.planprovning = lambda slug, bara=None: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1, 'provade': kandidater.provade_uppdrag(slug), 'kvitto': KOMPETENS['planprovning']}) and {'andrade': 0, 'sekunder': 1}
 kandidater.PARALLELLT = 2
 def behandla_skiss(slug, kid):
@@ -529,7 +529,7 @@ def _stopp_i_laget_full():
     skriv(rot / 'KANDIDATPLAN.json', kontraktsplan(s, {'tid': atelje.nu(), 'lage': 'full', 'kandidater': {'k01': {'titel': 'Ett'}}}))
     kandidater.satt_status(s, 'k01', 'planerad', 'uppdraget skrivet', titel='Ett')
     namn = ('forbered_projekt', 'stilpaket_i_projekt', 'skapar_prompt', 'verktyg', 'andra_nekas', 'lasningen', 'fotografera', 'metodinfo',
-            'objektiva', 'bevara_version', 'kritik')
+            'objektiva', 'bevara_version', 'kritik', 'referensprofil_klar')
     spara = {n: getattr(kandidater, n) for n in namn}
     spara_session = atelje.session
 
@@ -545,6 +545,7 @@ def _stopp_i_laget_full():
     try:
         kandidater.forbered_projekt = kandidater.stilpaket_i_projekt = kandidater.bevara_version = lambda *a, **k: None
         kandidater.skapar_prompt = lambda *a, **k: 'prompt'
+        kandidater.referensprofil_klar = lambda *a, **k: True  # profilen i kandidatens kedja prövas i prov_forenkling
         kandidater.verktyg = kandidater.andra_nekas = lambda *a, **k: []
         kandidater.metodinfo = lambda *a, **k: {'sha': 'm' * 64}
         kandidater.lasningen = aldrig('läsningen')
@@ -869,7 +870,7 @@ if os.environ.get('NWP_PROV_ATELJE_STEG'):
     kandidater.leverera_metod = leverera_metod
     kandidater.forska = lambda slug, n, skiss=False: skriv(kandidater.rot(slug) / 'FORSKNING.json', referensfixtur.forskning(atelje.UNDERLAG, slug, {'tid': atelje.nu(), 'fel': None, 'nytt': {'paket': None, 'sajter': [], 'tjanster': None}, 'kompetens': KOMPETENS['forska']}))
     kandidater.planera = planera
-    kandidater.uppdragsmaterial = lambda slug, klient=None: skriv(kandidater.rot(slug) / kandidater.UPPDRAGSMATERIAL, {'tid': atelje.nu()}) and {}
+    kandidater.uppdragsmaterial = lambda slug, klient=None, bara=None: skriv(kandidater.rot(slug) / kandidater.UPPDRAGSMATERIAL, {'tid': atelje.nu()}) and {}
     kandidater.planprovning = lambda slug, bara=None: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1, 'provade': kandidater.provade_uppdrag(slug), 'kvitto': KOMPETENS['planprovning']}) and {'andrade': 0, 'sekunder': 1}
     kandidater.PARALLELLT = 2
     kandidater.behandla_skiss = behandla_skiss

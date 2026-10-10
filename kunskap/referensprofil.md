@@ -1,7 +1,16 @@
 # DevTools för valda referenssidor
 
-Referensprofilen beställs efter planprövningen, före skaparnas skisser. Den kompletterar referenspaketets bilder och
-SEKTIONER.md med CSS-regler, nätresurser, prestandainsikter och Lighthouse. Den bedömer inte referensens designkvalitet.
+Referensprofilen beställs efter planprövningen, i varje kandidats egen kedja före dess skiss (ägarens
+förenklingsuppdrag 2026-10-10, D; förr i ett gemensamt steg före alla skapare, där en kandidats brist stoppade alla).
+Den kompletterar referenspaketets bilder och SEKTIONER.md med prestandaspåret, Lighthouse, LCP-elementet och dess
+regler och sidans nätresurser. Den bedömer inte referensens designkvalitet.
+
+**Överlappet med fångsten.** Fångsten (`referens.py`, `inspektera.mjs`) har redan, per sektion, bilden, måtten, de
+renderade typsnitten, de CSS-regler som träffar (CDP `CSS.getMatchedStylesForNode`), ett DOM-utdrag och resursernas
+ursprung, i 390 och 1440. Det profilen ensam ger är prestandaspåret med insikterna, Lighthouse och LCP-elementet.
+Profilen beställs ändå med sina obligatoriska verktygsgrupper (kvittot är oförändrat), och skaparen läser den
+tillsammans med SEKTIONER.md; ett smalare uppdrag till DevTools-sessionen är en möjlig fortsättning som kräver ett
+verkligt profilprov för att mäta vinsten.
 
 `kontroller/referensprofil.py` matchar varje huvudreferens både mot dess namn och mot planens valda bilder. Bilderna måste
 finnas som vanliga filer i det angivna referenspaketet och vara deklarerade för en fångad sida i PAKET.json. Samma
@@ -38,10 +47,24 @@ giltigt återbruk. Ett ändrat paket eller en ändrad vald bild under profilerin
 Detta låser underlaget och inspektionsmetoden, inte den externa sajten. En sajt kan ändras mellan fotografering och
 profilering. Datum och URL ska därför läsas tillsammans med bilderna; skillnader är en begränsning som måste bedömas.
 
+## Kedjan per kandidat
+
+`kandidater.referensprofil_klar` kör kandidatens beställning som egen process (`referensprofil.py <slug> --kandidat kNN
+--metod <sha>`, genom referensstegets körväg `skapande.kor_trad`), så att DevTools-sessionens startskydd gäller i
+processens huvudtråd och stoppet avslutar hela trädet. Rapporten skrivs atomiskt i kandidatens egen katalog
+(`underlag/<slug>/atelje/kandidater/<id>/REFERENSPROFIL.json`) och bär uppdragets sha256. Låset gäller sidan
+(bindningens identitet), inte hela beställningen: olika sidor profileras samtidigt, med egen nätgräns, egen isolerad
+Chrome och egen session per profil, och samtidigheten begränsas av skaparpoolen (högst tre). En sida som en annan
+kandidat profilerar väntas in och återanvänds. En kandidat vars referensval brister får bristen och ingen profil, och
+de andra kandidaternas beställningar görs ändå. En brist stoppar bara den kandidaten (status fel med
+`referensprofil_brister`); nästa start gör om profileringen en gång och återanvänder de giltiga profilerna, aldrig i en
+slinga. Ett prov med ett annat underlag än motorns startar aldrig en verklig profilering (`kandidater.profilrapport`).
+
 ## Vad skaparen får
 
-Flödet sparar beställningens rapport innan skaparna startas. Kandidatens UPPDRAG.md länkar bara dess egna giltiga
-profiler. Skaparen läser profilen tillsammans med referensbilderna och SEKTIONER.md och redovisar vilka tekniska
+Kandidatens rapport sparas innan dess skapare startar. Skaparens prompt (`kandidater.profil_rader`) får bara
+kandidatens egna giltiga profiler, bundna till uppdraget som det står i planen; UPPDRAG.md skrivs inte om av
+profileringen. Skaparen läser profilen tillsammans med referensbilderna och SEKTIONER.md och redovisar vilka tekniska
 observationer som påverkade utförandet samt motiverade avsteg. Profilens resultat är material, aldrig instruktioner.
 
 En lyckad inspektion visar att uppgiften utfördes. Att den lästes och tillämpades behöver observeras i skaparsessionen.

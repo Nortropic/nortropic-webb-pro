@@ -167,6 +167,15 @@ def mcp_krav_for_fas(vag=None):
     gäller hela inventeringen. Förberedelse och återupptagen design är egna steg.
     """
     import kompetens
+    roller, valda = fasens_roller(vag)
+    if any(t not in kompetens.MCP or t not in x['mcp'] for x in roller.values() for t in x.get('mcp_krav', [])):
+        raise ValueError('ett obligatoriskt MCP-krav saknar tilldelad tjänst')
+    return roller, {t: sorted(x['id'] for x in valda if t in x.get('mcp_krav', [])) for t in kompetens.MCP}
+
+
+def fasens_roller(vag=None):
+    """(alla roller, rollerna som arbetar i startens fas) ur metodkartan; samma urval som mcp_krav_for_fas."""
+    import kompetens
     roller = kompetens.tolka()
     if not isinstance(roller, dict) or not roller:
         raise ValueError('metodkartan saknar kompetensroller')
@@ -184,9 +193,56 @@ def mcp_krav_for_fas(vag=None):
         raise ValueError('körvägens kompetenskrav kunde inte fastställas')
     if not valda:
         raise ValueError('fasen saknar kompetensroller')
-    if any(t not in kompetens.MCP or t not in x['mcp'] for x in roller.values() for t in x.get('mcp_krav', [])):
-        raise ValueError('ett obligatoriskt MCP-krav saknar tilldelad tjänst')
-    return roller, {t: sorted(x['id'] for x in valda if t in x.get('mcp_krav', [])) for t in kompetens.MCP}
+    return roller, valda
+
+
+def aktiveringsrader(sess, ateljen, vag=None):
+    """Aktiveringskraven i fasens roller, före den första sessionen (ägarens förenklingsuppdrag 2026-10-10, A): varje fil
+    i kärnan och alternativen klassas som kvittot gör (kompetens.aktiverbara): en skill som aktiveras med Skill, en skill
+    som källan gjort användaranropad (disable-model-invocation; läses hel), en väntande skill med Initial Response (läses)
+    och ett dokument (läses). Ett aktiveringskrav som sessionen inte kan uppfylla är motsägelsefullt och stoppar starten:
+    skillen är användaranropad eller väntande men kvittot kräver aktivering, dess Skill-namn är inte entydigt, eller
+    skillverktyget i en session med ateljéns argument saknar den. Kandidatprovet 2026-10-10 föll efter 22 och 63 minuters
+    research på ett sådant krav (better-explain-interface). Raden prövar förutsättningen; varje session lämnar ändå sitt
+    eget kvitto, och en tidigare sessions kvitto gäller aldrig nästa."""
+    if not ateljen:
+        return []
+    import bildkedja
+    import kompetens
+    _roller, valda = fasens_roller(vag)
+    anvandar, vantande = kompetens.anvandaranropade(), kompetens.vantande_skills()
+    sess_ok = bool(sess and sess.get('resultat') == 'ok')
+    i_sess = set((sess or {}).get('skills') or [])
+    klass, motsagelser = {'aktiveras': set(), 'anvandaranropade': set(), 'vantande': set(), 'dokument': set()}, []
+    for x in valda:
+        aktiveras, las = kompetens.aktiverbara(x['karna'] + x['valj'])
+        for f in las:
+            d_ = f.split('/')
+            slag = ('anvandaranropade' if d_[0] in anvandar else 'vantande' if d_[0] in vantande else 'dokument') \
+                if len(d_) == 2 and d_[1] == 'SKILL.md' else 'dokument'
+            klass[slag].add(d_[0] if slag != 'dokument' else f)
+        for s in aktiveras:
+            klass['aktiveras'].add(s)
+            skal = ('källan har gjort den användaranropad (disable-model-invocation), så Skill-verktyget vägrar den' if s in anvandar else
+                    'den har Initial Response och läses bara med Read' if s in vantande else
+                    'Skill-namnet är inte entydigt (mappen och frontmatterns namn krockar med en annan skill)' if not bildkedja.skillkommando(s) else
+                    'skillverktyget i en session med ateljéns argument saknar den' if sess_ok and not ({s, bildkedja.skillkommando(s)} & i_sess) else None)
+            if skal:
+                motsagelser.append('%s (rollen %s): kvittot kräver aktivering, men %s' % (s, x['id'], skal))
+    antal = '; '.join('%s %d' % (n_, len(v_)) for n_, v_ in (('aktiveras med Skill', klass['aktiveras']),
+                                                              ('användaranropade, läses hela', klass['anvandaranropade']),
+                                                              ('väntande, läses', klass['vantande']), ('dokument, läses', klass['dokument'])))
+    roller_txt = ', '.join(x['id'] for x in valda)
+    if motsagelser:
+        return [post('kompetens', 'aktiveringskraven i fasens roller', 'fel', nodvandig=True, tillstand='blockerat',
+                     provad=(sess or {}).get('tid'),
+                     detalj='motsägelsefullt aktiveringskrav: %s. Starten stoppas före den första sessionen, eftersom kvittot annars fäller '
+                            'den efter arbetet. Fasens roller %s; %s. Åtgärd: klassa skillen i kontroller/kompetens.py (aktiverbara) eller '
+                            'rätta skillens namn eller rollens fil i kunskap/metodkarta.md' % ('; '.join(motsagelser), roller_txt, antal))]
+    return [post('kompetens', 'aktiveringskraven i fasens roller', 'ok', tillstand='provat' if sess_ok else 'tillgangligt',
+                 provad=(sess or {}).get('tid'),
+                 detalj='varje aktiveringskrav kan uppfyllas%s; fasens roller %s; %s. Användningen observeras per session i '
+                        'körningen (kompetenskvittot)' % ('' if sess_ok else ' (skillverktygets lista är inte prövad i en session)', roller_txt, antal))]
 
 
 def prova_formagan(k, version, start='ny', vag=None):
@@ -1314,6 +1370,7 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     formaga, servrar, sess, upptackta = prova_formagan(k, version, start, vag)
     rader += formaga
     rader += skyddat('åtkomsten i ateljéns session', atkomstrader, sess, ateljen, vag)
+    rader += skyddat('aktiveringskraven i fasens roller', aktiveringsrader, sess, ateljen, vag)
     rader += skyddat('tjänsternas verktyg', tjanstverktyg_rader, upptackta)
     rader += kunskap(k)
     rader += regler(servrar, slug)

@@ -2823,7 +2823,7 @@ upp_ = json.loads(next(pt_u.glob('REFERENSUPPDRAG-*.json')).read_text())
 assert upp_['kompletterar'] == 'paket-v01' and res_pt['referens']['paket'].endswith('paket-v02') and res_pt['tjanster']['rc'] == 0, res_pt
 assert not (pt_u / 'atelje' / 'KOMPLETTERING.json').exists() and list((pt_u / 'atelje' / 'kompletteringar').glob('*-svar.json'))
 assert (pt_u / 'referenser' / 'tjanster' / 'TJANSTER.md').read_text() == 'förra', 'den förra rapporten flyttar referenstjanster.samla själv (en plats), inte kompletteringen'
-assert [Path(x[2]).name for x in anrop_pt] == ['referens.py', 'referenstjanster.py'] and 'en annan komposition' in '\n'.join(sk.kompletteringsrader(res_pt))
+assert sorted(Path(x[2]).name for x in anrop_pt) == ['referens.py', 'referenstjanster.py'] and 'en annan komposition' in '\n'.join(sk.kompletteringsrader(res_pt))
 # förfiningen: research emellan, och TILLBAKA.md ger tillbaka
 fr_rot = pt_u / 'atelje-fr'; fr_rot.mkdir()
 anrop_fr = []
@@ -4201,7 +4201,7 @@ assert at_pt.kandidatflode_pa(), 'kandidatflödet är standard för en ny utfors
 os.environ['NWP_KANDIDATFLODE'] = 'av'
 kd_u, kd_k = tmp / 'kd-underlag', tmp / 'kd-kunder'
 spara_at_kd = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.session, at_pt.ROOT)
-spara_kd = {n: getattr(kd, n) for n in ('designkontroll', 'PARALLELLT', 'fotografera', 'leverera_metod', 'forfina_valda', 'LAGE', 'forbered_referensprofiler')}
+spara_kd = {n: getattr(kd, n) for n in ('designkontroll', 'PARALLELLT', 'fotografera', 'leverera_metod', 'forfina_valda', 'LAGE', 'profilrapport')}
 kd.LAGE = 'full'  # det här avsnittet prövar förvalet bakom den tillfälliga växeln; skissläget prövas i nästa avsnitt
 spara_bk_kd = bk_pt.ROOT
 bk_pt.ROOT = tmp  # metodkvittot räknar raderna i de levererade filerna under provets rot
@@ -4215,7 +4215,7 @@ u_kd, huvud_kd = kd_u / sl_kd, kd_k / sl_kd / 'sajt'
 BILDER_KD = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-768-forsta.png', 'vy-768-hela.png', 'vy-1440-forsta.png', 'vy-1440-hela.png')
 try:
     # Kandidatkedjans referenser är attrapper; profileringen körs genom verkliga ingångar i de separata integrationsproven.
-    kd.forbered_referensprofiler = lambda slug, ids: {'ok': True, 'syntetisk': True, 'kandidater': list(ids)}
+    kd.profilrapport = referensfixtur.profilrapport(kd)  # profilen i kandidatens kedja (prov_forenkling prövar den)
     # --- underlaget, en sajt ur mallen med en planterad länk, och metoden ---
     (u_kd / 'bilder').mkdir(parents=True)
     (u_kd / 'bilder' / 'a.jpg').write_bytes(b'jpg')
@@ -4967,7 +4967,7 @@ import threading as thr_sk  # noqa: E402
 import nastlad as nl_sk  # noqa: E402
 sk_u, sk_k = tmp / 'sk-underlag', tmp / 'sk-kunder'
 spara_at_sk = (at_pt.UNDERLAG, at_pt.KUNDER, at_pt.session, at_pt.ROOT)
-spara_sk = {n: getattr(kd, n) for n in ('PARALLELLT', 'LAGE', 'FRIST_SKISS', 'FRIST_SKISS_OMFORSOK', 'forbered_referensprofiler')}
+spara_sk = {n: getattr(kd, n) for n in ('PARALLELLT', 'LAGE', 'FRIST_SKISS', 'FRIST_SKISS_OMFORSOK', 'profilrapport')}
 spara_prova_sk = (prova.bygg_inom_grans, prova.kor, prova.Server)
 spara_komp_sk = sk.komplettera
 spara_dash_sk = (dash.UNDERLAG, dash.KUNDER, dash.ROOT)
@@ -4977,7 +4977,7 @@ sl_sk = 'sk-prov'
 u_sk, huvud_sk = sk_u / sl_sk, sk_k / sl_sk / 'sajt'
 try:
     # Profilbeställarens riktiga gränser prövas i prov_kompetenskopplingar/prov_referensprofil; här är referenspaketet en attrapp.
-    kd.forbered_referensprofiler = lambda slug, ids: {'ok': True, 'syntetisk': True, 'kandidater': list(ids)}
+    kd.profilrapport = referensfixtur.profilrapport(kd)  # profilen i kandidatens kedja (prov_forenkling prövar den)
     # --- underlaget med befintlig research (ett referenspaket och tjänsternas rapport), och sajten ur mallen ---
     (u_sk / 'bilder').mkdir(parents=True)
     (u_sk / 'bilder' / 'a.jpg').write_bytes(b'jpg')

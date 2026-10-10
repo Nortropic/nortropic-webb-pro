@@ -36,29 +36,39 @@ class Kopplingar(unittest.TestCase):
         kd.skriv_uppdrag(self.slug, 'k01', self.k, 1, 1)
         (self.r / kd.UPPDRAGSMATERIAL).write_text('{}')
 
-    def test_inspektionen_ligger_fore_skaparpoolen_och_stoppar_vid_brist(self):
-        # Bara observations-/inspektionsutfallet ersätts. Drivarens ordning och felväg körs.
+    def test_inspektionen_ligger_i_kandidatens_kedja_och_stoppar_bara_den(self):
+        # Ägarens förenklingsuppdrag 2026-10-10, D: profilen beställs i kandidatens kedja, inte i ett gemensamt steg före
+        # alla skapare. Bara den externa inspektionen ersätts; skissa, startvillkoret och statusen körs.
+        kd.satt_status(self.slug, 'k01', 'planerad', 'uppdraget skrivet', forsok=0)
+        with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['k01: syntetisk profilbrist']}) as profil, \
+             patch.object(atelje, 'session', side_effect=AssertionError('ingen skaparsession utan profil')):
+            st = kd.skissa(self.slug, 'k01')
+        profil.assert_called_once_with(self.slug, 'k01')
+        self.assertEqual(st['status'], 'fel')
+        self.assertIn('syntetisk profilbrist', st['skal'])
+        self.assertEqual(st['referensprofil_brister']['brister'], ['k01: syntetisk profilbrist'])
+        self.assertEqual(int(st.get('forsok') or 0), 0, 'en profilbrist är inget skaparförsök')
+        self.assertTrue(kd.ska_skapas(st), 'nästa start gör om profileringen')
+        # körningen har inget gemensamt profilsteg före poolen: poolen startar, och brister stannar i kandidaterna
         with patch.multiple(kd, STOPP_EFTER='', lista=lambda _: ['k01'], leverera_metod=lambda _: {},
-                            planprovning_behov=lambda *a: [], korlage=lambda *a: 'skiss',
-                            las_status=lambda *a: {'status': 'planerad'}), \
+                            planprovning_behov=lambda *a: [], korlage=lambda *a: 'skiss', material_behov=lambda *a: [],
+                            las_status=lambda *a: {'status': 'planerad'}, forsta_valbara=lambda *a: None), \
              patch.object(kompetens, 'kravbrister', return_value=[]), \
              patch.object(urval, 'vid_start', return_value={}), \
-             patch.object(kd, 'forbered_referensprofiler', side_effect=RuntimeError('syntetisk profilbrist'), create=True) as profil, \
-             patch.object(kd, 'kor_pool') as pool:
-            with self.assertRaisesRegex(RuntimeError, 'profilbrist'):
-                kd.kor(self.slug, {}, lambda: None, n=1)
-            profil.assert_called_once_with(self.slug, ['k01'])
-            pool.assert_not_called()
+             patch.object(kd, 'profilrapport') as profil2, patch.object(kd, 'kor_pool') as pool:
+            kd.kor(self.slug, {}, lambda: None, n=1)
+            profil2.assert_not_called()
+            pool.assert_called_once()
 
     def test_brist_sparas_och_blir_inte_bara_ett_undantag(self):
         import referensprofil
-        with patch.object(referensprofil, 'forbered', return_value={'ok': False, 'brister': ['syntetisk brist']}), \
-             patch.object(kd, 'metodinfo', return_value={'sha': 'metod'}):
-            with self.assertRaisesRegex(RuntimeError, 'syntetisk brist'):
-                kd.forbered_referensprofiler(self.slug, ['k01'])
-        rapport = json.loads((self.r / 'REFERENSPROFILER.json').read_text())
-        self.assertFalse(rapport['ok'])
-        self.assertEqual(rapport['uppdrag']['k01'], kd.uppdrag_sha(self.k))
+        with patch.object(referensprofil, 'forbered', return_value={'ok': False, 'brister': ['syntetisk brist'], 'kandidater': {}}):
+            rapport = referensprofil.for_kandidat(self.slug, 'k01', 'metod', underlag=atelje.UNDERLAG)
+        sparad = json.loads(referensprofil.kandidatrapport(self.slug, 'k01', atelje.UNDERLAG).read_text())
+        self.assertFalse(sparad['ok'])
+        self.assertEqual(sparad, rapport)
+        self.assertEqual(sparad['uppdrag']['k01'], kd.uppdrag_sha(self.k))
+        self.assertEqual(referensprofil.kandidatrapport(self.slug, 'k01', atelje.UNDERLAG).parent, kd.kdir(self.slug, 'k01'))
 
     def test_redan_klar_skapares_aterupptagning_bestaller_inget(self):
         with patch.multiple(kd, STOPP_EFTER='', lista=lambda _: ['k01'], leverera_metod=lambda _: {},
@@ -66,7 +76,7 @@ class Kopplingar(unittest.TestCase):
                             las_status=lambda *a: {'status': 'klar'}, forsta_valbara=lambda *a: None), \
              patch.object(kompetens, 'kravbrister', return_value=[]), \
              patch.object(urval, 'vid_start', return_value={}), \
-             patch.object(kd, 'forbered_referensprofiler', create=True) as profil, patch.object(kd, 'kor_pool'):
+             patch.object(kd, 'profilrapport') as profil, patch.object(kd, 'kor_pool'):
             self.assertEqual(kd.kor(self.slug, {}, lambda: None, n=1), ['k01'])
             profil.assert_not_called()
 
@@ -79,6 +89,23 @@ class Kopplingar(unittest.TestCase):
         self.assertIn('BUNDEN-PROFIL.md', (kd.kdir(self.slug, 'k01') / 'UPPDRAG.md').read_text())
         kd.skriv_uppdrag(self.slug, 'k01', dict(self.k, ide='Ändrat uppdrag'), 1, 1)
         self.assertNotIn('BUNDEN-PROFIL.md', (kd.kdir(self.slug, 'k01') / 'UPPDRAG.md').read_text())
+        # kandidatens egen rapport (kedjan per kandidat) når skaparen i prompten, bunden till uppdraget; UPPDRAG.md ändras inte
+        (self.r / 'REFERENSPROFILER.json').unlink()
+        kd.skriv_uppdrag(self.slug, 'k01', self.k, 1, 1)
+        fore = (kd.kdir(self.slug, 'k01') / 'UPPDRAG.md').read_bytes()
+        egen = json.loads(json.dumps(rapport))
+        egen['kandidater']['k01']['profiler'][0]['fil'] = 'EGEN-PROFIL.md'
+        (kd.kdir(self.slug, 'k01') / 'REFERENSPROFIL.json').write_text(json.dumps(egen))
+        self.assertIn('EGEN-PROFIL.md', '\n'.join(kd.profil_rader(self.slug, 'k01')))
+        import inspect
+        self.assertIn('profil_rader(slug, kid)', inspect.getsource(kd.skiss_prompt))
+        self.assertIn('profil_rader(slug, kid)', inspect.getsource(kd.skapar_prompt))
+        kd.skriv_uppdrag(self.slug, 'k01', self.k, 1, 1)
+        self.assertEqual((kd.kdir(self.slug, 'k01') / 'UPPDRAG.md').read_bytes(), fore, 'samma uppdrag skrivs inte om')
+        plan = json.loads((self.r / 'KANDIDATPLAN.json').read_text())
+        plan['kandidater']['k01']['ide'] = 'ett ändrat uppdrag'
+        (self.r / 'KANDIDATPLAN.json').write_text(json.dumps(plan))
+        self.assertEqual(kd.profil_rader(self.slug, 'k01'), [], 'en profil för ett äldre uppdrag ges inte')
 
     def test_gamla_obundna_profiler_injiceras_inte_i_researchen(self):
         with patch.object(kd, 'devtools_profiler', return_value=[{'vard': 'GAMMAL-PROFIL', 'fil': self.r / 'gammal.md'}]), \

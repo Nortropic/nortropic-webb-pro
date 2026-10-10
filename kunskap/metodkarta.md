@@ -145,8 +145,9 @@ sessionerna.
 
 Körbara hjälpmedel följer rollens uppgift. Komposition och designsystem har `skillskript` för brand-, token-,
 Tailwind- och canvasfunktionerna; kontrakt, exempel och begränsningar finns i `kunskap/skillskript.md`.
-Valda referenssidor profileras genom DevTools efter planprövningen enligt `kunskap/referensprofil.md`. Skaparens
-UPPDRAG.md får bara profiler som är bundna till den valda sidan, paketet och metoden. Äldre lösa profiler injiceras inte.
+Valda referenssidor profileras genom DevTools efter planprövningen, i varje kandidats kedja, enligt
+`kunskap/referensprofil.md`. Skaparen får bara profiler som är bundna till uppdraget, den valda sidan, paketet och
+metoden. Äldre lösa profiler injiceras inte.
 Materialbeställning och generering är skilda steg enligt `kunskap/materialtransport.md`: kandidaten kan beställa,
 men den betrodda körningen behöver ett uppdragsspecifikt kostnadsmandat och konto innan något skickas.
 Läsning, aktivering och tekniskt lyckat resultat redovisas separat från visuell kvalitet.

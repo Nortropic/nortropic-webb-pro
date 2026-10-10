@@ -1048,23 +1048,27 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False,
                         ut['fel'] = 'researchlåset var upptaget av en annan kandidats begäran under hela väntetiden'
                         return ut
                     time.sleep(2)
-        if isinstance(begaran.get('referens'), dict):
+        def referens_():
             upp = dict(begaran['referens'])
             forra = senaste_lasbara_paket(slug, underlag)
             if forra and not upp.get('kompletterar'):
                 upp['kompletterar'] = forra.name  # den nya versionen ärver allt oförändrat, så att alla Bildval kan peka dit
             f = u / ('REFERENSUPPDRAG-%s.json' % tid)
             f.write_text(json.dumps(upp, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            start = time.monotonic()
             try:
                 r = kor([sys.executable, '-B', str(ROOT / 'kontroller' / 'referens.py'), slug, '--uppdrag', rel(f)], frist)
                 ut['referens'] = {'rc': r.returncode, 'paket': rel(senaste_paket(slug, underlag) or u), 'utdrag': (r.stdout + r.stderr)[-1500:]}
             except subprocess.TimeoutExpired:  # PAKET.json bär det som hann fångas helt (referens.py skriver den per kandidat)
                 ut['referens'] = {'rc': None, 'paket': rel(senaste_paket(slug, underlag) or u), 'tidsgrans': frist,
                                   'utdrag': 'referenssteget nådde tidsgränsen %d s; paketet bär bara de kandidater som hann fångas helt' % frist}
-        if isinstance(begaran.get('tjanster'), dict):
+            ut['referens']['sekunder'] = int(time.monotonic() - start)
+
+        def tjanster_():
             t = u / 'referenser' / 'tjanster'  # referenstjanster.samla flyttar den förra rapporten till tidigare/ (radera inget)
             f = u / ('TJANSTEUPPDRAG-%s.json' % tid)
             f.write_text(json.dumps(begaran['tjanster'], ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            start = time.monotonic()
             try:
                 r = kor([sys.executable, '-B', str(ROOT / 'kontroller' / 'referenstjanster.py'), slug, '--uppdrag', rel(f)], frist)
                 rapport = t / 'TJANSTER.md'
@@ -1074,6 +1078,31 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False,
                 ut['tjanster'] = {'rc': r.returncode, 'rapport': rel(rapport), 'utdrag': (r.stdout + r.stderr)[-1500:]}
             except subprocess.TimeoutExpired:
                 ut['tjanster'] = {'rc': None, 'utdrag': 'tjänsterna nådde tidsgränsen %d s' % frist}
+            ut['tjanster']['sekunder'] = int(time.monotonic() - start)
+
+        # Fångsten (referens.py: paket-vNN/, webbläsaren mot sajterna) och tjänsterna (referenstjanster.py: tjanster/,
+        # Refero- och Mobbin-sessionerna) har egna skrivmål, egna processgrupper och ingen gemensam indata, så de körs samtidigt
+        # (ägarens förenklingsuppdrag 2026-10-10: kördes förr efter varandra, tjänsterna 6–9 minuter efter fångstens 30).
+        delar = [d_ for n_, d_ in (('referens', referens_), ('tjanster', tjanster_)) if isinstance(begaran.get(n_), dict)]
+        if len(delar) > 1:
+            import threading
+            fel_ = []
+
+            def kor_del(d_):
+                try:
+                    d_()
+                except BaseException as e:  # noqa: BLE001 — kastas vidare när båda delarna är klara, som när de kördes i följd
+                    fel_.append(e)
+            tradar = [threading.Thread(target=kor_del, args=(d_,), daemon=True) for d_ in delar]
+            for t_ in tradar:
+                t_.start()
+            for t_ in tradar:
+                t_.join()
+            if fel_:
+                raise fel_[0]
+        else:
+            for d_ in delar:
+                d_()
     if not ut.get('referens') and not ut.get('tjanster'):
         ut['fel'] = 'begäran har varken referens eller tjanster'
     with open(arkiv / ('%s-svar.json' % tid), 'w', encoding='utf-8') as fh:

@@ -141,3 +141,14 @@ def planfalt(slug, paketnamn='paket-v01'):
 def webbsteg():
     """Samma webbhändelser som webbhandelser(), som (verktyg, indata, fel, svar) för prov vars transkript tar ett fel och ett svar."""
     return [(n, i, False, t) for n, i, t in webbhandelser()]
+
+
+def profilrapport(kd):
+    """Attrapp för kandidatens DevTools-beställning (kandidater.profilrapport, ägarens förenklingsuppdrag 2026-10-10, D):
+    en rapport utan tillämplig profil, bunden till uppdraget som det står i planen. Prov som prövar annat än
+    profileringen använder den; profileringen själv prövas i prov_referensprofil och prov_forenkling."""
+    def attrapp(slug, kid):
+        k = ((kd.atelje.las_json(kd.rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid)
+        return {'ok': True, 'syntetisk': True, 'brister': [], 'uppdrag': {kid: kd.uppdrag_sha(k)},
+                'kandidater': {kid: {'tillstand': 'ej_tillampligt', 'skal': 'syntetisk attrapp: ingen profil', 'profiler': [], 'brister': []}}}
+    return attrapp
