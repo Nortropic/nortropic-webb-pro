@@ -62,6 +62,12 @@ under byggstandardens 200 kB (3.7), men GSAP är det tyngsta valet och bär sig 
   (`get_component`, förbrukar Builders hämtningar) och inspiration. Komponenterna är React/shadcn med Tailwind: koden
   är material som anpassas till Astro, mallens CSS och CSP:n; `npx shadcn add` och Tailwind installeras aldrig på egen
   hand (beslut här först). Källa, författare, licens och beroenden skrivs i RIKTNING.md under Referenser.
+  Startkontrollens rad "21st.dev (direkt)" (`verktygslada.prova_21st`) upptäcker kontots verktyg med scheman
+  (`tools/list` med paginering; upptäckten kräver nyckeln och speglar kontots åtkomst), läser `get_usage` och gör en
+  generisk sökning, med verktygens felstatus (`isError`) skild från protokollfel. Kontots AI-generering
+  (`aiGenerationEnabled`) redovisas men används inte av flödet. Den gamla `@21st-dev/magic` är en kompatibilitetsproxy
+  och installeras inte (21st:s `llms-install.md`). Sessionsprovet med ateljéns argument körs utan MCP-upptäcktscachen
+  (`MCP_DISCOVERY_CACHE=0`) och bokför init-beskedets `mcp_server_errors`: en cachad verktygslista är ingen anslutning.
 - **GSAP:** `import gsap from 'gsap'` (och `import { ScrollTrigger } from 'gsap/ScrollTrigger'` med
   `gsap.registerPlugin`) i ett `<script>`. Varje rörelse står innanför `gsap.matchMedia()` med
   `(prefers-reduced-motion: no-preference)`, så att den som bett om mindre rörelse får sidan färdig och stilla

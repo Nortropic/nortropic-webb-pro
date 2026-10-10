@@ -1233,16 +1233,20 @@ def prova_21st(k, prov_dir=None):
         for namn, args in (('get_usage', {}), ('search', {'query': 'pricing section with three plans'})):
             if namn not in verktyg:
                 continue
-            fel, text, _sc = kl.kalla_utfall(namn, args)
+            fel, text, sc = kl.kalla_utfall(namn, args)
             anrop_[namn] = {'isError': fel, 'tecken': len(text)}
-            if namn == 'get_usage' and not fel:
-                m = re.search(r'"?aiGenerationEnabled"?\s*[:=]\s*(true|false)', text)
-                anrop_[namn]['aiGenerationEnabled'] = (m.group(1) == 'true') if m else None
+            if namn == 'get_usage' and not fel and isinstance(sc, dict):  # det strukturerade svaret (structuredContent)
+                # komponentåtkomst och AI-generering är skilda rättigheter (21st:s installationsanvisning): AI-generering
+                # används inte av flödet, men kontots läge redovisas
+                anrop_[namn].update(aiGenerationEnabled=sc.get('aiGenerationEnabled') if isinstance(sc.get('aiGenerationEnabled'), bool) else None,
+                                    niva=str(sc.get('tier'))[:40] if sc.get('tier') else None)
         brister = (['flödets verktyg saknas hos kontot: ' + ', '.join(saknas)] if saknas else []) + \
             ['%s svarade med verktygsfel (isError)' % n for n, a in anrop_.items() if a.get('isError')] + \
             (['sökningen gav inget innehåll'] if anrop_.get('search', {}).get('tecken', 1) == 0 else [])
         res = 'fel' if brister else 'ok'
-        detalj = '; '.join(brister) if brister else '%d verktyg upptäckta med scheman; get_usage och search svarade utan verktygsfel' % len(verktyg)
+        ai = anrop_.get('get_usage', {}).get('aiGenerationEnabled')
+        detalj = '; '.join(brister) if brister else '%d verktyg upptäckta med scheman; get_usage och search svarade utan verktygsfel%s' % (
+            len(verktyg), '' if ai is None else '; AI-generering %s i kontot (flödet använder den inte)' % ('påslagen' if ai else 'avstängd'))
     except Exception as e:  # noqa: BLE001 — ett protokoll- eller nätfel beskrivs utan nyckeln
         res, detalj = 'fel', sista(e, 200)
     return k.spara('prov:21st', avtryck, resultat=res, detalj=detalj, verktyg=verktyg, scheman=scheman, anrop=anrop_)
