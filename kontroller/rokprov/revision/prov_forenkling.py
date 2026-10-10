@@ -288,6 +288,29 @@ class Profiler(unittest.TestCase):
         ater = [p_['ateranvand'] for kid in ('k01', 'k03') for p_ in resultat[kid]['kandidater'][kid]['profiler']]
         self.assertEqual(sorted(ater), [False, True], 'den som väntade återanvände profilen')
 
+    def test_samma_sida_med_olika_bildval_profileras_en_gang(self):
+        # granskningen 2026-10-10, fynd 6: kandidatens eget bildval gav förr en egen nyckel per kandidat
+        a = self.paket('alpha', 'https://alpha.example.com/')
+        d = self.ref / 'paket-v01'
+        andra = d / 'alpha' / '01-sida' / 'vy-1440-forsta.png'
+        andra.write_bytes(b'en annan bild ur samma sida')
+        pk = json.loads((d / 'PAKET.json').read_text())
+        pk['kandidater'][0]['sidor'][0]['filer'].append('alpha/01-sida/vy-1440-forsta.png')
+        (d / 'PAKET.json').write_text(json.dumps(pk))
+        b = dict(a, referensbilder=[str(andra)])
+        resultat = {}
+        tradar = [threading.Thread(target=lambda kid, k: resultat.__setitem__(kid, self.kor({'kandidater': {kid: k}})), args=x) for x in (('k01', a), ('k02', b))]
+        for t_ in tradar:
+            t_.start()
+        for t_ in tradar:
+            t_.join()
+        self.assertTrue(all(r_['ok'] for r_ in resultat.values()), resultat)
+        self.assertEqual(self.calls, ['https://alpha.example.com/'])
+        # en ändrad bild på sidan, också en som ingen kandidat valt, ger en ny profil
+        andra.write_bytes('ändrad'.encode())
+        self.assertTrue(self.kor({'kandidater': {'k01': a}})['ok'])
+        self.assertEqual(len(self.calls), 2)
+
     def test_kandidatens_rapport_ar_isolerad_och_bunden(self):
         a = self.paket('alpha', 'https://alpha.example.com/')
         (self.u / SLUG / 'atelje').mkdir(parents=True)
@@ -331,6 +354,39 @@ class Kedjan(Grund):
             self.assertEqual(anrop, ['k01', 'k01'])
             self.assertEqual(st['referensprofil_brister']['brister'], ['syntetisk brist'])
             self.assertEqual(int(st.get('forsok') or 0), 0)
+
+    def test_ett_tekniskt_omforsok_forblir_ett_efter_en_profilbrist(self):
+        # granskningen 2026-10-10, fynd 1: en profilbrist i ett tekniskt omförsök fick kandidaten att fastna för alltid
+        kd.satt_status(SLUG, 'k01', 'fel', 'bygget föll: syntetiskt', tekniskt_fel=True, forsok=1)
+        skissade = []
+        import ab
+        with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['syntetisk brist']}), \
+                patch.object(ab, 'skisskrav', lambda slug: None), patch.object(ab, 'skissavslutad', lambda slug, kid: kd.las_status(slug, kid)):
+            st = kd.behandla_skiss(SLUG, 'k01')
+        self.assertEqual(st['referensprofil_brister']['tekniskt_fel_fore'], True)
+        self.assertTrue(kd.ska_skapas(st))
+        with patch.object(kd, 'profilrapport', referensfixtur.profilrapport(kd)), \
+                patch.object(kd, 'skissa', side_effect=lambda slug, kid, fel=None: skissade.append(fel) or kd.satt_status(slug, kid, 'klar', 'x')), \
+                patch.object(ab, 'skisskrav', lambda slug: None), patch.object(ab, 'skissavslutad', lambda slug, kid: kd.las_status(slug, kid)), \
+                patch.object(kd, 'skaparbrister', return_value=[]):
+            kd.behandla_skiss(SLUG, 'k01')
+        self.assertEqual(skissade, ['bygget föll: syntetiskt'], 'nästa start gör det tekniska omförsöket med sitt skäl')
+
+    def test_profilsteget_behaller_skalet_och_ett_stopp_ar_ett_avbrott(self):
+        kd.satt_status(SLUG, 'k01', 'ofullstandig', 'förra försökets brister: menyn öppnar ingenting', forsok=1)
+        with patch.object(kd, 'profilrapport', referensfixtur.profilrapport(kd)):
+            self.assertTrue(kd.referensprofil_klar(SLUG, 'k01'))
+        self.assertEqual(kd.las_status(SLUG, 'k01')['skal'], 'förra försökets brister: menyn öppnar ingenting', 'läget fulls andra försök läser skälet')
+        fore = kd.las_status(SLUG, 'k01')
+        atelje.STOPP.set()
+        try:
+            with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['slutkod -9']}):
+                with self.assertRaises(atelje.Stoppad):
+                    kd.referensprofil_klar(SLUG, 'k01')
+        finally:
+            atelje.STOPP.clear()
+        efter = kd.las_status(SLUG, 'k01')
+        self.assertEqual((efter['status'], efter.get('referensprofil_brister')), (fore['status'], None), 'ett stopp är ingen profilbrist')
 
     def test_provunderlag_startar_aldrig_en_verklig_profilering(self):
         with patch.object(skapande, 'kor_trad', side_effect=AssertionError('ingen process mot provunderlaget')):
@@ -414,6 +470,13 @@ class Bygget(Grund):
             prova.bygg_inom_grans(huvud)
         self.assertEqual(self.byggen, 2, 'bara en kandidats projekt återanvänds')
 
+    def test_specialfil_eller_oläsbar_fil_ger_ingen_identitet_och_ingen_hangning(self):
+        os.mkfifo(self.sajt / 'src' / 'ror')
+        self.assertIsNone(prova.kallidentitet(self.sajt, prova.byggkommando(self.sajt)))
+        prova.bygg_inom_grans(self.sajt)
+        prova.bygg_inom_grans(self.sajt)
+        self.assertEqual(self.byggen, 2, 'utan identitet byggs det varje gång')
+
     def test_varvet_bar_sin_version(self):
         kalla = prova.kallidentitet(self.sajt, prova.byggkommando(self.sajt))
         vd = self.tmp / 'varv-01'
@@ -450,6 +513,19 @@ class Kritiken(Grund):
         self.assertIn('granskare/start/varv-01/vy-768-forsta.png', text)
         self.assertNotIn('varv/start/varv-01/vy-390-forsta.png', text, 'skaparens varv ges inte när flödets bilder finns')
         self.assertIn('bara när bedömningen kräver', text, 'egen interaktionskontroll finns kvar vid behov')
+
+    def test_okand_version_intygar_ingenting_och_en_fallen_forhandsvisning_tar_inte_kandidaten(self):
+        kid = 'k01'
+        vd = kd.kdir(SLUG, kid) / 'varv' / 'start' / 'varv-01'
+        vd.mkdir(parents=True)
+        for n_ in forhandsvisa.LAS:
+            (vd / n_).write_bytes(referensfixtur.PNG)
+        kd.satt_status(SLUG, kid, 'under_arbete', 'skiss')
+        with patch.object(forhandsvisa, 'forhandsvisa', side_effect=OSError('försvann under läsningen')), \
+                patch.object(prova, 'kallidentitet', return_value=None), \
+                patch.object(atelje, 'session', side_effect=AssertionError('ingen kritik på bilder av okänd version')):
+            self.assertIsNone(kd.skisskritik(SLUG, kid))
+        self.assertEqual(kd.las_status(SLUG, kid)['status'], 'under_arbete')
 
 
 class Planen(Grund):
@@ -492,6 +568,24 @@ class Planen(Grund):
         self.assertIn('9 av 10', plan['brist_mot_begart'])
         self.assertIn('kompletteringen: 3 av 4', plan['brist_mot_begart'])
 
+    def test_en_fallen_komplettering_falller_inte_en_plan_som_racker(self):
+        bas = {x: self.plan.get(x) for x in ('bransch', 'forebilder_utanfor')}
+        forsta = dict(bas, variation='v', kandidater=[self.uppdrag(i) for i in range(1, 9)])
+
+        def session(prompt, verktyg, ut, schema=None, *a, **k):
+            self.anrop.append(prompt)
+            if len(self.anrop) == 2:
+                raise subprocess.TimeoutExpired(['claude'], 3000)
+            return {'session_id': None, 'structured_output': forsta}
+        with patch.object(atelje, 'session', session), patch.object(kompetens, 'kravbrister', return_value=[]), \
+                patch.object(kd, 'plan_prompt', lambda *a, **k: 'PLAN'), patch.object(kd, 'referenskedjebrist', return_value=None), \
+                patch.object(kd, 'referensbrist', return_value=None), patch.object(kd, 'planbrist', return_value=None), \
+                patch('referenskontrakt.planbrister', return_value=[]):
+            ids = kd.planera(SLUG, 10, 'skiss')
+        plan = json.loads((kd.rot(SLUG) / 'KANDIDATPLAN.json').read_text())
+        self.assertEqual(len(ids), 8)
+        self.assertIn('kompletteringen föll', plan['brist_mot_begart'])
+
     def test_tio_giltiga_gor_ingen_komplettering(self):
         bas = {x: self.plan.get(x) for x in ('bransch', 'forebilder_utanfor')}
         _bas, ids = self.kor([dict(bas, variation='v', kandidater=[self.uppdrag(i) for i in range(1, 11)])])
@@ -502,13 +596,14 @@ class Kontrollerna(unittest.TestCase):
     """A och punkt 4."""
 
     def test_motsagelsefullt_aktiveringskrav_stoppar_fore_forsta_sessionen(self):
-        c = {'resultat': 'ok', 'tid': 'nu', 'skills': ['refero-design', 'ui-ux-pro-max', 'better-explain-interface', 'hallmark', 'impeccable']}
+        # sessionens init-lista bär mapparnas namn, också de användaranropade (sessionsprovet 2026-10-10, 76 skills)
+        c = {'resultat': 'ok', 'tid': 'nu', 'skills': sorted(f.parent.name for f in (ROOT / '.claude' / 'skills').glob('*/SKILL.md'))}
         vag = {'id': 'kandidatflodet', 'fas': 'fore_research'}
         ok = startkontroll.aktiveringsrader(c, True, vag)
         self.assertEqual(ok[0]['resultat'], 'ok', ok)
         self.assertIn('användaranropade, läses hela', ok[0]['detalj'])
         # skillverktyget i sessionen saknar en skill som kvittot kräver aktiverad
-        fel = startkontroll.aktiveringsrader(dict(c, skills=['ui-ux-pro-max']), True, vag)
+        fel = startkontroll.aktiveringsrader(dict(c, skills=[x for x in c['skills'] if x != 'refero-design']), True, vag)
         self.assertEqual((fel[0]['resultat'], fel[0]['nodvandig']), ('fel', True))
         self.assertIn('refero-design', fel[0]['detalj'])
         # en klassning som kräver aktivering av en användaranropad skill (kandidatprovet 2026-10-10) stoppas också
@@ -523,6 +618,18 @@ class Kontrollerna(unittest.TestCase):
         self.assertIn('better-explain-interface', fel[0]['detalj'])
         self.assertIn('användaranropad', fel[0]['detalj'])
         self.assertEqual(startkontroll.aktiveringsrader(c, False, vag), [], 'helbygget har egen startväg')
+        # en ny körning prövar också rollerna efter researchen (granskningen 2026-10-10, fynd 8): en skill som bara
+        # skaparen eller kritiken har saknas i sessionen och stoppar ändå före researchen
+        _r, efter = startkontroll.fasens_roller({'id': 'kandidatflodet', 'fas': 'efter_research'})
+        _r, fore = startkontroll.fasens_roller(vag)
+        bara_efter = sorted({s_ for x in efter for s_ in kompetens.aktiverbara(x['karna'] + x['valj'])[0]}
+                            - {s_ for x in fore for s_ in kompetens.aktiverbara(x['karna'] + x['valj'])[0]})
+        self.assertTrue(bara_efter)
+        alla = sorted({s_ for x in efter + fore for s_ in kompetens.aktiverbara(x['karna'] + x['valj'])[0]})
+        fel = startkontroll.aktiveringsrader(dict(c, skills=[s_ for s_ in alla if s_ != bara_efter[0]]), True, vag)
+        self.assertEqual(fel[0]['resultat'], 'fel', fel)
+        self.assertIn(bara_efter[0], fel[0]['detalj'])
+        self.assertEqual(startkontroll.aktiveringsrader(dict(c, skills=alla), True, vag)[0]['resultat'], 'ok')
 
     def test_fokus_ar_en_snabb_kontroll(self):
         self.assertEqual(kd.fokusprovet({'tangentbord': [{'tagg': 'a', 'text': 'Boka', 'synligFokus': True}]}, '390'), [])

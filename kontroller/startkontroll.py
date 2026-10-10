@@ -197,8 +197,8 @@ def fasens_roller(vag=None):
 
 
 def aktiveringsrader(sess, ateljen, vag=None):
-    """Aktiveringskraven i fasens roller, före den första sessionen (ägarens förenklingsuppdrag 2026-10-10, A): varje fil
-    i kärnan och alternativen klassas som kvittot gör (kompetens.aktiverbara): en skill som aktiveras med Skill, en skill
+    """Aktiveringskraven i fasens roller (en ny kandidatkörning: också rollerna efter researchen), före den första
+    sessionen (ägarens förenklingsuppdrag 2026-10-10, A): varje fil i kärnan och alternativen klassas som kvittot gör (kompetens.aktiverbara): en skill som aktiveras med Skill, en skill
     som källan gjort användaranropad (disable-model-invocation; läses hel), en väntande skill med Initial Response (läses)
     och ett dokument (läses). Ett aktiveringskrav som sessionen inte kan uppfylla är motsägelsefullt och stoppar starten:
     skillen är användaranropad eller väntande men kvittot kräver aktivering, dess Skill-namn är inte entydigt, eller
@@ -210,6 +210,10 @@ def aktiveringsrader(sess, ateljen, vag=None):
     import bildkedja
     import kompetens
     _roller, valda = fasens_roller(vag)
+    if vag and (vag.get('id'), vag.get('fas')) == ('kandidatflodet', 'fore_research'):
+        # en ny körning når också planen, prövningen, skisserna och kritiken: deras krav prövas före researchen, inte efter
+        _r, efter = fasens_roller({'id': 'kandidatflodet', 'fas': 'efter_research'})
+        valda = valda + [x for x in efter if x['id'] not in {y['id'] for y in valda}]
     anvandar, vantande = kompetens.anvandaranropade(), kompetens.vantande_skills()
     sess_ok = bool(sess and sess.get('resultat') == 'ok')
     i_sess = set((sess or {}).get('skills') or [])

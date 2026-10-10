@@ -33,6 +33,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -108,10 +109,14 @@ def bygg_inom_grans(sajt, timeout=600):
             rc, out = kor(kmd, timeout=timeout)
             if stampel:
                 efter = kallidentitet(sajt, kmd)
-                if rc == 0 and kalla and efter == kalla and (sajt / 'dist' / 'index.html').is_file():
-                    _skriv_stampel(stampel, {'kalla': kalla, 'dist': dist_hash(sajt / 'dist'), 'tid': nu()})
-                elif stampel.exists():
-                    stampel.unlink()  # ett fallerat bygge eller ändrade indata under bygget: ingen stämpel gäller dist/
+                try:
+                    if rc == 0 and kalla and efter == kalla and (sajt / 'dist' / 'index.html').is_file():
+                        _skriv_stampel(stampel, {'kalla': kalla, 'dist': dist_hash(sajt / 'dist'), 'tid': nu()})
+                    elif stampel.exists():
+                        stampel.unlink()  # ett fallerat bygge eller ändrade indata under bygget: ingen stämpel gäller dist/
+                except OSError:
+                    if stampel.exists():
+                        stampel.unlink()
                 _byggrad(sajt.parent, kalla=kalla, ateranvant=False, rc=rc, vantade=round(vantade, 2), bygg=round(time.monotonic() - t1, 2),
                          sekunder=round(time.monotonic() - t0, 2), andrat_under=bool(kalla and efter != kalla))
             return rc, out
@@ -143,24 +148,30 @@ def kallidentitet(sajt, kmd):
     None när projektet bär en annan länk än node_modules: då byggs det alltid."""
     sajt = Path(sajt)
     h = hashlib.sha256()
-    for katalog, kataloger, filer in os.walk(sajt, followlinks=False):
-        k_ = Path(katalog)
-        if k_ == sajt:
-            kataloger[:] = [x for x in kataloger if x not in ('node_modules', 'dist', '.astro')]
-        kataloger.sort()
-        if any((k_ / x).is_symlink() for x in kataloger):
-            return None
-        for fn in sorted(filer):
-            p = k_ / fn
-            if p.is_symlink():
-                if k_ == sajt and fn == 'node_modules':
-                    continue
+    try:
+        for katalog, kataloger, filer in os.walk(sajt, followlinks=False):
+            k_ = Path(katalog)
+            if k_ == sajt:
+                kataloger[:] = [x for x in kataloger if x not in ('node_modules', 'dist', '.astro')]
+            kataloger.sort()
+            if any((k_ / x).is_symlink() for x in kataloger):
                 return None
-            h.update(b'F\0' + p.relative_to(sajt).as_posix().encode() + b'\0' + hashlib.sha256(p.read_bytes()).digest())
-    nm = sajt / 'node_modules'
-    mal = os.path.realpath(nm) if nm.exists() else ''
-    lock = Path(mal) / '.package-lock.json' if mal else None
-    h.update(b'N\0' + mal.encode() + b'\0' + (hashlib.sha256(lock.read_bytes()).digest() if lock and lock.is_file() else b'-'))
+            for fn in sorted(filer):
+                p = k_ / fn
+                if p.is_symlink():
+                    if k_ == sajt and fn == 'node_modules':
+                        continue
+                    return None
+                st_ = os.lstat(p)
+                if not stat.S_ISREG(st_.st_mode):  # en FIFO, en sockel eller en enhet läses aldrig: då byggs det alltid
+                    return None
+                h.update(b'F\0' + p.relative_to(sajt).as_posix().encode() + b'\0' + hashlib.sha256(p.read_bytes()).digest())
+        nm = sajt / 'node_modules'
+        mal = os.path.realpath(nm) if nm.exists() else ''
+        lock = Path(mal) / '.package-lock.json' if mal else None
+        h.update(b'N\0' + mal.encode() + b'\0' + (hashlib.sha256(lock.read_bytes()).digest() if lock and lock.is_file() else b'-'))
+    except OSError:  # en fil som försvann eller inte går att läsa: ingen identitet, och då byggs det
+        return None
     if not _NODE_VERSION:  # direkt, inte genom kor(): identiteten är ingen del av bygget eller kontrollerna
         try:
             _NODE_VERSION.append(subprocess.run([NODE, '--version'], capture_output=True, text=True, timeout=30).stdout.strip())
@@ -175,10 +186,10 @@ def kallidentitet(sajt, kmd):
 def _bygge_ateranvandbart(sajt, stampel, kalla):
     try:
         s = json.loads(Path(stampel).read_text(encoding='utf-8'))
-    except (OSError, ValueError):
+        return (isinstance(s, dict) and s.get('kalla') == kalla and (Path(sajt) / 'dist' / 'index.html').is_file()
+                and not (Path(sajt) / 'dist').is_symlink() and s.get('dist') == dist_hash(Path(sajt) / 'dist'))
+    except (OSError, ValueError):  # också en dist som ändras under läsningen: ingen återanvändning
         return False
-    return (isinstance(s, dict) and s.get('kalla') == kalla and (Path(sajt) / 'dist' / 'index.html').is_file()
-            and not (Path(sajt) / 'dist').is_symlink() and s.get('dist') == dist_hash(Path(sajt) / 'dist'))
 
 
 def _skriv_stampel(stampel, post):

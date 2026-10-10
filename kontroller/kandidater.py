@@ -1585,18 +1585,22 @@ def referensprofil_klar(slug, kid):
         return True  # ingen plan i kontraktets form: startvillkoren prövas av referensstopp
     st = las_status(slug, kid)
     start = time.monotonic()
-    satt_status(slug, kid, st.get('status') or 'planerad', 'referenssidornas DevTools-profiler beställs')
-    rapport = profilrapport(slug, kid)
+    rapport = profilrapport(slug, kid)  # statusen och skälet står kvar under profileringen (läget fulls andra försök läser skälet)
     sek = int(time.monotonic() - start)
+    if atelje.STOPP.is_set():  # stoppet dödade profileringen: ett avbrott, ingen profilbrist; statusen står orörd
+        raise atelje.Stoppad('profileringen avbröts av stoppet')
     if rapport.get('ok') and (rapport.get('uppdrag') or {}).get(kid) != uppdrag_sha(k):
         rapport = dict(rapport, ok=False, brister=['uppdraget ändrades under profileringen'])
     if not rapport.get('ok'):
         b_ = [str(x) for x in rapport.get('brister') or ['okänt fel']]
+        # det som gällde före bristen sparas, så att nästa start återställer det (ett tekniskt omförsök förblir ett)
         satt_status(slug, kid, 'fel', 'referensprofilen är ofullständig, så skaparen startar inte: ' + '; '.join(b_)[:600],
-                    referensprofil_brister={'tid': nu(), 'brister': b_, 'sekunder': sek, 'status_fore': st.get('status')}, tekniskt_fel=False)
+                    referensprofil_brister={'tid': nu(), 'brister': b_, 'sekunder': sek, 'status_fore': st.get('status'),
+                                            'skal_fore': st.get('skal'), 'tekniskt_fel_fore': bool(st.get('tekniskt_fel'))},
+                    tekniskt_fel=False)
         return False
     p_ = ((rapport.get('kandidater') or {}).get(kid) or {})
-    satt_status(slug, kid, st.get('status') or 'planerad', 'referensprofilen klar', ta_bort=('referensprofil_brister',),
+    satt_status(slug, kid, st.get('status') or 'planerad', st.get('skal') or '', ta_bort=('referensprofil_brister',),
                 referensprofil={'tid': nu(), 'sekunder': sek, 'tillstand': p_.get('tillstand'),
                                 'profiler': len(p_.get('profiler') or []), 'ateranvanda': sum(1 for x in p_.get('profiler') or [] if x.get('ateranvand'))})
     return True
@@ -1694,9 +1698,15 @@ def komplettera_plan(slug, n, lage, kand, avvisade, paket):
     for f_ in ('bransch', 'forebilder_utanfor'):
         sch['properties'][f_].pop('minItems', None)
     post = {'tid': nu(), 'begart': saknas, 'giltiga': 0, 'avvisade': [], 'kompetenskravbrister': []}
-    svar = atelje.session(plan_prompt(slug, n, lage == 'skiss') + '\n' + '\n'.join(rader), LASVERKTYG + kompetens.verktyg('planera', slug),
-                          r / 'svar-plan-komplettering.json', sch, 200, atelje.MODELL, EFFORT_SKISS if lage == 'skiss' else atelje.EFFORT,
-                          FRIST_PLAN, slug=slug)
+    try:
+        svar = atelje.session(plan_prompt(slug, n, lage == 'skiss') + '\n' + '\n'.join(rader), LASVERKTYG + kompetens.verktyg('planera', slug),
+                              r / 'svar-plan-komplettering.json', sch, 200, atelje.MODELL, EFFORT_SKISS if lage == 'skiss' else atelje.EFFORT,
+                              FRIST_PLAN, slug=slug)
+    except (RuntimeError, OSError, subprocess.TimeoutExpired) as e:  # de giltiga uppdragen står kvar; planen avgörs av dem
+        if atelje.STOPP.is_set():
+            raise atelje.Stoppad('kompletteringen avbröts av stoppet')
+        post['utfall'] = 'kompletteringen föll (%s: %s), så inga nya uppdrag' % (type(e).__name__, str(e)[:200])
+        return list(kand), list(avvisade), post
     kv = kompetens.kvitto([svar], 'planera')
     post.update(kompetens=kompetens_kort(kv), kompetenskravbrister=kompetens.kravbrister(kv, 'planera'))
     nya = [] if post['kompetenskravbrister'] else [k for k in (svar.get('structured_output') or {}).get('kandidater') or []
@@ -2433,15 +2443,20 @@ def skisskritik(slug, kid):
     # av exakt den version kritiken bedömer, i granskarens form utan kod (fyra bredder, menyn, tangentbordet och reflow), med
     # skaparens bygge återanvänt när indata är oförändrade. Skaparens senaste varv kan gälla en äldre version och ges bara
     # när förhandsvisningen inte gick att ta och varvet är byggt av samma version.
-    rc_g, _text_g, gdir = forhandsvisa.forhandsvisa(slug, '/', kandidat=kid, granskare=True)
+    try:
+        rc_g, _text_g, gdir = forhandsvisa.forhandsvisa(slug, '/', kandidat=kid, granskare=True)
+    except Exception as e:  # noqa: BLE001 — kritiken är rådgivande: en förhandsvisning som faller tar aldrig kandidaten
+        rc_g, gdir = 2, None
+        satt_status(slug, kid, las_status(slug, kid).get('status') or 'under_arbete', 'granskarens förhandsvisning föll: %s' % str(e)[:160])
     if rc_g == 0 and gdir and projektets_version(slug, kid) == version_:
         bilder = [p for p in (gdir / ('vy-%s-%s.png' % (b_, s_)) for b_ in forhandsvisa.BREDDER for s_ in ('forsta', 'hela', 'meny', 'reflow320'))
                   if forhandsvisa.giltig_bild(p)]
         forhand_bilder = gdir
     else:
         vd = d / 'varv' / 'start' / ('varv-%02d' % v[-1])
+        v_varv, v_nu = forhandsvisa.varvets_version(vd), prova.kallidentitet(ksajt(slug, kid), prova.byggkommando(ksajt(slug, kid)))
         bilder = [p for p in (vd / ('vy-%s-%s.png' % (b_, s_)) for b_ in forhandsvisa.BREDDER for s_ in ('forsta', 'hela'))
-                  if forhandsvisa.giltig_bild(p)] if forhandsvisa.varvets_version(vd) == prova.kallidentitet(ksajt(slug, kid), prova.byggkommando(ksajt(slug, kid))) else []
+                  if forhandsvisa.giltig_bild(p)] if v_varv and v_nu and v_varv == v_nu else []  # okänd version intygar ingenting
         forhand_bilder = None
     if not bilder:
         return None
@@ -3572,8 +3587,9 @@ def behandla_skiss(slug, kid):
     if st.get('status') in ('fel', 'ofullstandig') and st.get('referensprofil_brister'):
         # en tidigare starts profilbrist: profileringen görs om en gång i den här starten (skissa), och de giltiga profilerna
         # återanvänds; brister den igen står kandidaten kvar som fel till nästa start, aldrig i en slinga
-        st = satt_status(slug, kid, (st['referensprofil_brister'] or {}).get('status_fore') or 'planerad',
-                         'referensprofilen görs om efter förra startens brist', ta_bort=('referensprofil_brister',))
+        b_ = st['referensprofil_brister'] or {}
+        st = satt_status(slug, kid, b_.get('status_fore') or 'planerad', b_.get('skal_fore') or 'referensprofilen görs om efter förra startens brist',
+                         ta_bort=('referensprofil_brister',), tekniskt_fel=bool(b_.get('tekniskt_fel_fore')))
     av = st.get('avbruten_vid') if st.get('status') == 'avbruten' and isinstance(st.get('avbruten_vid'), dict) else None
     if st.get('status') == 'under_arbete' or av:  # processen dog mitt i försöket, eller körningen stoppades eller föll under det
         if nastlad_session(st.get('session_pid')):  # en kvarlevande session skriver aldrig i nästa försöks projekt (S3),

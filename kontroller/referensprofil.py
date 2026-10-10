@@ -114,8 +114,18 @@ def valda_sidor(slug, k, underlag, root):
         # Exakt paket prövas även genom DevTools egen ingång; inget tyst byte till ett nyare paket.
         devtools.resursursprung(slug, adress, underlag, paket, c['namn'])
         nyckel = (paket.name, str(c['namn']), adress)
-        g = grupper.setdefault(nyckel, {'namn': c['namn'], 'adress': adress, 'paket': paket.name,
-                                      'paket_sha': _sha(paket / 'PAKET.json', ref), 'bilder': {}})
+        if nyckel not in grupper:
+            # Sidans alla deklarerade bilder binder profilen, inte kandidatens urval: två kandidater som valt olika bilder
+            # ur samma sida får samma identitet, samma lås och samma profil (ägarens förenklingsuppdrag 2026-10-10, D), och
+            # en ändrad bild på sidan ger ändå en ny profil. En deklarerad fil som saknas på disken binder ingenting.
+            sidbilder = {}
+            for f_ in s.get('filer') or []:
+                q = paket / str(f_)
+                if q.suffix.lower() in BILDER and q.is_file() and not q.is_symlink():
+                    sidbilder[str(q.relative_to(ref))] = _sha(q, ref)
+            grupper[nyckel] = {'namn': c['namn'], 'adress': adress, 'paket': paket.name,
+                               'paket_sha': _sha(paket / 'PAKET.json', ref), 'bilder': sidbilder}
+        g = grupper[nyckel]
         g['bilder'][str(p.relative_to(ref))] = _sha(p, ref)
     namn_g = {referensens_namn(g['namn']) for g in grupper.values()}
     if referensens_namn(hr) in namn_g:  # ett namn som självt innehåller "och" etc

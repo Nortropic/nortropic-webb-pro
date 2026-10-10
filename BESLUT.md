@@ -5035,7 +5035,14 @@ sida).
   steg 7 och helbygget (`kunskap/skapandeflodet.md`, Kontrollerna före valet och senare).
 - REDOVISNING.md: avsnittet Väntan och återanvändning.
 
-**Det som är mekanik och det som är hypotes:** proven (`prov_forenkling.py`, 24 fall, 19 röda på basen) visar
+En separat granskning av ändringen (underagent, 2026-10-10 ~20:50Z) fann sex bekräftade och två troliga fel: profilbristen
+i ett tekniskt omförsök låste kandidaten, profilsteget skrev över skälet, ett stopp bokfördes som profilbrist, en
+okänd version kunde intyga skaparens varv, en specialfil fick identiteten att hänga i bygglåset, en fallen
+komplettering fällde en plan som räckte, samma sida profilerades en gång per bildval, och startkontrollen prövade
+bara startfasens roller. Alla är rättade och har prov (röda på commiten före rättelsen; FIFO-fallet hängde där).
+
+**Det som är mekanik och det som är hypotes:** proven (`prov_forenkling.py`, 30 fall; 19 av de 24 första röda på
+basen 1353214, de sex för granskningens fynd röda på 1b9d344) visar
 mekaniken med attrapper. Tidsvinsten är uppmätt bara för tjänsterna i researchen (6–9 minuter som nu ligger inom
 fångstens tid); att profilerna per kandidat ger en tidigare första skiss, att återanvända byggen kortar kön och att
 kritikerns färdiga bilder kortar dess session är hypoteser tills ett verkligt körprov har mätt dem. Skaparpoolens tak

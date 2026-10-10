@@ -180,7 +180,8 @@ varje körning låser sina versioner. Två verktyg delar komponenterna och läge
   utforskningen prövar REFERENSER.md:s rader, och en tom eller inaktuell fil godtas inte; helbygget och putsningen
   prövar VINNARE.json. Kontrollen skriver aldrig i underlaget och skapar aldrig REFERENSER.md.
 - **Aktiveringskraven** (ägarens förenklingsuppdrag 2026-10-10, A). Raden "aktiveringskraven i fasens roller" klassar
-  varje fil i fasens rollers kärna och alternativ som kvittot gör (`kompetens.aktiverbara`): skills som aktiveras med
+  varje fil i fasens rollers kärna och alternativ (en ny kandidatkörning: också rollerna efter researchen, som
+  planen, skisserna och kritiken) som kvittot gör (`kompetens.aktiverbara`): skills som aktiveras med
   Skill, skills som källan gjort användaranropade (läses hela), väntande skills med Initial Response (läses) och
   dokument (läses). Ett aktiveringskrav som sessionen inte kan uppfylla stoppar starten före den första sessionen: en
   användaranropad eller väntande skill som ändå krävs aktiverad, ett Skill-namn som inte är entydigt, eller en skill som
