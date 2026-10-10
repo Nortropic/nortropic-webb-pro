@@ -36,6 +36,22 @@ try{
  await page.getByRole('status').filter({hasText:'Handlingen är sparad'}).waitFor();
  {const t=await page.locator('#vy').innerText();
   for(const del of ['ingår i grundleveransen','kontraktsprovat lokalt','inte ansluten','inte startat','Planen kan gå vidare till bygget.'])assert(t.includes(del),del+': '+t.slice(0,600));}
+ // Handlingskön, nyckelintaget och aktiveringens torrkörning (ägarens tillägg 2026-10-10): kön ur planen med ansvarig och
+ // vad som kan fortsätta; nyckeln visas aldrig och sparas aldrig i webbläsarens lagring
+ await page.getByRole('heading',{name:'Detta behöver vi från kunden',exact:true}).waitFor();
+ {const t=await page.locator('#vy').innerText();
+  for(const del of ['Anslut Nortropics Cloudflare-konto','ansvarig: ägaren','Under väntan kan detta fortsätta','Nycklar och uppgifter','Aktivering på Cloudflare','Torrkörning utan sidoeffekter'])assert(t.includes(del),del+': '+t.slice(0,300));}
+ const NYCKEL='xkeysib-SYNTETISK-WEBBNYCKEL-0001';
+ await page.getByText('Lämna en nyckel eller uppgifter',{exact:true}).click();
+ await page.locator('#ks-lev').selectOption('brevo');
+ await page.locator('#ks-nyckelvarde').fill(NYCKEL);
+ await page.locator('#ks-nyckelfalt').fill('lista=12\nmall=7');
+ await page.getByRole('button',{name:'Lämna till nyckelintaget',exact:true}).click();
+ await page.getByText(/nyckel lämnad/).waitFor();
+ {const t=await page.locator('#vy').innerText();assert(t.includes('lista: 12'),t.slice(0,400));assert(!t.includes(NYCKEL),'nyckeln visas');
+  const lagrat=await page.evaluate(()=>JSON.stringify([{...localStorage},{...sessionStorage}]));assert(!lagrat.includes(NYCKEL),'nyckeln i webbläsarens lagring');
+  assert(!(await page.content()).includes(NYCKEL),'nyckeln i sidan');
+  assert.equal(await page.locator('#ks-nyckelvarde').inputValue(),'','nyckelfältet töms');}
  for(const width of [320,390,768,1440]){
   await page.setViewportSize({width,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'spill '+width);
   await page.evaluate(()=>scrollTo(0,0));

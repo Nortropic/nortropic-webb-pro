@@ -26,6 +26,12 @@
 <button type="button" id="jamfort-utkast" hidden>Jag har jämfört med senaste uppgiften och vill behålla mitt utkast</button></form>
 <h3>Förslag att ta ställning till</h3><div id="forslag"></div><h3>Det som behöver klarläggas</h3><div id="fragor"></div>
 <div id="returfragor"></div><div id="integrationsstatus"></div>
+<h3 id="handlingsrubrik">Detta behöver vi från er</h3><p id="handlingssammanfattning"></p><div id="handlingslista"></div>
+<details id="nyckeldel" hidden><summary>Lämna en nyckel eller uppgift till en tjänst</summary><p>Nyckeln skickas direkt till en privat plats och visas aldrig igen, varken här eller för Nortropic. Den sparas inte i webbläsaren.</p>
+<form id="nyckelform" autocomplete="off"><label for="nyckellev">Tjänst</label><select id="nyckellev"></select>
+<label for="nyckelvarde">Nyckel</label><input id="nyckelvarde" type="password" autocomplete="off" spellcheck="false" maxlength="512">
+<label for="nyckelfalt">Uppgifter (namn=värde, en per rad, till exempel lista=12)</label><textarea id="nyckelfalt" rows="2" maxlength="500"></textarea>
+<button type="submit" id="nyckelknapp">Lämna</button></form></details>
 <details><summary>Berätta om en funktion eller koppling ni behöver</summary><p>Beskriv vad besökaren ska kunna göra. Nortropic utreder den tekniska vägen; du behöver inte veta vilket API eller abonnemang som krävs.</p>
 <form id="integrationsform"><input id="integrationid" type="hidden"><label for="integrationsbehov">Vad vill ni kunna göra?</label><textarea id="integrationsbehov" rows="3" maxlength="3000" required></textarea>
 <label for="befintligt-system">Använder ni något system i dag? (frivilligt)</label><input id="befintligt-system" maxlength="3000">

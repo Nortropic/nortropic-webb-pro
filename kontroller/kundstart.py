@@ -103,6 +103,15 @@ def vy(d):
     return d
 
 
+def kundko(d):
+    """Handlingskön i kundens vy (kontroller/handlingsko.py): status och ansvarig, inga belägg eller ägarfunktioner."""
+    import handlingsko
+    try:
+        return handlingsko.kundvy(handlingsko.ko(d))
+    except (OSError, ValueError, KeyError):
+        return {'fel': 'Listan kunde inte läsas just nu.'}
+
+
 class Lager:
     def __init__(self, rot=None):
         if os.environ.get('NWP_SLUG'):
@@ -240,9 +249,7 @@ class Lager:
             import kundstart_behorighet as kh
             d=self._doc(c,eid)
             ut=self._vy(c,d)|{'din_roll':kh.roll(c,eid,token)}
-        import handlingsko
-        try:ut['handlingsko']=handlingsko.kundvy(handlingsko.ko(d))  # med kundens behörighet: status, inga ägarfunktioner
-        except (OSError,ValueError,KeyError):ut['handlingsko']={'fel':'Listan kunde inte läsas just nu.'}
+        ut['handlingsko']=kundko(d)
         return ut
 
     def internt(self, eid):
@@ -282,7 +289,7 @@ class Lager:
                 raise Konflikt('Uppdraget har ändrats. Hämta den senaste versionen; ditt utkast är kvar.')
             self._handling(c,d,person,handling,data)
             self._spara(c,d)
-            svar = vy(d)|{'din_roll':roll}
+            svar = vy(d)|{'din_roll':roll,'handlingsko':kundko(d)}
             c.execute('INSERT INTO operationer VALUES(?,?,?,?)',(eid,op,fingerprint,jsontext(svar)))
             return svar
 

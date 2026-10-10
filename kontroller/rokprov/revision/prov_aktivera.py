@@ -223,6 +223,19 @@ class Aktivera(unittest.TestCase):
         with self.assertRaises(aktivera.Fel):
             self.mandat()
 
+    def test_byggflodets_knapp_och_kravet(self):
+        import flodesstart
+        import prototyp
+        with patch.object(flodesstart, 'pagande', return_value=False), patch.object(prototyp, 'lage', return_value=('valda', None)):
+            with self.assertRaises(ValueError):
+                flodesstart.krav(SLUG, 'aktivera')  # inget intag: driftvärdena saknas
+            self.assertNotIn('aktivera', [h['id'] for h in prototyp.handlingar(SLUG)])
+            self.intag()
+            flodesstart.krav(SLUG, 'aktivera')
+            self.assertIn('aktivera', [h['id'] for h in prototyp.handlingar(SLUG)])
+        self.assertIn('aktivera', flodesstart.HANDLINGAR)
+        self.assertIn('ditt beslut', prototyp.HANDLINGAR['aktivera'])
+
     def test_dubbelstart_nekas_av_kundens_las(self):
         self.intag(); self.mandat()
         hallare = subprocess.Popen([sys.executable, '-c', (

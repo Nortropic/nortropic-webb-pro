@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
@@ -130,6 +131,24 @@ try{
  assert(await page.getByRole('button',{name:'Rätta uppgiften',exact:true}).isDisabled());
  await page.setViewportSize({width:390,height:900});await page.route(origin+'/prov-text.css',r=>r.fulfill({contentType:'text/css',body:'html{font-size:200%}'}));await page.addStyleTag({url:origin+'/prov-text.css'});
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'textförstoring');
+ // Detta behöver vi från er: handlingskön ur planen och nyckeln till nyckelintaget (bara beslutsfattaren; visas aldrig igen,
+ // sparas aldrig i webbläsaren)
+ await page.setViewportSize({width:1280,height:900});
+ await page.goto('about:blank');await page.goto(`${origin}/#arende=${init.ko_arende}&nyckel=${init.ko_medverkande}`);
+ await page.locator('#handlingslista article').first().waitFor();
+ assert((await page.locator('#handlingslista').innerText()).includes('Lämna Brevo-nyckeln i nyckelintaget'));
+ assert(await page.locator('#nyckelknapp').isDisabled(),'en medverkande lämnar ingen nyckel');
+ await page.goto('about:blank');await page.goto(`${origin}/#arende=${init.ko_arende}&nyckel=${init.ko_nyckel}`);
+ await page.locator('#handlingslista article').first().waitFor();
+ const NY='xkeysib-SYNTETISK-KUNDYTA-0001';
+ await page.locator('#nyckeldel summary').click();
+ await page.locator('#nyckellev').selectOption('brevo');await page.locator('#nyckelvarde').fill(NY);await page.locator('#nyckelfalt').fill('lista=12\nmall=7');
+ await page.locator('#nyckelknapp').click();await page.getByRole('status').filter({hasText:'Lämnat. Nyckeln visas inte igen.'}).waitFor();
+ assert.equal(await page.locator('#nyckelvarde').inputValue(),'','nyckelfältet töms');
+ {const lagrat=await page.evaluate(()=>JSON.stringify([{...localStorage},{...sessionStorage}]));assert(!lagrat.includes(NY),'nyckeln i webbläsarens lagring');}
+ assert(!(await page.content()).includes(NY),'nyckeln i sidan');
+ assert(existsSync(resolve(init.nyckelintag,'prov-handlingsko','brevo.nyckel')),'nyckeln ligger i nyckelintaget');
+ assert(/Lämna Brevo-nyckeln i nyckelintaget[\s\S]*?Klar/.test(await page.locator('#handlingslista').innerText()),'posten är klar med belägg');
  assert.deepEqual(errors,[]);
  console.log(JSON.stringify({bredder:[320,390,768,1280,1440],axe_fynd:axe.violations.length,tangentbord:true,
    omforsok_samma_operation:true,svar_bevarat_vid_omladdning:true,api:'riktig lokal server, endast syntetiska ärenden'}));

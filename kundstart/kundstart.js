@@ -57,6 +57,13 @@ function visa(){
  const ilagen={okant:'inte kontrollerat',dokumenterat:'dokumenterat stöd',saknas:'stöd saknas',tillgang_bekraftad:'åtkomst bekräftad',inte_provat:'inte provad',lokalt_provat:'lokalt provad',skarpt_provat:'provad i den verkliga kopplingen',underkant:'provet underkänt'};
  $('integrationsstatus').replaceChildren(...Object.values(doc.integrationer||{}).map(i=>kort(i.behov,i.uppgift||'Användaruppgiften behöver klarläggas vidare.',
    `Leverantör: ${ilagen[i.utredning.leverantor.status]} · ert konto: ${ilagen[i.utredning.konto.status]} · kopplingen: ${ilagen[i.utredning.prov.status]}${i.utredning.status==='inaktuell'?' · behöver utredas igen efter ändrat behov':''}`)));
+ // Detta behöver vi från er (handlingskön ur planen): status och ansvarig, aldrig beläggens detaljer eller ägarens handlingar
+ const hk=doc.handlingsko||{},hstatus={vantar:'Väntar',klar:'Klar',inaktuell:'Inte längre aktuell'};
+ $('handlingssammanfattning').textContent=hk.fel?hk.fel:hk.sammanfattning?`${hk.sammanfattning.vantar_pa_kunden} väntar på er. En punkt blir klar först när det finns ett belägg, till exempel att nyckeln har lämnats.`:'';
+ $('handlingslista').replaceChildren(...(hk.poster||[]).filter(p=>p.status!=='inaktuell'||p.ansvarig==='kund').map(p=>kort(p.handling,`Varför: ${p.skal}. Under tiden kan detta fortsätta: ${p.under_vantan}.`,`${hstatus[p.status]||p.status} · ansvarig: ${p.ansvarig_text}`)));
+ const nycklar=[...new Set((hk.poster||[]).filter(p=>p.nyckel&&p.status!=='inaktuell').map(p=>p.nyckel))];
+ $('nyckeldel').hidden=!nycklar.length;
+ if($('nyckellev').options.length!==nycklar.length)$('nyckellev').replaceChildren(...nycklar.map(n=>{const o=elm('option',n);o.value=n;return o;}));
  const grund=doc.verksamhet_forslag;$('grunduppgifter').hidden=!grund;
  $('grundvarden').replaceChildren(...Object.entries(grund?.varden||{}).filter(([k])=>!['schema','fiktiv'].includes(k)).map(([k,v])=>kort(grundnamn[k]||k,beskriv(v))));
  $('bekrafta-grund').textContent=doc.verksamhet?.sha256===grund?.sha256?'Stäm av verksamhetsuppgifterna igen':'Dessa verksamhetsuppgifter stämmer';
@@ -64,7 +71,7 @@ function visa(){
  $('bestallningsstatus').textContent=doc.bestallning.status==='accepterad'?(doc.bestallning.aktuell?'Det definierade erbjudandet är accepterat.':'Underlaget har ändrats sedan acceptansen. Omfattningen behöver prövas igen.'):doc.bestallning.status==='forfragan'?'Din förfrågan är inlämnad för beredning.':'Du kan skicka en förfrågan när uppdraget är tillräckligt beskrivet.';
  $('erbjudande').replaceChildren();const offer=doc.erbjudanden.at(-1);if(offer){const a=kort('Definierat erbjudande',offer.text,offer.villkor);a.append(knapp('Acceptera detta erbjudande',()=>handling('acceptera',{erbjudande:offer.id})));$('erbjudande').append(a);}
  const lasare=doc.din_roll==='lasare';document.querySelectorAll('form input,form textarea,form select,form button,[data-skriv="true"]').forEach(e=>e.disabled=lasare);
- $('forfragan').disabled=doc.din_roll!=='beslutsfattare';$('forsok').disabled=lasare;$('bekrafta-grund').disabled=lasare;
+ $('forfragan').disabled=doc.din_roll!=='beslutsfattare';$('nyckelknapp').disabled=doc.din_roll!=='beslutsfattare';$('forsok').disabled=lasare;$('bekrafta-grund').disabled=lasare;
  $('erbjudande').querySelectorAll('button').forEach(e=>e.disabled=doc.din_roll!=='beslutsfattare');
  visaRatt();
 }
@@ -102,3 +109,9 @@ $('integrationsform').addEventListener('submit',async e=>{e.preventDefault();if(
 $('rattighetsform').addEventListener('submit',async e=>{e.preventDefault();if(!sparaRatt())return;const data=rattData();if(await handling('materialratt',data,rattRev)){if(JSON.stringify(rattData())===JSON.stringify(data)){$('rattfil').value='';rattRev=null;lagra(rattKey,'null');visaRatt();}}});
 $('jamfort-integration').addEventListener('click',()=>{intRev=doc.revision;sparaInt();$('jamfort-integration').hidden=true;});
 $('jamfort-ratt').addEventListener('click',()=>{rattRev=doc.revision;sparaRatt();$('jamfort-ratt').hidden=true;});
+// Nyckeln skickas direkt och fältet töms före svaret; den sparas aldrig i webbläsarens lagring (handling() sparar bara
+// begärans id och revision, inte innehållet).
+$('nyckelform').addEventListener('submit',async e=>{e.preventDefault();const nyckel=$('nyckelvarde').value.trim();$('nyckelvarde').value='';
+ const falt=Object.fromEntries($('nyckelfalt').value.split('\n').map(r=>r.split('=')).filter(x=>x.length===2&&x[0].trim()).map(([k,v])=>[k.trim(),v.trim()]));
+ const data={leverantor:$('nyckellev').value,...(nyckel?{nyckel}:{}),...(Object.keys(falt).length?{falt}:{})};
+ if(await handling('nyckel',data)){$('nyckelfalt').value='';status('Lämnat. Nyckeln visas inte igen.');}});

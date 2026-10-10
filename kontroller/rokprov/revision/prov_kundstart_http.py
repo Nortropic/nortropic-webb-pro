@@ -102,8 +102,19 @@ if __name__=='__main__':
             d3=lager.las(e3,t3)
             lager.kundhandling(e3,annan['nyckel'],d3['revision'],kundstart.id_(),'uppgift',{'id':'mal','amne':'A','text':'En motsägande uppgift.'})
             d3=lager.las(e3,t3);lasare=kh.bjud_in(lager,e3,d3['revision'],'Läsande provroll','lasare')
+            # handlingskön med en nyckel som kunden lämnar: ett nyhetsbrev som kunden valt (K14); nyckelintaget i provroten
+            import os
+            import atelje
+            import kundstart_integration as ki
+            atelje.ROOT=atelje.UNDERLAG=atelje.KUNDER=Path(temp).resolve()/'repo'
+            os.environ['NWP_NYCKELINTAG']=str(Path(temp).resolve()/'nyckelintag');os.environ['NWP_CLOUDFLARE_FIL']=str(Path(temp).resolve()/'saknas.env')
+            e4,t4=lager.skapa('prov-handlingsko','Provets beslutsfattare')
+            d4=lager.kundhandling(e4,t4,1,kundstart.id_(),'integrationsbehov',{'id':'nyhetsbrev','behov':'Besökare anmäler sig till ett nyhetsbrev.','lage':'kundval'})
+            ki.valj(lager,e4,d4['revision'],{'id':'nyhetsbrev-val','omrade':'K14','paket':'k14-brevo-dubbel','behov':'nyhetsbrev','motivering':'Syntetisk motivering.'})
+            d4=lager.las(e4,t4);medv=kh.bjud_in(lager,e4,d4['revision'],'Medverkande provroll','medverkande')
             s=kundstart_server.server(lager,port=0)
-            print(json.dumps({'port':s.server_address[1],'arende':eid,'nyckel':token,'forslag_arende':e2,'forslag_nyckel':t2,'konflikt_arende':e3,'konflikt_nyckel':t3,'lasare_nyckel':lasare['nyckel']}),flush=True)
+            print(json.dumps({'port':s.server_address[1],'arende':eid,'nyckel':token,'forslag_arende':e2,'forslag_nyckel':t2,'konflikt_arende':e3,'konflikt_nyckel':t3,'lasare_nyckel':lasare['nyckel'],
+                              'ko_arende':e4,'ko_nyckel':t4,'ko_medverkande':medv['nyckel'],'nyckelintag':os.environ['NWP_NYCKELINTAG']}),flush=True)
             try:s.serve_forever()
             finally:s.server_close()
     else:unittest.main()

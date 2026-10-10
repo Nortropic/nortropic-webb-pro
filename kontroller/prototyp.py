@@ -117,6 +117,7 @@ HANDLINGAR = {'forbered': 'Förbered kundunderlaget', 'fortsatt': 'Återuppta ar
               'ny-riktning': 'Arkivera försöket och sök en ny riktning', 'helbygge':'Starta helbygge från godkänd design',
               'exportera':'Exportera till kundrepot (commit, ingen publicering)', 'preview':'Förhandsvisa exportens commit på Cloudflare (ingen produktion)',
               'release':'Släpp den förhandsvisade commiten till produktionen på Cloudflare (ditt beslut)',
+              'aktivera':'Aktivera kundens resurser på Cloudflare enligt torrkörningen (ditt beslut)',
               'stoppa-overgang':'Begär stopp av helbygge, export eller förhandsvisning'}
 
 
@@ -163,6 +164,11 @@ def handlingar(slug):
             import kundrepo
             if kundrepo.preview_mojlig(slug):val.append('preview')  # exportens commit är kundrepots HEAD (kundrepo.py)
             if kundrepo.release_mojlig(slug):val.append('release')  # aktuell förhandsvisning, verklig verksamhet, driftvärden
+        try:
+            import aktivera
+            if aktivera.torr(slug)['kan_koras']:val.append('aktivera')  # torrkörningen har steg att göra och inget saknas
+        except (OSError,ValueError,KeyError):
+            pass
     ut=[{'id': n, 'text': HANDLINGAR[n]} for n in val]
     for h in ut:  # benämningen är det som faktiskt startas (ägarens uppdrag 2026-10-09, punkt 8)
         if h['id'] == 'valda':
@@ -203,6 +209,7 @@ def main(argv=None):
     grupp.add_argument('--exportera', action='store_true', help='exportera till kundrepot med byggprov (en commit), ingen publicering')
     grupp.add_argument('--preview', action='store_true', help='förhandsvisa exportens commit på Cloudflare Workers, skyddad (ingen produktion)')
     grupp.add_argument('--release', action='store_true', help='produktionsrelease (kräver ägarens mandat: klicket i Byggflöde)')
+    grupp.add_argument('--aktivera', action='store_true', help='aktivering på Cloudflare (kräver ägarens mandat: klicket i Byggflöde)')
     grupp.add_argument('--stoppa-overgang', action='store_true', help='begär stopp av en pågående helbygges-, export- eller förhandsvisningshandling')
     grupp.add_argument('--ny-riktning', action='store_true', help='omtag: designbesluten tas bort, ny utforskning ur mallen')
     grupp.add_argument('--putsa', action='store_true', help='förfina den valda riktningen vidare med ägarens senaste dom')
@@ -219,9 +226,9 @@ def main(argv=None):
     if a.stoppa_overgang:
         import flodesstart
         return flodesstart.stoppa(a.slug)
-    if a.helbygge or a.exportera or a.preview or a.release:
+    if a.helbygge or a.exportera or a.preview or a.release or a.aktivera:
         import flodesstart
-        handling = 'helbygge' if a.helbygge else 'exportera' if a.exportera else 'preview' if a.preview else 'release'
+        handling = 'helbygge' if a.helbygge else 'exportera' if a.exportera else 'preview' if a.preview else 'release' if a.release else 'aktivera'
         a.start_id = a.start_id or __import__('uuid').uuid4().hex
         try:rc = flodesstart.starta(a.slug, handling, a.start_id)
         except (OSError,ValueError,RuntimeError) as e:

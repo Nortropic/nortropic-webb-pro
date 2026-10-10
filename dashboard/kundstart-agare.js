@@ -92,6 +92,40 @@ async function kundstartvy(eid='',besked='',personlig=null) {
     <label for="ks-behov">Kundens behov</label><select id="ks-behov" name="behov"><option value="">Inget: ett förslag eller grundleveransen</option>${fu.behov.map(b=>`<option value="${safe(b.id)}">${safe(b.behov)} (${safe(lagen[b.bestallning]||b.bestallning)})</option>`).join('')}</select>
     <label for="ks-motivering">Varför passar paketet?</label><textarea id="ks-motivering" name="motivering" required maxlength="2000"></textarea>
     <button type="submit">Välj paketet</button></form></details></section>`;};
+  // Detta behöver vi från kunden (kontroller/handlingsko.py): räknad ur planen vid varje läsning; en post blir klar bara
+  // med belägg (kvitto, observation eller ditt intyg med referens), aldrig ett kryss.
+  const STATUSTEXT={vantar:'väntar',klar:'klar med belägg',inaktuell:'inaktuell: kunden har ändrat sig'};
+  const koVy=k=>{if(!k||k.fel)return `<section><h2>Detta behöver vi från kunden</h2><p>${safe(k?.fel||'Kön kunde inte läsas.')}</p></section>`;
+    const s=k.sammanfattning;
+    const post=p=>`<article class="ks-kort" data-status="${safe(p.status)}"><h3>${safe(p.handling)}</h3>
+      <p>${safe(STATUSTEXT[p.status]||p.status)} · ansvarig: ${safe(p.ansvarig_text)}${p.paket!=='plan'?' · '+safe(p.paket):''}</p>
+      <p>Varför: ${safe(p.skal)}. Under väntan kan detta fortsätta: ${safe(p.under_vantan)}.</p>${p.varfor?`<p>${safe(p.varfor)}</p>`:''}
+      ${p.belagg.length?`<ul>${p.belagg.map(b=>`<li>${b.finns?'Belägg':'Saknas'}: ${safe(b.text)}</li>`).join('')}</ul>`:''}
+      ${p.status==='vantar'&&p.intyg_kan?`<form data-ks-intyg="${safe(p.id)}"><label for="ks-intyg-${safe(p.id)}">Vad visar att handlingen är gjord?</label><textarea id="ks-intyg-${safe(p.id)}" name="referens" required minlength="12" maxlength="500"></textarea><button type="submit">Lämna intyget</button></form>`:''}</article>`;
+    const ovriga=k.poster.filter(p=>p.status!=='vantar');
+    return `<section><h2>Detta behöver vi från kunden</h2><p>${s.vantar} väntar, varav ${s.vantar_pa_kunden} på kunden; ${s.klar} klara och ${s.inaktuell} inaktuella. Kön räknas fram ur planen.</p>
+      ${k.poster.filter(p=>p.status==='vantar').map(post).join('')||'<p>Inget väntar.</p>'}
+      ${ovriga.length?`<details><summary>Klara och inaktuella (${ovriga.length})</summary>${ovriga.map(post).join('')}</details>`:''}</section>`;};
+  // Nycklar och uppgifter (kontroller/nyckelintag.py): bara att nyckeln finns, när och varifrån; nyckeln visas aldrig
+  const nyckelrad=l=>{const delar=[];
+    if(l.hemlighet)delar.push(l.nyckel?`nyckel lämnad ${safe(l.nyckel_lagd)} (version ${safe(l.version)}, ${safe(l.kalla)})`:l.aterkallad?`återkallad ${safe(l.aterkallad)}`:'ingen nyckel');
+    const f=Object.entries(l.falt||{});delar.push(f.length?f.map(([k,v])=>`${safe(k)}: ${safe(v)}`).join(', '):'inga uppgifter');
+    return delar.join(' · ');};
+  const nyckelVy=n=>{if(!n||n.fel)return `<section><h2>Nycklar och uppgifter</h2><p>${safe(n?.fel||'Nyckelintaget kunde inte läsas.')}</p></section>`;
+    const lev=Object.values(n);
+    return `<section><h2>Nycklar och uppgifter</h2><p>En nyckel visas aldrig igen. Den ligger privat utanför repot och går bara till Workern genom aktiveringen.</p>
+      <ul>${lev.map(l=>`<li><b>${safe(l.namn)}</b>: ${nyckelrad(l)}</li>`).join('')}</ul>
+      <details><summary>Lämna en nyckel eller uppgifter</summary><form id="ks-nyckel" autocomplete="off"><label for="ks-lev">Leverantör</label><select id="ks-lev" name="leverantor">${lev.map(l=>`<option value="${safe(l.leverantor)}">${safe(l.namn)}</option>`).join('')}</select>
+      <label for="ks-nyckelvarde">Nyckel (sparas inte i webbläsaren)</label><input id="ks-nyckelvarde" name="nyckel" type="password" autocomplete="off" spellcheck="false" maxlength="512">
+      <label for="ks-nyckelfalt">Uppgifter (namn=värde, en per rad: lista, mall, doman eller mottagare)</label><textarea id="ks-nyckelfalt" name="falt" rows="2"></textarea>
+      <button type="submit">Lämna till nyckelintaget</button></form></details></section>`;};
+  // Aktiveringen (kontroller/aktivera.py): torrkörningen här; körningen startas med ditt klick i Byggflöde
+  const AKTSTATUS={klar:'klar',gors:'görs vid aktiveringen',saknas:'saknas',vantar:'väntar'};
+  const aktiveringVy=t=>!t||t.fel?`<section><h2>Aktivering på Cloudflare</h2><p>${safe(t?.fel||'Torrkörningen kunde inte läsas.')}</p></section>`
+    :`<section><h2>Aktivering på Cloudflare</h2><p>Torrkörning utan sidoeffekter. ${t.kan_koras?'Den kan köras: starta den med Aktivera i Byggflöde.':'Den kan inte köras än.'}</p>
+      <ul>${t.steg.map(x=>`<li>${safe(x.text)}: ${safe(AKTSTATUS[x.status]||x.status)}${x.kommando?` <code>${safe(x.kommando)}</code>`:''}${x.varfor&&x.status!=='klar'?' · '+safe(x.varfor):''}</li>`).join('')}</ul>
+      ${t.hinder.length?`<p>Hinder: ${t.hinder.map(safe).join('; ')}</p>`:''}<p class="under">Plan ${safe(String(t.plan_sha256).slice(0,12))}</p>
+      ${t.slug?`<a href="#/arbetsyta/${safe(t.slug)}/flode">Till Byggflöde</a>`:''}</section>`;
   const amnen={A:'Verksamhet och mål',B:'Besökare och uppgifter',C:'Nuvarande lösning',D:'Uttryck',E:'Innehåll',F:'Funktioner',G:'Synlighet',H:'Förvaltning',I:'Ramar och ansvar',J:'Särskilda behov'};
   v.innerHTML=wrapper(`<h1>${safe(a.slug)}</h1><p class="under">Revision ${a.revision} · ${safe(fmt(a.bestallning.status))}${a.fiktiv?' · syntetiskt prov':''}</p>
     <p>${safe(a.modell.text||'AI har inte startats.')} ${safe(d.drift.text)}</p>
@@ -99,6 +133,7 @@ async function kundstartvy(eid='',besked='',personlig=null) {
     <section><h2>Kundens aktuella uppgifter</h2>${Object.values(a.uppgifter).map(u=>`<article class="ks-kort"><h3>${safe(amnen[u.amne])}</h3><p>${safe(u.text)}</p><p>${safe(u.bestallning)} · ${safe(u.kunskap)}${u.motsagelse?' · motsägelse kvar':''}</p></article>`).join('')||'<p>Inga strukturerade uppgifter ännu.</p>'}
     <details><summary>Samtalet och öppna frågor</summary>${a.meddelanden.map(m=>`<article class="ks-kort"><strong>${m.roll==='kund'?'Kundens svar':'AI:s förslag'}</strong><p>${safe(m.text)}</p></article>`).join('')}${a.fragor.map(q=>`<p>${safe(q.text)} — ${safe(q.varfor)}</p>`).join('')}${Object.values(a.returfragor||{}).map(q=>`<article><p>${safe(q.text)} · ${safe(q.status)} · ${safe(q.varfor)}</p>${q.svar.length?`<p>${d.retursvar[q.id].klarlagd?'Svarsversionen är klarlagd.':'Svaret är mottaget och behöver intern bedömning inför det berörda steget.'}</p><form data-ks-svar="${safe(q.id)}"><label for="ks-bedomning-${safe(q.id)}">Bedömning av det aktuella svaret</label><textarea id="ks-bedomning-${safe(q.id)}" name="bedomning" required></textarea><label for="ks-bedomare-${safe(q.id)}">Ansvarig för bedömningen</label><input id="ks-bedomare-${safe(q.id)}" name="ansvarig" required maxlength="120"><button type="submit">Markera denna svarsversion som klarlagd</button></form>`:''}</article>`).join('')}</details></section>
     ${funktionsvy(d.funktioner)}
+    ${koVy(d.handlingsko)}${nyckelVy(d.nyckelintag)}${aktiveringVy(d.aktivering)}
     <section><h2>Överlämning till webbflödet</h2><p>${a.overlamning?`${safe(a.overlamning.status)} · revision ${a.overlamning.revision} · ${a.overlamning.aktuell?'filer och källa är aktuella':'inaktuell eller ofullständig'}`:'Inget underlag har lämnats över.'}</p>
     <button id="ks-overlamna" type="button" ${d.faser.forberedelse.kan_starta?'':'disabled'}>Lämna aktuellt underlag till förberedelsen</button>
     ${a.overlamning?.status==='publicerar'?'<button id="ks-aterstall" type="button">Återställ den avbrutna överlämningen</button>':''}
@@ -139,6 +174,13 @@ async function kundstartvy(eid='',besked='',personlig=null) {
     form('ks-funktion','integrationsval',(v,revision)=>({revision,val:{id:valid,omrade:v.get('omrade'),paket:v.get('paket'),motivering:v.get('motivering'),...(v.get('behov')?{behov:v.get('behov')}:{})}}));
     document.querySelectorAll('[data-ks-avmarkera]').forEach(b=>b.onclick=()=>anropa('avmarkera_integration',{revision:a.revision,val:b.dataset.ksAvmarkera}));};
   bindFunktioner(d.funktioner);
+  document.querySelectorAll('[data-ks-intyg]').forEach(f=>{const pid=f.dataset.ksIntyg;f.id='ks-intygform-'+pid;
+    form(f.id,'intyga_handling',(v,revision)=>({revision,post:pid,referens:v.get('referens')}));});
+  // nyckeln går direkt till servern och fältet töms före svaret; formuläret har inget utkast i webbläsarens lagring
+  const nf=document.getElementById('ks-nyckel');
+  if(nf)nf.onsubmit=async e=>{e.preventDefault();const nyckel=nf.elements.nyckel.value.trim();nf.elements.nyckel.value='';
+    const falt=Object.fromEntries(nf.elements.falt.value.split('\n').map(r=>r.split('=')).filter(x=>x.length===2&&x[0].trim()).map(([k,v])=>[k.trim(),v.trim()]));
+    await anropa('nyckelintag',{leverantor:nf.elements.leverantor.value,...(nyckel?{nyckel}:{}),...(Object.keys(falt).length?{falt}:{})});};
   const exportop=crypto.randomUUID();document.getElementById('ks-overlamna').onclick=()=>anropa('overlamna',{revision:a.revision,operation:exportop});
   document.getElementById('ks-aterstall')?.addEventListener('click',()=>anropa('aterstall_overlamning',{operation:a.overlamning.id}));
   form('ks-erbjudande','erbjudande',(f,revision)=>({revision,text:f.get('text'),villkor:f.get('villkor'),ansvarig:f.get('ansvarig')}));

@@ -3,6 +3,7 @@
 import contextlib
 import http.client
 import json
+import os
 from pathlib import Path
 import sys
 import threading
@@ -122,6 +123,11 @@ if __name__=='__main__':
         with korregister.egen_tmp_med('nwp-kundstart-','ägarens webbläsarprov') as tmp:
             dash.ROOT=Path(tmp).resolve()
             dash.UNDERLAG,dash.KUNDER=dash.ROOT/'underlag',dash.ROOT/'kunder'  # arbetsytans ram läser kundlistan: provrotens, aldrig repots
+            # handlingskön, nyckelintaget och aktiveringens torrkörning: provrotens kataloger, aldrig repots eller ägarens nycklar
+            import atelje,exportera
+            atelje.ROOT,atelje.UNDERLAG,atelje.KUNDER=dash.ROOT,dash.UNDERLAG,dash.KUNDER
+            exportera.ROOT,exportera.UNDERLAG,exportera.KUNDER=dash.ROOT,dash.UNDERLAG,dash.KUNDER
+            os.environ['NWP_NYCKELINTAG']=str(dash.ROOT/'nyckelintag');os.environ['NWP_CLOUDFLARE_FIL']=str(dash.ROOT/'saknas'/'cloudflare.env')
             s=dash.ThreadingHTTPServer(('127.0.0.1',0),dash.H)
             dash.VARD['tillatna']={'127.0.0.1:'+str(s.server_address[1])}
             print(json.dumps({'port':s.server_address[1]}),flush=True)
