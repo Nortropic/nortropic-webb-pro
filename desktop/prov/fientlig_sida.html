@@ -20,6 +20,8 @@
   try { await fetch(mal + '/api/desktop/utloggning', { method: 'POST', credentials: 'include', body: '{}' }); r.utloggning = 'svaret lästes (fel)'; } catch (e) { r.utloggning = 'svaret nekat av webbläsaren: ' + e.name; }
   try { await fetch(mal + '/api/desktop/las', { method: 'POST', credentials: 'include', mode: 'no-cors', body: '{}' }); r.las = 'skickad, svaret oläsligt'; } catch (e) { r.las = 'nekad: ' + e.name; }
   try { const s = await fetch(mal + '/api/arbetsyta', { credentials: 'include' }); r.lasning = 'svaret lästes (fel) ' + s.status; } catch (e) { r.lasning = 'svaret nekat av webbläsaren: ' + e.name; }
+  try { const f = await fetch('file:///etc/hosts'); r.filvag = 'läst (fel) ' + (await f.text()).length; } catch (e) { r.filvag = 'nekad: ' + e.name; }
+  try { const f = await fetch(mal + '/fil/kunder/../../.ssh/id_rsa'); r.filvag_motor = 'svar ' + f.status; } catch (e) { r.filvag_motor = 'svaret nekat: ' + e.name; }
   // förfalskade meddelanden i bryggans form: arbetsytan tar inte emot dem utanför sitt läge
   parent.postMessage({ nwp: 'forhandsbrygga/1', typ: 'redigerat', selektor: 'h1', gammal: 'Fientlig förhandsvisning', ny: 'Kapad' }, '*');
   parent.postMessage({ nwp: 'forhandsbrygga/1', typ: 'markerat', tagg: 'h1', text: 'Kapad', selektor: 'h1', sida: '/' }, '*');

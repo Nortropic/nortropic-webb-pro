@@ -229,6 +229,7 @@ def main():
                     assert 'nwp_session' not in (r.get('kakor') or ''), r.get('kakor')
                     assert r.get('tauri') in ('saknas', None) or str(r.get('invoke', '')).startswith('nekat'), r
                     assert r.get('popup') in ('null', 'blockerad'), r.get('popup')
+                    assert str(r.get('filvag', '')).startswith('nekad'), r.get('filvag')
                     assert 'Ändra i källan' not in panel, 'en förfalskad redigering ger ingen panel'
                     return {'rapport': r, 'huvudramen': l['url'], 'upplast': l['upplast'], 'sessionen_giltig': session, 'redigeringspanel': panel[:120],
                             'bild': a.bild(ut / 'mac-fientlig.png').name}
