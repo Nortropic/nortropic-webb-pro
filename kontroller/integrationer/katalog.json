@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.6",
+  "version": "2026-10-10.7",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -213,6 +213,40 @@
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
       "fardighet": "dokumenterat", "fardighet_omfattning": "Profilbladet i rapportens punkt 14 och kunskap/lokal-synlighet.md; ingen API-publicering.", "prov": [], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "profilen"}, "manniska": ["uppdatera profilen på lanseringsdagen"]
+    },
+    {
+      "id": "k07-konverteringar-d1", "version": "1.0.0", "omrade": "K07", "niva": "forvaltning", "grund": false,
+      "funktion": "Förfrågningar per vecka ur formulärets ärendelager (D1), räknade på servern: verksamhetens huvudsakliga konvertering utan kakor, skript eller personuppgifter.",
+      "passar": "Verksamheter vars mål är förfrågningar genom formuläret.", "passar_inte": "Mål som kräver sidvisningar, källor eller klick (k07-cloudflare-webbanalys eller utredning).",
+      "kunduppgifter": ["affärsmålet"], "bevara": [],
+      "kallor": [{"url": "https://developers.cloudflare.com/d1/", "last": "2026-10-10"}],
+      "formagor": ["matning"], "kraver": ["k03-formular-worker"], "utesluter": [],
+      "konto": {"agare": "nortropic", "typ": "Nortropics Cloudflare-konto (samma D1 som formuläret)", "plan": null, "region": "D1 med EU-jurisdiktion"},
+      "rattigheter": {"inspektera": "läsa räknare ur kundens D1 (wrangler d1 execute)"},
+      "dataflode": "Inget nytt: räknarna kommer ur ärenden som redan sparas.", "lagring": "Ingen ny; utskriften har bara veckor och antal.",
+      "kostnad": {"modell": "ingår i D1-läsningarna", "belopp": 0, "valuta": "USD", "kalla": "https://developers.cloudflare.com/d1/platform/pricing/", "datum": "2026-10-10"},
+      "funktioner": {"inspektera": null, "planera": null, "tillampa": "forfragningar.konverteringar", "aterlas": null, "prova": null, "avveckla": null},
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Räkningen per ISO-vecka mot SQLite med mallens D1-schema, utan personuppgifter i utskriften; inte körd mot en kunds D1.",
+      "prov": ["kontroller/rokprov/revision/prov_forfragningar.py"], "driftkontroll": "kontroller/forfragningar.py <kundrepo> --remote --konverteringar",
+      "begransningar": ["Telefonklick och sidvisningar mäts inte här.", "Skräpfällans träffar sparas aldrig och räknas därför inte."],
+      "paverkar": {"brief": "affärsmålet", "design": null, "kod": null, "externt": null}, "manniska": []
+    },
+    {
+      "id": "k07-cloudflare-webbanalys", "version": "1.0.0", "omrade": "K07", "niva": "forvaltning", "grund": false,
+      "funktion": "Sidvisningar och prestanda med Cloudflare Web Analytics, påslaget i Cloudflare för kundens domän (automatisk inläggning när domänen går genom Cloudflare).",
+      "passar": "När verksamheten vill se besök och vilka sidor som läses.", "passar_inte": "Konverteringar per händelse eller kampanjkällor: tjänsten har inga egna händelser och loggar inte frågesträngar.",
+      "kunduppgifter": ["kundens domän på Cloudflare"], "bevara": ["befintlig mätning"],
+      "kallor": [{"url": "https://developers.cloudflare.com/web-analytics/about/", "last": "2026-10-10"}, {"url": "https://developers.cloudflare.com/web-analytics/faq/", "last": "2026-10-10"}, {"url": "https://developers.cloudflare.com/web-analytics/get-started/", "last": "2026-10-10"}],
+      "formagor": ["matning"], "kraver": ["k02-cloudflare-workers"], "utesluter": [],
+      "konto": {"agare": "nortropic", "typ": "Nortropics Cloudflare-konto", "plan": "gratis", "region": "anges inte i källorna"},
+      "rattigheter": {"tillampa": "slå på Web Analytics för kundens domän i Cloudflare (en handling i kontot)"},
+      "dataflode": "Mätdata från besökarens webbläsare till Cloudflare genom ett skript som Cloudflare lägger in på sidorna; enligt Cloudflare samlas inga personuppgifter om besökarna.", "lagring": "Cloudflare: ej samplade data i 7 dagar, därefter aggregerat; sex månader åtkomliga.",
+      "kostnad": {"modell": "gratis", "belopp": 0, "valuta": "USD", "kalla": "https://developers.cloudflare.com/web-analytics/about/", "datum": "2026-10-10"},
+      "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Läst i Cloudflares dokumentation 2026-10-10; inte påslaget för någon domän och utan kod här.",
+      "prov": [], "driftkontroll": null,
+      "begransningar": ["Omkring tio webbplatser per konto (mjuk gräns), delade av alla kunder.", "Inga egna händelser: konverteringarna räknas med k07-konverteringar-d1.", "Samtyckesfrågan prövas mot den aktuella vägledningen innan den slås på."],
+      "paverkar": {"brief": "vad som ska följas upp", "design": null, "kod": null, "externt": "Web Analytics i Cloudflare"}, "manniska": ["påslaget i Cloudflare för kundens domän, med ägarens ja"]
     },
     {
       "id": "k07-matning-utreds", "version": "1.0.0", "omrade": "K07", "niva": "utreds", "grund": false,

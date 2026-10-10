@@ -10,6 +10,11 @@ transaktion) och deras bilagor ur R2. Mot kundens riktiga D1 (`--remote`) är de
     .venv/bin/python kontroller/forfragningar.py <kundrepo> --remote [--gallra [--utfor]]
     .venv/bin/python kontroller/forfragningar.py <kundrepo> --lokal <persist-katalog> [--gallra [--utfor]]
     .venv/bin/python kontroller/forfragningar.py <kundrepo> --remote --csv <fil>
+    .venv/bin/python kontroller/forfragningar.py <kundrepo> --remote --konverteringar [--veckor N]
+
+`--konverteringar` är katalogens K07-grundnivå (k07-konverteringar-d1): antalet förfrågningar per ISO-vecka ur D1, de
+senaste veckorna, med hur många som aviserades. Det är verksamhetens huvudsakliga konvertering räknad på servern, utan
+kakor, skript eller personuppgifter: bara räknare per vecka. Sidvisningar och klick på telefonnumret mäts inte här.
 
 `--csv` är katalogens K10-grundnivå (k10-csv-export): ärendena som CSV för verksamhetens befintliga kundregister, med
 personuppgifter, därför bara till en privat fil (0600) utanför det publika repot eller i dess privata underlag/ och
@@ -52,6 +57,32 @@ def lage(kor, nu=None):
             'fel': [{k: r[k] for k in ('id', 'mottagen', 'forsok', 'fel')} for r in fel],
             'utgangna': [{'id': r['id'], 'gallras': r['gallras'], 'bilaga': bool(r['bilaga'])} for r in utgangna],
             '_bilagor': [r['bilaga'] for r in utgangna if r['bilaga']]}
+
+
+def konverteringar(kor, nu=None, veckor=8):
+    """Förfrågningar per ISO-vecka (måndag 00:00 UTC) de senaste veckor veckorna, äldst först, också veckor utan
+    förfrågningar; per vecka antalet och hur många vars avisering accepterades. Bara räknare, aldrig fält ur ärendet."""
+    if not isinstance(veckor, int) or not 1 <= veckor <= 104:
+        raise ValueError('veckor ska vara 1–104')
+    nu = (nu or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    denna = (nu - timedelta(days=nu.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    starter = [denna - timedelta(weeks=i) for i in range(veckor - 1, -1, -1)]
+    fran = iso(starter[0])
+    assert ISO.fullmatch(fran)
+    rader = kor("SELECT f.mottagen AS mottagen, u.status AS status FROM forfragningar f LEFT JOIN utkorg u ON u.forfragan = f.id "
+                "WHERE f.mottagen >= '%s'" % fran)
+    ut = [{'vecka': '%d-V%02d' % s.isocalendar()[:2], 'fran': iso(s)[:10], 'forfragningar': 0, 'aviserade': 0} for s in starter]
+    for r in rader:
+        try:
+            t = datetime.fromisoformat(str(r['mottagen']).replace('Z', '+00:00'))
+        except ValueError:
+            continue
+        i = (t.astimezone(timezone.utc) - starter[0]).days // 7
+        if 0 <= i < veckor:
+            ut[i]['forfragningar'] += 1
+            ut[i]['aviserade'] += r.get('status') == 'accepterad'
+    return {'tid': iso(nu), 'veckor': ut, 'totalt': sum(v['forfragningar'] for v in ut),
+            'matt': 'förfrågningar mottagna och sparade i D1 (skräpfällans träffar sparas aldrig och räknas inte)'}
 
 
 def gallra(kor, ta_bort_bilaga, nu=None, utfor=False):
@@ -167,6 +198,8 @@ def main(argv=None):
     a.add_argument('--gallra', action='store_true')
     a.add_argument('--utfor', action='store_true', help='tar bort utgångna ärenden; mot --remote bara med ägarens ja')
     a.add_argument('--csv', help='ärendena som CSV till en privat fil (K10-grundnivån)')
+    a.add_argument('--konverteringar', action='store_true', help='förfrågningar per vecka, utan personuppgifter (K07-grundnivån)')
+    a.add_argument('--veckor', type=int, default=8)
     x = a.parse_args(argv)
     tmp = None
     konto = None
@@ -182,6 +215,8 @@ def main(argv=None):
         kor, ta_bort = wrangler_kor(Path(x.kundrepo).resolve(), 'remote' if x.remote else Path(x.lokal).resolve(), konto, tmp)
         if x.csv:
             ut = {'csv': str(csv_fil(x.csv)), 'rader': exportera_csv(kor, x.csv)}
+        elif x.konverteringar:
+            ut = konverteringar(kor, veckor=x.veckor)
         else:
             ut = gallra(kor, ta_bort, utfor=x.utfor) if x.gallra else {k: v for k, v in lage(kor).items() if not k.startswith('_')}
         print(json.dumps(dict(ut, ok=True), ensure_ascii=False, indent=1))

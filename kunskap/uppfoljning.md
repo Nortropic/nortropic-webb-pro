@@ -14,6 +14,21 @@ Professionsfil (HELHET-20260927, avsnitt 4 "Mätning och uppföljning"). Gäller
 - Kedjan från besök till affärsutfall (besök → sida → handling → leverans → svar), så att brott i kedjan kan hittas.
 - Affärsmått som kunden känner igen (offertförfrågningar per vecka, bokningar); proxyvärden som stöd.
 
+## Grundnivån: förfrågningar per vecka (K07, 2026-10-10)
+
+Verksamhetens huvudsakliga konvertering är förfrågningen genom formuläret. Den räknas på servern ur ärendelagret, utan
+kakor, skript eller personuppgifter: `kontroller/forfragningar.py <kundrepo> --remote --konverteringar [--veckor N]`
+ger antalet per ISO-vecka och hur många som aviserades (katalogens k07-konverteringar-d1, prövat i
+`prov_forfragningar.py`). Den här nivån mäter inte telefonklick eller sidvisningar.
+
+Sidvisningar kan komma från Cloudflare Web Analytics för kundens domän (katalogens k07-cloudflare-webbanalys). Den är
+gratis, och Cloudflare lägger in mätskriptet själv när domänen går genom Cloudflare. Enligt Cloudflare samlas inga
+personuppgifter om besökarna. Tjänsten har inga egna händelser och loggar inga frågesträngar. Kontot får ha omkring tio
+webbplatser, delade av alla kunder. Den slås på med ägarens ja, efter att samtyckesfrågan är prövad mot aktuell
+vägledning (avsnittet nedan; [Cloudflares FAQ](https://developers.cloudflare.com/web-analytics/faq/), läst
+2026-10-10). Klickhändelser och kampanjkällor kräver ett verktyg med händelser och samtycke: det utreds per kund
+(k07-matning-utreds).
+
 ## Kampanjmärkning
 
 `utm_source`, `utm_medium`, `utm_campaign` (och `utm_content`) på varje kampanjlänk, små bokstäver, konsekventa

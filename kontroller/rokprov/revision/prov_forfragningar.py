@@ -110,6 +110,21 @@ class Drift(unittest.TestCase):
             import shutil
             shutil.rmtree(privat, ignore_errors=True)
 
+    def test_konverteringar_per_vecka_utan_personuppgifter(self):
+        # NU är lördag 2026-10-10 (vecka 41); ärendena ovan är mottagna i veckorna 41 (fyra) och, 400 dagar tidigare, utanför
+        k = ff.konverteringar(self.kor, NU, veckor=3)
+        self.assertEqual([(v['vecka'], v['fran'], v['forfragningar'], v['aviserade']) for v in k['veckor']],
+                         [('2026-V39', '2026-09-21', 0, 0), ('2026-V40', '2026-09-28', 0, 0), ('2026-V41', '2026-10-05', 4, 1)])
+        self.assertEqual(k['totalt'], 4)
+        utskrift = json.dumps(k, ensure_ascii=False)
+        for privat in ('Hemlig Persson', '0700000000', 'Privat meddelande', '00000000-0000'):
+            self.assertNotIn(privat, utskrift)
+        self.db.execute("UPDATE forfragningar SET mottagen = '2026-10-04T23:59:59.000Z' WHERE id LIKE '%1'")  # söndag i vecka 40
+        self.assertEqual([v['forfragningar'] for v in ff.konverteringar(self.kor, NU, veckor=2)['veckor']], [1, 3], 'veckan börjar måndag 00:00 UTC')
+        for fel in (0, 105, '8'):
+            with self.assertRaises(ValueError):
+                ff.konverteringar(self.kor, NU, veckor=fel)
+
     def test_kommandoraden_kraver_konto_for_remote(self):
         import os
         from unittest.mock import patch
