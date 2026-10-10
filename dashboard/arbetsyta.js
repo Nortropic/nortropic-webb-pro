@@ -776,7 +776,7 @@
       try { const d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); if (A.slug === slug) tillampa(d); } catch { /* läget kommer med strömmen */ }
     } catch (err) {
       s(!sparat ? (err.status === 409 ? 'Inte sparat: ' + err.message : 'Svaret gick inte att bekräfta: ' + err.message + '. Försök igen: samma förslag ger samma operations-id, så inget sparas två gånger.')
-        : 'Uppdraget är sparat, men starten ' + (err.status === 409 ? 'nekades: ' : 'gick inte att bekräfta: ') + err.message + '. Försök igen (samma operations-id) eller starta det under Kontroller.');
+        : 'Uppdraget är sparat, men starten ' + (err.status === 409 ? 'nekades: ' : 'gick inte att bekräfta: ') + String(err.message).replace(/\.+$/, '') + '. Försök igen (samma operations-id) eller starta det under Kontroller.');
     } finally { A.pagar = null; }
     if (A.genomforOppen !== mid) { document.activeElement?.blur(); ritaPartner(); document.querySelector(`[data-fokus="g-oppna-${CSS.escape(mid)}"]`)?.focus(); }
   }

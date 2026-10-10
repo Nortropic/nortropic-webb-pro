@@ -3564,9 +3564,17 @@ class H(BaseHTTPRequestHandler):
                     sf_akt = atelje_akt.startfil(UNDERLAG / slug / 'atelje', str(data.get('start_id')))
                     if not (sf_akt and sf_akt.is_file()):
                         aktivera_akt.aktiveringsmandat(slug, 'dashboard', bindning.get('plan_sha256'), str(data.get('start_id')))
+                t_start = time.time()
                 rc = prototyp_kor.fran_dashboard(slug, data.get('handling'), data.get('start_id'))
                 import atelje
                 avslutad = False
+                skal = None
+                if rc not in (0, 4, 5):  # skälet ur slutposten som just den här vägrade starten skrev (atelje.avsluta_fore), om en finns
+                    try:
+                        nya = [f for f in (KUNDER / slug / 'atelje' / 'korningar').glob('*/SLUT.json') if f.stat().st_mtime >= t_start - 1]
+                        skal = str((las_json(max(nya, key=lambda f: f.stat().st_mtime)) or {}).get('skal') or '')[:400] or None if nya else None
+                    except OSError:
+                        skal = None
                 if rc not in (0, 4, 5) and data.get('handling') not in ('stoppa', 'stoppa-overgang'):
                     # begäran är besvarad, inte vägrad: journalposten för samma start-id har slutat (GR-20261008-r117-claude#B1)
                     sf = atelje.startfil(UNDERLAG / slug / 'atelje', str(data.get('start_id')))
@@ -3585,7 +3593,7 @@ class H(BaseHTTPRequestHandler):
                                                        'får ett nytt start-id.' % rc})
                 return self.skicka(202 if rc == 5 else 200 if rc in (0, 4) else 409,
                                    {'slutkod': rc, 'start_id': data.get('start_id'),
-                                    **({'fel': 'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'} if rc not in (0, 4, 5) else {}),
+                                    **({'fel': ('Ingen ny körning startades: %s' % skal.rstrip('.')) if skal else 'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar'} if rc not in (0, 4, 5) else {}),
                                     'besked': 'Stopp har begärts. Läs aktuellt läge tills arbetet har avslutats.' if data.get('handling')=='stoppa-overgang' and rc==5 else
                                               'Begäran är registrerad. Läs aktuellt läge och körningens besked.' if rc == 5 else
                                               'Handlingen är klar; läs det aktuella beskedet.' if rc in (0, 4) else

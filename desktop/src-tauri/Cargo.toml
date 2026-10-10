@@ -1,6 +1,6 @@
 [package]
 name = "nortropic"
-version = "0.1.0"
+version = "0.2.0"
 description = "Nortropic: lokal arbetsplats för kundportalen (Tauri 2-skal runt motorns arbetsyta)"
 edition = "2021"
 publish = false

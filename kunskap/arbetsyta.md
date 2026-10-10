@@ -331,7 +331,9 @@ finns under Kod och preview.
 
 En kandidats förhandsvisning (`/visa/<kund>/<kandidat>`) körs på en egen lokal port. När dashboarden leder dit lägger
 förhandsvisningens server (`prova.Server` med `brygga`) in `dashboard/forhandsbrygga.js` i sidorna den serverar; det
-byggda (`dist/`), ögonblicksbilderna, proven och exporten får den aldrig. Bryggan tar bara emot meddelanden från
+byggda (`dist/`), ögonblicksbilderna, proven och exporten får den aldrig. Bryggan är en egen fil ur förhandsvisningens
+ursprung (`/__nortropic/forhandsbrygga.js`), så den körs också under kandidaternas innehållspolicy, som inte släpper
+inline-skript (prövat i appen 2026-10-10). Bryggan tar bara emot meddelanden från
 dashboardens eget ursprung och skickar bara data dit (text, väg och en beskrivning av elementet); vyn tar bara emot från
 förhandsvisningens egen ram. Det bryggan skickar är aldrig ett beslut. Lägena står ovanför förhandsvisningen:
 

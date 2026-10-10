@@ -78,7 +78,8 @@ def forbered(slug):
     raise AssertionError('ingen text i k01 kunde knytas entydigt till källan')
 
 
-DRIVARE = """<script>/* provdrivaren (prov_redigering_app.py): bara i provets dist/ */
+# kandidatens sidor har en innehållspolicy som inte släpper inline-skript: drivaren är en egen fil ur samma ursprung, som bryggan
+DRIVARE = """/* provdrivaren (prov_redigering_app.py): bara i provets dist/ */
 (() => { const GAMMAL = %s, NY = %s;
   const hitta = () => Array.from(document.querySelectorAll('h1,h2,h3,p,li')).find((e) => e.textContent.replace(/\\s+/g, ' ').trim() === GAMMAL);
   addEventListener('message', (ev) => { const d = ev.data; if (!d || d.nwp !== 'forhandsbrygga/1') return;
@@ -86,7 +87,7 @@ DRIVARE = """<script>/* provdrivaren (prov_redigering_app.py): bara i provets di
     if (d.typ === 'redigera-start') setTimeout(() => { const el = document.querySelector(d.selektor); if (!el) return; el.textContent = NY;
       el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); }, 600);
   });
-})();</script>"""
+})();"""
 
 
 def main():
@@ -107,14 +108,26 @@ def main():
     dist, gammal = forbered(slug)
     ny = gammal.rstrip('.') + ' – ändrad i appen'
     sidan = dist.read_text(encoding='utf-8')
-    if 'provdrivaren' not in sidan:
+    (dist.parent / '__provdrivare.js').write_text(DRIVARE % (json.dumps(gammal), json.dumps(ny)), encoding='utf-8')
+    if '__provdrivare.js' not in sidan:
         i = sidan.lower().rfind('</body>')
-        dist.write_text(sidan[:i] + DRIVARE % (json.dumps(gammal), json.dumps(ny)) + sidan[i:], encoding='utf-8')
+        dist.write_text(sidan[:i] + '<script src="/__provdrivare.js" defer></script>' + sidan[i:], encoding='utf-8')
     fore_v = kandidater.las_status(slug, 'k01').get('version')
     a = ad.App(ROT, a_.port, data=Path(tempfile.mkdtemp(prefix='nwp-desktop-red-')))
     a.registrera(VERKTYG)
     a.starta()
     lage_js = "(function(){var x=new XMLHttpRequest();x.open('GET','/api/arbetsyta/%s',false);x.send();return JSON.parse(x.responseText)})()" % slug
+    meddelanden = lambda: a.js("(function(){var x=new XMLHttpRequest();x.open('GET','/api/arbetsyta/%s/partner',false);x.send();"  # noqa: E731
+                               "return JSON.parse(x.responseText).meddelanden||[]})()" % slug)
+
+    def skicka_till_partnern(avsikt, text):
+        fore = len(meddelanden())
+        a.js("document.querySelector('#ay-skriv [data-avsikt=%s]').click(), true" % avsikt)
+        time.sleep(0.5)
+        a.js("(function(){var t=document.getElementById('ay-text');t.value=%s;t.dispatchEvent(new Event('input',{bubbles:true}));"
+             "document.querySelector('#ay-skriv [data-skicka=partner]').click();return 1})()" % json.dumps(text))
+        a.vanta(lambda: len(meddelanden()) > fore, tid=30, text='det nya meddelandet')
+        return fore
     try:
         a.vanta(lambda: a.js("document.querySelector('[data-vy=last]') && !document.querySelector('[data-vy=last]').hidden && !document.getElementById('las-upp').disabled"), text='låsvyn')
         a.js("document.getElementById('las-upp').click(), true")
@@ -152,47 +165,55 @@ def main():
         if a_.partner:
             def partner():
                 a.js("document.querySelector('[data-forhandslage=besok]').click(), true")
-                a.js("document.querySelector('#ay-skriv [data-avsikt=fraga]').click(), true")
-                a.js("(function(){var t=document.getElementById('ay-text');t.value='Vilka två saker i förslag A skulle du förbättra först, och varför? Svara kort.';"
-                     "t.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#ay-skriv [data-skicka=partner]').click();return 1})()")
                 t0 = time.time()
-                forsta = a.vanta(lambda: a.js("(function(){var e=document.querySelector('#ay-samtal .ay-deltext, #ay-samtal .ay-aktivitet');return e?e.innerText:null})()"),
-                                 tid=240, steg=0.2, text='det första delsvaret')
-                t_del = round(time.time() - t0, 1)
-                bild = a.bild(ut / 'red-3-delsvar.png').name
-                delar = []
-                for _ in range(6):
-                    v = a.js("(function(){var e=document.querySelector('#ay-samtal .ay-deltext');return e?e.innerText.length:null})()")
-                    delar.append(v)
-                    time.sleep(0.5)
-                meddelanden = lambda: a.js("(function(){var x=new XMLHttpRequest();x.open('GET','/api/arbetsyta/%s/partner',false);x.send();"  # noqa: E731
-                                           "return JSON.parse(x.responseText).meddelanden||[]})()" % slug)
-                svar = a.vanta(lambda: (lambda m: m[-1] if m and m[-1].get('lage') in ('svarat', 'fel', 'avbrutet') else None)(meddelanden()), tid=600, steg=1, text='svaret')
+                fore = skicka_till_partnern('fraga', 'Vilka två saker i förslaget skulle du förbättra först, och varför? Svara kort. (prov %d)' % int(t0))
+                t_handelse = t_text = None
+                langder, bild, svar = [], None, None
+                slut = time.time() + 600
+                while time.time() < slut:  # hela turen: när den första delhändelsen och den första texten syns, och delsvarets längd
+                    v = a.js("(function(){var d=document.querySelector('#ay-samtal .ay-deltext'),a=document.querySelector('#ay-samtal .ay-aktivitet');"
+                             "return {text:d?d.innerText.length:0, aktivitet:a?a.innerText:''}})()")
+                    if t_handelse is None and (v['text'] or v['aktivitet']):
+                        t_handelse = round(time.time() - t0, 1)
+                    if v['text'] and t_text is None:
+                        t_text = round(time.time() - t0, 1)
+                        bild = a.bild(ut / 'red-3-delsvar.png').name
+                    langder.append(v['text'])
+                    m = meddelanden()
+                    if len(m) > fore and m[-1].get('lage') in ('svarat', 'fel', 'avbrutet'):
+                        svar = m[-1]
+                        break
+                    time.sleep(0.3)
+                assert svar, 'inget svar inom tio minuter'
                 t_svar = round(time.time() - t0, 1)
                 time.sleep(2)
                 kvar = a.js("document.querySelectorAll('#ay-samtal .ay-deltext').length")
                 assert svar['lage'] == 'svarat', svar.get('fel')
-                return {'forsta_delhandelse_s': t_del, 'forsta_delhandelse': ' '.join(str(forsta).split())[:200], 'delsvarets_langd_over_tid': delar,
+                vaxande = [x for i, x in enumerate(langder) if x and (i == 0 or x != langder[i - 1])]
+                return {'forsta_delhandelse_s': t_handelse, 'forsta_texten_s': t_text, 'delsvarets_langder_nar_de_vaxte': vaxande[:30],
                         'svar_s': t_svar, 'modell': (svar.get('svar') or {}).get('anvandning', {}).get('modeller'), 'svar': (svar.get('svar') or {}).get('text', '')[:300],
                         'delsvar_kvar_efter_svaret': kvar, 'bild': bild}
             fall('partnerns ström med en riktig modell: delsvar före svaret, svaret ur slutposten', 'U26 E7', partner)
 
         if a_.genomfor:
             def genomfor():
-                a.js("document.querySelector('#ay-skriv [data-avsikt=andring]').click(), true")
+                fore = skicka_till_partnern('andring', 'Gör rubriken i första vyn kortare och tydligare. Rör inte bilderna eller färgerna. Formulera en överlämning. (prov %d)' % int(time.time()))
+                svar = a.vanta(lambda: (lambda m: m[-1] if len(m) > fore and m[-1].get('lage') in ('svarat', 'fel', 'avbrutet') else None)(meddelanden()), tid=600, steg=1, text='svaret')
+                assert svar.get('overlamning') and not svar['overlamning'].get('oläsligt'), ('partnern formulerade ingen läsbar överlämning', (svar.get('svar') or {}).get('text', '')[:300])
+                mid = svar['id']
+                a.vanta(lambda: a.js("!!document.querySelector('[data-genomfor-oppna=%s]')" % json.dumps(mid)), tid=30, text='överlämningens kort')
+                a.js("document.querySelector('[data-genomfor-oppna=%s]').click(), true" % json.dumps(mid))
                 time.sleep(0.5)
-                a.js("(function(){var t=document.getElementById('ay-text');t.value='Gör rubriken i första vyn kortare och tydligare. Rör inte bilderna eller färgerna. Formulera en överlämning.';"
-                     "t.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#ay-skriv [data-skicka=partner]').click();return 1})()")
-                a.vanta(lambda: a.js("!!document.querySelector('[data-genomfor-oppna]')"), tid=600, steg=1, text='överlämningen')
-                a.js("document.querySelector('[data-genomfor-oppna]').click(), true")
-                falt = a.js("(function(){var r={};document.querySelectorAll('[data-g]').forEach(function(e){r[e.dataset.g]=e.value});return r})()")
+                falt = a.js("(function(){var r={};document.querySelectorAll('[data-genomfor-ruta] [data-g]').forEach(function(e){r[e.dataset.g]=e.value});return r})()")
                 for k, v in (('resultat', 'En kortare och tydligare rubrik i första vyn'), ('omfattning', 'rubriken i första vyn'), ('bevara', 'bilderna och färgerna')):
                     if not (falt.get(k) or '').strip():
-                        a.js("(function(){var e=document.querySelector('[data-g=%s]');e.value=%s;e.dispatchEvent(new Event('input',{bubbles:true}));return 1})()" % (k, json.dumps(v)))
+                        a.js("(function(){var e=document.querySelector('[data-genomfor-ruta] [data-g=%s]');e.value=%s;e.dispatchEvent(new Event('input',{bubbles:true}));return 1})()" % (k, json.dumps(v)))
                 bild1 = a.bild(ut / 'red-4-genomfor.png').name
-                a.js("document.querySelector('[data-genomfor]').click(), true")
-                besked = a.vanta(lambda: (lambda t: t if t and ('Operations-id' in t or 'Inte' in t or 'nekades' in t) else None)(
-                    a.js("(function(){var e=document.querySelector('[data-genomfor-svar], .ay-overlamning [role=status]');return e?e.innerText:null})()")), tid=60, text='beskedet')
+                a.js("document.querySelector('[data-genomfor=%s]').click(), true" % json.dumps(mid))
+                besked = a.vanta(lambda: (lambda t: t if t and any(o in t for o in ('Operations-id', 'Inte', 'nekades', 'gick inte')) else None)(
+                    a.js("(function(){var s=window.__arbetsyta.genomforSvar||{};return s[%s]||null})()" % json.dumps(mid))), tid=60, text='beskedet')
+                time.sleep(1)
+                bild2 = a.bild(ut / 'red-5-genomfor-besked.png').name
                 j = a.js(lage_js).get('startjournal') or []
                 start = next((x for x in j if x.get('handling') == 'valda'), None)
                 stopp = None
@@ -200,8 +221,14 @@ def main():
                     a.vanta(lambda: any(h['id'] == 'stoppa' for h in a.js(lage_js).get('handlingar') or []), tid=60, text='Stoppa i Kontroller')
                     stopp = a.js("(function(){var x=new XMLHttpRequest();x.open('POST','/api/flode/%s/start',false);x.setRequestHeader('Content-Type','application/json');"
                                  "x.send(JSON.stringify({handling:'stoppa',start_id:'provstopp-'+Date.now()}));return x.status})()" % slug)
-                assert start, ('ingen start i journalen', besked)
-                return {'besked': besked, 'start': {k: start.get(k) for k in ('start_id', 'handling', 'status')}, 'stopp_http': stopp, 'bild': bild1}
+                if not start:  # starten nekades av den ordinarie ingången (beskedet säger varför); uppdraget bär källan och samma id
+                    assert 'nekades' in besked or 'Operations-id' in besked, besked
+                import skapande
+                import atelje
+                dom = skapande.senaste(slug, underlag=atelje.UNDERLAG) or {}
+                return {'besked': besked, 'uppdrag': {'andring_id': (dom.get('arbetsyta') or {}).get('andring_id'), 'kalla': (dom.get('arbetsyta') or {}).get('kalla'),
+                                                      'typ': (dom.get('uppdrag') or {}).get('typ')},
+                        'start': {k: start.get(k) for k in ('start_id', 'handling', 'status')} if start else None, 'stopp_http': stopp, 'bilder': [bild1, bild2]}
             fall('Genomför i utkastet ur en riktig överlämning: uppdraget och starten med samma operations-id', 'U16 E5', genomfor)
     finally:
         a.avsluta()
