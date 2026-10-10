@@ -185,6 +185,15 @@ ska omdirigeras. Verktyget förenar dem med sidkartan och sparar HTML, HAR och h
 anger varje adress, status, fel och SHA-256. Läs alla fel innan den gamla sajten försvinner. Arkivet är privat
 kundmaterial.
 
+**Releasen** (K02:s produktion; `kundrepo.py <slug> --release`, handlingen release i Byggflöde): exportens commit
+laddas upp till produktionens Worker (`kund-<slug>`, toppnivån i `wrangler.jsonc`) ur det frysta underlaget, under
+kundens lås, med kvittot `RELEASE-*.json`. Den kräver en verklig verksamhet, en aktuell och klar förhandsvisning av
+samma commit och kundens driftvärden: `underlag/<slug>/CLOUDFLARE.json` (privat) med `database_id`, `forfragan_till`
+och `forfragan_fran`, som exporten skriver in i kundrepots `wrangler.jsonc`. Mandatet är ägarens klick på releasen i
+Byggflöde: dashboarden skriver då `RELEASEMANDAT.json`, bundet till förhandsvisningens commit och export, och mandatet
+gäller en release. Ett okänt utfall spärrar nästa release tills den stämts av. Releasen gör inte domänen: Custom Domain
+och DNS är egna handlingar (nedan), och återgången är `wrangler rollback`. Inget av detta är prövat mot ett konto.
+
 **Lanseringskonfigurationen** är samma bygge som förhandsvisningens: kanonisk värd vald, omdirigeringar från gamla
 adresser i `public/_redirects` (301 eller 308; högst 2 000 statiska regler, och de gäller inte vägar som Workern
 svarar på, [källa](https://developers.cloudflare.com/workers/static-assets/redirects/), läst 2026-10-10), sökkonsolens verifieringstagg renderad,

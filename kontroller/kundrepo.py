@@ -515,7 +515,7 @@ def preview(slug, deploy=None, skydd=None):
         return _preview(slug, deploy or wrangler_deploy, skydd or access_skyddar)
 
 
-def wrangler_deploy(underlag, konto, post, tmp):
+def wrangler_deploy(underlag, konto, post, tmp, miljo='forhandsvisning'):
     """npm ci, astro build innanför processgränsen och wrangler deploy --env forhandsvisning i det frysta underlaget.
     Ger (slutkod, utdata, steg): steget 'fore' (inget laddades upp) eller 'uppladdning' (bara där kan utfallet vara okänt)."""
     import exportera
@@ -534,7 +534,7 @@ def wrangler_deploy(underlag, konto, post, tmp):
     vem = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'whoami'], underlag, frist=120, env=cloudflare_miljo(konto, tmp))
     if vem.returncode or konto['konto'] not in (vem.stdout or '') + (vem.stderr or ''):
         return 1, 'tokenen når inte kontot %s… (wrangler whoami): ingen uppladdning' % konto['konto'][:6], 'fore'
-    res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'deploy', '--env', 'forhandsvisning',
+    res = kommando([str(underlag / 'node_modules' / '.bin' / 'wrangler'), 'deploy', *(['--env', miljo] if miljo else []),
                     '--message', 'nortropic_commit=%s nortropic_export=%s' % (post['commit'], post['export'])],
                    underlag, frist=900, env=cloudflare_miljo(konto, tmp))
     return res.returncode, (res.stdout or '') + '\n' + (res.stderr or ''), 'uppladdning'
@@ -638,13 +638,13 @@ def _preview(slug, deploy, skydd):
 NATFEL = re.compile(r'ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket hang up|fetch failed|network|tidsgränsen', re.I)
 
 
-def _kvitton(slug):
+def _kvitton(slug, slag='PREVIEW'):
     d = leveransdir(slug)
     if not d.is_dir() or d.is_symlink():
         return []
     ut = []
     # skrivordningen, inte namnet: två kvitton inom samma sekund har slumpade suffix
-    for f in sorted(d.glob('PREVIEW-*.json'), key=lambda f: (f.stat().st_mtime_ns, f.name)):
+    for f in sorted(d.glob(slag + '-*.json'), key=lambda f: (f.stat().st_mtime_ns, f.name)):
         try:
             ut.append(json.loads(f.read_text(encoding='utf-8')))
         except (OSError, ValueError):
@@ -652,10 +652,10 @@ def _kvitton(slug):
     return ut
 
 
-def osakert_forsok(slug):
+def osakert_forsok(slug, slag='PREVIEW'):
     """Det senaste kvittot om dess utfall är okänt och inte avstämt, annars None."""
     oklar = None
-    for k in _kvitton(slug):
+    for k in _kvitton(slug, slag):
         if k.get('status') == 'osaker':
             oklar = k
         elif oklar and k.get('avstammer') == oklar.get('id') and k.get('status') in ('klar', 'avstamd_ingen', 'fel'):
@@ -742,6 +742,138 @@ def avstam(slug, lista=None, skydd=None):
         return post
 
 
+# --- produktionen (K02): release av exportens commit, bara efter ägarens klick i Byggflöde ---
+
+def release_krav(slug):
+    """Vad en release kräver, utöver ägarens mandat: en verklig verksamhet, en aktuell och klar förhandsvisning av samma
+    commit och kundens driftvärden i kundrepots wrangler.jsonc (D1-id och mejladresser). Ger hindret eller None."""
+    if fiktiv(slug):
+        return 'en fiktiv verksamhet släpps aldrig till produktion'
+    pv = preview_aktuell(slug)
+    if not pv or not pv.get('aktuell'):
+        return 'ingen aktuell förhandsvisning av exportens commit: förhandsvisa och granska först'
+    try:
+        konfig = (repo(slug) / 'wrangler.jsonc').read_text(encoding='utf-8')
+    except OSError:
+        return 'kundrepots wrangler.jsonc kan inte läsas'
+    if 'AKTIVERAS-VID-LANSERING' in konfig:
+        return ('D1-databasen är inte kopplad: skapa den med EU-jurisdiktion och lägg database_id, forfragan_till och '
+                'forfragan_fran i underlag/%s/CLOUDFLARE.json, och exportera igen' % slug)
+    for namn in ('FORFRAGAN_TILL', 'FORFRAGAN_FRAN'):
+        if not re.search(r'"%s":\s*"[^"]+"' % namn, konfig):
+            return '%s saknas i kundrepots wrangler.jsonc (underlag/%s/CLOUDFLARE.json), exportera igen' % (namn, slug)
+    return None
+
+
+def release_mojlig(slug):
+    try:
+        return preview_krav(slug) is None and release_krav(slug) is None
+    except (OSError, ValueError):
+        return False
+
+
+def mandatfil(slug):
+    return leveransdir(slug) / 'RELEASEMANDAT.json'
+
+
+def releasemandat(slug, kalla):
+    """Ägarens mandat för en release: skrivs av dashboardens skrivande väg när ägaren klickar på releasen i Byggflöde
+    (kalla 'dashboard'), bundet till förhandsvisningens commit, export och kvitto. En session skriver det aldrig."""
+    if kalla != 'dashboard':
+        raise ValueError('mandatet för en release är ägarens klick i dashboarden')
+    hinder = preview_krav(slug) or release_krav(slug)
+    if hinder:
+        raise ValueError('ingen release: ' + hinder)
+    pv = preview_aktuell(slug)
+    post = {'schema': 1, 'typ': 'releasemandat', 'slug': slug, 'tid': nu(), 'kalla': kalla, 'commit': pv['commit'],
+            'export': pv['export'], 'forhandsvisning': pv['id'], 'forhandsvisning_version': pv.get('version_id')}
+    leveransdir(slug).mkdir(parents=True, exist_ok=True)
+    atelje.skriv_json_atomiskt(mandatfil(slug), post)
+    return post
+
+
+def release(slug, deploy=None):
+    """Produktionsrelease av exportens commit på Cloudflare Workers, under kundens lås, ur det frysta underlaget, med
+    beständigt kvitto (RELEASE-*.json). Kräver release_krav och ägarens mandat för just denna commit och export."""
+    import flodesstart
+    with flodesstart.las(_root(), slug, arv=True):
+        return _release(slug, deploy or (lambda u, k, p, t: wrangler_deploy(u, k, p, t, miljo=None)))
+
+
+def _release(slug, deploy):
+    import exportera
+    import korregister
+    r = repo(slug)
+    tid = nu()
+    post = {'schema': 1, 'id': 'RELEASE-%s-%s' % (tid.replace(':', '').replace('-', ''), os.urandom(2).hex()), 'typ': 'release',
+            'plattform': 'cloudflare-workers', 'slug': slug, 'tid': tid, 'worker': identitet(slug)['worker'], 'miljo': 'produktion',
+            'produktion': True, 'status': 'fel', 'hinder': [], 'commit': None, 'export': None, 'version_id': None, 'mandat': None,
+            'konto': None}
+    hinder = preview_krav(slug) or release_krav(slug)
+    tmp = underlag = None
+    if hinder:
+        post['hinder'].append(hinder)
+    else:
+        e = exportera.aktuell(slug)
+        post.update(commit=huvud(r), export=e.get('id'), export_sha256=e.get('export_sha256'))
+        try:
+            m = json.loads(mandatfil(slug).read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            m = None
+        if (not m or m.get('kalla') != 'dashboard' or m.get('anvant_av')
+                or (m.get('commit'), m.get('export')) != (post['commit'], post['export'])):
+            post['hinder'].append('inget mandat från ägaren för den här commiten och exporten: releasen startas av ägarens klick i Byggflöde')
+            post['status'] = 'vantar_pa_mandat'
+        else:
+            post['mandat'] = {k: m.get(k) for k in ('tid', 'kalla', 'forhandsvisning')}
+    oklar = osakert_forsok(slug, 'RELEASE') if not post['hinder'] else None
+    if oklar:
+        post['hinder'].append('en tidigare release (%s) har okänt utfall: stäm av i Cloudflare (wrangler deployments list) innan ett nytt försök' % oklar['id'])
+        post['status'] = 'vantar_pa_avstamning'
+    konto = None
+    if not post['hinder']:
+        konto, hinder = cloudflare_konto()
+        if hinder:
+            post['hinder'].append(hinder)
+            post['status'] = 'vantar_pa_konto'
+        else:
+            post['konto'] = konto['konto']
+            tmp = korregister.egen_tmp('nwp-preview-', 'releasens frysta underlag')
+            try:
+                underlag = fryst_underlag(r, post['commit'], tmp)
+                post['underlag_sha256'] = exportera.manifest_sha(exportera.exportmanifest(underlag))
+                if post['underlag_sha256'] != post['export_sha256']:
+                    post['hinder'].append('commitens filer stämmer inte med exportens manifest: exportera igen')
+            except (RuntimeError, OSError, ValueError) as e_:
+                post['hinder'].append('det frysta underlaget kunde inte skapas: %s' % str(e_)[:200])
+    if konto and underlag is not None and not post['hinder']:
+        try:
+            rc, ut, steg = (tuple(deploy(underlag, konto, post, tmp)) + ('uppladdning',))[:3]
+        except (OSError, subprocess.SubprocessError) as e_:
+            rc, ut, steg = None, 'releasen kunde inte köras: %s' % type(e_).__name__, 'fore'
+        m_ = re.search(r'Current Version ID:\s*([0-9a-f-]{36})', ut or '')
+        post['version_id'] = m_.group(1) if m_ else None
+        if steg == 'uppladdning' and (rc == 124 or (rc and not post['version_id'] and NATFEL.search(ut or ''))):
+            post['status'] = 'osaker'
+            post['hinder'].append('utfallet är okänt: stäm av i Cloudflare (wrangler deployments list) innan ett nytt försök')
+        elif rc or not post['version_id']:
+            post['hinder'].append('wrangler deploy: %s' % ((ut or '')[-300:].strip() or 'inget versions-id i svaret'))
+        else:
+            post['status'] = 'klar'
+            # mandatet gäller en release: nästa kräver ett nytt klick
+            atelje.skriv_json_atomiskt(mandatfil(slug), dict(m, anvant_av=post['id']))
+            post['kontroll'] = ('pröva domänen: .venv/bin/python kontroller/driftkoll.py https://<kundens domän> --lage produktion '
+                                '--formular; återgång: wrangler rollback <föregående version> i kundrepot (rör inte data eller DNS)')
+    if tmp:
+        shutil.rmtree(tmp, ignore_errors=True)
+    post['text'] = ('release klar: version %s av commit %s (export %s) i produktionen' % (post['version_id'], (post['commit'] or '')[:12], post['export'])
+                    if post['status'] == 'klar' else 'ingen release: ' + '; '.join(post['hinder']))
+    d = leveransdir(slug)
+    d.mkdir(parents=True, exist_ok=True)
+    atelje.skriv_json_atomiskt(d / (post['id'] + '.json'), post)
+    return post
+
+
 def preview_aktuell(slug):
     """Senaste förhandsvisningskvittot med 'aktuell': commit är kundrepots HEAD och exporten är aktuell."""
     import exportera
@@ -774,6 +906,7 @@ def main(argv=None):
     g.add_argument('--preview', action='store_true')
     g.add_argument('--visa', action='store_true')
     g.add_argument('--stam-av', action='store_true', help='stäm av ett försök med okänt utfall mot Cloudflare (läsande)')
+    g.add_argument('--release', action='store_true', help='produktionsrelease efter ägarens mandat (klicket i Byggflöde)')
     p.add_argument('--utan-fjarr', action='store_true')
     a = p.parse_args(argv)
     if not SLUG.match(a.slug):
@@ -784,6 +917,12 @@ def main(argv=None):
         return 0
     if a.push:
         ut = push(a.slug)
+    elif a.release:
+        try:
+            ut = release(a.slug)
+            ut = dict(ut, ok=ut.get('status') == 'klar')
+        except ValueError as e:
+            ut = {'ok': False, 'hinder': str(e)}
     elif a.stam_av:
         try:
             ut = avstam(a.slug)

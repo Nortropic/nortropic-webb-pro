@@ -340,6 +340,50 @@ class Kundrepo(unittest.TestCase):
             pv = self.forhandsvisa()
         self.assertEqual(pv['status'], 'fel'); self.assertIsNone(kundrepo.osakert_forsok(self.slug))
 
+    def test_release_kraver_verksamhet_forhandsvisning_driftvarden_och_agarens_klick(self):
+        # K02:s produktion: en fiktiv verksamhet släpps aldrig; därefter förhandsvisning, driftvärden och ägarens mandat
+        self.exportera_med_repo()
+        self.anslut_konto()
+        self.assertEqual(self.forhandsvisa()['status'], 'klar')
+        self.assertIn('fiktiv', kundrepo.release_krav(self.slug))
+        self.skriv_verksamhet(False)
+        self.assertIn('D1-databasen är inte kopplad', kundrepo.release_krav(self.slug))
+        with self.assertRaises(ValueError):
+            kundrepo.releasemandat(self.slug, 'dashboard')
+        (self.u / 'CLOUDFLARE.json').write_text(json.dumps({'database_id': '12345678-1234-4123-8123-123456789abc',
+                                                            'forfragan_till': 'kontakt@exempel.invalid', 'forfragan_fran': 'webb@exempel.invalid'}))
+        with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
+            res = exportera.exportera(self.slug, git=True, bygg=False)
+        konfig = (self.k / 'kundrepo' / 'wrangler.jsonc').read_text()
+        self.assertIn('12345678-1234-4123-8123-123456789abc', konfig); self.assertIn('kontakt@exempel.invalid', konfig)
+        self.assertIn('ingen aktuell förhandsvisning', kundrepo.release_krav(self.slug), 'en ny commit kräver en ny förhandsvisning')
+        self.assertEqual(self.forhandsvisa()['status'], 'klar')
+        self.assertIsNone(kundrepo.release_krav(self.slug))
+        uppladdat_fore = len(self.uppladdat)
+        rel = kundrepo.release(self.slug, deploy=self.deploy)
+        self.assertEqual(rel['status'], 'vantar_pa_mandat'); self.assertEqual(len(self.uppladdat), uppladdat_fore, 'ingen release utan mandat')
+        with self.assertRaises(ValueError):
+            kundrepo.releasemandat(self.slug, 'session')
+        kundrepo.releasemandat(self.slug, 'dashboard')
+        rel = kundrepo.release(self.slug, deploy=self.deploy)
+        self.assertEqual((rel['status'], rel['produktion'], rel['version_id'], rel['commit'], rel['export']), ('klar', True, VERSION, res['commit'], res['id']))
+        self.assertEqual(rel['worker'], 'kund-prov-kund'); self.assertNotIn(TOKEN, json.dumps(rel))
+        self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'vantar_pa_mandat', 'mandatet gäller en release')
+        # ett okänt utfall spärrar nästa release
+        kundrepo.releasemandat(self.slug, 'dashboard')
+        with patch.object(self, 'deploy', return_value=(124, 'tidsgränsen nåddes')):
+            self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'osaker')
+        kundrepo.releasemandat(self.slug, 'dashboard')
+        self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'vantar_pa_avstamning')
+        # handlingen i Byggflöde visas när releasen är möjlig
+        with patch.object(prototyp, 'lage', return_value=('valda', None)), patch.object(flodesstart, 'pagande', return_value=False):
+            self.assertIn('release', [h['id'] for h in prototyp.handlingar(self.slug)])
+        flodesstart.krav(self.slug, 'release')
+        # felaktiga driftvärden hamnar aldrig i kundrepot
+        (self.u / 'CLOUDFLARE.json').write_text(json.dumps({'database_id': 'inte-ett-id'}))
+        with self.assertRaises(ValueError):
+            exportera.driftvarden(self.slug)
+
     def test_wranglers_miljo_och_kommandon(self):
         tmp = self.root / 'wr-tmp'; tmp.mkdir()
         konto = {'token': TOKEN, 'konto': KONTO, 'underdoman': 'nortropic-prov'}
@@ -358,6 +402,11 @@ class Kundrepo(unittest.TestCase):
                     patch.object(exportera, 'publika_brister', return_value=[]):
                 rc, ut, steg = kundrepo.wrangler_deploy(tmp, konto, {'commit': 'c' * 40, 'export': 'EXPORT-1'}, tmp)
         self.assertEqual((rc, steg), (0, 'uppladdning')); self.assertIn(VERSION, ut)
+        with patch.object(kundrepo, 'kommando', side_effect=kommando), patch.object(processgrans, 'kor_i_katalog', return_value=(0, 'byggd')), \
+                patch.object(exportera, 'publika_brister', return_value=[]):
+            kundrepo.wrangler_deploy(tmp, konto, {'commit': 'c' * 40, 'export': 'EXPORT-1'}, tmp, miljo=None)
+        self.assertNotIn('--env', anrop[-1][0], 'produktionen är kundrepots toppnivå i wrangler.jsonc')
+        del anrop[3:]
         npm, vem, wr = anrop
         self.assertEqual(vem[0][1:], ['whoami'], 'kontots identitet prövas hos leverantören före uppladdningen')
         self.assertEqual(npm[0][:2], ['npm', 'ci']); self.assertFalse([k for k in npm[1] if k.startswith(('CLOUDFLARE', 'NWP_', 'ANTHROPIC', 'CLAUDE'))], 'npm ci får ingen nyckel')

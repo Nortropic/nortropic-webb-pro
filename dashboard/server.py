@@ -3270,6 +3270,13 @@ class H(BaseHTTPRequestHandler):
                 slug = m.group(1)
                 if data.get('handling') not in ('stoppa','stoppa-overgang') and ab_oavgjord(slug):
                     raise ValueError('en blind jämförelse pågår; inga steg startas från flödesvyn')
+                if data.get('handling') == 'release':
+                    # ägarens klick i Byggflöde är releasens mandat, bundet till förhandsvisningens commit och export
+                    import atelje as atelje_rel
+                    import kundrepo as kundrepo_rel
+                    sf_rel = atelje_rel.startfil(UNDERLAG / slug / 'atelje', str(data.get('start_id')))
+                    if not (sf_rel and sf_rel.is_file()):
+                        kundrepo_rel.releasemandat(slug, 'dashboard')
                 rc = prototyp_kor.fran_dashboard(slug, data.get('handling'), data.get('start_id'))
                 import atelje
                 avslutad = False

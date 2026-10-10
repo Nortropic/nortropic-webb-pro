@@ -109,11 +109,41 @@ def publika_brister(dist):
     return sorted(str(p.relative_to(dist)) for p in Path(dist).rglob('*') if p.is_file() and INTE_PUBLIKT.search(p.relative_to(dist).as_posix()))
 
 
-def wrangler_namn(text, slug):
-    """wrangler.jsonc med kundens namn i stället för SLUG; allt annat (kompatibilitetsdatum, bindningar) som i mallen."""
+def wrangler_namn(text, slug, drift=None):
+    """wrangler.jsonc med kundens namn i stället för SLUG och, när driftvärdena finns, kundens D1-id och mejladresser;
+    allt annat (kompatibilitetsdatum, bindningar) som i mallen. drift: underlag/<slug>/CLOUDFLARE.json, se driftvarden()."""
     if 'kund-SLUG' not in text:
         raise RuntimeError('mallens wrangler.jsonc saknar platshållaren kund-SLUG')
-    return text.replace('kund-SLUG', 'kund-%s' % slug)
+    text = text.replace('kund-SLUG', 'kund-%s' % slug)
+    for nyckel, monster in (('database_id', r'("database_id":\s*")AKTIVERAS-VID-LANSERING(")'),
+                            ('forfragan_till', r'("FORFRAGAN_TILL":\s*")(")'), ('forfragan_fran', r'("FORFRAGAN_FRAN":\s*")(")')):
+        if drift and drift.get(nyckel):
+            text, n = re.subn(monster, lambda m, v=drift[nyckel]: m.group(1) + v + m.group(2), text, count=1)
+            if n != 1:
+                raise RuntimeError('mallens wrangler.jsonc saknar platsen för %s' % nyckel)
+    return text
+
+
+EPOST = re.compile(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}')
+
+
+def driftvarden(slug):
+    """Kundens driftvärden för produktionen, privat i underlag/<slug>/CLOUDFLARE.json (skapas vid aktiveringen):
+    {"database_id": "<D1-id>", "forfragan_till": "a@x.se[,b@x.se]", "forfragan_fran": "webb@x.se"}. None när filen
+    saknas; ValueError när ett värde har fel form (inget hamnar då i kundrepot)."""
+    f = UNDERLAG / slug / 'CLOUDFLARE.json'
+    if not f.is_file() or f.is_symlink():
+        return None
+    d = json.loads(f.read_text(encoding='utf-8'))
+    if not isinstance(d, dict) or set(d) - {'database_id', 'forfragan_till', 'forfragan_fran'}:
+        raise ValueError('CLOUDFLARE.json har okända fält')
+    if d.get('database_id') and not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', d['database_id']):
+        raise ValueError('database_id ska vara D1-databasens id')
+    if d.get('forfragan_till') and not all(EPOST.fullmatch(x.strip()) for x in d['forfragan_till'].split(',')):
+        raise ValueError('forfragan_till ska vara en eller flera e-postadresser')
+    if d.get('forfragan_fran') and not EPOST.fullmatch(d['forfragan_fran']):
+        raise ValueError('forfragan_fran ska vara en e-postadress')
+    return d
 
 
 def licenser(slug, sajt, mal):
@@ -211,7 +241,8 @@ def skapa_export(slug, kandidat, mal, git, bygg, export_id=None):
     # förblir förrenderad (ingen adapter i astro.config.mjs)
     kopiera(LEVERANS / 'worker', mal / 'worker')
     kopiera(LEVERANS / 'migrations', mal / 'migrations')
-    (mal / 'wrangler.jsonc').write_text(wrangler_namn((LEVERANS / 'wrangler.jsonc').read_text(encoding='utf-8'), slug), encoding='utf-8')
+    (mal / 'wrangler.jsonc').write_text(wrangler_namn((LEVERANS / 'wrangler.jsonc').read_text(encoding='utf-8'), slug, driftvarden(slug)),
+                                        encoding='utf-8')
     (mal / 'public').mkdir(parents=True, exist_ok=True)
     shutil.copyfile(LEVERANS / '_headers', mal / 'public' / '_headers')
     paket = json.loads((LEVERANS / 'package.json').read_text(encoding='utf-8'))
