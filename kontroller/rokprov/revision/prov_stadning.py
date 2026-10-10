@@ -1289,8 +1289,9 @@ try:
         for m_ in MONSTER:
             for x_ in m_.findall(f_.read_text(encoding='utf-8', errors='replace')):
                 FUNNA.setdefault(x_, f_.relative_to(ROOT).as_posix())
-    # .ateljeslut- är en atomisk tempfil bredvid slutposten, aldrig en katalog i systemets temp.
-    UTANFOR_TMP = {'.vinnare-ny-', 'prov-', '.ateljeslut-', '.korslut-'}  # kundens katalog eller under nwp-bygge-<slug>
+    # .ateljeslut- och .export- är atomiska tempfiler bredvid målet (slutposten, CSV-exporten i forfragningar.py), aldrig
+    # en katalog i systemets temp.
+    UTANFOR_TMP = {'.vinnare-ny-', 'prov-', '.ateljeslut-', '.korslut-', '.export-'}  # kundens katalog eller under nwp-bygge-<slug>
     saknas_ = {x: f for x, f in FUNNA.items() if x not in stadning.TMP_PREFIX and x not in UTANFOR_TMP}
     assert not saknas_, 'prefix i koden som städningen inte känner till: %s' % saknas_
     assert {'nwp-underhall-', 'nwp-lh-', 'nwp-sandlada-prov.', 'upptagna-', 'nwp-stadprov-', 'nwp-tillbaka-'} <= set(FUNNA), sorted(FUNNA)

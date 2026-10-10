@@ -56,6 +56,8 @@ class Katalog(unittest.TestCase):
         self.brist(lambda k: p(k, 'k06-hitta-hit')['kallor'].append({'url': 'http://x', 'last': 'igår'}), 'utan https-adress')
         self.brist(lambda k: p(k, 'k12-handel-utreds').update(grund=True), 'kan inte vara grundleverans')
         self.brist(lambda k: p(k, 'k06-hitta-hit').update(grund='ja'), 'grund ska vara true eller false')
+        self.brist(lambda k: p(k, 'k06-hitta-hit').update(komponent='mall/astro/src/components/FinnsInte.astro'), 'finns inte i mallen')
+        self.brist(lambda k: p(k, 'k06-hitta-hit').pop('komponent'), 'utan körväg')
 
 
 class Plan(unittest.TestCase):

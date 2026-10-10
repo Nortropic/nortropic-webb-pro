@@ -1,0 +1,24 @@
+---
+// Hitta hit (integrationskatalogen k06-hitta-hit; kunskap/integrationer.md, Hitta hit): adressen som text och en vanlig
+// länk som öppnar vägbeskrivningen hos en kartleverantör. Ingen API-nyckel, inget skript, ingen iframe och ingenting som
+// hämtas från leverantören innan besökaren klickar; adressen fungerar också utan JavaScript och utan karta. En inbäddad
+// karta är ett eget val med samtycke och CSP-ändring, inte den här komponenten.
+//   <HittaHit gata="Storgatan 1" postnummer="123 45" ort="Exempelstad" />
+// Adressen ska vara verksamhetens egen, densamma som i VERKSAMHET.json och schemat (byggstandarden 7.4).
+interface Props { gata: string; postnummer: string; ort: string; namn?: string; rubrik?: string; lanktext?: string }
+const { gata, postnummer, ort, namn, rubrik = 'Hitta hit', lanktext = 'Visa vägbeskrivning' } = Astro.props;
+// Google Maps URL-format, utan nyckel: https://developers.google.com/maps/documentation/urls/get-started
+const mal = [namn, `${gata}, ${postnummer} ${ort}`].filter(Boolean).join(', ');
+const karta = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(mal);
+---
+<section class="hitta-hit" aria-labelledby="hitta-hit-rubrik">
+  <h2 id="hitta-hit-rubrik">{rubrik}</h2>
+  <address>{namn && <span>{namn}<br /></span>}{gata}<br />{postnummer} {ort}</address>
+  <p><a href={karta}>{lanktext}</a> <span class="hitta-hit-leverantor">(öppnas i Google Maps)</span></p>
+</section>
+
+<style>
+  /* Neutral grund som bygget skriver över; länken har minst 24 px klickyta (byggstandarden 3.3). */
+  .hitta-hit address { font-style: normal; }
+  .hitta-hit a { display: inline-block; min-height: 24px; padding-block: 0.25rem; }
+</style>

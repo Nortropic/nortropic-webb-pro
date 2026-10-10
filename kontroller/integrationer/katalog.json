@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.2",
+  "version": "2026-10-10.3",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -179,7 +179,8 @@
       "rattigheter": {}, "dataflode": "Inget före besökarens klick.", "lagring": "Ingen.",
       "kostnad": {"modell": "länk utan API-nyckel", "belopp": 0, "valuta": "SEK", "kalla": "https://developers.google.com/maps/documentation/urls/get-started", "datum": "2026-09-30"},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Basvägen i kunskap/integrationer.md; ingen komponent i mallen.", "prov": [], "driftkontroll": null,
+      "komponent": "mall/astro/src/components/HittaHit.astro",
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Mallens komponent byggd med mallens Astro: adressen som text, länken med kodad adress, inget skript, ingen iframe och ingen förhandshämtning; inte prövad i en kunds bygge.", "prov": ["kontroller/rokprov/revision/prov_hitta_hit.py"], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": "adress och öppettider", "design": "kontaktsidan", "kod": "kontaktsidan", "externt": null}, "manniska": []
     },
     {

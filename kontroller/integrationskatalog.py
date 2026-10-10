@@ -43,6 +43,7 @@ FUNKTIONER = {
 FALT = ('id', 'version', 'omrade', 'niva', 'grund', 'funktion', 'passar', 'passar_inte', 'kunduppgifter', 'bevara', 'kallor',
         'formagor', 'kraver', 'utesluter', 'konto', 'rattigheter', 'dataflode', 'lagring', 'kostnad', 'funktioner',
         'fardighet', 'fardighet_omfattning', 'prov', 'driftkontroll', 'begransningar', 'paverkar', 'manniska')
+VALFRIA = ('komponent',)  # en mallkomponent (sökväg i repot) som är paketets körväg i bygget
 OMRADEN = ['K%02d' % i for i in range(1, 19)]
 
 
@@ -79,7 +80,7 @@ def brister(k, rot=ROOT, importera=True):
         if saknas:
             ut.append('%s saknar %s' % (pid, ', '.join(saknas)))
             continue
-        okanda = sorted(set(p) - set(FALT))
+        okanda = sorted(set(p) - set(FALT) - set(VALFRIA))
         if okanda:
             ut.append('%s har okända fält %s' % (pid, okanda))
         if not re.fullmatch(r'k\d{2}-[a-z0-9-]+', pid) or pid[:3].upper() != p['omrade']:
@@ -128,9 +129,11 @@ def brister(k, rot=ROOT, importera=True):
         elif kostnad['belopp'] is not None and not (kostnad['valuta'] and str(kostnad['kalla'] or '').startswith('https://') and _datum(kostnad['datum'])):
             ut.append('%s: ett belopp (också 0) kräver valuta, källa och datum; okänt är null' % pid)
         nivaordning = FARDIGHET.index(p['fardighet']) if p['fardighet'] in FARDIGHET else 0
+        if 'komponent' in p and not (str(p['komponent']).startswith('mall/') and (rot / p['komponent']).is_file()):
+            ut.append('%s: komponenten %s finns inte i mallen' % (pid, p['komponent']))
         if p['fardighet'] in ('implementerat', 'kontraktsprovat', 'leverantorsprovat'):
-            if not any(p['funktioner'].get(s) for s in ('tillampa', 'prova')):
-                ut.append('%s: %s utan körväg (tillampa eller prova)' % (pid, p['fardighet']))
+            if not any(p['funktioner'].get(s) for s in ('tillampa', 'prova')) and 'komponent' not in p:
+                ut.append('%s: %s utan körväg (tillampa, prova eller en mallkomponent)' % (pid, p['fardighet']))
         if p['fardighet'] in ('kontraktsprovat', 'leverantorsprovat'):
             if not p['prov']:
                 ut.append('%s: %s utan prov' % (pid, p['fardighet']))

@@ -81,6 +81,10 @@ webbversion; ingen bestämd app garanteras.
 [Google Maps URL-format](https://developers.google.com/maps/documentation/urls/get-started),
 läst 2026-09-30, är ett exempel utan API-nyckel; leverantören är inget obligatoriskt val.
 
+Mallens komponent `HittaHit.astro` (`mall/astro/src/components/`, katalogens k06-hitta-hit) är basvägen: adressen
+som text och en länk till vägbeskrivningen, utan skript och utan något som hämtas från kartleverantören före klicket
+(prövad i `kontroller/rokprov/revision/prov_hitta_hit.py`).
+
 Om brief §4 behöver karta på sidan: välj självhostad statisk bild med belagd
 användningsrätt och synlig attribution, eller skapa extern iframe först efter
 besökarens uttryckliga val. Inget iframe-src, skript från kartleverantören,
