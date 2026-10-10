@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.7",
+  "version": "2026-10-10.8",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -263,7 +263,7 @@
       "begransningar": ["Inget verktyg installeras före bedömd samtyckesfråga."], "paverkar": {"brief": "mål", "design": null, "kod": "händelser", "externt": "verktyget"}, "manniska": ["val av verktyg"]
     },
     {
-      "id": "k08-nortropic-forvaltning", "version": "1.0.0", "omrade": "K08", "niva": "forvaltning", "grund": false,
+      "id": "k08-nortropic-forvaltning", "version": "1.1.0", "omrade": "K08", "niva": "forvaltning", "grund": false,
       "funktion": "Verksamheten ber Nortropic om en ändring; den görs i kundrepot, förhandsvisas och släpps efter godkännande, och kan återställas.",
       "passar": "Statiska webbplatser med sällsynta ändringar.", "passar_inte": "Verksamheter som själva vill ändra ofta (utred CMS).",
       "kunduppgifter": ["hur ofta innehållet ändras", "vem som beställer ändringar"], "bevara": [],
@@ -273,8 +273,8 @@
       "rattigheter": {"tillampa": "ändring i kundrepot, förhandsvisning, release med ägarens ja"}, "dataflode": "Inget nytt.", "lagring": "git.",
       "kostnad": {"modell": "Nortropics förvaltningsavtal (okänt belopp i katalogen)", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": "kundrepo.preview_krav", "planera": "exportera.exportera", "tillampa": "kundrepo.preview", "aterlas": "kundrepo.preview_aktuell", "prova": "workersprov.prova", "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ändring → export → förhandsvisning finns (K02); kundens begäran, godkännande och återställning som ett spårat ärende saknas.", "prov": [], "driftkontroll": null,
-      "begransningar": [], "paverkar": {"brief": "redigeringsbehovet", "design": null, "kod": null, "externt": null}, "manniska": ["sidan Så ändrar du på sajten"]
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Ändring i kundrepot → export → förhandsvisning → release med ägarens klick som mandat, prövade med injicerad uppladdning (prov_kundrepo) och Workern i workerd (prov_workers). Återställningen (wrangler rollback) är dokumenterad men inte prövad, och kundens begäran som ett spårat ärende saknas.", "prov": ["kontroller/rokprov/revision/prov_kundrepo.py", "kontroller/rokprov/revision/prov_workers.py"], "driftkontroll": null,
+      "begransningar": ["Kunden ändrar inte själv: varje ändring går genom Nortropic och en ny release."], "paverkar": {"brief": "redigeringsbehovet", "design": null, "kod": null, "externt": null}, "manniska": ["sidan Så ändrar du på sajten"]
     },
     {
       "id": "k08-cms-utreds", "version": "1.0.0", "omrade": "K08", "niva": "utreds", "grund": false,
@@ -398,14 +398,27 @@
       "begransningar": [], "paverkar": {"brief": null, "design": "anmälan", "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
-      "id": "k15-paminnelser-utreds", "version": "1.0.0", "omrade": "K15", "niva": "utreds", "grund": false,
+      "id": "k15-bokningstjanstens-paminnelser", "version": "1.0.0", "omrade": "K15", "niva": "forvaltning", "grund": false,
+      "funktion": "Påminnelser och bekräftelser från bokningstjänsten själv (Cal.com eller verksamhetens befintliga tjänst), inställda i kundens konto; ombokning och avbokning uppdaterar dem där.",
+      "passar": "Bokningar genom k09-bokningslank.", "passar_inte": "Påminnelser om annat än bokningar, eller SMS utanför tjänsten (utreds).",
+      "kunduppgifter": ["bokningstjänsten", "när påminnelsen ska gå"], "bevara": ["befintliga påminnelser i tjänsten"],
+      "kallor": [{"url": "https://cal.com/pricing", "last": "2026-09-28"}],
+      "formagor": ["paminnelse"], "kraver": ["bokning"], "utesluter": [],
+      "konto": {"agare": "kund", "typ": "bokningstjänstens konto", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Inget genom webbplatsen.", "lagring": "Bokningstjänsten.",
+      "kostnad": {"modell": "beror på tjänst och plan", "belopp": null, "valuta": null, "kalla": null, "datum": null},
+      "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Ingen kod här: påminnelserna ställs in i tjänsten; en testbokning i kundens konto visar dem.", "prov": [], "driftkontroll": null,
+      "begransningar": ["Ingen egen sändning: dubbla eller sena påminnelser hanteras av tjänsten."], "paverkar": {"brief": "påminnelsebehovet", "design": null, "kod": null, "externt": "bokningstjänsten"}, "manniska": ["påminnelserna ställs in och provas med en testbokning i kundens konto"]
+    },
+    {
+      "id": "k15-paminnelser-utreds", "version": "1.1.0", "omrade": "K15", "niva": "utreds", "grund": false,
       "funktion": "Påminnelser och meddelanden kopplade till en händelse, utan dubbla eller försenade utskick.",
       "passar": "Bokningar eller händelser som behöver påminnelse.", "passar_inte": "Annars.", "kunduppgifter": ["händelser", "kanal"], "bevara": [],
       "kallor": [], "formagor": ["paminnelse"], "kraver": ["bokning"], "utesluter": [],
       "konto": {"agare": "kund", "typ": "väljs (e-post först)", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Mottagare och tider.", "lagring": "Tjänsten.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej kvalificerad; bokningstjänstens egna påminnelser prövas först.", "prov": [], "driftkontroll": null,
+      "fardighet": "dokumenterat", "fardighet_omfattning": "Ej kvalificerad; bokningstjänstens egna påminnelser först (k15-bokningstjanstens-paminnelser). Egna påminnelser från Workern kräver schemalagd körning, som väntar på ägarens beslut om Cron Triggers (5 per konto på gratisnivån).", "prov": [], "driftkontroll": null,
       "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "tjänsten"}, "manniska": []
     },
     {
