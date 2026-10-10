@@ -41,6 +41,8 @@ tmp = stada_vid_slut(Path(tempfile.mkdtemp(prefix='nwp-rev-')).resolve())
 os.environ['NWP_STARTKONTROLL'] = 'av'
 # arbetarna i proven anmäler sig i ett eget körregister, aldrig i maskinens (/tmp/nwp-korningar)
 os.environ['NWP_KORREGISTER'] = str(tmp / 'korregister')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import referensfixtur  # noqa: E402  referenskontraktets fixtur
 import korregister as korregister_  # noqa: E402  (efter registrets miljö)
 korregister_.registrera_tmp(tmp, 'prov_revision')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 os.environ['NWP_KANDIDATFLODE'] = 'av'  # de äldre ateljéproven kör utforskningen med tre riktningar; kandidatflödet har eget avsnitt
@@ -4312,9 +4314,10 @@ try:
         rader_ = [json.dumps({'type': 'attachment', 'attachment': {'type': 'deferred_tools_delta',
                    'pendingMcpServers': [], 'needsAuthMcpServers': [], 'failedMcpServers': [],
                    'addedNames': ['mcp__refero__refero_search_styles', 'mcp__mobbin__search_screens', 'mcp__21st__search']}})]
-        for i_, (namn_, in_, fel_) in enumerate(steg):
+        for i_, steg_ in enumerate(steg):
+            namn_, in_, fel_ = steg_[:3]  # ett fjärde element är svarets text (webbsökningens adresser i referenskontraktets fixtur)
             rader_.append(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 'u%d' % i_, 'name': namn_, 'input': in_}]}}))
-            innehall_ = [{'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/png', 'data': 'iVBORw0KGgo='}}] if namn_.startswith('mcp__') and not fel_ else ('fel' if fel_ else 'ok')
+            innehall_ = steg_[3] if len(steg_) > 3 else [{'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/png', 'data': 'iVBORw0KGgo='}}] if namn_.startswith('mcp__') and not fel_ else ('fel' if fel_ else 'ok')
             rader_.append(json.dumps({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 'u%d' % i_, 'content': innehall_, 'is_error': fel_}]}}))
         (bk_pt.PROJEKT / 'kd').mkdir(parents=True, exist_ok=True)
         (bk_pt.PROJEKT / 'kd' / (sid_ + '.jsonl')).write_text('\n'.join(rader_) + '\n')
@@ -4347,15 +4350,16 @@ try:
         sess_kd.append({'prompt': prompt, 'verktyg': verktyg, 'ut': Path(ut).name, 'schema': schema, 'modell': modell, 'nekas': list(nekas)})
         so, sid_kd = None, None
         if schema is kd.FORSKA_SCHEMA:
-            so = {'varfor': 'bredd före planen', 'riktningar': 'tio skilda grunder',
+            so = {'varfor': 'bredd före planen', 'riktningar': 'tio skilda grunder', 'urvalsfragor': referensfixtur.URVALSFRAGOR, 'tackning': referensfixtur.TACKNING,
                   'antaganden': [{'antagande': 'besökaren bedömer tidigare jobb före kontakt', 'underlag': 'ännu inte observerat', 'provning': 'uppgift: hitta ett jobb som liknar ditt', 'om_fel': 'kontakten först'}],
                   'sajter': [{'namn': 'ny', 'adress': 'https://exempel.se/', 'roll': 'hantverk', 'varfor': 'x', 'sidor': ['/']},
                              {'namn': 'trasig', 'adress': 'http://inte-https.se', 'roll': 'ux', 'varfor': 'x', 'sidor': ['/']}],
                   'fragor': [{'tjanst': 'refero', 'fraga': 'warm editorial craft builder', 'syfte': 'stilen', 'typ': 'stil'}] * 4
                   + [{'tjanst': 'mobbin', 'fraga': 'Provfirman Snickeri carpentry homepage', 'syfte': 'x', 'typ': 'skarm'}]}
-        elif schema is kd.PLAN_SCHEMA:
-            so = {'variation': 'tre grunder', 'kandidater': [dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/kd-prov/referenser/paket-v01/x/vy.png'])
-                                                            for i_ in range(3)]}
+        elif schema is kd.PLAN_SCHEMA:  # referenskontraktet: genomgångarna och kedjan per kandidat ur fixturens sajter i paket-v02
+            so = dict(referensfixtur.planfalt(sl_kd, 'paket-v02'), variation='tre grunder', kandidater=[
+                dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/kd-prov/referenser/paket-v01/x/vy.png'],
+                     referensbidrag=referensfixtur.bidrag(sl_kd, 'paket-v02')) for i_ in range(3)])
         elif schema is kd.KRITIK_A_SCHEMA:
             kid_ = re.search(r'kandidater/(k\d\d)/bilder', prompt).group(1)
             forb_ = 'förbättrad' in (kd.ksajt(sl_kd, kid_) / 'src' / 'pages' / 'index.astro').read_text()
@@ -4405,7 +4409,7 @@ try:
             sid_kd = transkript_kd(las_ + [('Write', {'file_path': kd.rel(pages_ / 'index.astro')}, False)])
         if sid_kd is None:
             pass_ = 'forska' if schema is kd.FORSKA_SCHEMA else 'planera' if schema is kd.PLAN_SCHEMA else 'kritik_b' if schema is kd.KRITIK_B_SCHEMA else 'jamforelse' if schema is kd.JAMFOR_SCHEMA else next((p for p, n in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n in prompt), 'planera')
-            steg_ = kompetens_kd(pass_)
+            steg_ = kompetens_kd(pass_) + (referensfixtur.webbsteg() if pass_ == 'forska' else [])
             if schema is kd.PASS_SCHEMA:
                 steg_.append(('Bash', {'command': '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat %s' % (sl_kd, kid_)}, False))
             sid_kd = transkript_kd(steg_)
@@ -4420,6 +4424,7 @@ try:
         Path(fil).unlink()
         (u_kd / 'referenser' / 'paket-v02').mkdir()
         (u_kd / 'referenser' / 'paket-v02' / 'PAKET.json').write_text(json.dumps({'kandidater': [{'namn': 'ny'}, {'namn': 'x', 'arv': 'paket-v01'}]}))
+        referensfixtur.komplettera_paket(kd_u, sl_kd, 'paket-v02', arv='paket-v01')  # fångade, återanvända sajter som uppfyller kontraktet
         return {'tid': 't', 'referens': {'rc': 0}, 'tjanster': {'rc': 0}}
     sk.komplettera = kompl_kd
 
@@ -4437,7 +4442,7 @@ try:
 
     def plan_ett_(prompt, verktyg, ut, schema=None, *a, **kw):
         sch_kd.append(schema)
-        return {'session_id': transkript_kd(kompetens_kd('planera')), 'structured_output': {'variation': 'v', 'kandidater': [dict({f_: '%s 1' % f_ for f_, _r in kd.PLANFALT}, huvudreferens='egen — provets riktning', referensbilder=[])]}}
+        return {'session_id': transkript_kd(kompetens_kd('planera')), 'structured_output': {**referensfixtur.planfalt('kd-en', 'paket-v02'), 'variation': 'v', 'kandidater': [dict({f_: '%s 1' % f_ for f_, _r in kd.PLANFALT}, huvudreferens='egen — provets riktning', referensbidrag=referensfixtur.bidrag('kd-en', 'paket-v02'), referensbilder=[])]}}
     spara_sess_kd = at_pt.session
     shutil.copytree(u_kd, kd_u / 'kd-en', ignore=shutil.ignore_patterns('atelje'))  # kundens underlag, utan körningen
     at_pt.session = plan_ett_
@@ -4978,6 +4983,7 @@ try:
         (u_sk / f_).write_text(t_)
     (u_sk / 'referenser' / 'paket-v01' / 'x').mkdir(parents=True)
     (u_sk / 'referenser' / 'paket-v01' / 'x' / 'vy.png').write_bytes(b'png')
+    referensfixtur.komplettera_paket(sk_u, sl_sk, 'paket-v01')  # det befintliga paketet uppfyller referenskontraktet
     (u_sk / 'referenser' / 'paket-v01' / 'PAKET.md').write_text('# Paket\n\n## Xref\n')
     (u_sk / 'referenser' / 'tjanster').mkdir(); (u_sk / 'referenser' / 'tjanster' / 'TJANSTER.md').write_text('# tjänsterna')
     (u_sk / sk.DOMLOGG).write_text('\n'.join(json.dumps(d_) for d_ in (
@@ -5050,10 +5056,12 @@ try:
             vid_start(999999990)
         if schema in (kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED):
             so = {'varfor': 'befintligt material räcker', 'riktningar': 'fem grunder', 'sajter': [], 'fragor': [],
+                  'urvalsfragor': referensfixtur.URVALSFRAGOR, 'tackning': referensfixtur.TACKNING,
                   'antaganden': [{'antagande': 'besökaren vill se jobb', 'underlag': 'ännu inte observerat', 'provning': 'uppgift', 'om_fel': 'kontakt först'}]}
         elif schema is kd.PLAN_SCHEMA:
-            so = {'variation': 'fem grunder', 'kandidater': [dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/sk-prov/referenser/paket-v01/x/vy.png'])
-                                                            for i_ in range(5)]}
+            so = dict(referensfixtur.planfalt(sl_sk), variation='fem grunder', kandidater=[
+                dict({f_: '%s %d' % (f_, i_) for f_, _r in kd.PLANFALT}, referensbilder=['underlag/sk-prov/referenser/paket-v01/x/vy.png'],
+                     referensbidrag=referensfixtur.bidrag(sl_sk)) for i_ in range(5)])
         elif schema is kd.PLANPROVNING_SCHEMA:  # specialisterna prövar planen och ändrar ett fält; k02 och k03 får en återgång (2E) i båda rundorna
             pp_sk_n[0] += 1
             so = {'sammanfattning': 'typografin i k01 skärptes', 'kandidater': [
@@ -5072,7 +5080,7 @@ try:
             n_ = schema['properties']['kandidater']['minItems']
             assert n_ == schema['properties']['kandidater']['maxItems'] and n_ == (2 if omp_sk_n[0] == 1 else 1) and 'k02' in prompt, (omp_sk_n, n_)
             ny_ = lambda kid_, hyp_, ref_: dict({f_: '%s omplanerad' % f_ for f_, _r in kd.PLANFALT}, titel='%s omplanerad' % kid_, hypotes=hyp_, huvudreferens='Xref',
-                                                referensbilder=[ref_])
+                                                referensbilder=[ref_], referensbidrag=referensfixtur.bidrag(sl_sk))
             if omp_sk_n[0] == 1:  # R01: k02:s nya uppdrag saknar referensunderlag (avvisas), k03:s håller
                 so = {'variation': 'omplanerad', 'kandidater': [ny_('k02', 'FEL HYPOTES utan referens', 'underlag/sk-prov/referenser/finns-inte.png'),
                                                                 ny_('k03', 'NY HYPOTES k03', 'underlag/sk-prov/referenser/paket-v01/x/vy.png')]}
@@ -5121,7 +5129,8 @@ try:
                 with las_sk:
                     samtidiga_sk[0] -= 1
         if sid_sk is None:
-            sid_sk = transkript_kd(kompetens_kd('forska' if schema in (kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED) else 'planera'))
+            forska_ = schema in (kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED)
+            sid_sk = transkript_kd(kompetens_kd('forska' if forska_ else 'planera') + (referensfixtur.webbsteg() if forska_ else []))
         svar_ = {'structured_output': so, 'num_turns': 5, 'duration_ms': 60000, 'total_cost_usd': 0.5, 'session_id': sid_sk}
         Path(ut).write_text(json.dumps(svar_))
         return svar_
