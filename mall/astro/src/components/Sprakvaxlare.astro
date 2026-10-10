@@ -1,0 +1,23 @@
+---
+// Språkväxlare (katalogens k18-flersprak): länkar till samma sida på de andra språken, med språkets eget namn och lang,
+// så att en skärmläsare uttalar namnet rätt. Samma lista som sidans <Bas alternativ>; den aktuella versionen är markerad
+// med aria-current. Inget skript, ingen omdirigering efter webbläsarens språk och ingen flagga (ett språk är inte ett land).
+//   <Sprakvaxlare aktuellt="sv" alternativ={[{ sprak: 'sv', namn: 'Svenska', href: '/' }, { sprak: 'en', namn: 'English', href: '/en/' }]} />
+interface Props { aktuellt: string; alternativ: { sprak: string; namn: string; href: string }[]; etikett?: string }
+const { aktuellt, alternativ, etikett = 'Språk' } = Astro.props;
+if (alternativ.length < 2 || !alternativ.some((a) => a.sprak === aktuellt)) throw new Error('Språkväxlare: minst två språk, varav sidans eget');
+---
+<nav class="sprakvaxlare" aria-label={etikett}>
+  <ul>
+    {alternativ.map((a) => (
+      <li><a href={a.href} lang={a.sprak} hreflang={a.sprak} aria-current={a.sprak === aktuellt ? 'page' : undefined}>{a.namn}</a></li>
+    ))}
+  </ul>
+</nav>
+
+<style>
+  /* Neutral grund som bygget skriver över; länkarna har minst 24 px klickyta (byggstandarden 3.3). */
+  .sprakvaxlare ul { display: flex; gap: 1rem; list-style: none; margin: 0; padding: 0; }
+  .sprakvaxlare a { display: inline-block; min-height: 24px; padding-block: 0.25rem; }
+  .sprakvaxlare a[aria-current='page'] { font-weight: 700; }
+</style>

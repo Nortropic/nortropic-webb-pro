@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.10",
+  "version": "2026-10-10.11",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -493,14 +493,20 @@
       "fardighet": "dokumenterat", "fardighet_omfattning": "Varje namngivet branschsystem kvalificeras för sig; ett ospecificerat system går till komplettering hos kunden, aldrig till generell åtkomst.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "systemet"}, "manniska": []
     },
     {
-      "id": "k18-flersprak-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,
-      "funktion": "Webbplatsen på fler språk, med översatt innehåll som verksamheten godkänt.",
-      "passar": "Verksamheter med besökare som inte läser svenska.", "passar_inte": "Annars.", "kunduppgifter": ["språk", "vem som godkänner översättningen"], "bevara": [],
-      "kallor": [], "formagor": ["flersprak"], "kraver": [], "utesluter": [],
-      "konto": {"agare": "ingen", "typ": "ingen", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Innehåll.", "lagring": "Kundrepot.",
-      "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
+      "id": "k18-flersprak", "version": "1.0.0", "omrade": "K18", "niva": "inbyggd", "grund": false,
+      "funktion": "Webbplatsen på fler språk: varje sida på varje språk med sidans lang, hreflang mellan versionerna och x-default, og:locale och skiplänken på sidans språk, och en språkväxlare utan skript; innehållet översätts och godkänns av verksamheten.",
+      "passar": "Verksamheter med besökare som inte läser svenska.", "passar_inte": "Maskinöversättning utan granskning; automatisk omdirigering efter webbläsarens språk.",
+      "kunduppgifter": ["språk", "vem som godkänner översättningen"], "bevara": [],
+      "kallor": [{"url": "https://developers.google.com/search/docs/specialty/international/localized-versions", "last": "2026-10-10"}],
+      "formagor": ["flersprak"], "kraver": [], "utesluter": [],
+      "konto": {"agare": "ingen", "typ": "ingen", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Inget nytt.", "lagring": "Kundrepot.",
+      "kostnad": {"modell": "ingen tjänst", "belopp": 0, "valuta": "SEK", "kalla": "https://developers.google.com/search/docs/specialty/international/localized-versions", "datum": "2026-10-10"},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Inte byggt, men byggbart utan konto: Astros inbyggda språkrouting, hreflang i mallens Bas och en språkväxlare; översättningarna är kundens innehåll.", "prov": [], "driftkontroll": null, "begransningar": [], "paverkar": {"brief": "språk", "design": "språkval", "kod": "sidstruktur", "externt": null}, "manniska": []
+      "komponent": "mall/astro/src/components/Sprakvaxlare.astro",
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Mallens Bas (sprak, alternativ) och Sprakvaxlare byggda med mallens Astro: lang, hreflang och x-default som absoluta adresser, og:locale och skiplänk på sidans språk, båda versionerna i sitemap.xml, en sida utan språkval oförändrad, inga alternate-länkar på noindex-sidor; inte prövad i en kunds bygge och utan översatt innehåll.",
+      "prov": ["kontroller/rokprov/revision/prov_flersprak.py"], "driftkontroll": "kontroller/seo_kontroll.py --lage lansering",
+      "begransningar": ["Översättningen är verksamhetens innehåll och godkänns av den.", "Formulärets och Workerns svarssidor är på svenska."],
+      "paverkar": {"brief": "språken", "design": "språkväxlaren i sidhuvudet", "kod": "Bas.astro, Sprakvaxlare.astro, sidorna per språk", "externt": null}, "manniska": ["översättningen godkänns av verksamheten"]
     },
     {
       "id": "k18-sok-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,

@@ -9,25 +9,38 @@ interface Props {
   tema: string; // theme-color, verksamhetens bärande färg
   delningsbild?: string;
   noindex?: boolean; // 404-sidan: noindex och ingen canonical (byggstandarden 7.2)
+  // Flerspråkighet (katalogens k18-flersprak): sidans språk och dess versioner på andra språk, med sidan själv. Utan dem
+  // är sidan svensk och har inga alternate-länkar. Standardspråket (det första i listan) blir x-default.
+  sprak?: string;
+  alternativ?: { sprak: string; href: string }[];
 }
 import '../styles/design.css';  // CSS-variablerna ur DESIGN.md (kontroller/design.py --skriv); tom tills designen är skriven
-const { titel, beskrivning, tema, delningsbild = '/delningsbild.png', noindex = false } = Astro.props;
+const { titel, beskrivning, tema, delningsbild = '/delningsbild.png', noindex = false, sprak = 'sv', alternativ = [] } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const bild = new URL(delningsbild, Astro.site).href;
+const SPRAK = /^[a-z]{2}(-[A-Z]{2})?$/;  // ISO 639-1, ev. region enligt ISO 3166-1 (Googles krav på hreflang)
+if (!SPRAK.test(sprak) || alternativ.some((a) => !SPRAK.test(a.sprak))) throw new Error(`Bas: ogiltig språkkod (${sprak})`);
+if (alternativ.length && !alternativ.some((a) => a.sprak === sprak)) throw new Error('Bas: alternativen ska innehålla sidans eget språk');
+const LOKAL: Record<string, string> = { sv: 'sv_SE', en: 'en_GB', fi: 'fi_FI', nb: 'nb_NO', da: 'da_DK', de: 'de_DE' };
+const SKIPLANK: Record<string, string> = { sv: 'Hoppa till innehållet', en: 'Skip to content', fi: 'Siirry sisältöön', nb: 'Gå til innholdet', da: 'Gå til indholdet', de: 'Zum Inhalt springen' };
+const grund = sprak.split('-')[0];
+const versioner = noindex ? [] : alternativ.map((a) => ({ sprak: a.sprak, href: new URL(a.href, Astro.site).href }));
 ---
 <!doctype html>
-<html lang="sv">
+<html lang={sprak}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{titel}</title>
     <meta name="description" content={beskrivning} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    {versioner.map((v) => <link rel="alternate" hreflang={v.sprak} href={v.href} />)}
+    {versioner.length > 0 && <link rel="alternate" hreflang="x-default" href={versioner[0].href} />}
     <meta name="theme-color" content={tema} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />
-    <meta property="og:locale" content="sv_SE" />
+    {LOKAL[grund] && <meta property="og:locale" content={LOKAL[grund]} />}
     <meta property="og:url" content={canonical} />
     <meta property="og:title" content={titel} />
     <meta property="og:description" content={beskrivning} />
@@ -37,7 +50,7 @@ const bild = new URL(delningsbild, Astro.site).href;
     <slot name="head" />
   </head>
   <body>
-    <a class="skiplank" href="#innehall">Hoppa till innehållet</a>
+    <a class="skiplank" href="#innehall">{SKIPLANK[grund] || SKIPLANK.sv}</a>
     <slot />
   </body>
 </html>
