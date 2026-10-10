@@ -238,8 +238,14 @@ införandet (karenstiden i `kunskap/beroenden.md`). Rust installeras med rustup 
 ## Inte gjort eller inte prövat (2026-10-10)
 
 Täckningsmatrisen U01–U40, D01–D28 och J01–J12 med bevisnivå per prov står i den privata rapporten
-`underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md`. Byggt sedan: partnerns strömmande svar, Genomför i
-utkastet ur partnerns överlämning, och markering och direktredigering av text i den levande förhandsvisningen
-(`kunskap/arbetsyta.md`). I korthet inte gjort: direktredigering av annat än en entydig text (bilder, länkar, attribut,
-text som byggs av ett uttryck), Developer ID och notarisering, en publik uppdateringskanal, VoiceOver-prov och ett
-mänskligt användbarhetsprov med ägaren. Upplåsningen med Touch ID eller lösenord kan bara en människa pröva.
+`underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md`. Version 0.2.0 har partnerns strömmande svar, den
+väntande instruktionen, Genomför i utkastet, markering och direktredigering i den levande förhandsvisningen, utkast som
+överlever en krasch och lås efter vila; de är prövade i den riktiga appen (`desktop/prov/prov_mac.py`,
+`prov_redigering_app.py`, `prov_intervju_ai.py`). Inte gjort eller inte prövat:
+- direktredigering av annat än en entydig text (bilder, länkar, attribut, text ur ett uttryck): de blir uppdrag;
+- ett genomgående kandidatresultat med riktig modell (J02 i sin helhet; intervjuns AI-tur och partnern är prövade med
+  riktig modell);
+- riktig sömn och OS-utloggning (vilan prövas med SIGSTOP), nätbortfall under en modelltur och en extra skärm;
+- VoiceOver, filväljarens dialog och dra och släpp ur Finder (kräver en människa eller tillgänglighetsbehörighet);
+- Developer ID och notarisering, en publik uppdateringskanal och ett mänskligt användbarhetsprov med ägaren.
+Upplåsningen med Touch ID eller lösenord kan bara en människa pröva.
