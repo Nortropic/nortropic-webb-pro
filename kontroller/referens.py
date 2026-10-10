@@ -12,7 +12,8 @@ MAX_VALJARE väljare, var och en fotograferad för sig) och bredder: vyerna tas 
 riktigt värdnamn (aldrig IP-adresser, lokala namn, användaruppgifter eller sökväg; Codex R32/R33); sidorna är
 rotrelativa vägar som löses mot ursprunget; http → https och www-/bartvillingen hör till kandidaten. Varje kandidat inspekteras med
 kontroller/webblasare/inspektera.mjs i två pass: först med bara sajtens eget ursprung (resursdomänerna som sajten
-behöver syns då som blockerade), sedan med dessa resursdomäner tillåtna (bara för den inspektionen; spårare och lokala
+behöver syns då som blockerade; passet upprepas högst PASS1_VARV gånger med de upptäckta tillåtna, så att resurser i
+flera led syns, som typsnittsfiler bakom en CSS hos ett annat ursprung), sedan med dessa resursdomäner tillåtna (bara för den inspektionen; spårare och lokala
 adresser aldrig), så att bilder och typsnitt är laddade i fångsten. Nätet går genom hjälparens proxy: varje värd slås
 upp och måste vara publik, omdirigeringar prövas hopp för hopp, bara läsande anrop, ingen skrivning, en färsk
 webbläsarprofil per vy. Paketet underlag/<slug>/referenser/paket-vNN/ (skrivmålet förankras före första skrivningen,
@@ -64,6 +65,7 @@ SPARARE = ('google-analytics.com', 'googletagmanager.com', 'doubleclick.net', 'f
            'clarity.ms', 'segment.io', 'segment.com', 'mixpanel.com', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com',
            'snapchat.com', 'pinterest.com', 'bing.com', 'yandex.ru', 'adsrvr.org', 'criteo.com', 'taboola.com', 'outbrain.com')
 MAX_KANDIDATER, MAX_SIDOR, MAX_RESURSVARDAR = 12, 6, 15
+PASS1_VARV = 3  # första passets varv: resursursprung i flera led (CSS som hämtar typsnitt från ett annat ursprung)
 BREDDER_STANDARD = ('390', '1440')  # alltid; 768 och 1280 när uppdraget beställer dem (valbara ur BREDDER)
 assert set(BREDDER_STANDARD) <= set(BREDDER), 'standardvyerna måste finnas bland prototypens bredder'
 MAX_VALJARE = 6  # hover- och fokusväljare per kandidat
@@ -599,15 +601,26 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         forsta = sidadress(k['adress'], k['sidor'][0])
         pass1 = katalog / '.pass1'
         post['anmarkningar'] = []
+        resurser = []
         try:
-            rc1, rapport1, _ = kor_inspektera(forsta, pass1, egna, {}, miljo_for(varden))
-            resurser = [o for o in blockerade_ursprung(rapport1, lokala_portar) if o not in egna]
+            # resurser i flera led (kandidatprovet 2026-10-10: typsnittens CSS hos fonts.googleapis.com hämtar filerna från
+            # fonts.gstatic.com, som första passet aldrig såg): passet upprepas med de upptäckta ursprungen tillåtna tills
+            # inget nytt syns, högst PASS1_VARV gånger och inom MAX_RESURSVARDAR
+            for _varv in range(PASS1_VARV):
+                rc1, rapport1, _ = kor_inspektera(forsta, pass1, egna + resurser, {},
+                                                  miljo_for(varden | {urllib.parse.urlsplit(o).hostname for o in resurser}))
+                shutil.rmtree(pass1, ignore_errors=True)
+                upptackta = [o for o in blockerade_ursprung(rapport1, lokala_portar) if o not in egna and o not in resurser]
+                resurser = (resurser + upptackta)[:MAX_RESURSVARDAR]
+                if not upptackta or len(resurser) >= MAX_RESURSVARDAR:
+                    break
         except Exception as e:
             # kontraktet (Codex R35/R36): ett fel i första passet fäller inte kandidaten i sig; lyckas andra passet fullständigt
             # (inga egna resurser blockerade eller misslyckade) är det en återhämtning, och felet står som anmärkning. Saknas
             # resursursprung som sajten behövde syns det i andra passet som blockerade egna resurser, och då fälls sidan där.
-            resurser = []
-            post['anmarkningar'].append('första passet (resursursprung) föll: %s; andra passet kördes med bara sajtens egna ursprung' % str(e)[:300])
+            # De ursprung som tidigare varv hann upptäcka behålls.
+            post['anmarkningar'].append('första passet (resursursprung) föll: %s; andra passet kördes med %s' % (
+                str(e)[:300], 'de ursprung som hann upptäckas' if resurser else 'bara sajtens egna ursprung'))
         shutil.rmtree(pass1, ignore_errors=True)
         tillat = egna + resurser
         varden |= {urllib.parse.urlsplit(o).hostname for o in resurser}

@@ -428,6 +428,32 @@ class Fangsten(Grund):
         self.assertTrue(d['alla_ok'])
         self.assertEqual(len(d['kandidater']), 5)
 
+    def test_resurser_i_flera_led_upptacks(self):
+        """Typsnittens CSS hos ett ursprung hämtar filerna från ett annat (Blue Hour i kandidatprovet): första passet
+        upprepas tills inget nytt syns, och andra passet tillåter båda."""
+        css, filer = 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'
+        andra = []
+
+        def kor(adress, ut, tillat, tillstand, miljo, extrahera=None, bredder=rf.BREDDER_STANDARD):
+            blockerade = [] if css in tillat and filer in tillat else [{'typ': 'font', 'url': filer + '/s/a.woff2'}] if css in tillat else \
+                [{'typ': 'stylesheet', 'url': css + '/css2?family=A'}]
+            if not str(ut).endswith('.pass1'):
+                andra.append(list(tillat))
+                Path(ut).mkdir(parents=True, exist_ok=True)
+                for b in bredder:
+                    (Path(ut) / ('vy-%s-forsta.png' % b)).write_bytes(PNG)
+            return 0, {'vyer': {'390': {'natverk': {'blockerade': blockerade}}}}, ''
+
+        def obs(rapport, ut, bestallda=(), bredder=rf.BREDDER_STANDARD):
+            return {'ok': True, 'vyer': {b: {'bildfiler': {'vy-%s-forsta.png' % b: True}} for b in bredder}, 'kvar_blockerade': [],
+                    'fel_resurser': [], 'begransningar': []}
+        u = {'fragor': [], 'kandidater': [self.uppdrag()['kandidater'][0]]}
+        with patch.multiple(rf, kor_inspektera=kor, observationer=obs):
+            rf.samla(SLUG, u, self.u)
+        d = json.loads((skapande.senaste_paket(SLUG, self.u) / 'PAKET.json').read_text())
+        self.assertEqual(d['kandidater'][0]['resursursprung'], [css, filer])
+        self.assertTrue(andra and all(css in t and filer in t for t in andra), andra)
+
     def test_kompletteringen_arver_inte_ett_paket_utan_pakettext_och_tidsgransen_redovisas(self):
         self.bygg_paket()  # paket-v01 läsbart
         (self.u / SLUG / 'referenser' / 'paket-v02' / 'bransch-9').mkdir(parents=True)  # dödat före första färdiga sajt

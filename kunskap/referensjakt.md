@@ -85,7 +85,7 @@ ofullständigt. Fångsten har en tidsgräns (i skissläget 1 800 s; en sajt med 
 `referens.py` varvar rollerna i fångstordningen och skriver PAKET.json efter varje färdig sajt, märkt `"pagar": true`
 tills allt är fångat: når fångsten gränsen bär paketet de sajter som hann fångas helt, kontraktet räknar dem, och
 omförsöket ärver dem och begär bara det som saknas (kandidatprovet 2026-10-10: åtta sajter nådde gränsen, och utan
-löpande PAKET.json såg kontraktet noll sajter och omförsöket kunde inte ärva).
+löpande PAKET.json såg kontraktet noll sajter och omförsöket kunde inte ärva). En sida räknas som fångad först när dess egna resurser laddats; fångstens första pass upprepas därför tills inga nya resursursprung syns (högst tre varv), så att typsnittsfiler bakom en CSS hos ett annat ursprung tillåts. En CDN som vägrar en webbläsare utan inloggning (403) fäller sidan, och det står i paketet.
 
 **Fullständighet mot uppgiften.** Varje sajt och bidrag deklarerar sin uppgift (innehåll, förtroende, navigation,
 kontakt, komposition, typografi, bildregi, rytm, mobil, interaktion eller rörelse), och fångsten bedöms mot den
