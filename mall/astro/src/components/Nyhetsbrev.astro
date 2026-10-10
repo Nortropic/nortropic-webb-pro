@@ -1,0 +1,38 @@
+---
+// Nyhetsbrev (integrationskatalogen k14-brevo-dubbel; kunskap/integrationer.md, Nyhetsbrev): anmälan med e-postadress
+// och ett uttryckligt kryss, skickad till Workerns /api/nyhetsbrev/. Brevo skickar ett bekräftelsemejl, och kontakten
+// läggs i listan först när besökaren klickar på länken i det (dubbel bekräftelse). Inget skript och ingenting hämtas från
+// Brevo; formuläret fungerar utan JavaScript. Svaret är sidan /nyhetsbrev/skickad/, och Brevo skickar tillbaka till
+// /nyhetsbrev/bekraftad/ (exporten lägger in båda när sajten använder komponenten).
+//   <Nyhetsbrev text="Ett mejl i månaden om säsongens arbeten." />
+// Nyhetsbrevet är ett eget ändamål, skilt från förfrågan: samma formulär får aldrig anmäla någon som inte kryssat i.
+interface Props { rubrik?: string; text?: string; knapp?: string }
+const { rubrik = 'Nyhetsbrev', text, knapp = 'Anmäl mig' } = Astro.props;
+---
+<section class="nyhetsbrev" aria-labelledby="nyhetsbrev-rubrik">
+  <h2 id="nyhetsbrev-rubrik">{rubrik}</h2>
+  {text && <p>{text}</p>}
+  <form action="/api/nyhetsbrev/" method="post">
+    <label for="nyhetsbrev-epost">E-postadress</label>
+    <input id="nyhetsbrev-epost" name="epost" type="email" autocomplete="email" required maxlength="254" />
+    <label class="nyhetsbrev-samtycke" for="nyhetsbrev-samtycke">
+      <input id="nyhetsbrev-samtycke" name="samtycke" type="checkbox" value="ja" required />
+      Jag vill få nyhetsbrevet och kan avregistrera mig när som helst.
+    </label>
+    <div class="nyhetsbrev-falla" aria-hidden="true">
+      <label for="nyhetsbrev-webbplats">Lämna tomt</label>
+      <input id="nyhetsbrev-webbplats" name="webbplats" tabindex="-1" autocomplete="off" />
+    </div>
+    <p class="nyhetsbrev-info">Du får ett mejl med en länk som bekräftar anmälan. <a href="/integritet/">Så hanteras dina uppgifter</a>.</p>
+    <button type="submit">{knapp}</button>
+  </form>
+</section>
+
+<style>
+  /* Neutral grund som bygget skriver över; kontrollerna har minst 24 px klickyta (byggstandarden 3.3). */
+  .nyhetsbrev label { display: block; margin-top: 1rem; }
+  .nyhetsbrev-samtycke { display: flex; gap: 0.5rem; align-items: flex-start; }
+  .nyhetsbrev-samtycke input { min-width: 24px; min-height: 24px; margin: 0; }
+  .nyhetsbrev button { min-height: 44px; margin-top: 1rem; }
+  .nyhetsbrev-falla { display: none; }
+</style>

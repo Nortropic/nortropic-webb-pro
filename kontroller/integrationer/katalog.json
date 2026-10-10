@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.5",
+  "version": "2026-10-10.6",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -334,9 +334,28 @@
       "begransningar": ["Inga bokförda fakturor i prov."], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "ekonomisystemet"}, "manniska": []
     },
     {
-      "id": "k14-nyhetsbrev-utreds", "version": "1.0.0", "omrade": "K14", "niva": "utreds", "grund": false,
-      "funktion": "Anmälan till nyhetsbrev med dokumenterat samtycke, avregistrering och spärr mot återanmälan.",
-      "passar": "Verksamheter som skickar nyhetsbrev.", "passar_inte": "Annars.", "kunduppgifter": ["befintlig tjänst", "listor"], "bevara": ["befintlig lista"],
+      "id": "k14-brevo-dubbel", "version": "1.0.0", "omrade": "K14", "niva": "api", "grund": false,
+      "funktion": "Anmälan till nyhetsbrevet från webbplatsen med dubbel bekräftelse i verksamhetens Brevo-konto; Workern sparar inget.",
+      "passar": "Verksamheter som börjar med nyhetsbrev eller redan har Brevo.", "passar_inte": "En annan befintlig nyhetsbrevstjänst (utreds); utskick till köpta eller importerade listor.",
+      "kunduppgifter": ["Brevo-konto", "listans id", "bekräftelsemallens id", "avsändaren i Brevo"], "bevara": ["befintlig lista och dess samtycken"],
+      "kallor": [{"url": "https://developers.brevo.com/reference/createdoicontact", "last": "2026-10-10"}],
+      "formagor": ["nyhetsbrev"], "kraver": ["k02-cloudflare-workers"], "utesluter": [],
+      "konto": {"agare": "kund", "typ": "kundens Brevo-konto; API-nyckeln som hemligheten BREVO_API_NYCKEL i produktionens Worker", "plan": null, "region": "EU enligt sökresultatet om Brevos hjälpsida (2026-10-10); sidan själv nekade läsning"},
+      "rattigheter": {"tillampa": "API-nyckel som får skapa kontakter; bara i produktionens Worker, aldrig i förhandsvisningen"},
+      "dataflode": "E-postadressen till Brevo vid anmälan; Brevo skickar bekräftelsemejlet och lagrar kontakten och samtycket. Workern sparar inget.", "lagring": "Brevo.",
+      "kostnad": {"modell": "Brevos plan (inte läst i katalogen)", "belopp": null, "valuta": null, "kalla": null, "datum": null},
+      "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
+      "komponent": "mall/astro/src/components/Nyhetsbrev.astro",
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Workerns anrop mot en märkt attrapp av Brevos API (dubbel bekräftelse med lista, mall, återkomstadress och utan spårning; fel, frist och nätfel synliga utan leverantörens text; inget anrop utan samtycke, utanför produktionen eller när kunden inte valt nyhetsbrevet) och komponenten och svarssidorna byggda med mallens Astro. Inget anrop mot Brevo är gjort.",
+      "prov": ["kontroller/rokprov/revision/prov_nyhetsbrev.py"], "driftkontroll": null,
+      "begransningar": ["Två inskick kan ge två bekräftelsemejl; kontakten hamnar i listan en gång.", "Formuläret kan användas för att skicka bekräftelsemejl till andras adresser: hastighetsbegränsning på /api/nyhetsbrev/ som för förfrågan, och Turnstile vid behov.", "Brevos svar för en redan anmäld adress är inte dokumenterat; sidan säger samma sak i båda fallen."],
+      "paverkar": {"brief": "nyhetsbrevet och dess ändamål", "design": "anmälan och de två svarssidorna", "kod": "Nyhetsbrev.astro, worker/index.js, wrangler.jsonc", "externt": "Brevo-listan och bekräftelsemallen"},
+      "manniska": ["listan och bekräftelsemallen skapas i kundens Brevo-konto", "nyckeln läggs med wrangler secret put BREVO_API_NYCKEL", "listans och mallens id skrivs i underlag/<slug>/CLOUDFLARE.json", "integritetstexten nämner Brevo"]
+    },
+    {
+      "id": "k14-nyhetsbrev-utreds", "version": "1.1.0", "omrade": "K14", "niva": "utreds", "grund": false,
+      "funktion": "Anmälan till verksamhetens befintliga nyhetsbrevstjänst (till exempel Mailchimp) med dokumenterat samtycke, avregistrering och spärr mot återanmälan.",
+      "passar": "Verksamheter som redan har en annan nyhetsbrevstjänst än Brevo.", "passar_inte": "Ny start (k14-brevo-dubbel).", "kunduppgifter": ["befintlig tjänst", "listor"], "bevara": ["befintlig lista"],
       "kallor": [], "formagor": ["nyhetsbrev"], "kraver": [], "utesluter": [],
       "konto": {"agare": "kund", "typ": "väljs", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "E-postadresser till tjänsten.", "lagring": "Tjänsten.",
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},

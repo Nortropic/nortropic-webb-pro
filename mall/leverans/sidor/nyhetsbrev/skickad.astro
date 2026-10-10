@@ -1,0 +1,14 @@
+---
+// Svaret efter en anmälan till nyhetsbrevet (Workerns /api/nyhetsbrev/, katalogens k14-brevo-dubbel): 303 hit, aldrig
+// en sida på POST-adressen. Noindex. Säger att anmälan inte är klar förrän länken i bekräftelsemejlet är klickad, och
+// säger aldrig om adressen redan fanns i listan. Skriv om med sajtens sidhuvud, sidfot och verksamhetens ord.
+import Bas from '../../layouts/Bas.astro';
+---
+<Bas titel="Bekräfta din anmälan" beskrivning="Anmälan till nyhetsbrevet." noindex>
+  <main id="innehall">
+    <h1>Bekräfta din anmälan</h1>
+    <p>Vi har skickat ett mejl till adressen du angav. Klicka på länken i mejlet för att bekräfta anmälan. Utan bekräftelsen får du inga nyhetsbrev.</p>
+    <p>Hittar du inget mejl inom några minuter: titta i skräpposten.</p>
+    <p><a href="/">Till startsidan</a></p>
+  </main>
+</Bas>

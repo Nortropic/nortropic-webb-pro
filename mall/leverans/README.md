@@ -48,6 +48,16 @@ Samma inskick två gånger blir ett ärende: formuläret bär ett inskicks-id, o
 igen inom tio till tjugo minuter. Mejltjänsten har ingen idempotensnyckel, så ett mejl skickas aldrig om automatiskt.
 Integritetstexten nämner Cloudflare som mottagare av förfrågan.
 
+### Nyhetsbrevet (när det är valt)
+
+`/api/nyhetsbrev/` skickar en anmälan med dubbel bekräftelse till verksamhetens Brevo-konto och sparar ingenting själv.
+Det kräver tre saker:
+- hemligheten `BREVO_API_NYCKEL`, som läggs med `npx wrangler secret put BREVO_API_NYCKEL`;
+- listans och bekräftelsemallens id i `vars`, `NYHETSBREV_LISTA` och `NYHETSBREV_MALL`;
+- sidorna `/nyhetsbrev/skickad/` och `/nyhetsbrev/bekraftad/`.
+
+Utan valet finns vägen inte, och förhandsvisningen anropar aldrig Brevo.
+
 ### Följ upp mottagna ärenden
 
 Varje förfrågan står i D1-tabellen `forfragningar`, och dess avisering i `utkorg`:

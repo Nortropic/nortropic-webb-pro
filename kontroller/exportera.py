@@ -109,6 +109,30 @@ def publika_brister(dist):
     return sorted(str(p.relative_to(dist)) for p in Path(dist).rglob('*') if p.is_file() and INTE_PUBLIKT.search(p.relative_to(dist).as_posix()))
 
 
+def funktionssidor(mal):
+    """Workerns 303-mål i exporten: felsidan och mottagen-sidan i varje export (formuläret, D1), och nyhetsbrevets två
+    svarssidor när sajten importerar Nyhetsbrev (K14). En sida sajten redan har skrivs aldrig över. Ger de tillagda."""
+    tillagda = []
+    sidor = [(MALL / 'src' / 'pages' / s, s) for s in ('fel.astro', 'mottagen.astro')]
+    if anvander_komponent(mal / 'src', 'Nyhetsbrev'):  # bara i exporten: ny_sajt kopierar hela mall/astro till varje sajt
+        sidor += [(LEVERANS / 'sidor' / s, s) for s in ('nyhetsbrev/skickad.astro', 'nyhetsbrev/bekraftad.astro')]
+    for kalla, sida in sidor:
+        if not (mal / 'src' / 'pages' / sida).is_file():
+            (mal / 'src' / 'pages' / sida).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(kalla, mal / 'src' / 'pages' / sida)
+            tillagda.append(sida)
+    return tillagda
+
+
+def anvander_komponent(src, namn):
+    """Om någon av sajtens .astro-filer importerar mallens komponent namn (namn.astro)."""
+    if not src.is_dir():
+        return False
+    monster = re.compile(r'import\s+\w+\s+from\s+[\'"][^\'"]*/%s\.astro[\'"]' % re.escape(namn))
+    return any(monster.search(f.read_text(encoding='utf-8', errors='replace')) for f in src.rglob('*.astro')
+               if f.is_file() and not f.is_symlink() and f.name != namn + '.astro')
+
+
 def wrangler_namn(text, slug, drift=None):
     """wrangler.jsonc med kundens namn i stället för SLUG och, när driftvärdena finns, kundens D1-id och mejladresser;
     allt annat (kompatibilitetsdatum, bindningar) som i mallen. drift: underlag/<slug>/CLOUDFLARE.json, se driftvarden()."""
@@ -116,7 +140,8 @@ def wrangler_namn(text, slug, drift=None):
         raise RuntimeError('mallens wrangler.jsonc saknar platshållaren kund-SLUG')
     text = text.replace('kund-SLUG', 'kund-%s' % slug)
     for nyckel, monster in (('database_id', r'("database_id":\s*")AKTIVERAS-VID-LANSERING(")'),
-                            ('forfragan_till', r'("FORFRAGAN_TILL":\s*")(")'), ('forfragan_fran', r'("FORFRAGAN_FRAN":\s*")(")')):
+                            ('forfragan_till', r'("FORFRAGAN_TILL":\s*")(")'), ('forfragan_fran', r'("FORFRAGAN_FRAN":\s*")(")'),
+                            ('nyhetsbrev_lista', r'("NYHETSBREV_LISTA":\s*")(")'), ('nyhetsbrev_mall', r'("NYHETSBREV_MALL":\s*")(")')):
         if drift and drift.get(nyckel):
             text, n = re.subn(monster, lambda m, v=drift[nyckel]: m.group(1) + v + m.group(2), text, count=1)
             if n != 1:
@@ -144,7 +169,7 @@ def driftvarden(slug):
     if not f.is_file() or f.is_symlink():
         return None
     d = json.loads(f.read_text(encoding='utf-8'))
-    if not isinstance(d, dict) or set(d) - {'database_id', 'forfragan_till', 'forfragan_fran'}:
+    if not isinstance(d, dict) or set(d) - {'database_id', 'forfragan_till', 'forfragan_fran', 'nyhetsbrev_lista', 'nyhetsbrev_mall'}:
         raise ValueError('CLOUDFLARE.json har okända fält')
     if d.get('database_id') and not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', d['database_id']):
         raise ValueError('database_id ska vara D1-databasens id')
@@ -152,6 +177,11 @@ def driftvarden(slug):
         raise ValueError('forfragan_till ska vara en eller flera e-postadresser')
     if d.get('forfragan_fran') and not EPOST.fullmatch(d['forfragan_fran']):
         raise ValueError('forfragan_fran ska vara en e-postadress')
+    for n in ('nyhetsbrev_lista', 'nyhetsbrev_mall'):  # Brevos id för listan och bekräftelsemallen (K14)
+        if d.get(n) is not None and not re.fullmatch(r'[1-9][0-9]{0,9}', str(d[n])):
+            raise ValueError('%s ska vara Brevos numeriska id' % n)
+        if d.get(n) is not None:
+            d[n] = str(d[n])
     return d
 
 
@@ -243,9 +273,7 @@ def skapa_export(slug, kandidat, mal, git, bygg, export_id=None):
     for k in KATALOGER:
         if (sajt / k).is_dir() and not (sajt / k).is_symlink():
             kopiera(sajt / k, mal / k)
-    for sida in ('fel.astro', 'mottagen.astro'):  # funktionens 303-mål (fel, och sparad men ej aviserad; D1) finns i varje export
-        if not (mal / 'src' / 'pages' / sida).is_file():
-            shutil.copyfile(MALL / 'src' / 'pages' / sida, mal / 'src' / 'pages' / sida)
+    funktionssidor(mal)
     # Cloudflare Worker: formulärets mottagning, D1-schemat, konfigurationen och de statiska filernas huvuden; sajten
     # förblir förrenderad (ingen adapter i astro.config.mjs)
     kopiera(LEVERANS / 'worker', mal / 'worker')

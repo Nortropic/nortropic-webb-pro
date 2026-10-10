@@ -1,0 +1,13 @@
+---
+// Sidan Brevo skickar besökaren till efter klicket i bekräftelsemejlet (redirectionUrl i Workerns anrop, katalogens
+// k14-brevo-dubbel). Noindex. Varje nyhetsbrev har en avregistreringslänk från Brevo. Skriv om med sajtens sidhuvud,
+// sidfot och verksamhetens ord.
+import Bas from '../../layouts/Bas.astro';
+---
+<Bas titel="Anmälan är bekräftad" beskrivning="Anmälan till nyhetsbrevet är bekräftad." noindex>
+  <main id="innehall">
+    <h1>Anmälan är bekräftad</h1>
+    <p>Tack. Du får nyhetsbrevet från och med nästa utskick, och varje utskick har en länk för att avregistrera dig.</p>
+    <p><a href="/">Till startsidan</a></p>
+  </main>
+</Bas>

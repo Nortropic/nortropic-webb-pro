@@ -22,7 +22,11 @@
     "MILJO": "produktion",
     "FORFRAGAN_TILL": "",
     "FORFRAGAN_FRAN": "",
-    "GALLRING_DAGAR": "365"
+    "GALLRING_DAGAR": "365",
+    // Nyhetsbrevet (K14, bara när kunden valt det): Brevo-listans och bekräftelsemallens id; nyckeln är hemligheten
+    // BREVO_API_NYCKEL (wrangler secret put). Tomma värden betyder att vägen /api/nyhetsbrev/ inte finns.
+    "NYHETSBREV_LISTA": "",
+    "NYHETSBREV_MALL": ""
   },
   // database_id och bucket skapas vid aktiveringen med EU-jurisdiktion (wrangler d1 create --jurisdiction eu,
   // wrangler r2 bucket create --jurisdiction eu); jurisdiktionen kan inte ändras efteråt och R2-bindningen ska bära den.

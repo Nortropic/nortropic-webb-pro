@@ -42,6 +42,37 @@ Payment Link i verksamhetens konto. Priset ligger hos Stripe, och sidan sätter 
 bara med `testlage`, och då visar sidan att ingen verklig betalning görs (samma prov som bokningen).
 Åtkomst begärs på säker väg (åtkomstfil 0600 utanför repot), aldrig i intervjusvar.
 
+## Nyhetsbrev
+
+Nyhetsbrevet är ett eget ändamål, skilt från förfrågan och från sajtens transaktionsmejl (K04). Standardvägen är
+katalogens k14-brevo-dubbel: anmälan med dubbel bekräftelse i verksamhetens eget Brevo-konto
+([API:t](https://developers.brevo.com/reference/createdoicontact), läst 2026-10-10). Komponenten `Nyhetsbrev.astro`
+har e-postadressen, ett uttryckligt kryss som aldrig är förifyllt och en skräpfälla. Den skickar till Workerns
+`/api/nyhetsbrev/`.
+
+Workern sparar ingenting. Brevo skickar bekräftelsemejlet ur kundens mall och lägger kontakten i listan först efter
+klicket. Workern ber om att öppningar och klick inte spåras, och avregistreringen sköts av Brevo.
+
+Vägen finns i produktionen bara när kunden har valt nyhetsbrevet:
+- Hemligheten `BREVO_API_NYCKEL` läggs med `wrangler secret put` i produktionens Worker.
+- `NYHETSBREV_LISTA` och `NYHETSBREV_MALL` är Brevos id. Exporten skriver in dem ur `underlag/<slug>/CLOUDFLARE.json`
+  (`nyhetsbrev_lista`, `nyhetsbrev_mall`).
+- Utan något av dem svarar vägen 404 som en okänd väg.
+- Ett halvt konfigurerat val ger ett synligt 503, aldrig ett tyst tack.
+
+Förhandsvisningen anropar aldrig Brevo. Exporten lägger in svarssidorna `/nyhetsbrev/skickad/` och
+`/nyhetsbrev/bekraftad/` (noindex, utanför sitemap.xml) när sajten importerar komponenten. Prövat i
+`kontroller/rokprov/revision/prov_nyhetsbrev.py`, mot en märkt attrapp av Brevo, inte mot Brevo.
+
+Gränser:
+- Två inskick kan ge två bekräftelsemejl.
+- Formuläret kan användas för att skicka bekräftelsemejl till andras adresser. Därför sätts samma
+  hastighetsbegränsning som för förfrågan, och Turnstile vid behov.
+
+Avveckling: töm `NYHETSBREV_LISTA` och `NYHETSBREV_MALL`, ta bort hemligheten (`wrangler secret delete
+BREVO_API_NYCKEL`) och ta bort komponenten. Listan och samtyckena stannar i kundens Brevo-konto, och kunden avgör vad
+som händer med dem.
+
 ## Redaktörsupplevelse
 
 Kunden eller Digitala ska kunna hålla innehållet aktuellt utan Git eller terminal: en redigeringsväg efter vana och

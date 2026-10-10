@@ -13,6 +13,9 @@
 // - varje lagringssteg har en frist: utan bekräftelse inom den svarar Workern i stället för att vänta;
 // - samma inskick två gånger (formulärets inskicks-id, annars innehållet inom tio minuter) blir ett ärende, inte två;
 // - utanför produktionen (MILJO annat än produktion) sparas och skickas ingenting.
+//
+// Nyhetsbrevet (POST /api/nyhetsbrev/, katalogens k14-brevo-dubbel) när kunden har valt det: anmälan med dubbel
+// bekräftelse hos Brevo; se nyhetsbrev() nedan.
 // Svar som Workern skapar får sina säkerhetshuvuden här; _headers gäller bara de statiska filerna.
 
 const MAX_BYTE = 4_400_000;
@@ -31,20 +34,20 @@ const SAKERHET = {
 };
 const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' })[c]);
 
-function svar(mal, utfall) {
-  return new Response(null, { status: 303, headers: { ...SAKERHET, Location: mal, 'X-Forfragan': utfall } });
+function svar(mal, utfall, huvud = 'X-Forfragan') {
+  return new Response(null, { status: 303, headers: { ...SAKERHET, Location: mal, [huvud]: utfall } });
 }
 
 function enkel(status, text, extra = {}) {
   return new Response(text, { status, headers: { ...SAKERHET, 'Content-Type': 'text/plain; charset=utf-8', ...extra } });
 }
 
-function sida(rubrik, innehall, status, utfall) {
+function sida(rubrik, innehall, status, utfall, huvud = 'X-Forfragan') {
   const html = `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${esc(rubrik)}</title><style>
   *{box-sizing:border-box}body{margin:0;background:#fafaf8;color:#242424;font:1rem/1.6 system-ui,sans-serif}main{max-width:42rem;margin:3rem auto;padding:0 1.25rem 3rem}h1{font-size:clamp(1.8rem,6vw,2.4rem);line-height:1.2}a{color:#163c78}label{display:block;font-weight:650;margin-top:1.5rem}input,textarea,button{font:inherit;max-width:100%}input,textarea{display:block;width:100%;border:1px solid #555;border-radius:.2rem;padding:.65rem;background:#fff;color:#242424}textarea{min-height:10rem;resize:vertical}button{padding:.7rem 1.3rem;background:#163c78;color:#fff;border:0;border-radius:.2rem;min-height:44px;margin-top:1.5rem;cursor:pointer}a:focus-visible,input:focus-visible,textarea:focus-visible,button:focus-visible{outline:3px solid #1c5ab3;outline-offset:3px}.fel{color:#a01818}.sammanfattning{border-left:4px solid #a01818;padding:1rem;background:#fff}.hjalp{font-size:.95rem}p,li{overflow-wrap:anywhere}.falla{display:none}input[type=file]{overflow-wrap:anywhere}
   </style></head><body><main><h1>${esc(rubrik)}</h1>${innehall}</main></body></html>`;
   return new Response(html, { status, headers: {
-    ...SAKERHET, 'Content-Type': 'text/html; charset=utf-8', 'X-Forfragan': utfall, 'X-Robots-Tag': 'noindex, nofollow',
+    ...SAKERHET, 'Content-Type': 'text/html; charset=utf-8', [huvud]: utfall, 'X-Robots-Tag': 'noindex, nofollow',
     'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   } });
 }
@@ -99,9 +102,9 @@ const NEKADE = new Set(['E_VALIDATION_ERROR', 'E_FIELD_MISSING', 'E_TOO_MANY_REC
   'E_RATE_LIMIT_EXCEEDED', 'E_DAILY_LIMIT_EXCEEDED', 'E_HEADER_NOT_ALLOWED', 'E_HEADER_USE_API_FIELD', 'E_HEADER_VALUE_INVALID',
   'E_HEADER_VALUE_TOO_LONG', 'E_HEADER_NAME_INVALID', 'E_HEADERS_TOO_LARGE', 'E_HEADERS_TOO_MANY']);
 
-async function lasForm(request) {
+async function lasForm(request, max = MAX_BYTE) {
   // Mät också strömmen; frånvarande eller felaktig Content-Length får inte kringgå taket.
-  if (Number(request.headers.get('content-length') || 0) > MAX_BYTE) return { forStor: true };
+  if (Number(request.headers.get('content-length') || 0) > max) return { forStor: true };
   const reader = request.body?.getReader();
   if (!reader) throw new Error('Ingen kropp');
   const delar = []; let storlek = 0;
@@ -109,7 +112,7 @@ async function lasForm(request) {
     while (true) {
       const { done, value } = await reader.read(); if (done) break;
       storlek += value.byteLength;
-      if (storlek > MAX_BYTE) { await reader.cancel(); return { forStor: true }; }
+      if (storlek > max) { await reader.cancel(); return { forStor: true }; }
       delar.push(value);
     }
   } finally { reader.releaseLock(); }
@@ -213,13 +216,15 @@ async function utkorg(env, id, status, falt = {}) {
     .bind(status, falt.forsok || 0, falt.mejl_id || null, falt.fel || null, nu, id).run(), FRIST_LAGRING, 'utkorgen');
 }
 
-async function forfragan(request, env) {
-  const url = new URL(request.url);
-  // Webbläsarens Sec-Fetch-Site först (sätts oberoende av referrer-policyn); utan den ett Origin som inte är webbplatsens.
+// Webbläsarens Sec-Fetch-Site först (sätts oberoende av referrer-policyn); utan den ett Origin som inte är webbplatsens.
+function frammande(request) {
   const site = request.headers.get('sec-fetch-site');
   const origin = request.headers.get('origin');
-  const frammande = site ? !['same-origin', 'none'].includes(site) : Boolean(origin && origin !== url.origin);
-  if (frammande) return enkel(403, 'Förfrågan kom från en annan webbplats och togs inte emot.');
+  return site ? !['same-origin', 'none'].includes(site) : Boolean(origin && origin !== new URL(request.url).origin);
+}
+
+async function forfragan(request, env) {
+  if (frammande(request)) return enkel(403, 'Förfrågan kom från en annan webbplats och togs inte emot.');
   let result;
   try { result = await lasForm(request); }
   catch {
@@ -277,9 +282,78 @@ async function forfragan(request, env) {
   }
 }
 
+// Nyhetsbrevet (katalogens k14-brevo-dubbel; kunskap/integrationer.md, Nyhetsbrev): anmälan med dubbel bekräftelse
+// hos Brevo (POST /v3/contacts/doubleOptinConfirmation). Workern sparar ingenting och skickar inget själv: Brevo
+// skickar bekräftelsemejlet ur kundens mall och lägger kontakten i listan först när besökaren klickar på länken i det;
+// avregistrering och spärr sköts i Brevo. Vägen finns i produktionen bara när kunden har valt nyhetsbrevet (någon av
+// NYHETSBREV_LISTA, NYHETSBREV_MALL eller hemligheten BREVO_API_NYCKEL är satt; annars 404 som en okänd väg), och utanför
+// produktionen anropas Brevo aldrig. Svaret säger aldrig om adressen redan fanns i listan.
+const BREVO_DOI = 'https://api.brevo.com/v3/contacts/doubleOptinConfirmation';
+const FRIST_NYHETSBREV = 8000;
+const MAX_NYHETSBREV = 16384;
+const EPOST = /^[^\s@<>()",;:\\[\]]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
+const ID = /^[1-9][0-9]{0,9}$/;
+const nyhetsbrevValt = (env) => Boolean(env.BREVO_API_NYCKEL || env.NYHETSBREV_LISTA || env.NYHETSBREV_MALL);
+const nyhetsbrevAktivt = (env) => Boolean(env.BREVO_API_NYCKEL && ID.test(String(env.NYHETSBREV_LISTA || '')) && ID.test(String(env.NYHETSBREV_MALL || '')));
+const ANMALAN_OBEKRAFTAD = 'Vi kunde inte bekräfta anmälan just nu. Försök igen senare.';
+const nyhetsbrevSvar = (utfall) => svar('/nyhetsbrev/skickad/', utfall, 'X-Nyhetsbrev');
+
+function nyhetsbrevvy(epost, fel, status, utfall, besked) {
+  const rad = (k) => fel[k] ? `<p class="fel" id="${k}-fel">${esc(fel[k])}</p>` : '';
+  const attrs = (k) => fel[k] ? ` aria-invalid="true" aria-describedby="${k}-fel"` : '';
+  const lista = Object.entries(fel).map(([k, v]) => `<li><a href="#${k}">${esc(v)}</a></li>`).join('');
+  return sida('Anmälan till nyhetsbrevet', `<div class="sammanfattning"><p>${esc(besked)}</p>${lista ? `<ul>${lista}</ul>` : ''}</div>
+  <form action="/api/nyhetsbrev/" method="post">
+  <label for="epost">E-postadress</label><input id="epost" name="epost" type="email" autocomplete="email" required maxlength="254" value="${esc(epost)}"${attrs('epost')}>${rad('epost')}
+  <label for="samtycke"><input id="samtycke" name="samtycke" type="checkbox" value="ja" required${attrs('samtycke')}> Jag vill få nyhetsbrevet och kan avregistrera mig när som helst.</label>${rad('samtycke')}
+  <div class="falla" aria-hidden="true"><label for="webbplats">Lämna tomt</label><input id="webbplats" name="webbplats" tabindex="-1" autocomplete="off"></div>
+  <p>Du får ett mejl med en länk som bekräftar anmälan. <a href="/integritet/">Så hanteras dina uppgifter</a>.</p>
+  <button type="submit">Anmäl mig</button></form>`, status, utfall, 'X-Nyhetsbrev');
+}
+
+async function nyhetsbrev(request, env) {
+  if (frammande(request)) return enkel(403, 'Anmälan kom från en annan webbplats och togs inte emot.');
+  let result;
+  try { result = await lasForm(request, MAX_NYHETSBREV); }
+  catch { return nyhetsbrevvy('', {}, 400, 'ofullstandig', 'Vi kunde inte läsa formuläret. Försök igen.'); }
+  if (result.forStor) return nyhetsbrevvy('', {}, 413, 'for-stor', 'Formuläret var för stort och kunde inte läsas. Försök igen.');
+  const form = result.form;
+  const t = (k) => typeof form.get(k) === 'string' ? form.get(k) : '';
+  if (t('webbplats').trim()) return nyhetsbrevSvar('honeypot');
+  const epost = t('epost').trim();
+  const fel = {};
+  if (epost.length > 254 || !EPOST.test(epost)) fel.epost = 'Skriv en giltig e-postadress.';
+  if (t('samtycke') !== 'ja') fel.samtycke = 'Kryssa i rutan om du vill få nyhetsbrevet.';
+  if (Object.keys(fel).length) return nyhetsbrevvy(epost, fel, 422, 'ofullstandig', 'Ingen anmälan har skickats. Rätta det markerade.');
+  // Utanför produktionen anropas Brevo aldrig, också om en nyckel skulle finnas.
+  if (env.MILJO !== 'produktion') return nyhetsbrevSvar('demo');
+  if (!nyhetsbrevAktivt(env)) {  // valt men inte färdigkonfigurerat: ett synligt fel, aldrig ett tyst tack
+    console.error('nyhetsbrev: nyckeln, listans eller mallens id saknas eller är ogiltigt');
+    return nyhetsbrevvy(epost, {}, 503, 'inte-aktiverat', ANMALAN_OBEKRAFTAD);
+  }
+  const kropp = { email: epost, includeListIds: [Number(env.NYHETSBREV_LISTA)], templateId: Number(env.NYHETSBREV_MALL),
+                  redirectionUrl: new URL('/nyhetsbrev/bekraftad/', request.url).href, contactPixelTrackingConsent: false };
+  let r;
+  try {
+    r = await frist(fetch(BREVO_DOI, { method: 'POST', body: JSON.stringify(kropp),
+      headers: { 'api-key': env.BREVO_API_NYCKEL, 'content-type': 'application/json', accept: 'application/json' } }), FRIST_NYHETSBREV, 'nyhetsbrevet');
+  } catch (e) {
+    console.error('nyhetsbrev: Brevo bekräftade inte anmälan: ' + orsak(e));
+    return nyhetsbrevvy(epost, {}, 503, 'fel', ANMALAN_OBEKRAFTAD);
+  }
+  try { await r.body?.cancel(); } catch { /* svaret läses aldrig: leverantörens text loggas inte */ }
+  if (r.status === 201 || r.status === 204) return nyhetsbrevSvar('skickad');
+  console.error('nyhetsbrev: Brevo tog inte emot anmälan (HTTP ' + r.status + ')');
+  return nyhetsbrevvy(epost, {}, 503, 'fel', ANMALAN_OBEKRAFTAD);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/api/nyhetsbrev/' && (env.MILJO !== 'produktion' || nyhetsbrevValt(env))) {
+      if (request.method !== 'POST') return enkel(405, 'Endast POST.', { Allow: 'POST' });
+      return nyhetsbrev(request, env);
+    }
     if (url.pathname === '/api/forfragan/') {
       if (request.method !== 'POST') return enkel(405, 'Endast POST.', { Allow: 'POST' });
       return forfragan(request, env);
