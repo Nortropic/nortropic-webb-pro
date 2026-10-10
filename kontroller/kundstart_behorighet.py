@@ -5,7 +5,7 @@ import time
 import kundstart as ks
 
 ROLLER=('lasare','medverkande','beslutsfattare')
-BESLUT=('forfragan','acceptera','klarlagg_uppgift')
+BESLUT=('forfragan','acceptera','klarlagg_uppgift','nyckel')  # en nyckel lämnas bara av kundens beslutsfattare
 
 
 def roll(c,eid,token):

@@ -11,7 +11,7 @@ import kundstart_lagring as kl
 import kundstart_matt as km
 
 HANDLINGAR=('overlamna','aterstall_overlamning','erbjudande','deltagare','aterkalla_person','returfraga','bedom_retursvar',
-            'lagringsbeslut','gallra','sakerhetskopia','integrationsval','avmarkera_integration')
+            'lagringsbeslut','gallra','sakerhetskopia','integrationsval','avmarkera_integration','intyga_handling','nyckelintag')
 
 
 def lager(repo):return ks.Lager(Path(repo)/'underlag/kundstart')
@@ -63,7 +63,15 @@ def detalj(repo,eid):
     db=lager(repo);d=db.internt(ks.nyckel(eid))
     try:funktioner=ki.vy(d)  # katalogen och planen; läser bara
     except (OSError,ValueError,KeyError) as e:funktioner={'fel':'Integrationskatalogen kunde inte läsas: %s'%str(e)[:200]}
+    import handlingsko,nyckelintag,aktivera
+    try:ko=handlingsko.ko(d)  # "Detta behöver vi från kunden" ur planen; läser bara
+    except (OSError,ValueError,KeyError) as e:ko={'fel':'Handlingskön kunde inte räknas fram: %s'%str(e)[:200]}
+    try:intag=nyckelintag.status(d['slug'])  # bara att nycklarna finns, aldrig nycklarna
+    except (OSError,ValueError) as e:intag={'fel':'Nyckelintaget kunde inte läsas: %s'%type(e).__name__}
+    try:aktivering=aktivera.torr(d['slug'])  # torrkörningen: inga sidoeffekter, inget nät
+    except (OSError,ValueError,KeyError) as e:aktivering={'fel':'Torrkörningen föll: %s'%str(e)[:200]}
     return {'arende':d,'faser':faser(d,repo),'modellanrop':km.lista(db,eid),'funktioner':funktioner,
+            'handlingsko':ko,'nyckelintag':intag,'aktivering':aktivering,
             'retursvar':{k:{'svar_sha256':kf.svaridentitet(d,q),'klarlagd':kf.klarlagd(d,q)}
                         for k,q in d.get('returfragor',{}).items()},
             'drift':{'kundserver_aktiverad':None,'modell_aktiverad':None,
@@ -112,5 +120,12 @@ def handling(repo,eid,namn,data):
     if namn=='avmarkera_integration':
         ks.falt(data,('revision','val'),('revision','val'))
         return ki.avmarkera(db,eid,data['revision'],data['val'])
+    if namn=='intyga_handling':
+        import handlingsko
+        ks.falt(data,('revision','post','referens'),('revision','post','referens'))
+        return handlingsko.intyga(db,eid,data['revision'],{'post':data['post'],'referens':data['referens']})
+    if namn=='nyckelintag':
+        import handlingsko
+        return {'nyckelintag':handlingsko.lamna_nyckel(db,eid,data,'dashboard')}
     if namn=='gallra':
         ks.falt(data,('revision',),('revision',));return kl.gallra(db,eid,data['revision'])

@@ -238,7 +238,12 @@ class Lager:
         with self.trans() as c:
             self._behorig(c,eid,token)
             import kundstart_behorighet as kh
-            return self._vy(c,self._doc(c,eid))|{'din_roll':kh.roll(c,eid,token)}
+            d=self._doc(c,eid)
+            ut=self._vy(c,d)|{'din_roll':kh.roll(c,eid,token)}
+        import handlingsko
+        try:ut['handlingsko']=handlingsko.kundvy(handlingsko.ko(d))  # med kundens behörighet: status, inga ägarfunktioner
+        except (OSError,ValueError,KeyError):ut['handlingsko']={'fel':'Listan kunde inte läsas just nu.'}
+        return ut
 
     def internt(self, eid):
         """Ägar-/arbetaringång; exponeras aldrig i kundservern."""
@@ -378,6 +383,18 @@ class Lager:
             if not m or data['lage'] not in ('okand','kunden_uppger_ratt','saknar_ratt'):
                 raise Vagrad('Material eller rättighetsläge saknas.')
             m.update(rattighet=data['lage'],rattighetsgrund=text(data['grund'],2000))
+        elif handling == 'nyckel':
+            # nyckeln går direkt till nyckelintaget (privat, utanför repot); ärendet får bara händelsen, aldrig värdet
+            import nyckelintag
+            falt(data, ('leverantor','nyckel','falt'), ('leverantor',))
+            if data.get('falt') is not None and not isinstance(data['falt'], dict):
+                raise Vagrad('Uppgifterna ska vara ett objekt.')
+            try:
+                nyckelintag.lamna(d['slug'], data['leverantor'], data.get('nyckel') or None, data.get('falt') or {}, 'kund')
+            except nyckelintag.Fel as e:
+                raise Vagrad(str(e))
+            d.setdefault('nyckelhandelser', []).append({'leverantor': data['leverantor'], 'person': person, 'tid': time.time(),
+                                                        'nyckel': bool(data.get('nyckel')), 'falt': sorted(data.get('falt') or {})})
         else:
             raise Vagrad('Handlingen är inte tillåten i kundytan.')
 
