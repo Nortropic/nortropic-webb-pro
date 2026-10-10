@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.12",
+  "version": "2026-10-10.13",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -40,7 +40,7 @@
       "fardighet": "dokumenterat", "fardighet_omfattning": "Vägen och kontrollerna står i kunskap/lansering.md (Domänen, DNS); ingen kod ändrar DNS och ingen session gör det.",
       "prov": [], "driftkontroll": "kunskap/drift.md: certifikatets utgång, kanonisk värd", "begransningar": ["Custom Domain kräver aktiv zon på Cloudflare och inget befintligt CNAME på värdnamnet."],
       "paverkar": {"brief": "domän och kanonisk värd", "design": null, "kod": "site i astro.config.mjs, public/_redirects", "externt": "zon och Custom Domain"},
-      "manniska": ["zonimport och jämförelse mot sparade poster", "namnserverbyte hos registraren", "Custom Domain på produktionens Worker"]
+      "manniska": [{"handling": "Importera zonen till Cloudflare och jämför med de sparade posterna", "ansvarig": "nortropic", "skal": "e-post, verifieringar och andra tjänster på domänen ska följa med oförändrade", "under_vantan": "bygge, förhandsvisning och aktivering", "belagg": ["intyg"]}, {"handling": "Byt namnservrar hos registraren till Cloudflares", "ansvarig": "kund", "skal": "zonen blir aktiv först när registraren pekar på Cloudflare", "under_vantan": "allt utom domänen", "belagg": ["intyg"]}, {"handling": "Koppla kundens domän till produktionens Worker", "ansvarig": "nortropic", "skal": "besökarna når sajten först genom kundens egen adress", "under_vantan": "allt utom lanseringen", "belagg": ["trafik"]}]
     },
     {
       "id": "k01-dns-kvar-hos-kunden", "version": "1.0.0", "omrade": "K01", "niva": "utreds", "grund": false,
@@ -56,7 +56,7 @@
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
       "fardighet": "dokumenterat", "fardighet_omfattning": "Blockerat av plan och mandat: en Workers Custom Domain kräver kundens zon på Cloudflare; att kunden behåller sin DNS kräver partiell zon eller Cloudflare for SaaS, som båda är planfrågor (lansering.md). Standardvägen är k01-zon-pa-cloudflare.", "prov": [], "driftkontroll": null,
       "begransningar": ["Ett planbeslut, aldrig en uppgradering som bieffekt."], "paverkar": {"brief": "domänvägen", "design": null, "kod": null, "externt": "plan"},
-      "manniska": ["ägarens planbeslut"]
+      "manniska": [{"handling": "Besluta om planen för att kunden behåller sin DNS", "ansvarig": "agare", "skal": "partiell zon eller Cloudflare for SaaS är planfrågor", "under_vantan": "allt utom domänen", "belagg": ["intyg"]}]
     },
     {
       "id": "k02-cloudflare-workers", "version": "1.0.0", "omrade": "K02", "niva": "forvaltning", "grund": true,
@@ -75,7 +75,7 @@
       "prov": ["kontroller/rokprov/revision/prov_workers.py", "kontroller/rokprov/revision/prov_kundrepo.py", "kontroller/workersprov.py"],
       "driftkontroll": "kontroller/driftkoll.py", "begransningar": ["Fjärrprovet (M16) väntar på kontot.", "Tio D1-databaser per konto på gratisnivån."],
       "paverkar": {"brief": null, "design": null, "kod": "worker/, wrangler.jsonc, migrations/, public/_headers", "externt": "Workers, D1, R2, Access"},
-      "manniska": ["ansluta kontot (cloudflare.env)", "Access-applikationen för förhandsvisningen", "D1 och R2 med EU-jurisdiktion", "produktionens release"]
+      "manniska": [{"handling": "Anslut Nortropics Cloudflare-konto", "ansvarig": "agare", "skal": "förhandsvisning, aktivering och release går genom kontot", "under_vantan": "bygge och export", "belagg": ["konto"]}, {"handling": "Skydda förhandsvisningen med Cloudflare Access", "ansvarig": "agare", "skal": "verkligt material laddas aldrig upp till en öppen adress", "under_vantan": "bygge och export", "belagg": ["forhandsvisning"]}, {"handling": "Skapa kundens D1 och R2 med EU-jurisdiktion", "ansvarig": "nortropic", "skal": "formulärets ärenden och bilagor sparas där före varje avisering", "under_vantan": "bygge, export och förhandsvisning", "belagg": ["aktivering:d1", "aktivering:r2"]}, {"handling": "Släpp den förhandsvisade commiten till produktionen", "ansvarig": "agare", "skal": "en release är ditt beslut (klicket i Byggflöde)", "under_vantan": "inget av lanseringen", "belagg": ["release"]}]
     },
     {
       "id": "k02-vercel-befintlig", "version": "1.0.0", "omrade": "K02", "niva": "forvaltning", "grund": false,
@@ -107,7 +107,7 @@
       "prov": ["kontroller/rokprov/revision/prov_formularfel.py", "kontroller/rokprov/revision/prov_workers.py"],
       "driftkontroll": "kontroller/driftkoll.py --formular", "begransningar": ["Automatiskt nytt försök och gallring körs inte än (drift)."],
       "paverkar": {"brief": "mottagare och svarstid", "design": "formulärets plats och tacksidan", "kod": "Forfragan.astro, worker/index.js", "externt": "D1, R2"},
-      "manniska": ["riktigt inskick från verksamheten före lansering"]
+      "manniska": [{"handling": "Skicka en riktig förfrågan genom formuläret efter releasen", "ansvarig": "kund", "skal": "visar att ärendet sparas och aviseringen når verksamheten", "under_vantan": "allt utom lanseringen", "belagg": ["intyg"]}]
     },
     {
       "id": "k03-turnstile", "version": "1.0.0", "omrade": "K03", "niva": "inbyggd", "grund": false,
@@ -138,7 +138,7 @@
       "prov": ["kontroller/rokprov/revision/prov_formularfel.py", "kontroller/rokprov/revision/prov_workers.py"], "driftkontroll": "kunskap/lansering.md: mottagaren verifierad, Email Routing på routing-domänen",
       "begransningar": ["Avsändaren ligger på Nortropics routing-domän (notis.nortropic.se), inte på verksamhetens domän.", "Mottagaren verifieras i Nortropics konto; högst 200 verifierade adresser per konto, delade av alla kunder.", "Ingen idempotensnyckel: ett okänt utfall står som skickar i utkorgen och stäms av där.", "Mejl till godtyckliga mottagare (Email Sending) kräver Workers Paid och ingår inte.", "Meddelandet högst 25 MiB."],
       "paverkar": {"brief": "mottagare", "design": null, "kod": "worker/index.js, wrangler.jsonc (send_email)", "externt": "verifierad mottagare i Nortropics Cloudflare-konto"},
-      "manniska": ["mottagaren läggs till som verifierad adress i Nortropics konto (Email Routing)", "verksamheten klickar på Cloudflares verifieringslänk"]
+      "manniska": [{"handling": "Lägg till verksamhetens brevlåda som verifierad mottagare i Nortropics konto", "ansvarig": "nortropic", "skal": "Cloudflare skickar bara till verifierade mottagare", "under_vantan": "bygge, export och förhandsvisning", "belagg": ["intag:epost.mottagare", "intyg"]}, {"handling": "Klicka på Cloudflares verifieringslänk i brevlådan", "ansvarig": "kund", "skal": "mottagaren är verifierad först efter klicket", "under_vantan": "allt utom riktiga aviseringar", "belagg": ["intyg"]}]
     },
     {
       "id": "k04-resend-transaktion", "version": "1.1.0", "omrade": "K04", "niva": "api", "grund": false,
@@ -155,7 +155,7 @@
       "fardighet": "inaktuellt", "fardighet_omfattning": "Ersatt av k04-cloudflare-epost (ägarens beslut 2026-10-10); Workerns Resend-anrop är borttaget och paketet står kvar som historik.",
       "prov": [], "driftkontroll": "kunskap/lansering.md: SPF, DKIM, DMARC",
       "begransningar": ["Integritetstexten ska nämna överföringen till USA."], "paverkar": {"brief": "avsändare och mottagare", "design": null, "kod": "worker/index.js", "externt": "Resend-domän och DNS-poster"},
-      "manniska": ["domänverifiering hos Resend (DNS)", "biträdesavtalet accepterat"]
+      "manniska": [{"handling": "Verifiera avsändardomänen hos Resend", "ansvarig": "nortropic", "skal": "historik: ersatt av Cloudflares e-post", "under_vantan": "–", "belagg": ["intyg"]}, {"handling": "Acceptera Resends biträdesavtal", "ansvarig": "agare", "skal": "historik: ersatt av Cloudflares e-post", "under_vantan": "–", "belagg": ["intyg"]}]
     },
     {
       "id": "k04-befintlig-brevlada", "version": "1.0.0", "omrade": "K04", "niva": "forvaltning", "grund": false,
@@ -169,7 +169,7 @@
       "kostnad": {"modell": "kundens befintliga avtal", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
       "fardighet": "dokumenterat", "fardighet_omfattning": "Kontrollerna före och efter DNS-bytet står i lansering.md.", "prov": [], "driftkontroll": null,
-      "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": null}, "manniska": ["spara posterna före bytet"]
+      "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": null}, "manniska": [{"handling": "Spara domänens e-postposter före bytet", "ansvarig": "nortropic", "skal": "MX, SPF, DKIM och DMARC ska kunna återställas", "under_vantan": "allt utom domänbytet", "belagg": ["intyg"]}]
     },
     {
       "id": "k05-search-console", "version": "1.1.0", "omrade": "K05", "niva": "forvaltning", "grund": false,
@@ -185,7 +185,7 @@
       "komponent": "mall/astro/src/layouts/Bas.astro",
       "fardighet": "kontraktsprovat", "fardighet_omfattning": "Verifieringstaggen: exporten skriver värdet ur VERKSAMHET.json (webb.sokkonsol_verifiering) för en verklig verksamhet och mallens Bas renderar META-taggen, byggd med mallens Astro. Egenskapen, sitemapen och uppföljningen görs av en människa i Search Console (kunskap/sokkonsol.md); kontot är inte anslutet.",
       "prov": ["kontroller/rokprov/revision/prov_sokkonsol.py"], "driftkontroll": "kunskap/sokkonsol.md", "begransningar": ["Ingen API-koppling till kontot: den kräver OAuth, alltså en publik app och eget mandat."], "paverkar": {"brief": null, "design": null, "kod": "verifieringstaggen", "externt": "egenskapen"},
-      "manniska": ["värdet ur Search Consoles META-tagg skrivs i VERKSAMHET.json (webb.sokkonsol_verifiering)", "verifiera egenskapen och lämna sitemap efter lanseringen"]
+      "manniska": [{"handling": "Lämna värdet ur Search Consoles META-tagg", "ansvarig": "kund", "skal": "taggen verifierar verksamhetens egendom i Search Console", "under_vantan": "allt utom verifieringen", "belagg": ["verksamhet:webb.sokkonsol_verifiering"]}, {"handling": "Verifiera egenskapen och lämna sitemap efter lanseringen", "ansvarig": "kund", "skal": "Google indexerar sajten med verksamheten som ägare", "under_vantan": "allt; görs efter lanseringen", "belagg": ["intyg"]}]
     },
     {
       "id": "k06-hitta-hit", "version": "1.0.0", "omrade": "K06", "niva": "inbyggd", "grund": false,
@@ -213,7 +213,7 @@
       "kostnad": {"modell": "utan avgift", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
       "fardighet": "dokumenterat", "fardighet_omfattning": "Profilbladet i rapportens punkt 14 och kunskap/lokal-synlighet.md; ingen API-publicering.", "prov": [], "driftkontroll": null,
-      "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "profilen"}, "manniska": ["uppdatera profilen på lanseringsdagen"]
+      "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": "profilen"}, "manniska": [{"handling": "Uppdatera företagsprofilen på lanseringsdagen", "ansvarig": "kund", "skal": "samma uppgifter på profilen som på webbplatsen", "under_vantan": "allt; görs vid lanseringen", "belagg": ["intyg"]}]
     },
     {
       "id": "k07-konverteringar-d1", "version": "1.0.0", "omrade": "K07", "niva": "forvaltning", "grund": false,
@@ -247,7 +247,7 @@
       "fardighet": "dokumenterat", "fardighet_omfattning": "Läst i Cloudflares dokumentation 2026-10-10; inte påslaget för någon domän och utan kod här.",
       "prov": [], "driftkontroll": null,
       "begransningar": ["Omkring tio webbplatser per konto (mjuk gräns), delade av alla kunder.", "Inga egna händelser: konverteringarna räknas med k07-konverteringar-d1.", "Samtyckesfrågan prövas mot den aktuella vägledningen innan den slås på."],
-      "paverkar": {"brief": "vad som ska följas upp", "design": null, "kod": null, "externt": "Web Analytics i Cloudflare"}, "manniska": ["påslaget i Cloudflare för kundens domän, med ägarens ja"]
+      "paverkar": {"brief": "vad som ska följas upp", "design": null, "kod": null, "externt": "Web Analytics i Cloudflare"}, "manniska": [{"handling": "Slå på Web Analytics för kundens domän", "ansvarig": "agare", "skal": "ett skript läggs in på sidorna; samtyckesfrågan prövas först", "under_vantan": "allt", "belagg": ["intyg"]}]
     },
     {
       "id": "k07-matning-utreds", "version": "1.0.0", "omrade": "K07", "niva": "utreds", "grund": false,
@@ -261,7 +261,7 @@
       "kostnad": {"modell": "okänd", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
       "fardighet": "dokumenterat", "fardighet_omfattning": "Klickhändelser och kampanjkällor kräver ett verktyg med händelser och samtycke (GA4/GTM eller kvalificerat alternativ), valt per kund och prövat mot samtyckesfrågan (uppfoljning.md). Grundnivån är k07-konverteringar-d1.", "prov": [], "driftkontroll": null,
-      "begransningar": ["Inget verktyg installeras före bedömd samtyckesfråga."], "paverkar": {"brief": "mål", "design": null, "kod": "händelser", "externt": "verktyget"}, "manniska": ["val av verktyg"]
+      "begransningar": ["Inget verktyg installeras före bedömd samtyckesfråga."], "paverkar": {"brief": "mål", "design": null, "kod": "händelser", "externt": "verktyget"}, "manniska": [{"handling": "Välj mätverktyg", "ansvarig": "agare", "skal": "mätningen utreds per kund", "under_vantan": "allt", "belagg": ["intyg"]}]
     },
     {
       "id": "k08-nortropic-forvaltning", "version": "1.1.0", "omrade": "K08", "niva": "forvaltning", "grund": false,
@@ -275,7 +275,7 @@
       "kostnad": {"modell": "Nortropics förvaltningsavtal (okänt belopp i katalogen)", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": "kundrepo.preview_krav", "planera": "exportera.exportera", "tillampa": "kundrepo.preview", "aterlas": "kundrepo.preview_aktuell", "prova": "workersprov.prova", "avveckla": null},
       "fardighet": "kontraktsprovat", "fardighet_omfattning": "Ändring i kundrepot → export → förhandsvisning → release med ägarens klick som mandat, prövade med injicerad uppladdning (prov_kundrepo) och Workern i workerd (prov_workers). Återställningen (wrangler rollback) är dokumenterad men inte prövad, och kundens begäran som ett spårat ärende saknas.", "prov": ["kontroller/rokprov/revision/prov_kundrepo.py", "kontroller/rokprov/revision/prov_workers.py"], "driftkontroll": null,
-      "begransningar": ["Kunden ändrar inte själv: varje ändring går genom Nortropic och en ny release."], "paverkar": {"brief": "redigeringsbehovet", "design": null, "kod": null, "externt": null}, "manniska": ["sidan Så ändrar du på sajten"]
+      "begransningar": ["Kunden ändrar inte själv: varje ändring går genom Nortropic och en ny release."], "paverkar": {"brief": "redigeringsbehovet", "design": null, "kod": null, "externt": null}, "manniska": [{"handling": "Skriv sidan Så ändrar du på sajten", "ansvarig": "nortropic", "skal": "kunden vet hur en ändring beställs", "under_vantan": "allt", "belagg": ["intyg"]}]
     },
     {
       "id": "k08-cms-utreds", "version": "1.0.0", "omrade": "K08", "niva": "utreds", "grund": false,
@@ -301,7 +301,7 @@
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
       "komponent": "mall/astro/src/components/Bokning.astro",
       "fardighet": "kontraktsprovat", "fardighet_omfattning": "Mallens komponent byggd med mallens Astro: länken till bokningssidan, inget skript, ingen iframe och ingen förhandshämtning; bygget faller på en adress som inte är https. Ingen bokning är gjord i en tjänst; återläsning av bokningar finns inte.", "prov": ["kontroller/rokprov/revision/prov_lankkomponenter.py"], "driftkontroll": null,
-      "begransningar": ["En länk är inte en verifierad bokning.", "Kapacitet, påminnelser och avbokning sköts av bokningstjänsten."], "paverkar": {"brief": "bokningsbehovet", "design": "primär handling", "kod": "länken", "externt": null}, "manniska": ["en testbokning i kundens konto"]
+      "begransningar": ["En länk är inte en verifierad bokning.", "Kapacitet, påminnelser och avbokning sköts av bokningstjänsten."], "paverkar": {"brief": "bokningsbehovet", "design": "primär handling", "kod": "länken", "externt": null}, "manniska": [{"handling": "Gör en testbokning i bokningstjänsten", "ansvarig": "kund", "skal": "visar att länken leder till rätt tjänst och tid", "under_vantan": "allt", "belagg": ["intyg"]}]
     },
     {
       "id": "k10-csv-export", "version": "1.0.0", "omrade": "K10", "niva": "forvaltning", "grund": false,
@@ -318,7 +318,7 @@
       "fardighet": "kontraktsprovat", "fardighet_omfattning": "Exporten prövad mot SQLite med mallens schema (formler neutraliserade, 0600, aldrig i det publika repot); inte mot en verklig D1.",
       "prov": ["kontroller/rokprov/revision/prov_forfragningar.py"], "driftkontroll": null,
       "begransningar": ["Ingen koppling till ett kundregister: importen gör verksamheten.", "Överlämningen av filen är en mänsklig handling."],
-      "paverkar": {"brief": "uppföljningen", "design": null, "kod": null, "externt": null}, "manniska": ["lämna filen till verksamheten på ett säkert sätt"]
+      "paverkar": {"brief": "uppföljningen", "design": null, "kod": null, "externt": null}, "manniska": [{"handling": "Lämna CSV-filen till verksamheten på ett säkert sätt", "ansvarig": "nortropic", "skal": "filen har personuppgifter", "under_vantan": "allt", "belagg": ["intyg"]}]
     },
     {
       "id": "k10-pipedrive-lead", "version": "1.0.0", "omrade": "K10", "niva": "api", "grund": false,
@@ -337,7 +337,7 @@
       "prov": ["kontroller/rokprov/revision/prov_kundregister.py", "kontroller/rokprov/revision/prov_forfragningar.py"], "driftkontroll": "kontroller/forfragningar.py <kundrepo> --remote (kundregistrets status)",
       "begransningar": ["Pipedrive har ingen idempotensnyckel: ett okänt utfall stäms av i Pipedrive, aldrig ett nytt försök i blindo.", "Ingen dubblettkontroll mot befintliga personer i Pipedrive: samma telefonnummer kan ge en ny person.", "API-nyckeln är bred; en avgränsad OAuth-app kräver en publik app och eget mandat."],
       "paverkar": {"brief": "uppföljningen och vem som äger leads", "design": null, "kod": "worker/index.js, migrations/0002_kundregister.sql, wrangler.jsonc", "externt": "Pipedrive"},
-      "manniska": ["API-nyckeln läggs med wrangler secret put PIPEDRIVE_TOKEN", "underdomänen skrivs i underlag/<slug>/CLOUDFLARE.json (pipedrive_doman)", "migreringen 0002 läggs med wrangler d1 migrations apply DB --remote", "integritetstexten nämner Pipedrive"]
+      "manniska": [{"handling": "Lämna Pipedrive-nyckeln i nyckelintaget", "ansvarig": "kund", "skal": "överföringen kräver nyckeln, som bara går till Workern", "under_vantan": "bygge, export och förhandsvisning", "belagg": ["nyckel:pipedrive"]}, {"handling": "Ange Pipedrive-kontots underdomän i nyckelintaget", "ansvarig": "kund", "skal": "Workern skickar bara till kundens eget konto", "under_vantan": "bygge, export och förhandsvisning", "belagg": ["intag:pipedrive.doman"]}, {"handling": "Lägg D1-schemat, också kundregistrets tabell, och nyckeln i Workern", "ansvarig": "nortropic", "skal": "aktiveringen gör det med ditt mandat", "under_vantan": "bygge och förhandsvisning", "belagg": ["aktivering:migreringar", "aktivering:hemlighet:PIPEDRIVE_TOKEN"]}, {"handling": "Låt integritetstexten nämna Pipedrive", "ansvarig": "nortropic", "skal": "besökarnas uppgifter går till Pipedrive", "under_vantan": "allt utom lanseringen", "belagg": ["intyg"]}]
     },
     {
       "id": "k10-crm-utreds", "version": "1.1.0", "omrade": "K10", "niva": "utreds", "grund": false,
@@ -363,7 +363,7 @@
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
       "komponent": "mall/astro/src/components/Betallank.astro",
       "fardighet": "kontraktsprovat", "fardighet_omfattning": "Mallens komponent byggd med mallens Astro: bara betallänkar hos Stripe (https://buy.stripe.com/<id>), priset hos Stripe och inget belopp på sidan, testlänkar bara i uttryckligt testläge, inget skript och ingen förhandshämtning. Ingen betalning är gjord i ett Stripe-konto.", "prov": ["kontroller/rokprov/revision/prov_lankkomponenter.py"], "driftkontroll": null,
-      "begransningar": ["Ingen verklig betalning i ett prov; juridikflaggan e-handel."], "paverkar": {"brief": "betalningen", "design": "knappen", "kod": "länken", "externt": "Stripe"}, "manniska": ["betallänken skapas i kundens konto"]
+      "begransningar": ["Ingen verklig betalning i ett prov; juridikflaggan e-handel."], "paverkar": {"brief": "betalningen", "design": "knappen", "kod": "länken", "externt": "Stripe"}, "manniska": [{"handling": "Skapa betallänken i verksamhetens Stripe-konto", "ansvarig": "kund", "skal": "priset och kassan ligger hos Stripe", "under_vantan": "allt utom lanseringen", "belagg": ["intyg"]}]
     },
     {
       "id": "k12-handel-utreds", "version": "1.0.0", "omrade": "K12", "niva": "utreds", "grund": false,
@@ -404,7 +404,7 @@
       "prov": ["kontroller/rokprov/revision/prov_nyhetsbrev.py"], "driftkontroll": null,
       "begransningar": ["Två inskick kan ge två bekräftelsemejl; kontakten hamnar i listan en gång.", "Formuläret kan användas för att skicka bekräftelsemejl till andras adresser: hastighetsbegränsning på /api/nyhetsbrev/ som för förfrågan, och Turnstile vid behov.", "Brevos svar för en redan anmäld adress är inte dokumenterat; sidan säger samma sak i båda fallen."],
       "paverkar": {"brief": "nyhetsbrevet och dess ändamål", "design": "anmälan och de två svarssidorna", "kod": "Nyhetsbrev.astro, worker/index.js, wrangler.jsonc", "externt": "Brevo-listan och bekräftelsemallen"},
-      "manniska": ["listan och bekräftelsemallen skapas i kundens Brevo-konto", "nyckeln läggs med wrangler secret put BREVO_API_NYCKEL", "listans och mallens id skrivs i underlag/<slug>/CLOUDFLARE.json", "integritetstexten nämner Brevo"]
+      "manniska": [{"handling": "Skapa listan och bekräftelsemallen i Brevo och ange deras id i nyckelintaget", "ansvarig": "kund", "skal": "anmälan med dubbel bekräftelse går till just den listan", "under_vantan": "bygge, export och förhandsvisning", "belagg": ["intag:brevo.lista", "intag:brevo.mall"]}, {"handling": "Lämna Brevo-nyckeln i nyckelintaget", "ansvarig": "kund", "skal": "anmälan kräver nyckeln, som bara går till Workern", "under_vantan": "bygge, export och förhandsvisning", "belagg": ["nyckel:brevo"]}, {"handling": "Lägg nyckeln i Workern", "ansvarig": "nortropic", "skal": "aktiveringen gör det med ditt mandat", "under_vantan": "bygge och förhandsvisning", "belagg": ["aktivering:hemlighet:BREVO_API_NYCKEL"]}, {"handling": "Låt integritetstexten nämna Brevo", "ansvarig": "nortropic", "skal": "e-postadresserna går till Brevo", "under_vantan": "allt utom lanseringen", "belagg": ["intyg"]}]
     },
     {
       "id": "k14-nyhetsbrev-utreds", "version": "1.1.0", "omrade": "K14", "niva": "utreds", "grund": false,
@@ -428,7 +428,7 @@
       "kostnad": {"modell": "beror på tjänst och plan", "belopp": null, "valuta": null, "kalla": null, "datum": null},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
       "fardighet": "dokumenterat", "fardighet_omfattning": "Ingen kod här: påminnelserna ställs in i tjänsten; en testbokning i kundens konto visar dem.", "prov": [], "driftkontroll": null,
-      "begransningar": ["Ingen egen sändning: dubbla eller sena påminnelser hanteras av tjänsten."], "paverkar": {"brief": "påminnelsebehovet", "design": null, "kod": null, "externt": "bokningstjänsten"}, "manniska": ["påminnelserna ställs in och provas med en testbokning i kundens konto"]
+      "begransningar": ["Ingen egen sändning: dubbla eller sena påminnelser hanteras av tjänsten."], "paverkar": {"brief": "påminnelsebehovet", "design": null, "kod": null, "externt": "bokningstjänsten"}, "manniska": [{"handling": "Ställ in påminnelserna i bokningstjänsten och prova med en testbokning", "ansvarig": "kund", "skal": "påminnelserna skickas av tjänsten", "under_vantan": "allt", "belagg": ["intyg"]}]
     },
     {
       "id": "k15-paminnelser-utreds", "version": "1.1.0", "omrade": "K15", "niva": "utreds", "grund": false,
@@ -507,7 +507,7 @@
       "fardighet": "kontraktsprovat", "fardighet_omfattning": "Mallens Bas (sprak, alternativ) och Sprakvaxlare byggda med mallens Astro: lang, hreflang och x-default som absoluta adresser, og:locale och skiplänk på sidans språk, båda versionerna i sitemap.xml, en sida utan språkval oförändrad, inga alternate-länkar på noindex-sidor; inte prövad i en kunds bygge och utan översatt innehåll.",
       "prov": ["kontroller/rokprov/revision/prov_flersprak.py"], "driftkontroll": "kontroller/seo_kontroll.py --lage lansering",
       "begransningar": ["Översättningen är verksamhetens innehåll och godkänns av den.", "Formulärets och Workerns svarssidor är på svenska."],
-      "paverkar": {"brief": "språken", "design": "språkväxlaren i sidhuvudet", "kod": "Bas.astro, Sprakvaxlare.astro, sidorna per språk", "externt": null}, "manniska": ["översättningen godkänns av verksamheten"]
+      "paverkar": {"brief": "språken", "design": "språkväxlaren i sidhuvudet", "kod": "Bas.astro, Sprakvaxlare.astro, sidorna per språk", "externt": null}, "manniska": [{"handling": "Godkänn översättningen", "ansvarig": "kund", "skal": "översättningen är verksamhetens innehåll", "under_vantan": "allt utom de översatta sidorna", "belagg": ["intyg"]}]
     },
     {
       "id": "k18-sok-utreds", "version": "1.0.0", "omrade": "K18", "niva": "utreds", "grund": false,

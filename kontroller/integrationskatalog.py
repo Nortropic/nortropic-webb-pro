@@ -43,6 +43,11 @@ FUNKTIONER = {
 FALT = ('id', 'version', 'omrade', 'niva', 'grund', 'funktion', 'passar', 'passar_inte', 'kunduppgifter', 'bevara', 'kallor',
         'formagor', 'kraver', 'utesluter', 'konto', 'rattigheter', 'dataflode', 'lagring', 'kostnad', 'funktioner',
         'fardighet', 'fardighet_omfattning', 'prov', 'driftkontroll', 'begransningar', 'paverkar', 'manniska')
+ANSVARIGA = ('kund', 'agare', 'nortropic')
+# Beläggen som gör en människas handling klar i handlingskön (kontroller/handlingsko.py); aldrig ett kryss. intyg är
+# ägarens uppgift med en referens (vad som visar att handlingen är gjord), redovisad som sådan.
+BELAGG = re.compile(r'(intyg|konto|forhandsvisning|release|trafik|nyckel:[a-z]{2,20}|intag:[a-z]{2,20}\.[a-z_]{2,30}'
+                    r'|verksamhet:[a-z_]{2,30}(\.[a-z_]{2,40})?|aktivering:(d1|r2|migreringar|driftvarden|export|hemlighet:[A-Z][A-Z0-9_]{2,40}))')
 VALFRIA = ('komponent',)  # en mallkomponent (sökväg i repot) som är paketets körväg i bygget
 OMRADEN = ['K%02d' % i for i in range(1, 19)]
 
@@ -144,6 +149,14 @@ def brister(k, rot=ROOT, importera=True):
                 ut.append('%s: provet %s finns inte' % (pid, f))
         if p['fardighet'] == 'inaktuellt' and (p['grund'] is True or any(p['funktioner'].get(st) for st in ('tillampa', 'prova')) or p['prov']):
             ut.append('%s: ett inaktuellt paket är historik: inte grundleverans, ingen körväg och inga prov' % pid)
+        for m in p['manniska'] if isinstance(p['manniska'], list) else [None]:
+            if (not isinstance(m, dict) or set(m) != {'handling', 'ansvarig', 'skal', 'under_vantan', 'belagg'}
+                    or not all(isinstance(m[k], str) and m[k].strip() for k in ('handling', 'skal', 'under_vantan'))
+                    or m['ansvarig'] not in ANSVARIGA or not isinstance(m['belagg'], list) or not m['belagg']
+                    or not all(isinstance(b, str) and BELAGG.fullmatch(b) for b in m['belagg'])):
+                ut.append('%s: varje människas handling ska ange handling, ansvarig (%s), skäl, vad som kan fortsätta under '
+                          'väntan och belägg (%s)' % (pid, ', '.join(ANSVARIGA), BELAGG.pattern))
+                break
         if p['niva'] == 'utreds' and nivaordning > 0:
             ut.append('%s: ett paket under utredning kan inte vara mer än dokumenterat' % pid)
     for o in OMRADEN:
@@ -238,7 +251,7 @@ def planera(val, katalog=None, arende=None):
         ut['konton'].append({'paket': p['id'], **p['konto'], 'rattigheter': p['rattigheter']})
         kostnad = dict(p['kostnad'], paket=p['id'], kand=p['kostnad']['belopp'] is not None)
         ut['kostnader'].append(kostnad)
-        ut['manniska'] += [{'paket': p['id'], 'handling': h} for h in p['manniska']]
+        ut['manniska'] += [dict(h, paket=p['id']) for h in p['manniska']]
         ut['prov'] += [{'paket': p['id'], 'prov': f} for f in p['prov']]
         if p['driftkontroll']:
             ut['prov'].append({'paket': p['id'], 'driftkontroll': p['driftkontroll']})

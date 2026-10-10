@@ -59,6 +59,10 @@ class Katalog(unittest.TestCase):
         self.brist(lambda k: p(k, 'k06-hitta-hit').update(grund='ja'), 'grund ska vara true eller false')
         self.brist(lambda k: p(k, 'k06-hitta-hit').update(komponent='mall/astro/src/components/FinnsInte.astro'), 'finns inte i mallen')
         self.brist(lambda k: p(k, 'k04-resend-transaktion').update(grund=True), 'inaktuellt paket är historik')
+        self.brist(lambda k: p(k, 'k09-bokningslank').update(manniska=['en testbokning']), 'varje människas handling')
+        self.brist(lambda k: p(k, 'k09-bokningslank')['manniska'][0].update(ansvarig='alla'), 'varje människas handling')
+        self.brist(lambda k: p(k, 'k09-bokningslank')['manniska'][0].update(belagg=['kryss']), 'varje människas handling')
+        self.brist(lambda k: p(k, 'k09-bokningslank')['manniska'][0].update(belagg=[]), 'varje människas handling')
         self.brist(lambda k: p(k, 'k04-resend-transaktion')['funktioner'].update(prova='workersprov.prova'), 'inaktuellt paket är historik')
         self.brist(lambda k: p(k, 'k06-hitta-hit').pop('komponent'), 'utan körväg')
 
@@ -73,7 +77,7 @@ class Plan(unittest.TestCase):
         self.assertEqual([(x['belopp'], x['valuta']) for x in pl['kostnader'] if x['paket'] == 'k04-cloudflare-epost'], [(0, 'USD')], 'känd nollkostnad med källa')
         self.assertIn('k09-bokningslank', ik.planera(val('k09-bokningslank'))['okand_kostnad'], 'okänd kostnad visas som okänd, aldrig som noll')
         self.assertNotIn('k02-cloudflare-workers', pl['okand_kostnad'])
-        self.assertTrue(any(m['handling'].startswith('ansluta kontot') for m in pl['manniska']))
+        self.assertTrue(any(m['handling'].startswith('Anslut Nortropics Cloudflare-konto') and m['ansvarig'] == 'agare' and m['belagg'] == ['konto'] for m in pl['manniska']))
         self.assertTrue(all(a['funktion'] is None and a['besked'] for a in pl['avveckling']), 'avvecklingen är uttryckligen mänsklig')
 
     def test_planen_ar_deterministisk_och_bunden_till_val_och_arende(self):
