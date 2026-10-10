@@ -468,7 +468,9 @@ def access_skyddar(url, frist=15):
             return None
     oppna = urllib.request.build_opener(urllib.request.ProxyHandler({}), Ingen)
     try:
-        r = oppna.open(urllib.request.Request(url + '/', method='GET'), timeout=frist)
+        # en egen identitet: Cloudflare spärrar bibliotekens standard-UA (Python-urllib) med "error code: 1010" före Access,
+        # och då ser en skyddad adress oskyddad ut (fjärrprovet 2026-10-10)
+        r = oppna.open(urllib.request.Request(url + '/', method='GET', headers={'User-Agent': 'nortropic-kundrepo'}), timeout=frist)
         return False, 'HTTP %d utan inloggning' % r.status
     except urllib.error.HTTPError as e:
         plats = e.headers.get('Location') or ''

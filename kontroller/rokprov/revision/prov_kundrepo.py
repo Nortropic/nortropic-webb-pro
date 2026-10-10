@@ -384,6 +384,25 @@ class Kundrepo(unittest.TestCase):
         with self.assertRaises(ValueError):
             exportera.driftvarden(self.slug)
 
+    def test_skyddskontrollen_skickar_en_egen_identitet(self):
+        # Cloudflare svarar "error code: 1010" (403) på Python-urllibs standard-UA före Access; med en egen identitet kommer
+        # kontrollen fram till Access (302 till teamets cloudflareaccess.com), som i fjärrprovet 2026-10-10
+        import http.server
+        class Cloudflare(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if 'Python-urllib' in (self.headers.get('User-Agent') or ''):
+                    self.send_response(403); self.end_headers(); self.wfile.write(b'error code: 1010'); return
+                self.send_response(302); self.send_header('Location', 'https://team-x.cloudflareaccess.com/cdn-cgi/access/login/x'); self.end_headers()
+            def log_message(self, *a):
+                pass
+        srv = http.server.HTTPServer(('127.0.0.1', 0), Cloudflare)
+        th = threading.Thread(target=srv.serve_forever, daemon=True); th.start()
+        try:
+            ok, obs = kundrepo.access_skyddar('http://127.0.0.1:%d' % srv.server_address[1])
+        finally:
+            srv.shutdown(); srv.server_close()
+        self.assertTrue(ok, obs); self.assertIn('Cloudflare Access', obs)
+
     def test_wranglers_miljo_och_kommandon(self):
         tmp = self.root / 'wr-tmp'; tmp.mkdir()
         konto = {'token': TOKEN, 'konto': KONTO, 'underdoman': 'nortropic-prov'}
