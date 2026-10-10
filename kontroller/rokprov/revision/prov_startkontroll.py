@@ -123,7 +123,7 @@ def init_rad(med_mobbin):
 (FAKE / 'init-utan').write_text(init_rad(False))
 
 # --- falska uppslag och prov (räknade) ---
-ANROP = {'npm': 0, 'pypi': 0, 'brew': 0, 'git': 0, 'modell': 0, 'refero': 0, 'webb': 0, 'detektor': 0, 'vakt': 0}
+ANROP = {'npm': 0, 'pypi': 0, 'brew': 0, 'git': 0, 'modell': 0, 'refero': 0, '21st': 0, 'webb': 0, 'detektor': 0, 'vakt': 0}
 GAMMAL = '2026-01-01T00:00:00Z'  # publicerad långt före karenstiden
 TIDER = {}  # paket → {version: publicerad} utöver den senaste: huvudversioner, patchar och versioner i karenstid
 NPM = {'@anthropic-ai/claude-code': '2.1.289', 'vercel': '60.0.1'}
@@ -196,8 +196,18 @@ vl.vaktprov = f_vakt
 
 
 class FalskKlient:
-    def __init__(self, *a, **k):
-        ANROP['refero'] += 1
+    # samma klient når Refero och, med url och huvuden, 21st.dev (verktygslada.prova_21st); anropen räknas var för sig
+    def __init__(self, *a, url=None, huvuden=None, **k):
+        self.tjugo = url == vl.TJUGOFORSTA_URL
+        if self.tjugo:
+            assert huvuden == {'x-api-key': 'syntetisk-provnyckel'}, 'provets egen 21st-nyckel, aldrig ägarens'
+        ANROP['21st' if self.tjugo else 'refero'] += 1
+
+    def verktyg_fullt(self):
+        return [{'name': n, 'inputSchema': {'type': 'object'}} for n in ('search', 'get_component', 'get_inspiration', 'get_theme', 'get_usage')]
+
+    def kalla_utfall(self, namn, args):
+        return False, 'syntetiskt svar', ({'tier': 'syntetisk', 'aiGenerationEnabled': False} if namn == 'get_usage' else None)
 
     def starta(self):
         return {}
@@ -299,7 +309,7 @@ assert ANROP['modell'] == 0 and ANROP['refero'] == 0 and ANROP['webb'] == 0 and 
 assert next(r for r in kv2['rader'] if r['namn'] == 'kundvaktens mekanik')['resultat'] == 'ok', 'vaktprovet är en rad i kvittot'
 assert (FAKE / 'mcp-anrop').read_text().count('x') == m_fore, 'claude mcp list körs inte om inom giltigheten'
 assert not [u for u in kv2['utfort'] if u.startswith(('prov:', 'modell:', 'mcp:'))], kv2['utfort']
-assert {'mcp:lista', 'prov:refero'} <= set(kv2['ateranvant']), kv2['ateranvant']
+assert {'mcp:lista', 'prov:refero', 'prov:21st'} <= set(kv2['ateranvant']), kv2['ateranvant']
 print('fall 1: oförändrad miljö upprepar inget ok')
 
 # repots identitet och dokumentationens informationsrad i kvittot (ägarens uppdrag 2026-10-06 om dokumentations- och
