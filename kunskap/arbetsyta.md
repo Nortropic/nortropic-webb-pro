@@ -54,7 +54,10 @@ visar (successiv fördjupning, högst två nivåer).
   körningen med neutrala etiketter, i mobil och dator bredvid varandra eller en bredd i taget (768 och 1280 när de
   finns), första vyn eller hela sidan, bilderna i full storlek, prototypen och dess undersidor klickbara, markerade
   förslag sida vid sida, referensen bredvid, skaparens redovisning, de tekniska kontrollerna för sig, det du gillar per
-  förslag, förslag som inte blev klara med skälen, observationen och hela beslutet: välj (ett eller flera), jämför,
+  förslag, förslag som inte blev klara med skälen, referensunderlaget hopfällt under bilderna (vad som hittades i
+  webbsökningen och gallerierna, vad som undersöktes i webbläsaren, sållningen, vad som valdes, paketets version och
+  saknat underlag med skälet till att ett steg väntar; vilka kandidater som bygger på vilka källor och överföringen
+  per bidrag först efter ditt första val), observationen och hela beslutet: välj (ett eller flera), jämför,
   uppdrag, godkänn, förkasta och ny riktning, med din text, versionen före en förbättringsrunda och kunden som
   avsändare med belägg (godkännandet är alltid ditt). Skaparens förklaringar, granskningen, skisskritiken och
   körningens redovisning visas först efter ditt första beslut, som förut. Vyn ritas när fliken öppnas; ändras läget

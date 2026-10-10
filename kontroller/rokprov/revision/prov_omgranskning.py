@@ -189,6 +189,9 @@ class Planversion(unittest.TestCase):
             k: dict({f: '%s %s' % (f, k) for f, _r in kd.PLANFALT}, titel='Förslag %s' % k, hypotes='GAMMAL %s' % k, huvudreferens='egen riktning',
                     referensbilder=[]) for k in ('k01', 'k02')}}
         self.r.mkdir(parents=True)
+        import referensfixtur  # referenskontraktet uppfyllt: provet prövar planversionen, inte startvillkoret
+        plan = referensfixtur.uppfyll(atelje.UNDERLAG, self.SLUG, plan)
+        self.referensbidrag = referensfixtur.bidrag(self.SLUG)
         (self.r / 'KANDIDATPLAN.json').write_text(json.dumps(plan))
         (self.r / kd.UPPDRAGSMATERIAL).write_text('{}')
         for i, k in enumerate(('k01', 'k02'), 1):
@@ -209,7 +212,8 @@ class Planversion(unittest.TestCase):
                 self.handelser.append('omplanering')
                 hr = 'egen riktning' if self.omplanering_lyckas[0] else 'Xref'  # utan referensbilder avvisas en namngiven referens
                 so = {'variation': 'omplanerad', 'kandidater': [dict({f: '%s omplanerad' % f for f, _r in kd.PLANFALT}, titel='k01 omplanerad',
-                                                                     hypotes='NY HYPOTES k01', huvudreferens=hr, referensbilder=[])]}
+                                                                     hypotes='NY HYPOTES k01', huvudreferens=hr, referensbilder=[],
+                                                                     referensbidrag=self.referensbidrag)]}
             else:
                 raise AssertionError('oväntad session: %s' % prompt[:80])
             svar = {'structured_output': so, 'session_id': transkript(kompetenssteg('planprovning' if schema is kd.PLANPROVNING_SCHEMA else 'planera'))}

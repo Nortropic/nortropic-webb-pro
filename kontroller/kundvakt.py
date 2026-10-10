@@ -76,7 +76,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import skapande  # noqa: E402
 
 FRIST = 20  # sekunder; krokens egen tidsgräns är 30 (installningar nedan)
-MATCH = 'mcp__refero__.*|mcp__mobbin__.*|mcp__motion__.*|mcp__21st__.*'  # externa designtjänster, Motions dokumentation och 21st.dev: kroken prövar varje anrop; andra MCP-anrop får ingen tillåtelse
+MATCH = 'mcp__refero__.*|mcp__mobbin__.*|mcp__motion__.*|mcp__21st__.*|WebSearch|WebFetch'  # externa designtjänster, Motions dokumentation och 21st.dev, och researchrollens webbsökning och hämtning: kroken prövar varje anrop; andra MCP-anrop får ingen tillåtelse
+WEBB = ('WebSearch', 'WebFetch')  # bara sessioner med webben i --tools (atelje.session_args, webb) kan anropa dem
 ID_NYCKEL = re.compile(r'(^|_)(id|ids)$')
 SMA_NYCKEL = re.compile(r'(^|_)(page|limit)$')  # sidnummer och gränser: bara korta tal
 UUID = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
@@ -668,6 +669,8 @@ def provning(slug, underlag, anrop):
     if not forbjudna.get('ord') and not forbjudna.get('siffror'):
         return 'kundens uppgifter gick inte att läsa (underlag/%s/VERKSAMHET.json); anropet stoppas' % slug
     namn = anrop.get('tool_name')
+    if namn in WEBB:
+        return webbprovning(slug, underlag, anrop, forbjudna)
     if namn not in tillatna():
         return 'verktyget %s är inte ett av flödets verktyg hos Refero, Mobbin, Motion eller 21st.dev (metodkartans verktygsbeslut); anropet stoppas' % namn
     if namn == MOBBIN_SKARMAR and str((anrop.get('tool_input') or {}).get('mode') or '').strip().lower() not in MOBBIN_LAGEN:
@@ -701,6 +704,39 @@ def provning(slug, underlag, anrop):
                 'branschen och vad sökningen ska ge' % namn)
     if any(skapande.SPARRAD_FORM.search(avkoda(x)) for x in fritext):
         return 'anropet till %s innehåller en adress, en e-postadress eller en lång sifferföljd; skriv frågan utan dem' % namn
+    return None
+
+
+def webbprovning(slug, underlag, anrop, forbjudna):
+    """Researchrollens webbsökning och hämtning (ägarens uppdrag 2026-10-10 om hela referenskedjan, punkt 2): samma
+    datagräns som för designtjänsterna. Sökfrågan är generisk (bransch, tjänster, besökarens uppgift; inga namn, orter,
+    gator, nummer eller e-post ur kundens underlag), och adressen till en hämtning bär inga av kundens uppgifter: kundens
+    egen webbplats hämtas av flödets egen hämtare, aldrig genom en söktjänst. Hämtningens fråga till modellen prövas
+    som fritext. Bara https."""
+    namn = anrop.get('tool_name')
+    inp = anrop.get('tool_input') or {}
+    uppgifter = underlagets_uppgifter(slug, underlag)
+    forbjudna['siffror'] = set(forbjudna.get('siffror') or ()) | uppgifter['siffror']
+    if namn == 'WebSearch':
+        texter = [str(inp.get('query') or '')]
+        if not texter[0].strip():
+            return 'en tom sökfråga stoppas'
+        texter += [str(x) for x in (inp.get('allowed_domains') or []) + (inp.get('blocked_domains') or [])]
+    else:
+        url = str(inp.get('url') or '')
+        if not url.startswith('https://') or len(url) > 2000:
+            return 'WebFetch hämtar bara https-adresser'
+        texter = [url, str(inp.get('prompt') or '')]
+    text = ' '.join(texter)
+    if skapande.namner_kunden(avkoda(text), forbjudna):
+        return ('%s nämner kundens namn, ort, webbadress, e-post eller nummer; sök generiskt på bransch, tjänster och '
+                'besökarens uppgift' % namn)
+    if namner_person(text, uppgifter['personer']):
+        return '%s nämner ett personnamn ur kundens underlag; sökningen är generisk' % namn
+    if namner_person(text, uppgifter['orter']) or skapande.namner_kunden(avkoda(text), {'siffror': uppgifter['siffror']}):
+        return '%s nämner en ort, en gata eller ett nummer ur kundens underlag; sök utan dem' % namn
+    if namn == 'WebSearch' and skapande.SPARRAD_FORM.search(avkoda(texter[0])):
+        return 'sökfrågan innehåller en adress, en e-postadress eller en lång sifferföljd; skriv den utan dem'
     return None
 
 

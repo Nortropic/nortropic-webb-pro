@@ -962,6 +962,11 @@ def kandidatvy(slug, st):
     vinnare = las_json(rot / 'VINNARE.json') or {}
     md_ = lambda n: md(las_text(rot / n) or '') if (rot / n).is_file() else ''  # noqa: E731
     jamf = las_json(rot / 'JAMFORELSE.json') if domd else None
+    try:  # referensunderlaget (ägarens uppdrag 2026-10-10): hittat, undersökt, valt; vilka kandidater som bygger på vad först efter första valet
+        import referenskontrakt
+        referensunderlag = referenskontrakt.oversikt(slug, UNDERLAG, med_kandidater=domd)
+    except Exception as e:  # noqa: BLE001 — vyn visar felet i stället för att falla
+        referensunderlag = {'fel': '%s: %s' % (type(e).__name__, str(e)[:160])}
     namn = {k['id']: k['etikett'] for k in kand}
     import atelje
     return {'slug': slug, 'kandidatflode': True, 'kandidatlage': kandidater.korlage(slug, st), 'tider': st.get('tider') or {},
@@ -973,6 +978,7 @@ def kandidatvy(slug, st):
             'jamforelse': {'sammanfattning': jamf.get('sammanfattning'), 'par': [dict(p, a=namn.get(p['a'], p['a']), b=namn.get(p['b'], p['b'])) for p in jamf.get('par') or []]}
             if isinstance(jamf, dict) else None,
             'redovisning_md': md_('REDOVISNING.md') if domd else None, 'forskning_md': md_('FORSKNING.md') if domd else None,
+            'referensunderlag': referensunderlag,
             'domar': list(reversed(skapande.domar(slug, UNDERLAG))), 'godkand': vinnare.get('godkand'),
             'godkand_kandidat': vinnare.get('kandidat') if vinnare.get('godkand') else None}
 

@@ -625,11 +625,16 @@ class Stoppefterplanen(unittest.TestCase):
         self.enterContext(patch.multiple(atelje, UNDERLAG=tmp / 'underlag', KUNDER=tmp / 'kunder'))
         (kd.rot('stopp-prov')).mkdir(parents=True)
         (kd.rot('stopp-prov') / kd.UPPDRAGSMATERIAL).write_text('{}')
-        (kd.rot('stopp-prov') / 'KANDIDATPLAN.json').write_text(json.dumps({'kompetens': prov_omgranskning.giltigt_kvitto('planera')}))
+        import referensfixtur  # referenskontraktet uppfyllt: provet prövar stoppet efter planprövningen
+        plan_ = referensfixtur.uppfyll(atelje.UNDERLAG, 'stopp-prov', {'kompetens': prov_omgranskning.giltigt_kvitto('planera'),
+                                                                       'kandidater': {'k01': {'titel': 'Syntetiskt uppdrag'}}})
+        (kd.rot('stopp-prov') / 'KANDIDATPLAN.json').write_text(json.dumps(plan_))
+        referensfixtur.uppdrag(atelje.UNDERLAG, 'stopp-prov', plan_, 'k01', '# Uppdrag\n')
         status, skrivna = {}, []
         with patch.multiple(kd, create=True, STOPP_EFTER='planprovning', lista=lambda slug: ['k01'], leverera_metod=lambda slug: {},
                             planprovning_behov=lambda slug, ids: [], korlage=lambda slug, status: 'skiss',
                             las_status=lambda slug, kid: {'status': 'planerad'},
+                            forbered_referensprofiler=lambda slug, ids: {'ok': True, 'syntetisk': True},  # profileringen prövas för sig
                             kor_pool=lambda *a, **k: self.fail('en skapare startade')), \
                 patch.object(urval, 'vid_start', return_value={}):
             self.assertEqual(kd.kor('stopp-prov', status, lambda: skrivna.append(status.get('steg'))), [])

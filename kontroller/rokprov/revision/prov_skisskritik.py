@@ -93,6 +93,7 @@ import prova  # noqa: E402
 import korregister  # noqa: E402
 from prov_kompetensflode import giltigt_kvitto
 from prov_omgranskning import kompetenssteg
+import referensfixtur  # noqa: E402  referenskontraktets fixtur
 korregister.registrera_tmp(TMP, 'prov_skisskritik')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 assert atelje.ROOT == KOPIA and forhandsvisa.ROOT == KOPIA and bildkedja.ROOT == KOPIA, (atelje.ROOT, forhandsvisa.ROOT)
 for namn in ('prov_kompetensflode', 'prov_omgranskning'):
@@ -136,14 +137,16 @@ def kund(slug=SLUG):
     skriv(u / 'referenser' / 'tjanster' / 'TJANSTER.md', '# tjänsterna %s\n' % UPPDRAGSMARKOR)
     skriv(u / 'DESIGNDOMAR.jsonl', json.dumps({'tid': '2026-10-02T10:00:00Z', 'kalla': 'ägaren', 'beslut': 'ny_riktning', 'text': 'pröva nya grundidéer'}) + '\n')
     r = kd.rot(slug)
-    skriv(r / 'KANDIDATPLAN.json', json.dumps({'lage': 'skiss', 'tid': '2026-10-07T08:00:00Z', 'kompetens': giltigt_kvitto('planera'), 'kandidater': {
+    import referensfixtur  # referenskontraktet uppfyllt, så att provet prövar skisskritiken och inte startvillkoret
+    plan = referensfixtur.uppfyll(atelje.UNDERLAG, slug, {'lage': 'skiss', 'tid': '2026-10-07T08:00:00Z', 'kompetens': giltigt_kvitto('planera'), 'kandidater': {
         'k01': {'uppgift': 'Besökaren vill se ett liknande jobb och ringa.', 'titel': UPPDRAGSMARKOR},
-        'k02': {'uppgift': 'Besökaren vill skriva en förfrågan.'}}}))
+        'k02': {'uppgift': 'Besökaren vill skriva en förfrågan.'}}})
+    skriv(r / 'KANDIDATPLAN.json', json.dumps(plan))
     skriv(r / 'FORSKNING.md', '# Research %s\n' % UPPDRAGSMARKOR)
     skriv(r / 'metod' / 'METOD-skiss.md', '# Metoden\n')
     for kid in ('k01', 'k02'):
         d = kd.kdir(slug, kid)
-        skriv(d / 'UPPDRAG.md', '# Uppdrag %s\n' % UPPDRAGSMARKOR)
+        referensfixtur.uppdrag(atelje.UNDERLAG, slug, plan, kid, '# Uppdrag %s\n' % UPPDRAGSMARKOR)
         skriv(d / 'RIKTNING.md', 'Huvudreferens: Xref — kompositionen\n\n## Idén\n\n%s\n' % SKAPARMARKOR)
         skriv(d / 'STATUS.json', json.dumps({'id': kid, 'status': 'under_arbete', 'titel': UPPDRAGSMARKOR}))
         skriv(d / 'kod' / 'index.astro', '<h1 class="%s">Skiss</h1>\n' % KODMARKOR)
@@ -294,7 +297,7 @@ def session_utan_block_fixtur(karta):
     return namn, rad, karta, fil
 
 
-def sess_falsk(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, blind=None):
+def sess_falsk(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, blind=None, webb=False):
     SESSIONER.append({'prompt': prompt, 'verktyg': list(verktyg), 'ut': Path(ut).name, 'schema': schema, 'frist': frist, 'nekas': list(nekas),
                       'slug': slug, 'modell': modell, 'effort': effort, 'max_turer': max_turer, 'blind': blind})
     nyckel = next((k_ for k_ in SVAR if k_(prompt, schema)), None)
@@ -645,7 +648,7 @@ def _andra():
     SVAR[lambda p, s: s in (kd.FORSKA_SCHEMA, kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED)] = lambda p, s: (
         {'varfor': 'befintligt material räcker', 'riktningar': 'tre grunder', 'sajter': [], 'fragor': [],
          'antaganden': [{'antagande': 'besökaren vill se jobb', 'underlag': 'ännu inte observerat', 'provning': 'uppgift', 'om_fel': 'kontakt först'}]},
-        kompetens_transkript('forska'))
+        kompetens_transkript('forska', referensfixtur.webbhandelser()))  # referenskontraktet: webbsökningen och Awwwards-besöket
     SESSIONER.clear()
     import skapande
     spara_k = skapande.komplettera

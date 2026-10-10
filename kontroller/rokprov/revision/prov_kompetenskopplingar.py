@@ -28,7 +28,12 @@ class Kopplingar(unittest.TestCase):
         self.r = kd.rot(self.slug); self.r.mkdir(parents=True)
         self.k = {f: 'Syntetiskt' for f, _ in kd.PLANFALT}
         self.k.update(titel='Egen komposition', huvudreferens='egen riktning', referensbilder=[])
-        (self.r / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': self.k}}))
+        # referenskontraktet: planen och UPPDRAG.md uppfyller det, så att provet prövar profileringen och inte startvillkoret
+        import referensfixtur
+        plan = referensfixtur.uppfyll(atelje.UNDERLAG, self.slug, {'kandidater': {'k01': self.k}})
+        self.k = plan['kandidater']['k01']
+        (self.r / 'KANDIDATPLAN.json').write_text(json.dumps(plan))
+        kd.skriv_uppdrag(self.slug, 'k01', self.k, 1, 1)
         (self.r / kd.UPPDRAGSMATERIAL).write_text('{}')
 
     def test_inspektionen_ligger_fore_skaparpoolen_och_stoppar_vid_brist(self):

@@ -142,12 +142,27 @@ for (const vy of vyer) {
   const r = { namn: b.vy.namn, sidor: [], tillstand: {}, rorelse: [] };
   // rörelsesekvensen: sidans animationer vid varje händelse, med händelsen som trigger (extrahera.animationerPaSidan)
   const regAnim = async (trigger) => { try { r.rorelse.push({ trigger, animationer: await b.page.evaluate(animationerPaSidan, medKod) }); } catch (e) { r.rorelse.push({ trigger, fel: String(e.message).slice(0, 120) }); } };
+  // rörelse som document.getAnimations() inte ser (MDN: bara CSS-animationer, övergångar och Web Animations): sidans egna
+  // requestAnimationFrame-anrop räknas från start, och canvas och spelande video noteras (ägarens uppdrag 2026-10-10, punkt 6)
+  await b.page.addInitScript(() => { window.__nwpRaf = 0; const o = window.requestAnimationFrame; if (o) window.requestAnimationFrame = function (cb) { window.__nwpRaf++; return o.call(window, cb); }; }).catch(() => null);
   try {
     const svar = await b.page.goto(a.adress, { waitUntil: 'load', timeout: 45000 });
     r.status = svar?.status() ?? null; r.innehallstyp = svar?.headers()?.['content-type'] ?? null; r.titel = await b.page.title();
     await b.page.waitForTimeout(500);
     if (a.samtycke) r.samtycke = await stangSamtycke(b.page);
     if (a.lugn) r.lugn = await vantaLugn(b.page, Number(a.lugn) || 8000);
+    r.rorelse_motor = await b.page.evaluate(async () => {
+      const r0 = window.__nwpRaf || 0; await new Promise((ok) => setTimeout(ok, 1000));
+      return { raf_per_s: (window.__nwpRaf || 0) - r0, canvas: document.querySelectorAll('canvas').length,
+        video_spelar: [...document.querySelectorAll('video')].filter((v) => !v.paused).length,
+        web_animations: document.getAnimations ? document.getAnimations().length : null };
+    }).catch((e) => ({ fel: String(e.message).slice(0, 120) }));
+    const m_ = r.rorelse_motor || {};
+    if (!m_.fel && (m_.raf_per_s > 5 || m_.canvas || m_.video_spelar)) {  // en stillbild räcker inte: en kort bildsekvens av första vyn
+      r.rorelse_motor.sekvens = [];
+      for (let i = 1; i <= 3; i++) { const f = join(a.ut, `vy-${vy}-sekvens-${i}.png`); await b.page.screenshot({ path: f }).then(() => r.rorelse_motor.sekvens.push(f)).catch(() => null); await b.page.waitForTimeout(400); }
+    }
+    r.rorelse_motor.not = 'en tom getAnimations() bevisar inte att sidan saknar rörelse: canvas, requestAnimationFrame och video observeras här för sig, och en bildsekvens är en observation, inte en mätning av rörelsens egenskaper';
     r.forsta_vyn = skriv(a.ut, `vy-${vy}-forsta.png`, ''); await b.page.screenshot({ path: r.forsta_vyn });
     await regAnim('laddning');
     // Lata bilder (loading=lazy) och intoning vid skroll syns inte i en helsidesbild om sidan inte skrollats igenom först.
@@ -229,7 +244,7 @@ if (extraktSel) {
   if (medKod) skriv(a.ut, 'SEKTIONER.md', sektionsunderlag(a.adress, rapport.tid, Object.fromEntries(Object.entries(extraktVyer).map(([vy, v]) => [vy, { x: v.x, rutor: v.rutor, skarmhojd: v.skarmhojd }]))));
 }
 const md = ['# Inspektion — ' + a.adress + ' (' + rapport.tid + ')', '', 'Kontext bifogad: ' + (kontext.map(k => k.namn + ' ' + k.sha256.slice(0, 12)).join(', ') || 'ingen'), ''];
-for (const [vy, r] of Object.entries(rapport.vyer)) md.push(`## Vy ${vy} — ${r.namn}`, '', `- status ${r.status}, titel "${r.titel}", h1 ${r.h1}, horisontell spill ${r.spill?.spill}`, ...(r.tillstand?.reflow_320x180 ? [`- 320×180 (400 % zoom): spill ${r.tillstand.reflow_320x180.spill}; fasta eller klibbiga element i vyn: ${r.tillstand.reflow_320x180.fasta.length ? r.tillstand.reflow_320x180.fasta.map((f) => `${f.element} ${f.hojd} px (${f.andel} %)`).join(', ') : 'inga'}`] : []), `- konsol ${r.konsol.length} (fel: ${r.konsol.filter(x => x.typ === 'error').length}), sidfel ${r.sidfel.length}, nätverksfel ${r.natverk.fel.length}, blockerade ${r.natverk.blockerade.length}`, `- tangentbord: ${r.tillstand.tangentbord?.length ?? '-'} steg, utan synlig fokus ${r.tillstand.tangentbord_utan_synlig_fokus ?? '-'}; reflow 320 spill ${r.tillstand.reflow_320?.spill ?? '-'}`, ...(r.tillstand.meny ? [`- meny: klickad ${r.tillstand.meny.klickad}, expanded ${r.tillstand.meny.expanded}; ${r.tillstand.meny.bild ? 'bild ' + r.tillstand.meny.bild : 'ingen bild: ' + r.tillstand.meny.skal}`] : []), ...(['hover', 'fokus'].filter((n) => r.tillstand[n + '_lista']).map((n) => `- ${n}: ${r.tillstand[n + '_lista'].map((p) => `${p.valjare} → ${basename(p.bild)}${p.fel ? ' (fel: ' + p.fel + ')' : ''}`).join('; ')}`)), `- interaktiva element: ${r.interaktiva?.totalt ?? '-'}`, `- bilder: ${r.forsta_vyn}, ${r.hela_sidan}; träd ${r.tillganglighetstrad}; spår ${r.spar}`, '');
+for (const [vy, r] of Object.entries(rapport.vyer)) md.push(`## Vy ${vy} — ${r.namn}`, '', `- status ${r.status}, titel "${r.titel}", h1 ${r.h1}, horisontell spill ${r.spill?.spill}`, ...(r.tillstand?.reflow_320x180 ? [`- 320×180 (400 % zoom): spill ${r.tillstand.reflow_320x180.spill}; fasta eller klibbiga element i vyn: ${r.tillstand.reflow_320x180.fasta.length ? r.tillstand.reflow_320x180.fasta.map((f) => `${f.element} ${f.hojd} px (${f.andel} %)`).join(', ') : 'inga'}`] : []), `- konsol ${r.konsol.length} (fel: ${r.konsol.filter(x => x.typ === 'error').length}), sidfel ${r.sidfel.length}, nätverksfel ${r.natverk.fel.length}, blockerade ${r.natverk.blockerade.length}`, `- tangentbord: ${r.tillstand.tangentbord?.length ?? '-'} steg, utan synlig fokus ${r.tillstand.tangentbord_utan_synlig_fokus ?? '-'}; reflow 320 spill ${r.tillstand.reflow_320?.spill ?? '-'}`, ...(r.tillstand.meny ? [`- meny: klickad ${r.tillstand.meny.klickad}, expanded ${r.tillstand.meny.expanded}; ${r.tillstand.meny.bild ? 'bild ' + r.tillstand.meny.bild : 'ingen bild: ' + r.tillstand.meny.skal}`] : []), ...(['hover', 'fokus'].filter((n) => r.tillstand[n + '_lista']).map((n) => `- ${n}: ${r.tillstand[n + '_lista'].map((p) => `${p.valjare} → ${basename(p.bild)}${p.fel ? ' (fel: ' + p.fel + ')' : ''}`).join('; ')}`)), `- interaktiva element: ${r.interaktiva?.totalt ?? '-'}`, ...(r.rorelse_motor && !r.rorelse_motor.fel ? [`- rörelse utanför getAnimations: requestAnimationFrame ${r.rorelse_motor.raf_per_s} per sekund, canvas ${r.rorelse_motor.canvas}, spelande video ${r.rorelse_motor.video_spelar}${r.rorelse_motor.sekvens ? '; bildsekvens ' + r.rorelse_motor.sekvens.map((x) => basename(x)).join(', ') : ''}`] : []), `- bilder: ${r.forsta_vyn}, ${r.hela_sidan}; träd ${r.tillganglighetstrad}; spår ${r.spar}`, '');
 if (rapport.svep && !rapport.svep.fel) md.push(`Svepet: ${rapport.svep.brytpunkter.length} brytpunkter (SVEP.json).`, '');
 md.push(rapport.not);
 skriv(a.ut, 'INSPEKTION.md', md.join('\n') + '\n');

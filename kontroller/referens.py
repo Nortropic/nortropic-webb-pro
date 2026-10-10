@@ -181,9 +181,15 @@ def las_uppdrag(fil, slug, lokala_portar=()):
         if extrahera != 'standard' and not (isinstance(extrahera, list) and 0 < len(extrahera) <= 24 and all(
                 isinstance(x, str) and 0 < len(x) <= 200 and not any(c in x for c in ';\n\r') and not x.lstrip().startswith('-') for x in extrahera)):
             return None, '%s: extrahera är "standard" eller en lista med högst 24 CSS-väljare' % k['namn']
+        # upptäcktsvägen och den deklarerade uppgiften (ägarens uppdrag 2026-10-10 om referenskedjan): följer med i
+        # PAKET.json, så att varje fångad sajt bär hur den hittades och vad den ska lära oss (referenskontrakt.py)
+        upptackt = k.get('upptackt') if isinstance(k.get('upptackt'), dict) else None
+        if upptackt is not None:
+            upptackt = {'vag': str(upptackt.get('vag') or '')[:20], 'kalla': str(upptackt.get('kalla') or '')[:400]}
+        uppgift = [str(x)[:20] for x in k.get('uppgift') or [] if isinstance(x, str)][:8] if isinstance(k.get('uppgift'), list) else []
         kandidater.append({'namn': k['namn'], 'adress': adress, 'roll': k['roll'], 'varfor': str(k.get('varfor') or '')[:1000],
                            'sidor': list(dict.fromkeys(sidor)), 'tillstand': tillstand, 'ersatt': bool(k.get('ersatt')), 'extrahera': extrahera,
-                           'bredder': bredder})
+                           'bredder': bredder, 'upptackt': upptackt, 'uppgift': uppgift})
     return {'kandidater': kandidater, 'fragor': [str(f)[:500] for f in (u.get('fragor') or [])][:20], 'kompletterar': u.get('kompletterar')}, None
 
 
@@ -540,7 +546,8 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
     nya = {k['namn'] for k in uppdrag['kandidater']}
     for k in uppdrag['kandidater']:
         post = {'namn': k['namn'], 'adress': k['adress'], 'roll': k['roll'], 'varfor': k['varfor'], 'sidor': [], 'resursursprung': [], 'ok': False,
-                'bredder': k.get('bredder') or list(BREDDER_STANDARD)}
+                'bredder': k.get('bredder') or list(BREDDER_STANDARD), 'upptackt': k.get('upptackt'), 'uppgift': k.get('uppgift') or [],
+                'tid': nu()}
         katalog = paket / k['namn']
         katalog.mkdir()
         # komplettering av samma kandidat: oförändrade sidor ärvs från föregående paket (sida för sida, med sin katalog);

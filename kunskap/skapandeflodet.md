@@ -57,9 +57,10 @@ före valet. Går tio inte att göra inom resurserna redovisas bristen (`brist_m
   Samma gäller `CLAUDE.md`, som laddas i varje nästlad session, och helbyggets uppstart.
 - **Hela verktygslådan finns kvar:** skills med källa och licens, Refero, Mobbin, referensinsamlingen,
   webbläsarverktygen och kontrollerna. Uppgiften avgör vad som slås upp; inget krav på att allt läses.
-- **Researchen** är gemensam före planen och återanvänder kundens befintliga referenspaket och tjänsterapport; nytt
-  hämtas bara där materialet saknar något (för ett förslag högst fyra sajter och sex frågor, för en omgång med flera
-  grundidéer högst 8 sajter och 14 frågor). En skapare kan begära en avgränsad
+- **Researchen** är gemensam före planen och återanvänder kundens befintliga referenspaket och tjänsterapport där det
+  passar briefen och är fångat; nytt hämtas där materialet saknar något eller referenskontraktet kräver det (för ett
+  förslag högst sex sajter och sex frågor, för en omgång med flera grundidéer högst 8 sajter och 14 frågor). Webbsökningen,
+  gallerierna med Awwwards och kontraktet: `kunskap/referensjakt.md`, Webbupptäckten och kontraktet. En skapare kan begära en avgränsad
   komplettering en gång, inom sitt försöks tid.
 - **Budgeten** är ett försöksvillkor: högst tre skisser samtidigt, högst 45 minuter per inledande skaparförsök med
   verktygsväntan, ett omförsök på 15 minuter bara vid ett identifierat tekniskt fel (bygget föll, bilderna saknas,
@@ -113,14 +114,21 @@ kandidaterna och granskningarna.
 2. **Research.** Ett pass med rollen forska skriver antagandena om besökarna som kan ändra designen (underlag eller
    "ännu inte observerat", hur de prövas, vad som ändras), frågor till Refero och Mobbin (högst fjorton) och högst åtta
    nya sajter; det prövar territorierna med egna generiska sökningar innan frågorna skrivs, och FORSKNING.json bär kvittot.
-   Sajterna omfattar både starka sajter i branschen och visuella förebilder utanför den. Referenssteget hämtar dem med
+   Passet har webbsökning och hämtning (WebSearch och WebFetch bakom kundvakten, bara den här rollen) och söker verkliga
+   branschsajter och, i varje ny designomgång, gallerierna med Awwwards; det sållar med urval och bortval, och varje sajt
+   bär sin upptäcktsväg, prövad mot sökloggen ur transkriptet. Sajterna omfattar både starka sajter i branschen och
+   visuella förebilder ur gallerierna. Researchen är klar först när referenskontraktet är uppfyllt (fångade branschsajter och
+   galleriförebilder, en lyckad webbsökning, Awwwards prövat; ett omförsök med bristerna, annars stopp). Referenssteget hämtar dem med
    belägg: `referens.py` ger en ny paketversion, `referenstjanster.py` sparar per körning
    tjänsternas svar ordagrant, varje Refero-stils hela dokument och skärmarnas hela bilder. En sajt eller fråga utanför
    kanalens form släpps med skälet, och resten körs; ingen fråga får nämna kundens namn, orter eller nummer.
    FORSKNING.md säger vad som är nytt och vad som återanvänds.
-3. **Plan och planprövning.** Ett planeringspass skriver först branschgenomgången (hur de starka sajterna hanterar
-   tjänster, förtroende, priser, navigation och kontakt, och deras svagheter; att något förekommer hos konkurrenter gör
-   det inte till bästa praxis) och förebilderna utanför branschen, och sedan tio uppdrag (`NWP_KANDIDATER`, högst tolv)
+3. **Plan och planprövning.** Ett planeringspass skriver först branschgenomgången (för varje fångad branschsajt varför den
+   är värd att studera, erbjudande, tjänster och priser, förtroende, navigation och kontakt, bilder, mobil, styrkor,
+   svagheter och möjligheter för kunden, med belägg i paketets bilder; att något förekommer hos konkurrenter gör det inte
+   till bästa praxis) och förebilderna ur gallerierna, och sedan tio uppdrag (`NWP_KANDIDATER`, högst tolv), vart och ett med
+   referensbidrag ur både branschen och inspirationen (kedjan kundbehov → observerad kvalitet → designbeslut → tillämpning →
+   bedömning; referenskontraktet prövar dem mot paketet, och uppdraget skrivs till skaparen i UPPDRAG.md)
    som besvarar kundens problem på olika sätt: innehållshierarkin, bildstrategin, typografin, navigationen och hur
    förtroende byggs. Varje uppdrag har en visuell utgångspunkt och en implementationsgrund (avsnittet Skissläget ovan).
    Varje uppdrag har en hypotes (varför lösningen passar verksamheten och besökaren), en namngiven huvudreferens ur

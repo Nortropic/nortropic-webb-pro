@@ -4621,3 +4621,47 @@ Genomförarens tillämpning (Claude), inget nytt ägarbeslut om konton, kostnade
   felstatus; gamla `@21st-dev/magic` installeras inte.
 
 Redovisningen: `underlag/granskningar/GR-20261010-kompetens-integration.md` (privat).
+
+## Tillägg 2026-10-10: branschresearch och professionella referenser obligatoriska, och hela referenskedjan
+
+**Status:** gäller; genomfört av Claude i grenen `claude/referenser-obligatoriska-20261010` och prövat lokalt med
+fixturer. Ett verkligt kandidatprov med fiktivt material redovisas separat.
+
+Ägarens två uppdrag ~09:2xZ och ~09:3xZ (inklistrade; hela texterna ordagrant i sessionens privata minne). Ur det
+första, ordagrant:
+
+> Starka verkliga sajter i kundens bransch, Awwwards och andra professionella inspirationskällor ska vara centrala och obligatoriska delar av arbetet före designförslagen.
+>
+> De ska påverka innehåll, kundresa, komposition, typografi, bildregi, responsivitet, interaktion och detaljutförande. Att nämna en källa, göra ett anrop eller lägga länkar i en rapport uppfyller inte uppdraget.
+>
+> Behåll den kreativa friheten att välja, kombinera och anpassa observerade kvaliteter. Referensarbetet ska höja kvaliteten utan att låsa samtliga förslag vid samma grundkomposition.
+
+Ur det andra, ordagrant:
+
+> Ordna en fungerande, avgränsad och läsande sökväg för researchrollen.
+>
+> Ta inte bort globala skydd för andra roller. Lös åtkomsten för rätt roll och uppgift.
+>
+> Spara sökningens ursprung, upptäckta adresser och resultatstatus. Adresser ur modellens minne får vara kandidater, men ska inte redovisas som upptäckta genom en sökning som aldrig gjordes.
+
+Båda: "Starta inget nytt helbygge genom detta uppdrag." Källorna (Design Council, Nielsen Norman Group, Anthropic,
+Claude Codes behörigheter, Playwright, Chrome DevTools, MDN) stöder metoden; de obligatoriska tjänsterna,
+kontrollpunkterna och tio förslag är Nortropics produktbeslut.
+
+Genomförarens tillämpning (Claude):
+
+- Researchrollen ensam har WebSearch och WebFetch (`atelje.session(webb=True)`; i `--tools`, lyft ur NEKAS för just den
+  sessionen, aldrig som allow-regel), och kundvakten prövar varje sökfråga och adress med samma datagräns som för
+  designtjänsterna (`kundvakt.webbprovning`). Varje annan session nekas dem som förut.
+- Sökloggen ur transkriptet och den prövade upptäcktsvägen per sajt sparas i FORSKNING.json; en påstådd sökning som
+  loggen inte visar står som kunskap ur minnet.
+- Referenskontraktet (`kontroller/referenskontrakt.py`, version 1; `kunskap/referensjakt.md`, Webbupptäckten och
+  kontraktet) stoppar beroende planering och skapande: fångade branschsajter och galleriförebilder, en lyckad
+  webbsökning, Awwwards prövat i varje ny designomgång, planens branschgenomgång och förebilder med belägg i rätt
+  paketversion, och per kandidat bidrag ur både branschen och inspirationen med kedjan kundbehov → observerad kvalitet
+  → designbeslut → tillämpning → bedömning. Antalen är arbetsregelns täckning, aldrig ett kvalitetsbetyg. En äldre plan
+  eller research märks som äldre än kontraktet och skrivs inte om.
+- UPPDRAG.md bär kandidatens urval med bilderna; överföringen redovisas per bidrag i fem nivåer, och tillämpningen
+  bedöms av bilderna, aldrig av kvittot. Den blinda skisskritiken ser inte UPPDRAG.md.
+- Inspektionen observerar rörelse utanför `getAnimations()` (requestAnimationFrame, canvas, video) och tar en kort
+  bildsekvens när den är aktiv.

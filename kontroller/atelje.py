@@ -344,8 +344,11 @@ def andra_kunder_nekas(slug):
     return ut
 
 
+WEBBVERKTYG = ('WebSearch', 'WebFetch')  # researchrollens webbupptäckt (kompetensens verktyg webbsok); nekas varje annan session
+
+
 def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, nekas=(), slug=None, kundrot=False, blind=None, kundrepo=None,
-                 strom=False, roll=None):
+                 strom=False, roll=None, webb=False):
     """Argumenten till en nästlad session. Ägarens ord 2026-10-05 18:15Z ("ALLA SKILLS OCH MCPS TILLGÄNGLIGA"): med en
     slug ser sessionen alla skills (skillverktyget) och MCP-servrarna, och kundvakten prövar varje anrop till en extern
     designtjänst; vad sessionen får använda utan att fråga står i --allowedTools (dontAsk nekar resten). MCP-servrarna:
@@ -369,8 +372,16 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
     meddelandeprotokollet för sessionens kanal i systemprompten (lopare.protokoll: inget för en blind session eller en
     oberoende bedömare, bara det utgående för en session med schema) och crossSessionInbound refuse, så att bussen är
     sessionens enda väg för meddelanden (ingen annan session når den med SendMessage). roll: sessionens roll, som
-    avgör kanalen tillsammans med blind och schema (meddelanden.kanal)."""
-    namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'})
+    avgör kanalen tillsammans med blind och schema (meddelanden.kanal).
+    webb: researchrollens webbupptäckt (ägarens uppdrag 2026-10-10 om hela referenskedjan, punkt 2). WebSearch och WebFetch
+    kommer då med i --tools och lyfts ur NEKAS för just den sessionen, men står aldrig i --allowedTools: kundvakten prövar
+    varje sökfråga och adress mot kundens uppgifter och öppnar ett rent anrop uttryckligen, och en krok som inte svarar
+    lämnar anropet åt dontAsk, som nekar det. Kräver slug (kundvakten); en blind session får aldrig webben."""
+    if webb and (not slug or blind):
+        raise ValueError('webbupptäckten kräver kundvakten (slug) och ges aldrig en blind session')
+    namn = sorted({str(v).split('(', 1)[0] for v in verktyg if not str(v).startswith('mcp__')} | {'Read', 'Glob', 'Grep', 'Skill', 'ToolSearch'}
+                  | (set(WEBBVERKTYG) if webb else set()))
+    verktyg = [v for v in verktyg if str(v) not in WEBBVERKTYG]  # aldrig en allow-regel: kundvaktens uttryckliga tillåtelse krävs
     utanfor = kundrot or bool(blind)  # sessionen startar utanför motorns rot: kundrepot (R06) eller den blinda arbetskatalogen
     if blind:
         verktyg = [v for v in verktyg if str(v) not in blindvakt.VERKTYG]
@@ -395,7 +406,8 @@ def session_args(verktyg, schema=None, max_turer=200, modell=None, effort=None, 
             '--setting-sources', 'project,local'] + mcp + [
             '--model', modell or MODELL, '--effort', effort or EFFORT, '--tools', ','.join(namn),
             '--allowedTools', *verktyg, *[x for x in ('Skill', 'ToolSearch') if x not in verktyg], '--disallowedTools',
-            *[regel_absolut(x) if utanfor else x for x in NEKAS + kompetens.skill_nekas(ROOT) + andra_kunder_nekas(slug)], *nekas]
+            *[regel_absolut(x) if utanfor else x for x in [n_ for n_ in NEKAS if not (webb and n_ in WEBBVERKTYG)]
+              + kompetens.skill_nekas(ROOT) + andra_kunder_nekas(slug)], *[n_ for n_ in nekas if not (webb and n_ in WEBBVERKTYG)]]
     if kundrot and not blind:  # motorns skills, kunskap och verktyg nås från kundrepots rot (motorns CLAUDE.md kommer ändå med ovanifrån: förmågeprovet S1)
         args[args.index('--setting-sources'):args.index('--setting-sources')] = ['--add-dir', str(ROOT)]
     if schema:
@@ -506,7 +518,7 @@ class Stoppad(Exception):
 
 
 def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None,
-            blind=None, arbetsslug=None):
+            blind=None, arbetsslug=None, webb=False):
     """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger).
     vid_start(pid) får sessionens pid (kandidatens status bär den, så att en återupptagning kan avsluta en session som
     överlevt arbetaren). Vid tidsgräns avslutas hela processträdet, också Bash-kommandon i egna processgrupper.
@@ -516,7 +528,8 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
     if STOPP.is_set():
         raise Stoppad('arbetaren stoppas: ingen ny session')
     rot, kundrot = (blind_arbetsyta(('blind session %s' % (slug or arbetsslug or '')).strip()), False) if blind else arbetsrot(slug or arbetsslug)
-    args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot, blind=blind, kundrepo=rot if kundrot else None)
+    args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot, blind=blind, kundrepo=rot if kundrot else None,
+                        webb=webb)
     if kundrot or blind:  # prompten med absoluta vägar, eftersom sessionens arbetskatalog ligger utanför motorns rot
         prompt = text_absolut(prompt)
     sid, oslug = observerad(ut, slug)
@@ -531,7 +544,7 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
     strom = bool(sid and oslug and strommande() and observation and observation.stromflaggor(claude()))
     if strom:  # löparen: meddelanden under arbetet och paus (lopare.py); samma verktyg, regler och svarsfil
         args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot, blind=blind,
-                            kundrepo=rot if kundrot else None, strom=True, roll=roll)
+                            kundrepo=rot if kundrot else None, strom=True, roll=roll, webb=webb)
     if sid:  # sessionens id från start: observatören hittar transkriptet medan sessionen arbetar
         args[2:2] = ['--session-id', sid]
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och

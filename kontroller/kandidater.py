@@ -765,17 +765,43 @@ def regel_rader():
 
 # --- researchen ---
 
+_GALLERI_OBJEKT = {'type': 'object', 'additionalProperties': False, 'required': ['galleri', 'objekt', 'sajt', 'utmarkelse', 'undersokt', 'vald', 'skal'],
+                   'properties': {'galleri': {'type': 'string'}, 'objekt': {'type': 'string'}, 'sajt': {'type': 'string'},
+                                  'utmarkelse': {'type': 'string'}, 'undersokt': {'type': 'boolean'}, 'vald': {'type': 'boolean'}, 'skal': {'type': 'string'}}}
 FORSKA_SCHEMA = {
-    'type': 'object', 'additionalProperties': False, 'required': ['varfor', 'riktningar', 'antaganden', 'sajter', 'fragor'],
+    'type': 'object', 'additionalProperties': False, 'required': ['varfor', 'riktningar', 'antaganden', 'sajter', 'fragor', 'galleri', 'sallning'],
     'properties': {
+        # gallerierna (ägarens uppdrag 2026-10-10): Awwwards i varje ny designomgång och minst ett annat galleri; varje
+        # objekt följs till den verkliga sajten, och de valda står också i sajter (roll hantverk, upptäckt galleri)
+        'galleri': {'type': 'object', 'additionalProperties': False, 'required': ['sokningar', 'objekt'],
+                    'properties': {'sokningar': {'type': 'array', 'minItems': 1, 'maxItems': 12, 'items': {
+                                       'type': 'object', 'additionalProperties': False, 'required': ['galleri', 'fraga_eller_adress', 'utfall'],
+                                       'properties': {'galleri': {'type': 'string'}, 'fraga_eller_adress': {'type': 'string'},
+                                                      'utfall': {'type': 'string', 'enum': ['traffar', 'tomt', 'otillganglig']}}}},
+                                   'objekt': {'type': 'array', 'maxItems': 16, 'items': _GALLERI_OBJEKT}}},
+        # den första sållningen av branschsajter och förebilder, med urval och bortval (punkt 3)
+        'sallning': {'type': 'array', 'minItems': 3, 'maxItems': 24, 'items': {
+            'type': 'object', 'additionalProperties': False, 'required': ['namn', 'adress', 'roll', 'upptackt', 'vald', 'skal'],
+            'properties': {'namn': {'type': 'string'}, 'adress': {'type': 'string'}, 'roll': {'type': 'string', 'enum': ['bransch', 'hantverk', 'ux']},
+                           'upptackt': {'type': 'string', 'enum': ['websok', 'galleri', 'byra', 'refero', 'mobbin', 'kund', 'kunskap']},
+                           'vald': {'type': 'boolean'}, 'skal': {'type': 'string'}}}},
         'varfor': {'type': 'string'}, 'riktningar': {'type': 'string'},
         'antaganden': {'type': 'array', 'maxItems': 8, 'items': {
             'type': 'object', 'additionalProperties': False, 'required': ['antagande', 'underlag', 'provning', 'om_fel'],
             'properties': {'antagande': {'type': 'string'}, 'underlag': {'type': 'string'}, 'provning': {'type': 'string'}, 'om_fel': {'type': 'string'}}}},
         'sajter': {'type': 'array', 'maxItems': skapande.MAX_KANDIDATER_BRED, 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': ['namn', 'adress', 'roll', 'varfor', 'sidor'],
+            'type': 'object', 'additionalProperties': False, 'required': ['namn', 'adress', 'roll', 'varfor', 'sidor', 'upptackt', 'uppgift', 'evidens'],
             'properties': {'namn': {'type': 'string'}, 'adress': {'type': 'string'}, 'roll': {'type': 'string', 'enum': ['bransch', 'hantverk', 'ux']},
                            'varfor': {'type': 'string'}, 'sidor': {'type': 'array', 'maxItems': skapande.MAX_SIDOR_PER, 'items': {'type': 'string'}},
+                           # hur sajten hittades: väg och källa (sökfrågan, galleriobjektets adress, byråns sida); minnet är kunskap
+                           'upptackt': {'type': 'object', 'additionalProperties': False, 'required': ['vag', 'kalla'],
+                                        'properties': {'vag': {'type': 'string', 'enum': ['websok', 'galleri', 'byra', 'refero', 'mobbin', 'kund', 'kunskap']},
+                                                       'kalla': {'type': 'string'}}},
+                           # vad referensen ska lära oss: fångstens fullständighet bedöms mot den uppgiften (punkt 8)
+                           'uppgift': {'type': 'array', 'minItems': 1, 'maxItems': 4, 'items': {'type': 'string', 'enum': [
+                               'innehall', 'fortroende', 'navigation', 'kontakt', 'komposition', 'typografi', 'bildregi', 'rytm', 'mobil', 'interaktion', 'rorelse']}},
+                           # vad urvalet vilar på: egen observation, sökrankning, företagsomdömen, designutmärkelse eller kundens egen
+                           'evidens': {'type': 'string', 'enum': ['egen_observation', 'sokrankning', 'omdomen', 'utmarkelse', 'kundens_egen']},
                            # referensinspektionen (ägarens uppdrag 2026-10-07, punkt 7): mellanbredderna och tillstånden valbara per sajt
                            'bredder': {'type': 'array', 'maxItems': 2, 'items': {'type': 'string', 'enum': ['768', '1280']}},
                            'hover': {'type': 'array', 'maxItems': 4, 'items': {'type': 'string'}},
@@ -788,7 +814,7 @@ FORSKA_SCHEMA = {
 
 FORSKA_SCHEMA_SKISS = json.loads(json.dumps(FORSKA_SCHEMA))  # skissläget: nytt bara där materialet saknar något
 FORSKA_SCHEMA_SKISS['properties']['fragor'].update(minItems=0, maxItems=6)
-FORSKA_SCHEMA_SKISS['properties']['sajter']['maxItems'] = 4
+FORSKA_SCHEMA_SKISS['properties']['sajter']['maxItems'] = 6  # ett tomt paket behöver branschsajterna och galleriförebilderna (referenskontrakt.ARBETSREGEL)
 # skissläget med flera förslag: hela bredden när materialet inte räcker för skilda grundidéer, men inga anrop för
 # antalets skull (ägarens uppdrag 2026-10-06, punkt 3)
 FORSKA_SCHEMA_SKISS_BRED = json.loads(json.dumps(FORSKA_SCHEMA))
@@ -816,17 +842,19 @@ def forska_prompt(slug, n, fel=None, skiss=False):
         'Pröva territorierna med några egna generiska sökningar i Refero och Mobbin (och uxsok) innan du skriver frågorna: vad',
         'tjänsterna faktiskt har i varje estetiskt territorium och för besökarens uppgift. Det är prov, ingen hämtning:',
         'referenssteget hämtar sedan materialet med belägg, och ett tomt eller misslyckat prov skrivs som det är.', '',
+        *referensjakt_rader(slug, n, skiss), '',
         *research_rader(slug), '',
-        *(['Återanvänd researchen som finns (referenspaketet och tjänsternas rapport ovan). Föreslå sajter och frågor bara',
-           'där materialet saknar något som planen behöver för den bärande riktningen: högst 4 sajter och 6 frågor, annars tomma',
-           'listor. Varje hämtning förlänger ägarens väntan.', ''] if skiss and n == 1 else
+        *(['Återanvänd researchen som finns (referenspaketet och tjänsternas rapport ovan) där den passar briefen och är fångad.',
+           'Föreslå sajter och frågor där materialet saknar något som planen behöver för den bärande riktningen eller som',
+           'referenskontraktet kräver: högst 6 sajter och 6 frågor, annars tomma listor. Varje hämtning förlänger ägarens väntan.', '']
+          if skiss and n == 1 else
           ['Återanvänd researchen som finns där den passar (referenspaketet och tjänsternas rapport ovan), och sök nytt där',
            'den inte räcker för skilda grundidéer: både Refero och Mobbin. Gör inga anrop bara för antalets skull.', ''] if skiss else []),
         'Sök först utifrån kunden, besökarnas behov och olika möjliga uttryck, inte efter en redan bestämd lösning: frågorna och',
         'riktningarna beskriver verksamheten, besökarens uppgift och ett estetiskt territorium, aldrig formen (inga typsnittsantal,',
         'vikter, färgförbud, linjer eller layout i en fråga; ägarens uppdrag 2026-10-06). Mätvärdena i SEKTIONER.md och EXTRAKT.md',
         'är stickprov: typsnitt, kontraster och bildskala bedöms i bilderna.', '',
-        'Svara med tre delar:',
+        'Svara med delarna nedan (och galleri och sallning enligt referensjakten ovan):',
         '- antaganden: 3–6 antaganden om besökarna som kan ändra designbesluten, ur briefens målgrupper, toppuppgifter och',
         '  insiktskällor (BRIEF.md §2 och "Antaganden som behöver bekräftas"). För vart och ett: vilket underlag som stöder det',
         '  (eller "ännu inte observerat"), hur det prövas (en uppgift som beskriver besökarens mål utan att avslöja knappen, eller',
@@ -837,17 +865,59 @@ def forska_prompt(slug, n, fel=None, skiss=False):
         '  Referos stilar (typ stil) i flera skilda estetiska territorier; skärmar (typ skarm) för startsidans första vy på mobil',
         '  och dator, projekt- och tjänstesidor, förtroende och kontakt; flöden (typ flode) för förfrågan och projektgenomgång;',
         '  Mobbins sektioner, skärmar och flöden.',
-        '- sajter: högst %d riktiga sajter att fånga (namn a-z0-9-, adress https://värd/ med små bokstäver, roll bransch,' % (4 if skiss and n == 1 else skapande.MAX_KANDIDATER_BRED),
+        '- sajter: högst %d riktiga sajter att fånga (namn a-z0-9-, adress https://värd/ med små bokstäver, roll bransch,' % (6 if skiss and n == 1 else skapande.MAX_KANDIDATER_BRED),
         '  hantverk eller ux, varför, högst %d sidvägar; valfritt bredder ["768", "1280"] när layouten troligen byter form mellan' % skapande.MAX_SIDOR_PER,
         '  mobil och dator, och valfritt hover och fokus som listor med högst 4 generiska CSS-väljare, till exempel "nav a" eller',
         '  \'a[href^="tel:"]\', när ett tillstånd bär designen). Välj sajter som paketet inte redan har, eller skriv varför en',
         '  befintlig behöver fler sidor; en referens som en förkastad riktning redan byggt på väljs bara med ett skäl som svarar',
-        '  på kritiken. Domäner med å, ä eller ö skrivs i punycode.',
+        '  på kritiken. Domäner med å, ä eller ö skrivs i punycode. Varje sajt bär upptackt, uppgift och evidens (ovan).',
+        '- galleri: sokningar (galleriet, frågan eller adressen och utfallet: traffar, tomt eller otillganglig) och objekt (galleriet,',
+        '  objektsidans adress, den verkliga sajtens adress, utmärkelsen, om du öppnade objektet, om det valdes och skälet).',
+        '- sallning: den första sållningen av branschsajter och förebilder med namn, adress, roll, upptäcktsväg, vald och skäl.',
         ('I riktningar: vilka riktningar researchen prövar för att välja den bärande, och vad i kundens material som bär var och en. Skilj på'
          if n == 1 else 'I riktningar: vilka skilda grundidéer researchen ska öppna, och vad i kundens material som bär var och en. Skilj på'),
         'observation (vad en referens gör), rekommendation (vad vi föreslår för kunden) och belagd effekt (bara med källa).',
         *(['Förra svaret gick inte att köra: %s. Rätta det.' % fel] if fel else []),
         atelje.MATERIAL])
+
+
+def referensjakt_rader(slug, n, skiss=False):
+    """Webbupptäckten, gallerierna och kontraktet i researchens uppdrag (ägarens uppdrag 2026-10-10 om obligatorisk
+    branschresearch och om hela referenskedjan). Antalen är Nortropics arbetsregel för täckning, inget kvalitetsbetyg."""
+    import referenskontrakt as rk
+    a = rk.ARBETSREGEL
+    paket = skapande.senaste_paket(slug, atelje.UNDERLAG)
+    befintligt = rk.paket_rad(paket)
+    return [
+        'Referensjakten är obligatorisk och formar förslagen (referenskontraktet, kunskap/referensjakt.md). Börja i kundens',
+        'erbjudande, målgrupp, material och viktigaste besökaruppgifter, och sök sedan genom flera vägar med WebSearch och WebFetch:',
+        '- vanlig webbsökning på svenska och engelska efter starka verkliga verksamhetssajter i branschen, nationellt och',
+        '  internationellt där det ger bättre förebilder; byråers dokumenterade kundprojekt; jämförbara verksamheter. Första',
+        '  träffen, ett högt företagsbetyg eller stor omsättning är inget designbetyg;',
+        '- gallerierna: Awwwards ingår i varje ny designomgång (till exempel WebSearch "site:awwwards.com/sites <bransch eller',
+        '  uttryck>", eller en kategori- eller objektsida med WebFetch; Awwwards egen sökning är spärrad i robots.txt och används',
+        '  inte), kompletterat med minst ett av SiteInspire, Land-book, Godly, FWA, CSS Design Awards, Httpster eller One Page',
+        '  Love. Följ varje utvalt galleriobjekt till den verkliga sajten (objektsidans länk) och skriv utmärkelsen som',
+        '  sökingång, aldrig som bevis på användbarhet. Ett galleri som inte svarar skrivs otillgängligt och ersätts av ett annat;',
+        '- frågorna är generiska: bransch, tjänster och besökarens uppgift. Aldrig kundens namn, ort, adress, nummer eller',
+        '  texter (kundvakten stoppar dem). Kundens egen sajt hämtas av flödets hämtare, aldrig genom en söktjänst.',
+        'Sålla först (sallning: namn, adress, roll, upptäcktsväg, vald och skälet till urval eller bortval), och fördjupa sedan ett',
+        'mindre urval i sajter. Varje sajt bär upptackt (väg och källa: sökfrågan, galleriobjektets adress eller byråns sida; en',
+        'adress ur ditt minne är "kunskap", en kandidat och ingen upptäckt), uppgift (vad referensen ska lära oss) och evidens',
+        '(egen observation, sökrankning, omdömen, utmärkelse eller kundens egen). Varje sökning och hämtning bokförs ur',
+        'transkriptet och prövas mot vad du skriver: en påstådd sökning som aldrig gjordes står som kunskap. Skriv "starka',
+        'relevanta referenser" när det är vad vi kan belägga, aldrig "branschens bästa"; din bedömning är en AI-expertbedömning,',
+        'inget användartest.',
+        'Skilj verklig branschsajt (roll bransch), visuell förebild (roll hantverk; ur gallerierna med upptäckt galleri), skärm',
+        'eller flöde (Refero och Mobbin: arkiverat material utan levande DOM eller interaktion), återanvändbar komponent och',
+        'tema eller mall (21st, med licens). Sök flera möjliga uttryck innan riktningarna låses; den gemensamma researchen får',
+        'inte tvinga alla förslag till samma komposition.',
+        'Kontraktet före planen (Nortropics arbetsregel för täckning, aldrig ett kvalitetsbetyg): i paketet minst %d fångade' % a['bransch_sajter'],
+        'branschsajter och minst %d fångade sajter ur gallerierna, minst %d lyckad webbsökning med träffar, Awwwards prövad i' % (
+            a['inspiration_sajter'], a['webbsokningar']),
+        'den här omgången, och minst %d branschsajt som syns i en loggad sökning eller hämtning. Paketet har nu: %s.' % (
+            a['upptackta_bransch'], ', '.join('%s (%s)' % (n_, p_.get('roll')) for n_, p_ in sorted(befintligt.items()) if p_.get('sidor_ok')) or 'inga fångade sajter'),
+        'Återanvänd en fångad sajt när den passar briefen, och fånga nytt där paketet inte räcker.']
 
 
 def forska(slug, n, skiss=False):
@@ -860,12 +930,17 @@ def forska(slug, n, skiss=False):
     forbjudna = skapande.forbjudna_termer(slug, atelje.UNDERLAG)
     fore_paket = skapande.senaste_paket(slug, atelje.UNDERLAG)
     fore_tj = (atelje.las_json(u / 'referenser' / 'tjanster' / 'TJANSTER.json') or {}).get('tid')
+    import referenskontrakt as rk
     fel, plan, res, slappta, sessioner_, kravbrister = None, {}, {}, [], [], []
+    logg, kontraktsbrister, proveniens = [], [], {}
+    webb = any('webbsok' in x['verktyg'] for x in kompetens.for_pass('forska'))  # rollens webbupptäckt (metodkartan)
     for forsok in (1, 2):
         svar = atelje.session(forska_prompt(slug, n, fel, skiss), LASVERKTYG + kompetens.verktyg('forska', slug), r / ('svar-forska-%d.json' % forsok),
                               (FORSKA_SCHEMA_SKISS if n == 1 else FORSKA_SCHEMA_SKISS_BRED) if skiss else FORSKA_SCHEMA, 150, atelje.MODELL,
-                              EFFORT_SKISS if skiss else atelje.EFFORT, FRIST_SKISS_FORSKA if skiss else FRIST_FORSKA, slug=slug)
+                              EFFORT_SKISS if skiss else atelje.EFFORT, FRIST_SKISS_FORSKA if skiss else FRIST_FORSKA, slug=slug, webb=webb)
         sessioner_.append(svar)
+        import bildkedja
+        logg += [dict(x, session=svar.get('session_id'), forsok=forsok) for x in rk.sokningar(bildkedja.transkript(svar.get('session_id')))]
         kravbrister = kompetens.kravbrister(kompetens.kvitto(sessioner_, 'forska'), 'forska')
         if kravbrister:  # inget beroende referensuppdrag genomförs på en otillräckligt observerad research
             fel = 'researchens kompetenskrav uppfylldes inte: ' + '; '.join(kravbrister)
@@ -873,6 +948,9 @@ def forska(slug, n, skiss=False):
         plan = svar.get('structured_output') or {}
         sajter, fragor, slappta = [], [], []
         for s in plan.get('sajter') or []:
+            if isinstance(s, dict):  # upptäcktsvägen prövad mot loggen: en påstådd sökning som aldrig gjordes står som kunskap
+                proveniens[str(s.get('namn'))] = rk.verifiera_upptackt(s, logg)
+                s = dict(s, upptackt={'vag': proveniens[str(s.get('namn'))]['vag'], 'kalla': proveniens[str(s.get('namn'))]['kalla']})
             f_ = skapande.kanal_fel({'referens': {'kandidater': [s]}}, bred=True)
             (slappta.append('sajten %s: %s' % (str((s or {}).get('adress'))[:80], f_)) if f_ else sajter.append(s))
         for q in plan.get('fragor') or []:
@@ -884,18 +962,26 @@ def forska(slug, n, skiss=False):
         if fragor:
             begaran['tjanster'] = {'fragor': fragor[:skapande.MAX_FRAGOR_BRED]}
         if len(begaran) == 1:
-            if skiss and not slappta:  # skissläget: det befintliga materialet räcker, inget hämtas
+            if skiss and not slappta:  # skissläget: det befintliga materialet räcker, inget hämtas; kontraktet prövas ändå
                 fel = None
-                break
-            fel = 'varken sajter eller frågor gick att köra (%s)' % '; '.join(slappta[:4])
-            continue
-        f = r / 'FORSKNING-begaran.json'
-        f.write_text(json.dumps(begaran, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-        res = skapande.komplettera(slug, f, r, atelje.UNDERLAG, frist=min(FRIST_HAMTA, 1800) if skiss else FRIST_HAMTA, bred=True)
-        fel = res.get('fel')
-        if not fel:
+            else:
+                fel = 'varken sajter eller frågor gick att köra (%s)' % '; '.join(slappta[:4])
+                continue
+        else:
+            f = r / 'FORSKNING-begaran.json'
+            f.write_text(json.dumps(begaran, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+            res = skapande.komplettera(slug, f, r, atelje.UNDERLAG, frist=min(FRIST_HAMTA, 1800) if skiss else FRIST_HAMTA, bred=True)
+            fel = res.get('fel')
+            if fel:
+                continue
+        # referenskontraktet: det fångade paketet och den loggade upptäckten, inte svarets påståenden
+        kontraktsbrister = rk.researchbrister(slug, atelje.UNDERLAG, {'sok': logg}, skapande.senaste_paket(slug, atelje.UNDERLAG))
+        if not kontraktsbrister:
             break
+        fel = 'referenskontraktet uppfylls inte än (%s); komplettera det som saknas' % '; '.join(kontraktsbrister)
     efter_paket = skapande.senaste_paket(slug, atelje.UNDERLAG)
+    if not kravbrister:  # alltid prövat efter sista försöket, också när hämtningen föll: saknat underlag är aldrig klart
+        kontraktsbrister = rk.researchbrister(slug, atelje.UNDERLAG, {'sok': logg}, efter_paket)
     tj = atelje.las_json(u / 'referenser' / 'tjanster' / 'TJANSTER.json') or {}
     nya_sajter = []
     if efter_paket and efter_paket != fore_paket:
@@ -906,7 +992,12 @@ def forska(slug, n, skiss=False):
                      'tjanster': tj.get('tid') if tj.get('tid') and tj.get('tid') != fore_tj else None},
             'fore': {'paket': fore_paket.name if fore_paket else None, 'tjanster': fore_tj},
             'referens': res.get('referens'), 'tjanster': res.get('tjanster'),
-            'kompetens': kompetens_kort(kompetens.kvitto(sessioner_, 'forska')), 'kompetenskravbrister': kravbrister}
+            'kompetens': kompetens_kort(kompetens.kvitto(sessioner_, 'forska')), 'kompetenskravbrister': kravbrister,
+            # webbupptäckten och gallerierna (ägarens uppdrag 2026-10-10): loggen ur transkripten, sessionens egen redovisning
+            # av gallerierna och sållningen, den prövade upptäcktsvägen per sajt och kontraktets brister
+            'sok': logg, 'galleri': plan.get('galleri') or {}, 'sallning': plan.get('sallning') or [], 'proveniens': proveniens,
+            'referenskontrakt': {'version': rk.VERSION, 'brister': kontraktsbrister, 'tid': nu(),
+                                 'paket': efter_paket.name if efter_paket else None}}
     (r / 'FORSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     rader = ['# Research före kandidatplanen · %s · %s' % (slug, post['tid']), '',
              'Gjord av kontroller/kandidater.py (forska): en session formulerade antagandena, frågorna och sajterna; referenssteget',
@@ -937,10 +1028,22 @@ def forska(slug, n, skiss=False):
     rader += ['', '## Sajterna', ''] + ['- %s (%s) %s — %s' % (s.get('namn'), s.get('roll'), s.get('adress'), s.get('varfor')) for s in post['sajter']]
     if slappta:
         rader += ['', '## Släppta (utanför kanalens form)', ''] + ['- ' + x for x in slappta]
+    rader += ['', '## Webbupptäckten (ur transkriptet)', '']
+    rader += ['- %s %s: %s' % (x['verktyg'], x.get('fraga') or x.get('url'), ('fel: %s' % x['fel'][:120]) if x.get('fel') else '%d adresser' % len(x.get('traffar') or []))
+              for x in logg] or ['- ingen sökning eller hämtning gjordes']
+    rader += ['', '## Gallerierna', '']
+    rader += ['- %s · %s → %s (%s)%s: %s' % (o.get('galleri'), o.get('objekt'), o.get('sajt'), o.get('utmarkelse') or 'ingen utmärkelse angiven',
+                                            ' · vald' if o.get('vald') else ' · bortvald', o.get('skal')) for o in (post['galleri'].get('objekt') or [])] or ['- inga objekt']
+    rader += ['', '## Sållningen', ''] + ['- %s (%s, %s) %s: %s' % (x.get('namn'), x.get('roll'), x.get('upptackt'), 'vald' if x.get('vald') else 'bortvald', x.get('skal'))
+                                          for x in post['sallning']] + ['', '## Upptäcktsvägen per sajt (prövad mot loggen)', '']
+    rader += ['- %s: %s%s' % (n_, p_.get('vag'), (' (påstod %s; %s)' % (p_.get('pastadd'), p_.get('not'))) if p_.get('pastadd') else '') for n_, p_ in proveniens.items()]
+    rader += ['', '## Referenskontraktet', ''] + (['- ' + x for x in kontraktsbrister] or ['- uppfyllt (arbetsregelns täckning; ingen kvalitetsbedömning)'])
     rader += ['', '## Kompetensen', '', *kompetensrad(post['kompetens'], 'forska')]
     (r / 'FORSKNING.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
     if kravbrister:
         raise RuntimeError(fel)
+    if kontraktsbrister:  # beroende planering och skapande startar inte på saknat obligatoriskt underlag
+        raise RuntimeError('researchens referenskontrakt uppfylldes inte: ' + '; '.join(kontraktsbrister))
     return post
 
 
@@ -992,17 +1095,24 @@ PLAN_SCHEMA = {
         'variation': {'type': 'string'},
         # branschgenomgången (punkt 5): hur starka relevanta sajter hanterar tjänster, förtroende, priser, navigation och
         # kontakt, och deras svagheter; att något förekommer hos konkurrenter gör det inte till bästa praxis
-        'bransch': {'type': 'array', 'maxItems': 8, 'items': {
+        # ägarens uppdrag 2026-10-10: varje rad är en fångad branschsajt ur paketet (sajt = paketets namn) med belägg i
+        # paketets bilder, bedömd konkret; referenskontrakt.planbrister prövar sajten, beläggen och bedömningarna
+        'bransch': {'type': 'array', 'minItems': 3, 'maxItems': 8, 'items': {
             'type': 'object', 'additionalProperties': False,
-            'required': ['sajt', 'tjanster', 'fortroende', 'priser', 'navigation', 'kontakt', 'svagheter'],
-            'properties': {k: {'type': 'string'} for k in ('sajt', 'tjanster', 'fortroende', 'priser', 'navigation', 'kontakt', 'svagheter')}}},
-        # visuella förebilder också utanför branschen, vars kvaliteter kan fungera med kundens material
-        'forebilder_utanfor': {'type': 'array', 'maxItems': 8, 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': ['namn', 'kvalitet', 'kundens_material'],
-            'properties': {k: {'type': 'string'} for k in ('namn', 'kvalitet', 'kundens_material')}}},
+            'required': ['sajt', 'varfor_studera', 'evidens', 'erbjudande', 'tjanster_priser', 'fortroende', 'navigation_kontakt', 'bilder_identitet',
+                         'mobil', 'styrkor', 'svagheter', 'mojligheter', 'belagg'],
+            'properties': {**{k: {'type': 'string'} for k in ('sajt', 'varfor_studera', 'erbjudande', 'tjanster_priser', 'fortroende', 'navigation_kontakt',
+                                                               'bilder_identitet', 'mobil', 'styrkor', 'svagheter', 'mojligheter')},
+                           'evidens': {'type': 'string', 'enum': ['egen_observation', 'sokrankning', 'omdomen', 'utmarkelse', 'kundens_egen']},
+                           'belagg': {'type': 'array', 'minItems': 1, 'maxItems': 6, 'items': {'type': 'string'}}}}},
+        # visuella förebilder ur gallerierna, också utanför branschen, vars kvaliteter kan fungera med kundens material
+        'forebilder_utanfor': {'type': 'array', 'minItems': 2, 'maxItems': 8, 'items': {
+            'type': 'object', 'additionalProperties': False, 'required': ['sajt', 'galleri', 'kvalitet', 'kundens_material', 'begransningar', 'belagg'],
+            'properties': {**{k: {'type': 'string'} for k in ('sajt', 'galleri', 'kvalitet', 'kundens_material', 'begransningar')},
+                           'belagg': {'type': 'array', 'minItems': 1, 'maxItems': 6, 'items': {'type': 'string'}}}}},
         'kandidater': {'type': 'array', 'minItems': 2, 'maxItems': 12, 'items': {
             'type': 'object', 'additionalProperties': False,
-            'required': [f for f, _ in PLANFALT] + ['referensbilder', 'utgangspunkt', 'implementationsgrund', 'skiljer_sig_i'],
+            'required': [f for f, _ in PLANFALT] + ['referensbilder', 'utgangspunkt', 'implementationsgrund', 'skiljer_sig_i', 'referensbidrag'],
             'properties': {f: {'type': 'string'} for f, _ in PLANFALT} | {'referensbilder': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 6},
                                                                           # T01: en skärm för en komposition, ett flöde för en resa i steg
                                                                           'mobbin_typ': {'type': 'string', 'enum': ['skarm', 'flode']},
@@ -1014,7 +1124,20 @@ PLAN_SCHEMA = {
                                          'properties': {'slag': {'type': 'string', 'enum': list(IMPLEMENTATIONSGRUNDER)}, 'kalla': {'type': 'string'},
                                                         'ateranvands': {'type': 'string'}, 'aterskapas_ur_bild': {'type': 'boolean'},
                                                         'insats': {'type': 'string'}}},
-                'skiljer_sig_i': {'type': 'array', 'minItems': 1, 'maxItems': 6, 'items': {'type': 'string', 'enum': list(DIMENSIONER)}}}}}}}
+                'skiljer_sig_i': {'type': 'array', 'minItems': 1, 'maxItems': 6, 'items': {'type': 'string', 'enum': list(DIMENSIONER)}},
+                # kedjan kundbehov → observerad kvalitet → designbeslut → planerad tillämpning → bedömning, med minst ett
+                # bidrag ur branschen och ett ur den visuella inspirationen (referenskontrakt.kandidatbrister)
+                'referensbidrag': {'type': 'array', 'minItems': 2, 'maxItems': 6, 'items': {
+                    'type': 'object', 'additionalProperties': False,
+                    'required': ['kalla', 'roll', 'uppgift', 'kundbehov', 'observerad_kvalitet', 'matbart', 'beslut', 'designbeslut', 'tillampning',
+                                 'bedomning', 'belagg'],
+                    'properties': {'kalla': {'type': 'string'}, 'roll': {'type': 'string', 'enum': ['bransch', 'visuellt', 'ux', 'implementation']},
+                                   'uppgift': {'type': 'string', 'enum': ['innehall', 'fortroende', 'navigation', 'kontakt', 'komposition', 'typografi',
+                                                                          'bildregi', 'rytm', 'mobil', 'interaktion', 'rorelse']},
+                                   'kundbehov': {'type': 'string'}, 'observerad_kvalitet': {'type': 'string'}, 'matbart': {'type': 'boolean'},
+                                   'beslut': {'type': 'string', 'enum': ['infor', 'anpassar', 'undviker']}, 'designbeslut': {'type': 'string'},
+                                   'tillampning': {'type': 'string'}, 'bedomning': {'type': 'string'},
+                                   'belagg': {'type': 'array', 'minItems': 1, 'maxItems': 4, 'items': {'type': 'string'}}}}}}}}}}
 
 
 def planbrist(k):
@@ -1078,7 +1201,16 @@ def research_rader(slug):
     return rader
 
 
-def plan_prompt(slug, n, skiss=False):
+def referenskedjebrist(slug, k, plan=None):
+    """Kandidatens referenskedja mot kontraktet (referenskontrakt.kandidatbrister), som text, eller None."""
+    import referenskontrakt as rk
+    plan = plan if plan is not None else (atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {})
+    paket = rk.kandidatpaket(slug, atelje.UNDERLAG, plan) or skapande.senaste_paket(slug, atelje.UNDERLAG)
+    f = rk.kandidatbrister(slug, atelje.UNDERLAG, k, paket)
+    return '; '.join(f) if f else None
+
+
+def plan_prompt(slug, n, skiss=False, fel=None):
     filer, refs, fel = atelje.underlag_rader(slug)
     if n == 1:  # den enda prototypen som prövar hela kedjan före uppskalningen
         vad = ('skiss (första vyn och den viktigaste innehållssektionen, mobil och dator)' if skiss else 'genomarbetad prototyp')
@@ -1159,10 +1291,7 @@ def plan_prompt(slug, n, skiss=False):
         'eller återanvända (FORSKNING.md säger vilket).',
         ('Skriv i "variation" varför den här riktningen och huvudreferensen valdes framför de andra i researchen.' if n == 1 else
          'Skriv i "variation" hur uppdragen skiljer sig längs de dimensionerna och var två ligger nära varandra.'),
-        'Branschgenomgången först (ägarens uppdrag 2026-10-09, punkt 5): skriv i "bransch" för de starkaste relevanta sajterna i',
-        'researchen hur de hanterar tjänster, förtroende, priser, navigation och kontakt, och deras svagheter; att något',
-        'förekommer hos konkurrenter gör det inte till bästa praxis. Skriv i "forebilder_utanfor" visuella förebilder utanför',
-        'branschen vars kvaliteter kan fungera med kundens material, och varför materialet bär dem.',
+        *referensplan_rader(slug),
         'Varje uppdrag har en identifierad visuell utgångspunkt ("utgangspunkt": slaget, namnet och källan, till exempel en',
         'fångad sajt, en Refero-stil eller -skärm, en Mobbin-skärm, en komponent eller ett tema ur 21st.dev, en mall eller egen)',
         'och en faktisk implementationsgrund ("implementationsgrund": mall, komponenter, tema eller egen, med källan, det som',
@@ -1172,7 +1301,39 @@ def plan_prompt(slug, n, skiss=False):
         'farg uppdraget skiljer sig från de andra; ett uppdrag som bara skiljer sig i färg avvisas. Tio förslag är ägarens',
         'beslut; går tio verkligt olika inte att göra med underlaget, ge färre och säg varför i "variation", aldrig kosmetiska',
         'dubbletter.',
+        *(['Förra planen gick inte att använda: %s. Rätta det.' % fel] if fel else []),
         'Svara med uppdragen i schemat.', atelje.MATERIAL])
+
+
+def referensplan_rader(slug):
+    """Planens del av referenskontraktet (ägarens uppdrag 2026-10-10): branschgenomgången, förebilderna och kedjan per
+    kandidat, med sajter och belägg ur det fångade paketet."""
+    import referenskontrakt as rk
+    a = rk.ARBETSREGEL
+    paket = skapande.senaste_paket(slug, atelje.UNDERLAG)
+    rader_p = rk.paket_rad(paket)
+    fangade = ['%s (%s, %s)' % (n_, p_.get('roll'), (p_.get('upptackt') or {}).get('vag') or 'okänd väg') for n_, p_ in sorted(rader_p.items()) if p_.get('sidor_ok')]
+    return [
+        'Branschgenomgången och inspirationen först, ur det fångade paketet %s (fångade sajter: %s). Antalen är Nortropics' % (
+            rel(paket) if paket else '(inget paket)', ', '.join(fangade) or 'inga'),
+        'arbetsregel för täckning, aldrig ett kvalitetsbetyg:',
+        '- "bransch": minst %d rader, en per fångad branschsajt (sajt = paketets namn): varför den är värd att studera, evidens' % a['plan_bransch'],
+        '  (egen observation, sökrankning, omdömen, utmärkelse eller kundens egen), erbjudande och informationshierarki, tjänster,',
+        '  priser och hur osäkerhet hanteras, förtroende och belägg (projekt, resultat), navigation och vägen till kontakt eller',
+        '  bokning, bildmaterial och identitet, mobilupplevelsen, styrkor, svagheter och möjligheter för vår kund, och belagg:',
+        '  1–6 sökvägar till paketets bilder som visar det (under underlag/%s/referenser/<paket>/<sajt>/<sida>/). Att något' % slug,
+        '  förekommer hos konkurrenter gör det inte till bästa praxis; skriv "starka relevanta referenser", aldrig "bäst".',
+        '- "forebilder_utanfor": minst %d visuella förebilder ur gallerierna (sajt = paketets namn, galleri), med den konkreta' % a['plan_forebilder'],
+        '  observerade kvaliteten (komposition, proportioner, typografisk hierarki, bildbeskärning och bildsekvenser, rytm och',
+        '  täthet, färg och detaljer, responsiva förändringar, tillstånd), om kundens material bär den, begränsningarna (en',
+        '  stillbild bevisar ingen rörelse eller interaktion; en arkiverad skärm har ingen levande DOM) och belagg i paketet.',
+        '- per uppdrag "referensbidrag": 2–6 bidrag, minst ett ur branschen (roll bransch) och ett ur den visuella inspirationen',
+        '  (roll visuellt), också för en egen huvudreferens. Varje bidrag: kalla (paketets sajtnamn, eller tjänsternas id för ux',
+        '  och implementation), uppgift, kundbehov, observerad kvalitet (konkret och synlig i beläggen; matbart när den är mätt',
+        '  i DOM/CSS i SEKTIONER.md eller EXTRAKT.md, annars visuell tolkning), beslut (infor, anpassar eller undviker),',
+        '  designbeslut, planerad tillämpning, hur resultatet bedöms (i samma bredd och tillstånd som referensen) och belagg (1–4',
+        '  bilder i paketet). Det är skaparens koncentrerade urval: hela underlaget står kvar i planen och paketet. Låt',
+        '  uppdragen bygga på olika huvudreferenser och kompositioner där underlaget bär det.']
 
 
 # planens formförslag: skaparen får ompröva dem när renderingen visar något bättre (ägarens uppdrag 2026-10-06, punkt 1)
@@ -1221,6 +1382,11 @@ def skriv_uppdrag(slug, kid, k, nr, totalt):
     if profiler.get('ok') and profiler.get('uppdrag', {}).get(kid) == uppdrag_sha(k):
         import referensprofil
         rader += referensprofil.prompt_rader(profiler, kid)
+    plan = atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}
+    if (plan.get('referenskontrakt') or {}).get('version'):  # en äldre plan saknar kontraktet: dess uppdrag skrivs inte om
+        import referenskontrakt as rk
+        vy = dict(plan, kandidater=dict(plan.get('kandidater') or {}, **{kid: k}))
+        rader += [''] + rk.skaparunderlag(slug, atelje.UNDERLAG, vy, kid)[0]
     (d / 'UPPDRAG.md').write_text('\n'.join(rader), encoding='utf-8')
 
 
@@ -1325,43 +1491,68 @@ def minsta_plan(n):
 def planera(slug, n, lage=None):
     """Planeringspasset: uppdragen ur researchen och kundens material (ett schema, så att varje uppdrag har sina fält).
     Planen bär körningens läge, så att en återupptagning följer körningen."""
+    import referenskontrakt as rk
     r = rot(slug)
     lage = lage or LAGE
-    svar = atelje.session(plan_prompt(slug, n, lage == 'skiss'), LASVERKTYG + kompetens.verktyg('planera', slug), r / 'svar-plan.json', plan_schema(n), 200,
-                          atelje.MODELL, EFFORT_SKISS if lage == 'skiss' else atelje.EFFORT, FRIST_PLAN, slug=slug)
-    kv = kompetens.kvitto([svar], 'planera')
-    brister = kompetens.kravbrister(kv, 'planera')
-    # Kvittot finns också när planen stoppas, utan att en äldre giltig kandidatplan skrivs över.
-    (r / 'PLANERING.json').write_text(json.dumps({'tid': nu(), 'kompetens': kompetens_kort(kv),
-                                                'kompetenskravbrister': brister}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    if brister:
-        raise RuntimeError('planeringens kompetenskrav uppfylldes inte: ' + '; '.join(brister))
-    plan = svar.get('structured_output') or {}
-    kand, avvisade = [], []
-    for k in plan.get('kandidater') or []:
-        if not isinstance(k, dict) or not str(k.get('titel') or '').strip():
-            continue
-        brist = referensbrist(slug, k) or planbrist(k)  # en namngiven referens utan underlag är ingen referens (F06)
-        (avvisade.append({'titel': str(k.get('titel'))[:120], 'skal': brist}) if brist else kand.append(k))
-    kand = kand[:n]
-    if len(kand) < minsta_plan(n):
-        raise RuntimeError('planen gav %d användbara uppdrag av %d%s' % (len(kand), n, ('; avvisade: ' + '; '.join(
-            '%s: %s' % (a['titel'], a['skal']) for a in avvisade)) if avvisade else ''))
+    paket = skapande.senaste_paket(slug, atelje.UNDERLAG)  # planen binds till paketversionen den läste (referenskontraktet)
+    fel = None
+    for forsok in (1, 2):  # ett omförsök med bristerna; sedan stoppas planen, och inget beroende skapande startar
+        svar = atelje.session(plan_prompt(slug, n, lage == 'skiss', fel=fel), LASVERKTYG + kompetens.verktyg('planera', slug),
+                              r / ('svar-plan.json' if forsok == 1 else 'svar-plan-%d.json' % forsok), plan_schema(n), 200,
+                              atelje.MODELL, EFFORT_SKISS if lage == 'skiss' else atelje.EFFORT, FRIST_PLAN, slug=slug)
+        kv = kompetens.kvitto([svar], 'planera')
+        brister = kompetens.kravbrister(kv, 'planera')
+        # Kvittot finns också när planen stoppas, utan att en äldre giltig kandidatplan skrivs över.
+        (r / 'PLANERING.json').write_text(json.dumps({'tid': nu(), 'kompetens': kompetens_kort(kv), 'forsok': forsok,
+                                                    'kompetenskravbrister': brister}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        if brister:
+            raise RuntimeError('planeringens kompetenskrav uppfylldes inte: ' + '; '.join(brister))
+        plan = svar.get('structured_output') or {}
+        planfel = rk.planbrister(slug, atelje.UNDERLAG, plan, paket)  # genomgångarna: fångade sajter och belägg i paketet
+        kand, avvisade = [], []
+        for k in plan.get('kandidater') or []:
+            if not isinstance(k, dict) or not str(k.get('titel') or '').strip():
+                continue
+            # en namngiven referens utan underlag är ingen referens (F06), och kedjan kundbehov → observation → beslut måste
+            # finnas också för en egen huvudreferens (referenskontraktet)
+            brist = referensbrist(slug, k) or planbrist(k) or referenskedjebrist(slug, k, {'paket': paket.name if paket else None})
+            (avvisade.append({'titel': str(k.get('titel'))[:120], 'skal': brist}) if brist else kand.append(k))
+        kand = kand[:n]
+        if not planfel and len(kand) >= minsta_plan(n):
+            break
+        fel = '; '.join(planfel + ['%d användbara uppdrag av %d%s' % (len(kand), n, ('; avvisade: ' + '; '.join(
+            '%s: %s' % (a['titel'], a['skal']) for a in avvisade)) if avvisade else '')] if len(kand) < minsta_plan(n) else planfel)
+        if forsok == 2:
+            raise RuntimeError('planen uppfyllde inte referenskontraktet: ' + fel)
     ids = ['k%02d' % i for i in range(1, len(kand) + 1)]
-    for i, (kid, k) in enumerate(zip(ids, kand), 1):
-        skriv_uppdrag(slug, kid, k, i, len(kand))
-        satt_status(slug, kid, 'planerad', 'uppdraget skrivet', titel=k['titel'], hypotes=k.get('hypotes'), huvudreferens=k.get('huvudreferens'), forsok=0)
     (r / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': nu(), 'antal': len(ids), 'begart': n, 'lage': lage, 'variation': plan.get('variation'),
+                                                    'paket': paket.name if paket else None,
+                                                    'referenskontrakt': {'version': rk.VERSION, 'brister': [], 'tid': nu()},
                                                     'kandidater': dict(zip(ids, kand)), 'avvisade': avvisade, 'kompetens': kompetens_kort(kv), 'kompetenskravbrister': [], 'bransch': plan.get('bransch') or [],
                                                     'forebilder_utanfor': plan.get('forebilder_utanfor') or [],
                                                     # färre än begärt redovisas, och fylls aldrig upp med kosmetiska dubbletter (punkt 6)
                                                     'brist_mot_begart': (None if len(ids) >= n else '%d av %d användbara förslag%s' % (
                                                         len(ids), n, ('; avvisade: ' + '; '.join('%s: %s' % (a['titel'], a['skal']) for a in avvisade)) if avvisade else ''))},
                                                    ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    (r / 'KANDIDATPLAN.md').write_text('\n'.join(['# Kandidatplan · %s · %s' % (slug, nu()), '', '## Variationen', '', str(plan.get('variation') or ''), '']
+    (r / 'KANDIDATPLAN.md').write_text('\n'.join(['# Kandidatplan · %s · %s' % (slug, nu()), '', 'Referenspaket: %s.' % (paket.name if paket else 'inget'), '',
+                                                  '## Variationen', '', str(plan.get('variation') or ''), '']
                                                  + ['- **%s · %s**: %s' % (kid, k['titel'], re.sub(r'\s+', ' ', k.get('hypotes') or k['ide'])[:300]) for kid, k in zip(ids, kand)]
-                                                 + (['', '## Avvisade uppdrag (referens utan underlag)', ''] + ['- %s: %s' % (a['titel'], a['skal']) for a in avvisade] if avvisade else [])) + '\n',
+                                                 + ['', '## Branschgenomgången (hela)', '']
+                                                 + ['- **%s** (%s): varför: %s; erbjudande: %s; tjänster och priser: %s; förtroende: %s; navigation och kontakt: %s; '
+                                                    'bilder och identitet: %s; mobil: %s; styrkor: %s; svagheter: %s; möjligheter: %s; belägg: %s' % (
+                                                        b.get('sajt'), b.get('evidens'), b.get('varfor_studera'), b.get('erbjudande'), b.get('tjanster_priser'),
+                                                        b.get('fortroende'), b.get('navigation_kontakt'), b.get('bilder_identitet'), b.get('mobil'), b.get('styrkor'),
+                                                        b.get('svagheter'), b.get('mojligheter'), ', '.join(b.get('belagg') or []))
+                                                    for b in plan.get('bransch') or [] if isinstance(b, dict)]
+                                                 + ['', '## Visuella förebilder ur gallerierna', '']
+                                                 + ['- **%s** (%s): %s; kundens material: %s; begränsningar: %s; belägg: %s' % (
+                                                     b.get('sajt'), b.get('galleri'), b.get('kvalitet'), b.get('kundens_material'), b.get('begransningar'),
+                                                     ', '.join(b.get('belagg') or [])) for b in plan.get('forebilder_utanfor') or [] if isinstance(b, dict)]
+                                                 + (['', '## Avvisade uppdrag (referens eller referenskedja utan underlag)', ''] + ['- %s: %s' % (a['titel'], a['skal']) for a in avvisade] if avvisade else [])) + '\n',
                                        encoding='utf-8')
+    for i, (kid, k) in enumerate(zip(ids, kand), 1):  # efter planen på disk: UPPDRAG.md bär underlaget ur just den
+        skriv_uppdrag(slug, kid, k, i, len(kand))
+        satt_status(slug, kid, 'planerad', 'uppdraget skrivet', titel=k['titel'], hypotes=k.get('hypotes'), huvudreferens=k.get('huvudreferens'), forsok=0)
     return ids
 
 
@@ -1546,7 +1737,12 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         *skisskritik_rader(kritik),
         'Ditt underlag, det du behöver läsa:',
         '- uppdraget %s: designuppdraget, besökarens viktigaste uppgift, den viktigaste sektionen, huvudreferensen och' % rel(d / 'UPPDRAG.md'),
-        '  referensbilderna med vad de ska lära dig (titta på bilderna med Read);',
+        '  referensbilderna med vad de ska lära dig (titta på bilderna med Read), och "Referensunderlaget för uppdraget":',
+        '  bidragen ur branschgenomgången och den visuella inspirationen, kedjan kundbehov → observerad kvalitet → designbeslut →',
+        '  tillämpning → bedömning med bilderna. Öppna varje belägg med Read, jämför referensens utpekade kvaliteter med din',
+        '  rendering i samma bredder och tillstånd i varje varv, och rätta eller gör ett motiverat omtag när kundanpassningen',
+        '  försvagat proportioner, hierarki, bildregi, rytm, mobilens komposition eller interaktionen; skriv i RIKTNING.md vilka',
+        '  bidrag du förde över, anpassade eller avstod från och varför;'
         '- kundens verifierade fakta: %s, %s (sakuppgifterna gäller; rubriker och ordning är utkast) och %s' % (
             rel(u / 'VERKSAMHET.json'), rel(skapande.textfil(slug, atelje.UNDERLAG)), rel(u / 'RESEARCH.md')),
         '  (raderna Belägg, listan "Bara de har" och omdömena ordagrant); besökarnas toppuppgifter och den primära handlingen',
@@ -1676,8 +1872,23 @@ def lasningen(slug, kid, svarfil, steg):
             'skal': ml.get('skal') or vo.get('skal')}
 
 
+def referensstopp(slug, kid):
+    """Startvillkoret före varje beroende skaparsession (ägarens uppdrag 2026-10-10): planens kontraktsversion,
+    genomgångarna, kandidatens referenskedja med belägg i rätt paketversion och ett UPPDRAG.md som bär underlaget ur samma
+    plan (referenskontrakt.startbrister). Ger bristerna och står då som fel med skälet; ingen session startar. En äldre
+    plan skrivs inte om: den märks, och en ny designomgång krävs."""
+    import referenskontrakt as rk
+    b = rk.startbrister(slug, atelje.UNDERLAG, atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}, kid)
+    if b:
+        satt_status(slug, kid, 'fel', 'referensunderlaget uppfyller inte kontraktet, så skaparen startar inte: ' + '; '.join(b)[:700],
+                    referenskontrakt_brister=b, tekniskt_fel=False)
+    return b
+
+
 def skapa(slug, kid):
     """En skaparsession för kandidaten (och en ny efter en begärd komplettering); sedan fotograferas den."""
+    if referensstopp(slug, kid):  # också en direkt start eller en återupptagning prövar kontraktet
+        return las_status(slug, kid)
     st = las_status(slug, kid)
     forsok = int(st.get('forsok') or 0) + 1
     forbered_projekt(slug, kid)
@@ -2040,6 +2251,8 @@ def skissa(slug, kid, fel=None):
     """Ett skaparförsök i skissläget: en session (och en till efter en begärd komplettering) inom försökets tid, räknad
     från försökets start med verktygsväntan inräknad, sedan fotografering och de snabba kontrollerna. fel: ett omförsök
     efter ett identifierat tekniskt fel, med kortare tid. Ingen förlängning."""
+    if referensstopp(slug, kid):  # startvillkoret också här: varje väg till en skaparsession prövar kontraktet
+        return las_status(slug, kid)
     st = las_status(slug, kid)
     installningar = skaparval(slug, kid)
     forsok = int(st.get('forsok') or 0) + 1
@@ -2200,8 +2413,25 @@ def skissa(slug, kid, fel=None):
         st = dict(st, status='ofullstandig', skal='skissens kompetenskrav uppfylldes inte: ' + '; '.join(kravbrister))
         tekniskt = False  # stoppet syns; det startar ingen ny automatisk skisslinga
     return satt_status(slug, kid, st['status'], st.get('skal', ''), tekniskt_fel=tekniskt, forsok_tider=forsoken,
-                       kompetenskravbrister=kravbrister,
+                       kompetenskravbrister=kravbrister, referensoverforing=referensoverforing(slug, kid, sessioner),
                        anvandning=anvandning(sessioner), sessionsfel=sessionsfel or None, kompetens=kompetenser)
+
+
+def referensoverforing(slug, kid, sessioner):
+    """Referensbidragens väg till skaparen, nivå för nivå (referenskontrakt.overforing): insamlat, tillgängligt, öppnat,
+    redovisat och jämfört i ett varv; tillämpningen bedöms av bilderna, aldrig här. None utan plan med kontrakt."""
+    import referenskontrakt as rk
+    plan = atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}
+    if not (plan.get('referenskontrakt') or {}).get('version'):
+        return None
+    try:
+        riktning = (kdir(slug, kid) / 'RIKTNING.md').read_text(encoding='utf-8')
+    except OSError:
+        riktning = ''
+    try:
+        return rk.overforing(slug, atelje.UNDERLAG, plan, kid, [x.get('session_id') for x in sessioner or [] if isinstance(x, dict)], riktning)
+    except Exception as e:  # noqa: BLE001 — en iakttagelse fäller aldrig skissen
+        return [{'fel': '%s: %s' % (type(e).__name__, str(e)[:160])}]
 
 
 # --- kompetenserna (kunskap/metodkarta.md, Kompetenserna; ägarens ord 2026-10-05 18:15Z) ---
@@ -3016,6 +3246,9 @@ def omplanera(slug, plan, atergangar):
     prompt = plan_prompt(slug, len(ids), plan.get('lage') == 'skiss') + '\n' + '\n'.join(rader)
     sch = json.loads(json.dumps(PLAN_SCHEMA))
     sch['properties']['kandidater'].update(minItems=len(kids), maxItems=len(kids))
+    sch['required'] = ['kandidater', 'variation']  # genomgångarna står fast i planen; omplaneringen skriver bara uppdragen
+    for f_ in ('bransch', 'forebilder_utanfor'):
+        sch['properties'][f_].pop('minItems', None)
     svar = atelje.session(prompt, LASVERKTYG + kompetens.verktyg('planera', slug), r / 'svar-omplanering.json', sch, 200,
                           atelje.MODELL, EFFORT_SKISS if plan.get('lage') == 'skiss' else atelje.EFFORT, FRIST_PLAN, slug=slug)
     kv = kompetens.kvitto([svar], 'planera')
@@ -3027,7 +3260,7 @@ def omplanera(slug, plan, atergangar):
     nya = [k for k in (svar.get('structured_output') or {}).get('kandidater') or [] if isinstance(k, dict) and str(k.get('titel') or '').strip()]
     gjorda, avvisade = [], []
     for k_, k in zip(kids, nya):
-        brist = referensbrist(slug, k) or planbrist(k)  # också omplaneringen: bara färg, eller en bild som kodmall, avvisas
+        brist = referensbrist(slug, k) or planbrist(k) or referenskedjebrist(slug, k, plan)  # också omplaneringen: bara färg, en bild som kodmall eller en kedja utan belägg avvisas
         if brist:
             avvisade.append('%s: %s' % (k_, brist))
             continue
@@ -4028,6 +4261,11 @@ def kor(slug, status, skriv, n=None):
             brister = kompetens.kravbrister(sparad.get('kompetens'), 'forska')
             if brister:
                 raise RuntimeError('den sparade researchens kompetenskrav uppfylldes inte: ' + '; '.join(brister))
+            import referenskontrakt as rk  # en sparad research återanvänds bara när den uppfyller referenskontraktet
+            rbrister = rk.researchbrister(slug, atelje.UNDERLAG, sparad) if (sparad.get('referenskontrakt') or {}).get('version') == rk.VERSION \
+                else ['den sparade researchen är äldre än referenskontraktet (version %d)' % rk.VERSION]
+            if rbrister:
+                raise RuntimeError('den sparade researchen uppfyller inte referenskontraktet, och planen görs inte på den: ' + '; '.join(rbrister))
         status['steg'] = 'planera'
         skriv()
         planera(slug, n, lage)
@@ -4071,7 +4309,28 @@ def kor(slug, status, skriv, n=None):
             elif kid not in saknas_ and st_.get('planprovning_saknas'):
                 satt_status(slug, kid, (st_['planprovning_saknas'] or {}).get('status_fore') or 'planerad', 'uppdraget är planprövat',
                             ta_bort=('planprovning_saknas',))
-    profileras = [kid for kid in ids if not las_status(slug, kid).get('planprovning_saknas')
+    # Referenskontraktet före skaparna (ägarens uppdrag 2026-10-10): en kandidat vars kedja, plan eller UPPDRAG.md inte
+    # uppfyller det profileras och skapas inte. En kandidat som redan är visad står kvar som historik (skissen ändras inte).
+    import referenskontrakt as rk
+    plan_kk = atelje.las_json(r / 'KANDIDATPLAN.json') or {}
+    stoppade_rk = {}
+    for kid in ids:
+        st_rk = las_status(slug, kid)
+        if st_rk.get('status') in VISBARA or st_rk.get('planprovning_saknas') or st_rk.get('atergang_fel'):
+            continue  # en visad skiss står kvar som historik, och ett redan stoppat uppdrag behåller sitt skäl
+        b_ = rk.startbrister(slug, atelje.UNDERLAG, plan_kk, kid)
+        if b_:
+            stoppade_rk[kid] = b_
+            satt_status(slug, kid, 'fel', 'referensunderlaget uppfyller inte kontraktet, så skaparen startar inte: ' + '; '.join(b_)[:700],
+                        referenskontrakt_brister=b_, tekniskt_fel=False)
+    if stoppade_rk:
+        status['referenskontrakt'] = {'stoppade': stoppade_rk, 'tid': nu()}
+        skriv()
+        if all(las_status(slug, k).get('status') not in VISBARA and k in stoppade_rk for k in ids):
+            # körningens vanliga felväg (slutposten med skälet); inget beroende skapande startar
+            raise RuntimeError('inget uppdrag uppfyller referenskontraktet, och inget skapande startar: %s' % '; '.join(
+                next(iter(stoppade_rk.values())))[:600])
+    profileras = [kid for kid in ids if not las_status(slug, kid).get('planprovning_saknas') and kid not in stoppade_rk
                   and not las_status(slug, kid).get('atergang_fel')
                   and (ska_skapas(las_status(slug, kid)) if lage == 'skiss' else las_status(slug, kid).get('status') not in VISBARA)]
     if profileras and not atelje.STOPP.is_set():

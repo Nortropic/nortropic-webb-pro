@@ -387,11 +387,11 @@ visar: RESEARCH.md, BRIEF.md, TEXTUNDERLAG.md och BESTALLNING.md med belägg, hy
 
 ```kompetens forska
 namn: Research och referensjakt
-uppgift: Formulera antagandena om besökarna som kan ändra designbesluten, och undersöka visuella förebilder, besökarflöden och återanvändbar kod innan riktningarna bestäms. Refero ger stil, skärmar och sajter; Mobbin ger sektioner och flöden; 21st ger komponenter och teman att pröva som implementationsgrund. Sök generiskt i alla tre och granska resultaten före planen. För vidare id, källa, användningsplats och skäl för urval eller bortval; en vald komponent hämtas med kod, licens och beroenden, och en skärmbild kallas aldrig kodmall.
+uppgift: Formulera antagandena om besökarna som kan ändra designbesluten, hitta starka verkliga branschsajter genom webbsökning (svenska och internationella, byråers kundprojekt, jämförbara verksamheter) och professionell visuell inspiration genom gallerierna (Awwwards i varje ny designomgång, kompletterat med SiteInspire, Land-book, Godly, FWA, CSS Design Awards, Httpster eller One Page Love), och undersöka visuella förebilder, besökarflöden och återanvändbar kod innan riktningarna bestäms. Refero ger stil, skärmar och sajter; Mobbin ger sektioner och flöden; 21st ger komponenter och teman att pröva som implementationsgrund. Sök generiskt i alla vägar, sålla först och fördjupa sedan ett mindre urval, och skilj verklig branschsajt, visuell förebild, skärm eller flöde, återanvändbar komponent och tillgängligt tema eller mall. För vidare id, källa, upptäcktsväg, användningsplats och skäl för urval eller bortval; en vald komponent hämtas med kod, licens och beroenden, och en skärmbild kallas aldrig kodmall.
 pass: forska
 kärna: kunskap/referensjakt.md; refero-design/SKILL.md; refero-design/references/mcp-tools.md
 välj: kunskap/referenser-professionella.md; impeccable/reference/shape.md; better-explain-interface/SKILL.md; hallmark/references/macrostructures.md; ui-ux-pro-max/SKILL.md; refero-design/references/example-workflow.md
-verktyg: uxsok
+verktyg: uxsok, webbsok
 mcp: refero, mobbin, 21st
 mcp-krav: refero, mobbin, 21st
 visar: frågorna och sajterna spänner över skilda grundidéer ur verksamhetens värld och är prövade mot vad tjänsterna har; varje antagande har underlag eller "ännu inte observerat", en prövning och en följd; ett tomt eller misslyckat prov står som det är och är inget material

@@ -103,6 +103,14 @@ VERKTYG = {
                  'registret, eller blir den första rutan i en Seedance-video); den betrodda materialkörningen kräver '
                  'konto, uppdragets hash, uttryckligt kostnadsmandat och rättigheter (kunskap/materialtransport.md). '
                  'En väntande beställning är ingen genererad tillgång'),
+    # researchrollens webbupptäckt (ägarens uppdrag 2026-10-10 om hela referenskedjan, punkt 2–4): WebSearch och WebFetch
+    # ges sessionen genom atelje.session(webb=True), aldrig som allow-regel; kundvakten prövar varje fråga och adress
+    'webbsok': ([], 'webbupptäckten: WebSearch (vanlig webbsökning på svenska och engelska efter verkliga verksamhetssajter, '
+                    'byråers dokumenterade kundprojekt och gallerier, till exempel "site:awwwards.com/sites keramik" eller '
+                    'en branschkategori) och WebFetch (läs en galleriobjektsida eller en sajt för att hitta den verkliga '
+                    'adressen, utmärkelsen och vad sidan visar). Frågorna är generiska: bransch, tjänster och besökarens '
+                    'uppgift, aldrig kundens namn, ort, adress eller nummer (kundvakten stoppar dem). Varje sökning och '
+                    'hämtning bokförs ur transkriptet; en adress ur minnet är en kandidat, aldrig en upptäckt'),
     'skillskript': (['Bash(.venv/bin/python kontroller/skillskript.py <slug> --kandidat <id> --uppdrag *)',
                     'Write(./underlag/<slug>/atelje/kandidater/<id>/kompetens/skriptuppdrag/*.json)',
                     'Edit(./underlag/<slug>/atelje/kandidater/<id>/kompetens/skriptuppdrag/*.json)',

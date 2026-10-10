@@ -191,7 +191,7 @@ träffar är råd att bedöma i sammanhang. Briefen är en hypotes; den prövas 
 **Referenser — du hittar dem själv, och undersöker innan du låser urvalet.** Läs `kunskap/referensjakt.md` och följ
 den. Utgå från researchen och briefen: sök efter vad toppuppgifterna kräver, i tre roller: bransch (starka verkliga
 sajter i samma sorts verksamhet, även utanför Sverige), hantverk (komposition, typografi, bild, rytm, även andra
-branscher) och UX/funktion. Gallerier (Awwwards, SiteInspire, Godly, Land-book) är sökingångar, inte facit; en galleribild
+branscher) och UX/funktion. Gallerier (Awwwards, SiteInspire, Godly, Land-book) är obligatoriska sökingångar i skapandeflödets research (kunskap/referensjakt.md), inte facit; en galleribild
 räcker inte för att avgöra om den verkliga sajten är en bra referens. Skriv kandidaterna i
 `underlag/<slug>/REFERENSUPPDRAG.json` (6–10 stycken, fler än du tänker behålla): per kandidat `namn`, `adress`
 (sajtens ursprung, `https://värd/`, aldrig med sökväg), `roll` (bransch, hantverk, ux), `varfor` (ur researchen: vilken

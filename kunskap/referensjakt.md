@@ -22,8 +22,9 @@ Använd tre källroller, med uppgiftsmotiverat urval. Samma källa får bära fl
 
 Skilj marknadsposition, företagsomdömen, designutmärkelser och själv observerad kvalitet. Betyg kan ge en
 branschobservation men är inget designfilter. En utmärkelse är en sökingång, inte bevis på användarnytta.
-Gallerier som Awwwards, SiteInspire, Godly, FWA, CSS Design Awards, Httpster, One Page Love och Land-book är möjliga
-sökingångar, inte en stilhierarki. Mobbin (flöden och sektioner ur riktiga produkter; dimension 7, mobil ergonomi)
+**Gallerierna är obligatoriska sökingångar** (ägarens beslut 2026-10-10): Awwwards ingår i varje ny designomgång,
+kompletterat med minst ett av SiteInspire, Land-book, Godly, FWA, CSS Design Awards, Httpster och One Page Love. De är
+ingen stilhierarki och inget facit: tillgänglighet, användbarhet och lämplighet för kunden bedöms ändå. Mobbin (flöden och sektioner ur riktiga produkter; dimension 7, mobil ergonomi)
 och Refero (stilar, skärmar, flöden, med en beslutsliggare som arbetssätt) är sökingångar i rollerna hantverk och
 UX/funktion när de är anslutna; de saknar hantverkare och lokala tjänster och ger därför inte branschrollen. Ett litet företag får ha avancerat hantverk när uppgift, budget och drift
 bär det. Följ galleri till faktisk sajt när slutsatsen gäller beteende eller responsivitet.
@@ -41,6 +42,61 @@ passade:
   bilderna inte räcker.
 
 Ingen kvot och inget facit: luckan är en plats att leta på, inte själv en referens.
+
+## Webbupptäckten och kontraktet före skapandet
+
+Ägarens uppdrag 2026-10-10 (obligatorisk branschresearch och hela referenskedjan; ordagrant i `BESLUT.md`). Källorna
+stöder metoden: konkurrensutvärdering som leder till konkreta designrekommendationer (Nielsen Norman Group), att utforska
+och formulera uppgiften innan alternativen utvecklas och prövas (Design Councils Double Diamond) och parallella alternativ
+före iteration (NN/g). Gallerierna som obligatoriska, kontrollpunkterna och antalen nedan är Nortropics produktbeslut och
+arbetsregel, inget krav ur litteraturen.
+
+**Upptäckten.** Researchrollen har WebSearch och WebFetch, bara den rollen (`atelje.session(webb=True)`; varje annan
+session nekas dem som förut), och kundvakten prövar varje sökfråga och adress mot kundens uppgifter: frågorna är generiska
+(bransch, tjänster, besökarens uppgift), aldrig kundens namn, ort, adress eller nummer. Sök på svenska och engelska efter
+verkliga verksamhetssajter, i galleriernas kategorier och objektsidor (Awwwards söksida är spärrad i robots.txt;
+`site:awwwards.com/sites` i en webbsökning och objektsidorna fungerar), i byråers dokumenterade kundprojekt och bland
+jämförbara verksamheter. Varje sökning och hämtning bokförs ur transkriptet (`FORSKNING.json`, `sok`), och varje föreslagen
+sajt bär sin upptäcktsväg: en påstådd sökning som loggen inte visar står som kunskap ur minnet, en kandidat och ingen
+upptäckt (`referenskontrakt.verifiera_upptackt`). Sålla först med urval och bortval, fördjupa sedan ett mindre urval.
+
+**Materialslagen hålls isär:** verklig branschsajt (fångad, roll bransch), visuell förebild (fångad, roll hantverk, ur ett
+galleri), skärm eller flöde (Refero och Mobbin: arkiverat material utan levande DOM eller interaktion), återanvändbar
+komponent och tema eller mall (21st, med licens). En skärmbild redovisas aldrig som en tillgänglig kodmall.
+
+**Kontraktet** (`kontroller/referenskontrakt.py`, version 1). Beroende planering och skapande startar inte förrän:
+- paketet har minst 3 fångade branschsajter och minst 2 fångade sajter ur gallerierna, med lyckad sida i 390 och 1440;
+- researchen har minst en lyckad webbsökning med träffar, Awwwards prövat i den här omgången och minst en branschsajt som
+  syns i en loggad sökning eller hämtning;
+- planen har en branschgenomgång (minst 3 rader: varför sajten är värd att studera, evidens, erbjudande och hierarki,
+  tjänster och priser, förtroende, navigation och kontakt, bilder och identitet, mobil, styrkor, svagheter och
+  möjligheter) och minst 2 visuella förebilder, var och en med en fångad sajt och belägg i planens paketversion;
+- varje kandidat har minst två referensbidrag, ett ur branschen och ett ur inspirationen, med kedjan kundbehov →
+  observerad kvalitet → designbeslut (inför, anpassar eller undviker) → planerad tillämpning → bedömning och belägg i
+  paketets bilder; också en egen huvudreferens;
+- kandidatens UPPDRAG.md bär underlaget ur just den planen.
+
+Antalen är en täckningskontroll, aldrig ett kvalitetsbetyg. En plan eller research äldre än kontraktet står som historik
+och märks så; den skrivs inte om, och en ny designomgång krävs. Kontraktet prövas vid planen, vid återupptagningen och vid
+varje väg till en skaparsession (`kandidater.referensstopp`), så att en cache eller en annan startväg inte kringgår det.
+Vid nätfel: avgränsade omförsök (två försök i researchen och planen), ett annat galleri, eller ett fångat och prövat
+återbruk ur paketet; ett misslyckat Awwwards-besök är ingen genomförd undersökning, och saknat underlag lämnar steget
+ofullständigt.
+
+**Fullständighet mot uppgiften.** Varje sajt och bidrag deklarerar sin uppgift (innehåll, förtroende, navigation,
+kontakt, komposition, typografi, bildregi, rytm, mobil, interaktion eller rörelse), och fångsten bedöms mot den
+(`referenskontrakt.uppgiftstackning`): en typografireferens kräver SEKTIONER.md, en navigationsreferens meny-, hover-
+eller fokusbilder, en rörelsereferens spår eller bildsekvens. Det som saknas står som okänt. En tom `getAnimations()`
+bevisar inte att sidan saknar rörelse: inspektionen räknar sidans requestAnimationFrame, canvas och spelande video för
+sig och tar en kort bildsekvens när de är aktiva (`kontroller/webblasare/inspektera.mjs`).
+
+**Till skaparen.** UPPDRAG.md får rubriken "Referensunderlaget för uppdraget": kandidatens bidrag med bilderna (en per
+rad, öppnas med Read), observationen (mätt i DOM/CSS eller visuell tolkning), beslutet och bedömningen, de branschrader och
+förebilder bidragen bygger på, sektionsunderlaget och täckningen mot uppgiften. Hela underlaget står kvar i
+KANDIDATPLAN.md och paketet. Efter skissen redovisas överföringen per bidrag, nivå för nivå (`referensoverforing` i
+kandidatens status): insamlat, tillgängligt, öppnat (en lyckad Read av bilden), redovisat i RIKTNING.md och jämfört i ett
+varv; att tillämpningen stöds av implementationen bedöms av bilderna, aldrig av kvittot. Den blinda skisskritiken ser
+varken UPPDRAG.md eller skaparens förklaring.
 
 ## Läs och se på riktigt
 
@@ -63,8 +119,8 @@ Webbreferensernas skärmbilder är privat jämförelseunderlag, inte licens att 
 
 ## Från observation till skapande
 
-För in observationerna i research.md §13 och det valda urvalet i SKAPARUNDERLAG.json enligt
-skapandeunderlag.md. Brief §7 förklarar sambandet behov → observerat drag → egen lösning → prövning.
+Observationerna och urvalet förs in i planens branschgenomgång, förebilder och referensbidrag (kontraktet ovan), och
+varje kandidat får sitt urval i UPPDRAG.md. Brief §7 förklarar sambandet behov → observerat drag → egen lösning → prövning.
 Ett moodboard med bara färg, serif och rundningar räcker inte: visa även innehåll, hierarki, rytm,
 bildbeskärning och relevant interaktion. Palett, layout och typsnitt får kopieras som utgångspunkt, med vår touch och
 verksamhetens material ovanpå; identitet, texter och bilder kopieras inte.

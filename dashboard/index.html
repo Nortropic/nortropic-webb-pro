@@ -747,6 +747,26 @@ const KREDOVISNING = { 'Idén': 'Idén och relevansen för kunden', 'Referenser'
 const KPASS = { skapa: 'Skaparen: design och komposition, typografi och färg, innehåll och UX, responsiv implementation', rorelse: 'Interaktion och rörelse', granskning: 'Tillgänglighet och visuell granskning', ux: 'UX och innehåll', mobil: 'Mobil och tillgänglighet', kritik: 'Visuell kritik och slutbearbetning' };
 const OMDOME = { battre: 'bättre', oforandrad: 'oförändrad', samre: '<span class="rod-text">sämre</span>', ej_bedomd: 'ej bedömd' };
 const kLage = {};  // markeringar och anteckningar per bygge, kvar när bredden byts (inte sparade: beslutet sparas i domloggen)
+// Referensunderlaget (ägarens uppdrag 2026-10-10): vad som hittades → undersöktes → valdes → överfördes, och vad som saknas.
+// Vilka kandidater som bygger på vilka källor visas först efter ditt första val, som skaparnas övriga förklaringar.
+function referensvy(ru) {
+  if (!ru) return '';
+  if (ru.fel) return `<details style="margin-top:24px"><summary>Referensunderlaget kunde inte läsas</summary><p class="under">${esc(ru.fel)}</p></details>`;
+  const fangade = (ru.undersokta || []).filter((x) => x.fangad);
+  const brister = [...(ru.brister || []), ...(ru.planbrister || [])];
+  const lista = (xs, f) => (xs && xs.length ? `<ul>${xs.map((x) => `<li>${f(x)}</li>`).join('')}</ul>` : '<p class="under">inget</p>');
+  return `<details style="margin-top:24px"><summary>Referensunderlaget · paket ${esc(ru.paket || 'saknas')} · ${fangade.length} fångade sajter · ${(ru.sokningar || []).length} sökningar och hämtningar${brister.length ? ' · <b>brister</b>' : ''}</summary>
+    <p class="under">Läst, anropat eller fångat betyder inte tillämpat eller bra; antalen är arbetsregelns täckning, inget betyg.${ru.kontrakt ? '' : ' Planen är äldre än referenskontraktet och står som historik.'}</p>
+    ${brister.length ? `<h3>Saknat underlag och varför steget väntar</h3>${lista(brister, esc)}` : ''}
+    <h3>Vad som hittades (webbsökning och hämtning, ur transkriptet)</h3>${lista(ru.sokningar, (x) => `${esc(x.verktyg)}: ${esc(x.fraga || '')} → ${esc(x.utfall)}`)}
+    <h3>Gallerierna</h3>${lista(ru.galleri, (o) => `${esc(o.galleri)}: <a href="${esc(o.objekt)}" rel="noopener" target="_blank">objektet</a> → ${esc(o.sajt)} (${esc(o.utmarkelse || 'ingen utmärkelse angiven')}) · ${o.vald ? 'vald' : 'bortvald'}: ${esc(o.skal || '')}`)}
+    <h3>Sållningen</h3>${lista(ru.sallning, (x) => `${esc(x.namn)} (${esc(x.roll)}, ${esc(x.upptackt)}) · ${x.vald ? 'vald' : 'bortvald'}: ${esc(x.skal || '')}`)}
+    <h3>Vad som undersöktes i webbläsaren</h3>${lista(ru.undersokta, (x) => `${esc(x.namn)} · ${esc(x.roll)} · ${esc(x.adress || '')} · upptäckt: ${esc((x.upptackt || {}).vag || 'okänd')} · ${x.fangad ? `${x.sidor} sidor fångade` : 'inte fångad'}`)}
+    <h3>Vad som valdes</h3>${lista(ru.bransch, (b) => `bransch: <b>${esc(b.sajt)}</b>: styrkor ${esc(b.styrkor || '')}; svagheter ${esc(b.svagheter || '')}`)}${lista(ru.forebilder, (b) => `förebild: <b>${esc(b.sajt)}</b>: ${esc(b.kvalitet || '')}`)}
+    ${ru.kandidater ? `<h3>Vad som överfördes till kandidaterna</h3>${lista(Object.entries(ru.kandidater), ([kid, xs]) => `${esc(kid)}: ${xs.map((x) => `${esc(x.kalla)} (${esc(x.roll)}, ${esc(x.beslut)})`).join(', ')}`)}` : '<p class="under">Vilka kandidater som bygger på vilka källor visas efter ditt första val.</p>'}
+  </details>`;
+}
+
 async function kandidatvy(slug, d) {
   const startad = new Date().toISOString();
   const alla = d.kandidater || [];
@@ -860,6 +880,7 @@ async function kandidatvy(slug, d) {
       <div class="rad" style="margin-top:8px"><button class="knapp primar" id="k-spara">Spara beslutet</button> <span class="under" id="k-antal"></span></div>
       ${tidigare ? `<details style="margin-top:12px"><summary>Domloggen (${d.domar.length})</summary>${tidigare}</details>` : ''}</section>` : ''}
     ${d.domd && d.jamforelse ? `<details style="margin-top:24px"><summary>Falsk variation enligt jämförelsen</summary><p>${esc(d.jamforelse.sammanfattning || '')}</p>${(d.jamforelse.par || []).map((p) => `<p class="under">${esc(p.a)} och ${esc(p.b)}: ${esc(p.grad)} — ${esc(p.skal)}</p>`).join('')}</details>` : ''}
+    ${referensvy(d.referensunderlag)}
     ${d.domd && d.forskning_md ? `<details><summary>Researchen (FORSKNING.md)</summary><div class="prosa">${d.forskning_md}</div></details>` : ''}
     ${d.domd && d.redovisning_md ? `<details><summary>Redovisningen (REDOVISNING.md)</summary><div class="prosa">${d.redovisning_md}</div></details>` : ''}`;
   const visaJamforelse = () => {
