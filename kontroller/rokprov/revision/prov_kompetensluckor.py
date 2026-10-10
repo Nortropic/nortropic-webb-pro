@@ -7,6 +7,8 @@
 3. Bash i läsordningen: en skrivning i koden genom skalet, eller ett okänt program, före kärnan syns.
 4. Slutgranskarens frysta kriteriepaket: läsningen av instruktionen och designreglerna observeras, och en granskare som
    bevisligen inte läste dem kan inte godkänna.
+5. Användaranropade skills (disable-model-invocation): Skill-verktyget vägrar dem, så de läses hela med Read, och kvittot
+   kräver läsningen i stället för aktiveringen (kandidatprovet 2026-10-10).
 
 --bas kör samma fall mot HEAD:s bildkedja.py, kompetens.py, kandidater.py och granska.py inlästa i minnet (föreprovet:
 fallen ska ge fel där luckan fanns).
@@ -223,6 +225,38 @@ class Lucka4Granskaren(Grund):
              {'granskare': 2, 'lasning': {'verifierad': False, 'grupper': {}}}]
         self.assertEqual(granska.kriteriebrister(s), [])
         self.assertEqual([x['kriterier_lasta'] for x in s], [True, None])
+
+
+class Lucka5Anvandaranropade(Grund):
+    """Kandidatprovet 2026-10-10: en skill med disable-model-invocation (better-explain-interface) vägras av Skill-verktyget.
+    Den läses hel med Read, och kvittot kräver läsningen i stället för aktiveringen; inget krav sänks."""
+    FIL = 'better-explain-interface/SKILL.md'
+
+    def test_anvandaranropad_skill_lases_i_stallet_for_att_aktiveras(self):
+        self.assertIn('better-explain-interface', kompetens.anvandaranropade())
+        skills, las = kompetens.aktiverbara([self.FIL, 'refero-design/SKILL.md'])
+        self.assertEqual(skills, ['refero-design'])
+        self.assertIn(self.FIL, las)
+
+    def test_vald_och_last_anvandaranropad_skill_faller_inte_pa_vagrad_aktivering(self):
+        h = self.karna('forska') + [anrop('x1', 'Skill', {'skill': 'better-explain-interface'}),
+                                    svar('x1', fel=True, text='Skill better-explain-interface cannot be used with Skill tool due to disable-model-invocation'),
+                                    anrop('x2', 'Read', {'file_path': str(ROOT / '.claude/skills' / self.FIL), 'offset': 1, 'limit': 100000}), svar('x2')]
+        self.huvud(h)
+        kv = kompetens.kvitto([{'session_id': SID}], 'forska')
+        self.assertIn(kompetens.vag(self.FIL), (kv['per_session'][0].get('valda') or []), 'läst alternativ är valt')
+        fel = kompetens.kravbrister(kv, 'forska')
+        self.assertFalse([x for x in fel if 'better-explain-interface' in x], fel)
+
+    def test_tilldelad_anvandaranropad_skill_som_inte_lasts_ger_brist(self):
+        verklig = kompetens.for_pass('forska')
+        roll = dict(verklig[0], karna=list(verklig[0]['karna']) + [self.FIL])  # skillen tilldelad i kärnan, aldrig läst
+        with patch.object(kompetens, 'for_pass', lambda pass_, k=None: [roll] + list(verklig[1:])):
+            self.huvud([anrop('s1', 'Skill', {'skill': 'refero-design'}), svar('s1')])
+            kv = kompetens.kvitto([{'session_id': SID}], 'forska')
+            fel = kompetens.kravbrister(kv, 'forska')
+        self.assertTrue([x for x in fel if self.FIL in x], fel)
+        self.assertFalse([x for x in fel if 'Skill-aktivering saknas: better-explain-interface' in x], fel)
 
 
 if __name__ == '__main__':

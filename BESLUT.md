@@ -4792,3 +4792,27 @@ Genomförarens tillämpning (Claude):
   sessionen vars svar används, paketet ärvs genom kompletteringen, och FORSKNING.json bär `kompetensomforsok` och
   `fangst`. Två försök är taket.
 - Prov: `prov_referenskontrakt.py`, klassen Robusthet (sex fall, alla röda på basen av rätt skäl).
+
+## Tillägg 2026-10-10: användaranropade skills läses hela i stället för att aktiveras
+
+**Status:** gäller; genomfört av Claude i grenen `claude/referenser-obligatoriska-20261010`. Räckvidd: kompetensens kvitto
+och sessionernas aktiveringstext i alla roller.
+
+Den sista kandidatkörningen (`--om` 17:29Z) stoppades 17:51Z i researchen: båda sessionerna valde better-explain-interface,
+försökte aktivera den, vägrades av Skill-verktyget ("cannot be used with Skill tool due to disable-model-invocation") och
+läste dess SKILL.md, men kvittot krävde Skill-aktivering. Sju skills har `disable-model-invocation: true` i sin
+SKILL.md (better-break, better-explain-interface, better-interface-review, better-variant, emil-pick-ui-library,
+emil-prototype, emil-review-animations); fem är valbara i forska, skapa, rörelse och granskning. Ägarens val (svar på
+frågan med det uppmätta underlaget, ~18:00Z), ordagrant:
+
+> 1, rätta kontrollen men varför har de disable model invocation? kan vi inte fixa detta så det fungerar?
+
+Varför flaggan finns: källorna (Jakub Krehels och Emil Kowalskis skillsamlingar) har gjort dessa skills
+användaranropade arbetsflöden, så att modellen inte startar dem på egen hand; Claude Code vägrar då Skill-verktyget.
+Våra KALLA.md säger redan att de läses som stöd. Att läsa SKILL.md med Read ger sessionen samma text, så skillen fungerar
+utan att källans fil ändras och utan en lokal anpassning som underhållet måste slå samman vid varje uppdatering.
+
+Genomförarens tillämpning (Claude): `kompetens.anvandaranropade()` läser flaggan; `kompetens.aktiverbara` klassar sådana
+skills som läsfiler, så att aktiveringstexten säger Read; `kompetens.kravbrister` kräver att en tilldelad eller vald
+användaranropad skill är läst hel i sessionen. Inget krav sänks. Prov: `prov_kompetensluckor.py`, Lucka5 (tre fall, röda
+på basen av rätt skäl). `kunskap/metodkarta.md` beskriver regeln.

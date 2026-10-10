@@ -136,6 +136,10 @@ sessionerna.
 - **Skills som väntar på ett svar:** en skill med Initial Response läses bara med Read; kunskapen används men
   väntesvaret körs inte. `kompetens.skill_nekas` nekar både mappnamnet och metadatanamnet genom Skill i ateljéns
   argument och helbyggets inställningar. Övriga tillåtna skills kan fortfarande laddas med Skill (K46/P5).
+- **Användaranropade skills:** en skill vars SKILL.md har `disable-model-invocation: true` (källan har gjort den
+  användaranropad, och Claude Code vägrar då Skill-verktyget) läses hel med Read när den tilldelas eller väljs; det ger
+  sessionen samma text, och kvittot kräver läsningen i stället för aktiveringen (`kompetens.anvandaranropade`;
+  kandidatprovet 2026-10-10: better-explain-interface vägrades två gånger och fällde researchen).
 
 ## Kompetenserna
 
@@ -165,7 +169,8 @@ som transkriptet visar fullständigt lästa. I ändrande pass krävs aktiveringe
 Alternativ som bara deklarerats i svaret men aldrig observerats lästa omfattas inte av denna grind; det är en kvarstående
 kontrollucka, inte bevis för genomförd aktivering. En ny session ärver inte ett tidigare kvitto. Skillens mappnamn och dess
 frontmatternamn binds till samma lokala fil; ett främmande plugin med samma kortnamn får ingen lokal läskredit.
-Read gäller fortfarande dokument och de uttryckliga Initial Response-undantagen. Saknade transkript är okänt och
+Read gäller fortfarande dokument, de uttryckliga Initial Response-undantagen och de användaranropade skillsen
+(disable-model-invocation), som då ska vara lästa hela. Saknade transkript är okänt och
 kan inte göra ett obligatoriskt moment genomfört. Gamla resultat bevaras som historik, men återanvänds inte som
 aktuella kompetensbevis när uppgiften kräver den nya kontrollen.
 

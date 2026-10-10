@@ -458,6 +458,23 @@ def mcp_for_pass(pass_, k=None):
     return list(dict.fromkeys(ut))
 
 
+def anvandaranropade(root=None):
+    """Skillmappar vars SKILL.md har disable-model-invocation: true. Källan har gjort dem användaranropade, och Claude Code
+    vägrar då Skill-verktyget ("cannot be used with Skill tool due to disable-model-invocation"). De läses hela med Read,
+    vilket ger sessionen samma text (kandidatprovet 2026-10-10: två researchsessioner valde better-explain-interface,
+    försökte aktivera den, vägrades och fälldes av kravet på Skill-aktivering)."""
+    ut = set()
+    for f in sorted((Path(root or ROOT) / '.claude/skills').glob('*/SKILL.md')):
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeError):
+            continue
+        huvud = text.split('---', 2)[1] if text.startswith('---\n') and text.count('---') >= 2 else ''
+        if re.search(r'^disable-model-invocation:[ \t]*true[ \t]*$', huvud, re.M):
+            ut.add(f.parent.name)
+    return ut
+
+
 def aktiverbara(filer):
     """(skills som aktiveras med skillverktyget, filer som läses med Read) för rollens filer: en skill är aktiverbar när
     filen är dess SKILL.md i skillmappens rot (Claude Code känner bara den); referensfiler, nästlade SKILL.md (gsap/gsap-core/)
@@ -465,9 +482,11 @@ def aktiverbara(filer):
     Initial Response-skills läses också med Read, samma klassificering som sessionsnekandet."""
     skills, las = [], []
     vantande = vantande_skills()
+    anvandar = anvandaranropade()  # disable-model-invocation: läses med Read (Skill-verktyget vägrar dem)
     for f in filer:
         delar = f.split('/')
-        if len(delar) == 2 and delar[1] == 'SKILL.md' and delar[0] not in ('kunskap', 'kritik', 'mall') and delar[0] not in vantande:
+        if len(delar) == 2 and delar[1] == 'SKILL.md' and delar[0] not in ('kunskap', 'kritik', 'mall') and delar[0] not in vantande \
+                and delar[0] not in anvandar:
             skills.append(delar[0])
         else:
             las.append(f)
@@ -749,7 +768,8 @@ def kravbrister(kv, pass_, k=None):
     """Observerade arbetskrav för ett pass, aldrig en dom om designkvalitet.
 
     Varje ny session måste läsa sin kärna och aktivera aktiverbara skills själv.
-    Read ersätter bara Skill för dokument och uttryckligen väntande skills. Ett
+    Read ersätter bara Skill för dokument, uttryckligen väntande skills och skills som källan gjort användaranropade
+    (disable-model-invocation; de läses hela). Ett
     saknat transkript är okänt och får inte passera som komplett kompetens.
     MCP-krav kommer ur rollens mcp-krav, inte ur hela listan av möjligheter.
     """
@@ -785,7 +805,12 @@ def kravbrister(kv, pass_, k=None):
                 fel += ['session %d: %s (läst först efter första ändringen)' % (i, f)
                         for f in sorted(karnafiler - set(p.get('fore_forsta_andring') or []))]
             filer = karna + [f for f in alternativ if vag(f) in (p.get('valda') or [])]
-            krav, _ = aktiverbara(filer)
+            krav, las_ = aktiverbara(filer)
+            anvandar = anvandaranropade()
+            for f in las_:  # en tilldelad eller vald användaranropad skill läses hel i stället för att aktiveras (inget krav sänks)
+                d_ = f.split('/')
+                if len(d_) == 2 and d_[1] == 'SKILL.md' and d_[0] in anvandar and vag(f) not in set(p.get('lasta') or []) | set(p.get('valda') or []):
+                    fel.append('session %d: %s läses hel med Read (skillen är användaranropad hos källan och Skill-verktyget vägrar den)' % (i, f))
             sedda = {bildkedja.skillnamn(n) for n in p.get('skill_anrop') or []}
             tidiga = {bildkedja.skillnamn(n) for n in p.get('skill_fore') or []}
             for namn in krav:
