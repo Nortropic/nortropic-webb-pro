@@ -458,7 +458,7 @@ try {
   const grupp = (text) => (grupper.find(([, l]) => l.includes(text)) || [])[0];
   assert.equal(grupp('Flöde'), undefined, 'Flöde är en del av Byggflöde, inte en egen post i menyn');
   assert.equal(grupp('Prototyp'), undefined, 'Prototyp är projektets flik Förslagen, inte en egen post i menyn');
-  for (const [text, g] of [['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'],
+  for (const [text, g] of [['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'], ['Leverans och förvaltning', 'Kundproduktion'],
     ['Underhåll och verktygslådan', 'Systemförbättring'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring']])
     assert.equal(grupp(text), g, `arbetsytans delar ska ha ${text} under ${g}`);
   assert.equal(await delar.getByRole('link', { name: 'Dokumentation och rapporter' }).count(), 1, 'Dokumentation och rapporter ska stå i delarna');
@@ -494,6 +494,12 @@ try {
   // räknarna ur översikten står kvar i menyn och på gruppens knapp, också i en annan del
   await delar.locator('summary').filter({ hasText: 'Systemförbättring' }).locator('.ay-summa').first().waitFor();
   assert.deepEqual(await delar.locator('summary').filter({ hasText: 'Systemförbättring' }).locator('.ay-summa').allTextContents(), ['1 pågår', '3'], 'räknarna på Systemförbättring');
+  // Leverans och förvaltning (M18): migreringsläget per kund och de äldre Vercel-sajterna, ritat i arbetsytans ram
+  await page.evaluate(() => { location.hash = '#/leverans'; });
+  await page.locator('#vy h1').filter({ hasText: 'Leverans och förvaltning' }).waitFor();
+  await page.locator('#leverans h2').filter({ hasText: 'Äldre sajter på Vercel' }).waitFor();
+  assert.equal(await page.locator('#leverans .meddelande.fel').count(), 0, 'migreringsläget ska gå att läsa');
+  assert.equal(await page.locator('#leverans').getByText('migrerad:', { exact: false }).count(), 0, 'ingen provkund står som migrerad');
   await page.evaluate(() => { location.hash = '#/underhall'; });
   await page.locator('#vy h1').filter({ hasText: 'Underhåll och verktygslådan' }).waitFor();
   await page.locator('#verktygslada .chip').filter({ hasText: '2 uppdaterade' }).waitFor();

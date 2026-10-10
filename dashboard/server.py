@@ -3221,6 +3221,12 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, spaning_lista())
             if vag == '/api/underhall':
                 return self.skicka(200, underhall_lage())
+            if vag == '/api/leverans':  # migreringsläget per kund och de äldre Vercel-projekten (kontroller/migreringslage.py, M18): läser bara
+                import migreringslage
+                try:
+                    return self.skicka(200, migreringslage.oversikt())
+                except (OSError, ValueError) as e:
+                    return self.skicka(200, {'fel': 'migreringsläget kunde inte läsas: %s' % type(e).__name__})
             if vag == '/api/bevakning':  # den löpande bevakningen: läget, täckningen och dagens sammanfattning (kontroller/bevakning.py)
                 import bevakning
                 return self.skicka(200, bevakning.lage())

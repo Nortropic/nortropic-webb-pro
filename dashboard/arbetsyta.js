@@ -183,7 +183,8 @@
   // systemförbättringen hålls isär (uppdraget 2026-10-09 ~07:24Z).
   const DELAR = [
     ['Kundproduktion', [['oversikt', 'Byggen och dina domar', 'helbyggena, deras prov och din dom'], ['ab', 'Jämförelser', 'blinda par: välj utan att veta vilket som är vilket'],
-      ['kundstart', 'Kundstart', 'kundens ärende, underlag och överlämning'], ['prospekt', 'Prospekt', 'kampanjer, analyser och utskick', false, 'n-prospekt'],
+      ['kundstart', 'Kundstart', 'kundens ärende, underlag och överlämning'], ['leverans', 'Leverans och förvaltning', 'migreringsläget per kund och de äldre sajterna på Vercel'],
+      ['prospekt', 'Prospekt', 'kampanjer, analyser och utskick', false, 'n-prospekt'],
       ['starta', 'Starta', 'kommandona för helbygge, backlog och prov']]],
     ['Systemförbättring', [['underhall', 'Underhåll och verktygslådan', 'det dagliga underhållet och versionerna'], ['kirurgen', 'Kirurgen', 'intag, spaningen och förbättringsarbetet', false, 'n-kirurg'],
       ['backlog', 'Backlog', 'vilande, pågående och klara poster', false, 'n-backlog'], ['kalibrering', 'Kalibrering', 'externa sajter att döma blint'],

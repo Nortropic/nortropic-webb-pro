@@ -275,6 +275,28 @@ async function oversikt() {
     ${b.length ? `<div class="rutnat">${b.map(kort).join('')}</div>` : `<div class="tom">Inga byggen än. Starta ett under <a href="#/starta">Starta</a>.</div>`}`;
   timer = setTimeout(oversikt, b.some((x) => x.pagar) ? 6000 : 20000);
 }
+// Leverans och förvaltning (kontroller/migreringslage.py, M18): fem skilda besked per kund ur kvitton och observationer,
+// och de äldre Vercel-projekten ur det privata beståndet. Läser bara; ett staging- eller förhandsläge blir aldrig "migrerad".
+async function leveransvy() {
+  aktivNav('leverans');
+  clearTimeout(timer);
+  $('#vy').innerHTML = `<h1>Leverans och förvaltning</h1><p class="under">Kundernas läge på Cloudflare, steg för steg, och de äldre sajterna på Vercel. Läget räknas ur kvitton och observationer. Att leveransvägen bytts gör ingen kund migrerad.</p><div id="leverans"><p class="under">Laddar …</p></div>`;
+  const d = await api('/api/leverans').catch((e) => ({ fel: e.message }));
+  const el = $('#leverans'); if (!el || location.hash !== '#/leverans') return;
+  if (d.fel) { el.innerHTML = `<div class="meddelande fel">${esc(d.fel)}</div>`; return; }
+  const ord = { ja: 'ja', nej: 'nej', inte_tillampligt: 'inte tillämpligt' };
+  const steg = [['forberedd', 'Förberedd'], ['maltestad', 'Måltestad'], ['trafik_flyttad', 'Trafik flyttad'], ['data_avstamd', 'Data avstämd'], ['legacy_avvecklad', 'Legacy avvecklad']];
+  el.innerHTML = `${d.kunder.length ? `<div class="kort tabell"><table><caption>Kunderna (${d.kunder.length})</caption><thead><tr><th scope="col">Kund</th>${steg.map(([, n]) => `<th scope="col">${n}</th>`).join('')}<th scope="col">Läget</th></tr></thead>
+      <tbody>${d.kunder.map((k) => `<tr><th scope="row"><a href="#/arbetsyta/${encodeURIComponent(k.slug)}/flode">${esc(k.slug)}</a></th>${steg.map(([id]) => `<td>${esc(ord[k.steg[id]] || k.steg[id])}</td>`).join('')}<td>${esc(k.besked)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="tom">Ingen kund har ett kundrepo än.</div>'}
+    <p class="under">Beläggen för varje steg står i kundens Byggflöde under Leveransen. Trafiken räknas som flyttad först när kundens egen adress har observerats svara från Workern efter releasen (<code>migreringslage.py &lt;slug&gt; --observera https://&lt;domän&gt;</code>).</p>
+    <h2>Äldre sajter på Vercel</h2>
+    ${d.bestandsfel ? `<div class="meddelande fel">Beståndet: ${esc(d.bestandsfel)}</div>` : ''}
+    ${d.legacy_utan_kund.length ? `<div class="kort tabell"><table><caption>${esc(d.besked)}</caption><thead><tr><th scope="col">Projekt</th><th scope="col">Adress</th><th scope="col">Data</th><th scope="col">Status</th></tr></thead>
+      <tbody>${d.legacy_utan_kund.map((p) => `<tr><th scope="row">${esc(p.projekt)}</th><td>${esc(p.adress || '')}</td><td>${esc(p.data || 'ingen')}</td><td>${p.status === 'kvar' ? 'kvar på Vercel' : 'avvecklad'}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="under">Inga äldre Vercel-projekt utan kund i beståndet.</p>'}
+    <p class="under">Sajterna på Vercel stannar där (ditt besked 2026-10-09). Inget flyttas eller avvecklas utan ett eget beslut.</p>`;
+}
 async function underhallvy() {
   aktivNav('underhall');
   $('#vy').innerHTML = `<h1>Underhåll och verktygslådan</h1><p class="under">Det dagliga underhållet prövar verktygslådans versioner och tar in dem som klarar proven.</p><div id="verktygslada"><p class="under">Laddar …</p></div>`;
@@ -1557,6 +1579,7 @@ async function route() {
     if (h === 'dokumentation' || h.startsWith('dokumentation/')) return await dokumentationsvy(h.slice(14));
     if (h === 'starta') return startavy();
     if (h === 'underhall') return await underhallvy();
+    if (h === 'leverans') return await leveransvy();
     return await oversikt();
   } catch (e) { ($('#vy') || $('#rot')).innerHTML = `<div class="meddelande fel">Fel: ${esc(e.message)}</div>`; }
 }
