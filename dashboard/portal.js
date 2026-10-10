@@ -464,7 +464,8 @@
     if (location.hash !== hash || gen !== P.vgen) return;
     const m = d.migrering || {}, akt = d.aktivering || {};
     const steg = (m.steg || []).map((x) => `<li class="pt-post"><span class="pt-post-kunskap ${x.status === 'ja' ? 'k-kunden_uppger' : x.status === 'nej' ? 'k-tolkning' : ''}">${e_(STEGSTATUS[x.status] || x.status)}</span><b>${e_(x.namn)}</b><span class="pt-post-text pt-under">${e_(x.belagg)}</span></li>`).join('');
-    const aktSteg = (akt.steg || []).slice(0, 14).map((x) => `<li class="pt-post"><span class="pt-post-kunskap">${e_(x.status)}</span><span class="pt-post-text">${e_(x.text)}${x.varfor ? ' · ' + e_(x.varfor) : ''}</span></li>`).join('');
+    const AKT = { klar: 'klar', gors: 'görs vid aktiveringen', saknas: 'saknas', vantar: 'väntar' };
+    const aktSteg = (akt.steg || []).slice(0, 14).map((x) => `<li class="pt-post"><span class="pt-post-kunskap">${e_(AKT[x.status] || x.status)}</span><span class="pt-post-text">${e_(x.text)}${x.varfor ? ' · ' + e_(x.varfor) : ''}</span></li>`).join('');
     const besked = m.fel
       ? `<div class="pt-panel pt-besked"><h2>Leveransläget kunde inte läsas</h2><p class="pt-fel">${e_(m.fel)}</p><p class="pt-under">Inget är observerat härifrån: varken publicerat eller inte publicerat. Försök igen, eller se Byggflöde.</p></div>`
       : d.publicerad
