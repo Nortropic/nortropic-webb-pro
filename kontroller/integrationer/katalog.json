@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.13",
+  "version": "2026-10-10.14",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -72,7 +72,7 @@
       "kostnad": {"modell": "Workers Free: statiska filer gratis, 100 000 Worker-anrop per dygn för kontot; tio D1-databaser per konto", "belopp": 0, "valuta": "USD", "kalla": "https://developers.cloudflare.com/workers/platform/limits/", "datum": "2026-10-10"},
       "funktioner": {"inspektera": "kundrepo.preview_krav", "planera": "exportera.exportera", "tillampa": "kundrepo.preview", "aterlas": "kundrepo.preview_aktuell", "prova": "workersprov.prova", "avveckla": null},
       "fardighet": "kontraktsprovat", "fardighet_omfattning": "Exporten byggs och förpackas utan konto, Workern körs lokalt i workerd och förhandsvisningens kvitto prövas med attrapper; inget prov mot ett verkligt Cloudflare-konto (kontot är inte anslutet).",
-      "prov": ["kontroller/rokprov/revision/prov_workers.py", "kontroller/rokprov/revision/prov_kundrepo.py", "kontroller/workersprov.py"],
+      "prov": ["kontroller/rokprov/revision/prov_workers.py", "kontroller/rokprov/revision/prov_kundrepo.py"],
       "driftkontroll": "kontroller/driftkoll.py", "begransningar": ["Fjärrprovet (M16) väntar på kontot.", "Tio D1-databaser per konto på gratisnivån."],
       "paverkar": {"brief": null, "design": null, "kod": "worker/, wrangler.jsonc, migrations/, public/_headers", "externt": "Workers, D1, R2, Access"},
       "manniska": [{"handling": "Anslut Nortropics Cloudflare-konto", "ansvarig": "agare", "skal": "förhandsvisning, aktivering och release går genom kontot", "under_vantan": "bygge och export", "belagg": ["konto"]}, {"handling": "Skydda förhandsvisningen med Cloudflare Access", "ansvarig": "agare", "skal": "verkligt material laddas aldrig upp till en öppen adress", "under_vantan": "bygge och export", "belagg": ["forhandsvisning"]}, {"handling": "Skapa kundens D1 och R2 med EU-jurisdiktion", "ansvarig": "nortropic", "skal": "formulärets ärenden och bilagor sparas där före varje avisering", "under_vantan": "bygge, export och förhandsvisning", "belagg": ["aktivering:d1", "aktivering:r2"]}, {"handling": "Släpp den förhandsvisade commiten till produktionen", "ansvarig": "agare", "skal": "en release är ditt beslut (klicket i Byggflöde)", "under_vantan": "inget av lanseringen", "belagg": ["release"]}]
