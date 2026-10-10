@@ -3143,6 +3143,20 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(409, {'fel': str(e), 'arende': e.arende})
             except (ks.Vagrad, ValueError) as e:
                 return self.skicka(400, {'fel': str(e)})
+        m = re.fullmatch(r'/api/desktop/intervju/([a-f0-9]{32})/(svar|rattelse|ai)', vag)
+        if m:
+            import kundstart as ks
+            import kundstart_agare
+            try:
+                if m.group(2) == 'ai':
+                    return self.skicka(200, desktop.starta_ai(sys.modules[__name__], m.group(1)))
+                return self.skicka(200, kundstart_agare.intervju(ROOT, m.group(1), m.group(2), data if isinstance(data, dict) else {}))
+            except ks.Konflikt as e:
+                return self.skicka(409, {'fel': str(e)})
+            except ks.Obehorig as e:
+                return self.skicka(404, {'fel': str(e)})
+            except (ks.Vagrad, ValueError) as e:
+                return self.skicka(400, {'fel': str(e)})
         if vag == '/api/desktop/utloggning':
             desktop.aterkalla(desktop.kaka_sid(self.headers.get('Cookie'), self.port()))
             return self.skicka(200, {'utloggad': True}, extra={'Set-Cookie': desktop.kaka('', self.port(), ta_bort=True)})

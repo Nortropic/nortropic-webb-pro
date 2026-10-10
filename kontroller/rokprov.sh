@@ -714,6 +714,10 @@ echo "   arbetsytan (2026-10-09): läget, sessionernas lägen, blindningen på s
   || { echo "FEL: arbetsytans prov"; tail -25 "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; exit 1; }
 if grep -q 'skipped=' "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; then echo "FEL: arbetsytans prov hoppade över fall, fast mallsajten finns i rökprovet (GR-20261009-arbetsyta-oberoende#K8)"; tail -5 "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; exit 1; fi
 echo "   arbetsytans prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log" | tr '\n' ' '))"
+echo "   Nortropic.app, motorns sida (desktop/1, 2026-10-10): identiteten, engångskoden, sessionen, Ny kund, översikten och det pågående arbetet"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_desktop.py" >"$ROOT/kunder/rokprov-mall/desktop-prov.log" 2>&1 \
+  || { echo "FEL: desktopkontraktets prov"; tail -25 "$ROOT/kunder/rokprov-mall/desktop-prov.log"; exit 1; }
+echo "   desktopkontraktets prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/desktop-prov.log" | tr '\n' ' '))"
 echo "   meddelandebussen och löparen: ägarens meddelanden under arbetet, agenternas avsändare, mandat, paus och blindning"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_meddelanden.py" >"$ROOT/kunder/rokprov-mall/meddelanden-prov.log" 2>&1 \
   || { echo "FEL: meddelandebussens prov"; tail -30 "$ROOT/kunder/rokprov-mall/meddelanden-prov.log"; exit 1; }

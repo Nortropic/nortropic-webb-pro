@@ -4816,3 +4816,64 @@ Genomförarens tillämpning (Claude): `kompetens.anvandaranropade()` läser flag
 skills som läsfiler, så att aktiveringstexten säger Read; `kompetens.kravbrister` kräver att en tilldelad eller vald
 användaranropad skill är läst hel i sessionen. Inget krav sänks. Prov: `prov_kompetensluckor.py`, Lucka5 (tre fall, röda
 på basen av rätt skäl). `kunskap/metodkarta.md` beskriver regeln.
+
+## Tillägg 2026-10-10: Nortropic.app med Tauri 2 och hela den interaktiva kundportalen (ägarens uppdrag ~16:58Z)
+
+**Status:** gäller.
+
+Ägarens ord, inklistrade, ordagrant (med byggpaketet `Nortropic-Desktop-och-kundportal-byggpaket-v2.zip`, som inte
+ligger i repot: BYGGPROMPT, ANDRINGSLOGG, BILDGUIDE, ACCEPTANSPROV, KALLOR-OCH-METODER och referensbilderna):
+
+> Läs BYGGPROMPT.md i nortropic-desktop-portal-byggpaket-v2.
+> Läs också ANDRINGSLOGG.md, BILDGUIDE.md och ACCEPTANSPROV.md.
+> Använd KALLOR-OCH-METODER.md för berörda design- och teknikbeslut.
+> Öppna originalmålbilden och relevanta panelbilder visuellt.
+>
+> Bygg hela den interaktiva kundportalen som en riktig lokal macOS-app, med Tauri 2 som första väg.
+> Jag ska öppna Nortropic från Finder/Dock, inte få en webbläsarflik.
+>
+> Integrations- och Cloudflare-arbetet är i princip avslutat före detta uppdrag.
+> Läs dess slutbesked och relevanta kontrakt, registrera aktuell version
+> och återanvänd resultatet. Bygg inte om integrationerna eller migreringen.
+>
+> Genomför E1–E10. Bevara P01–P12 och U01–U40.
+> Prova även D01–D28 och scenarierna J01–J12.
+>
+> Bygg och prova en riktig app tidigt. Redovisa kort utgångspunkten
+> och fortsätt sedan med implementation, prov och dokumentation.
+> Samordna med pågående arbete och respektera befintliga mandat.
+>
+> Skilj implementerat, provat i riktig Mac-app, installerat
+> och distributionsklart. Leverera inte bara en plan eller mockup.
+
+Räckvidd: appen, portalens ram och vyer och motorns smala kontrakt för appen. Integrationerna, Cloudflare-vägen och
+migreringen (main 9bb3b31: katalogen 2026-10-10.14, handlingskön, aktivera.py, kundrepo.py; slutbeskedet 16:52Z
+ofullständigt med K12, K13, K16–K18 blockerade och inget skarpt aktiverat) är beroenden som appen använder och inte
+bygger om. Ingen publik portal, ingen kunddistribution, inga köp, inga skarpa leveranser.
+
+**Beslut och avvägningar** (genomförarens, för ägaren att rätta):
+- **Anslutningsmodellen:** motorn levererar arbetsytans UI från loopback; appen bär bara ett paketerat skal (lås,
+  första start, diagnos, senast kända läge). Motor och UI ändras i samma commit flera gånger om dagen, så ett inbakat UI
+  skulle glida isär från API:t. Byggpaketet bad om ett val mellan modellerna med motivering, inte båda.
+- **Identiteten mellan app och motor (`desktop/1`):** HMAC-SHA256 med dashboardnyckeln över appens utmaning, motorns
+  instans, rot, pid, port och commit, plus kontroll att den lyssnande processen tillhör samma användare och kör ur den
+  registrerade roten. Nyckeln läses native och skickas först efter beviset. Ingen egen kryptografi.
+- **Upplåsningen** är macOS LocalAuthentication (Touch ID eller lösenordet), en lokal operatörsupplåsning, ingen extern
+  inloggning. Inga sociala inloggningsknappar visas, eftersom inga sådana vägar finns.
+- **Sessionen** är en engångskod (med nyckeln, native) mot en HttpOnly-kaka med SameSite=Strict, och skrivningar med
+  kakan kräver exakt samma ursprung. Nyckeln når aldrig JavaScript i appen. Webbläsarvägen med nyckeln i fragmentet
+  finns kvar som reserv.
+- **Läsvägarna** förblir öppna för samma användares processer som förut (`kunskap/arbetsyta.md`, Säkerhet). Webbangrepp
+  stoppas av värdkontrollen och avsaknaden av CORS; appens lås gör motorn onåbar för fönstret. Att kräva session för
+  varje läsning skulle bryta Claude-panelen, startgenvägen och proven, och skyddar inte mot kod som kör som samma
+  användare. Därför är det ett medvetet avgränsat skydd, redovisat i hotmodellen.
+- **Arbetsytan i portalens ram** får portalens ljusa värden genom sina variabler (målbildens ljusa yta och mörka
+  navigering), i stället för ett andra designsystem; i webbläsaren utan ramen är den mörk som förut.
+- **Ny kund** skapar ärendet genom Kundstarts egen skapandeväg. Testmärkningen sätts av motorn, och en riktig kund får
+  ingen modellbudget (AI kräver separat aktivering som förut), en testkund tio anrop för syntetiskt material.
+  Webbplatsen och syftet är ägarens anteckningar, aldrig kundens uppgifter.
+- **Cmd-Q** frågar när arbete pågår men stoppar aldrig något självt; stopp görs i arbetsytan med motorns stoppväg. Dock-
+  menyns Avsluta går förbi frågan (Apple Event), utan följd för motorn.
+
+Genomfört, provat och kvar: `kunskap/desktop.md` och den privata rapporten
+`underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md` (täckningsmatrisen U01–U40, D01–D28, J01–J12).

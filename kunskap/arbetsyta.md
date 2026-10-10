@@ -14,6 +14,9 @@ kompletta arbetsplatsen. Arbetet: `backlog/B-20261009-visuella-arbetsytan-samtal
 ./dashboard.sh genvag               # engångsinstallation: Mac-appen ~/Applications/Nortropic arbetsyta.app (anropar start)
 ```
 
+Ägarens vanliga väg in är Nortropic.app (`kunskap/desktop.md`): samma arbetsyta i appens eget fönster, inne i portalens
+ram med Hem (Ny kund, Kunder, Testkunder) och kundens arbetsområden. Vägarna nedan gäller som förut och är reserven.
+
 Arbetsytan öppnas på dashboardens rot (`#/`) och är dashboardens enda ram (ägarens besked 2026-10-09 ~17:11Z: "allt
 ska ju in i det här nya vyn"). Bredvid projektets fyra vyer står arbetsytans delar i två menyer, kundproduktionen skild
 från systemförbättringen:
@@ -338,6 +341,8 @@ egna anrop syns inte.
 - **Mods** kör med dina rättigheter utanför Bash-sandlådan; Claude-panelen läser bara och är ingen väg runt nyckeln,
   beslutstjänsten eller kundvakten.
 - **Kvarstående:** dashboardnyckeln ligger som förut i adressens fragment när sidan öppnas och i webbläsarens lagring.
+  I Nortropic.app når nyckeln aldrig sidan: skrivningar går med en kortlivad HttpOnly-session som bara gäller med exakt
+  samma ursprung (`dashboard/desktop.py`, `kunskap/desktop.md`).
 
 ## Claude-panelen
 

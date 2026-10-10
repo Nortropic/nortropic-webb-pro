@@ -103,6 +103,25 @@ Flödets sessioner kör aldrig npm, npx eller node direkt (`kontroller/atelje.py
 4. Lägg `package.json` och `package-lock.json` i `mall/astro/`, uppdatera tabellen ovan med granskningen, och kör
   `kontroller/rokprov.sh` tills det är grönt. Nya sajter installerar med `npm ci` mot låset (`kontroller/ny_sajt.py`).
 
+## Nortropic.app:s beroenden (`desktop/`)
+
+Appen (`kunskap/desktop.md`) byggs med Rust och Tauri 2 och är inget beroende för sajterna eller flödets sessioner.
+Införd 2026-10-10 (ägarens uppdrag ~16:58Z, Tauri 2 som första väg). Rust installeras med rustup på användarnivå
+(`~/.cargo`, `~/.rustup`, stable 1.99); Xcode Command Line Tools räcker för macOS. Ingen administratörsrätt.
+
+| Del | Version | Källa och datum | Licens | Granskning 2026-10-10 |
+|---|---|---|---|---|
+| `@tauri-apps/cli` (`desktop/package.json`, exakt) | 2.12.1 (npm 2026-09-30) | github.com/tauri-apps/tauri | Apache-2.0 OR MIT | 2 paket i låset, inga installationsskript, `npm audit` 0 |
+| `tauri` / `tauri-build` (`desktop/src-tauri/Cargo.toml`, exakt) | 2.12.1 / 2.7.1 (crates.io 2026-09-30) | v2.tauri.app, crates.io | Apache-2.0 OR MIT | `Cargo.lock` med 262 paket för aarch64-apple-darwin: MIT, Apache-2.0, Unicode-3.0, Zlib, BSD-3-Clause, MPL-2.0 (5), Unlicense-alternativ; ingen GPL |
+| Tauris officiella insticksmoduler (exakt) | single-instance 2.5.2, dialog 2.8.1, notification 2.5.1 (2026-10-01) | github.com/tauri-apps/plugins-workspace | Apache-2.0 OR MIT | samma lås |
+| `objc2-local-authentication` | 0.3.2 (2025-10-04) | github.com/madsmtm/objc2 | Zlib OR Apache-2.0 OR MIT | macOS LocalAuthentication för upplåsningen |
+| `hmac`, `sha2`, `getrandom`, `hex`, `libc`, `serde`, `serde_json` | 0.12, 0.10, 0.2, 0.4, 0.2, 1, 1 | RustCrypto, rust-lang m.fl. | MIT OR Apache-2.0 | identitetsprovets HMAC (RFC 2104) och slumptal |
+
+Karenstiden gäller också här: varje version var publicerad minst tre dygn före införandet. En ny version prövas med
+`cargo build`, `npm run bygg`, `desktop/prov/prov_release.py` och `desktop/prov/prov_app.py` mot en provinstans, och
+`prov_desktop.py` i rökprovet för motorns sida. Ingen sårbarhetsdatabas för Rust (cargo-audit) är installerad; det står
+som en lucka tills underhållet tar in den.
+
 ## Chrome DevTools MCP (låst verktyg för inspektionssessionen)
 
 Ägarens uppdrag 2026-10-07, punkt 7 och 5: MCP:n prövas i en egen inspektionssession (`kontroller/devtools.py`), aldrig i

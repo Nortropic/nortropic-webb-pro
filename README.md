@@ -5,6 +5,11 @@ domare. Varför repot finns och vad som beslutades: `BESLUT.md`.
 
 ## Dashboarden
 
+**Nortropic.app** (Tauri 2, `desktop/`) är ägarens vanliga väg in: öppna Nortropic från Program eller Dock, lås upp med
+Touch ID eller lösenordet, och arbeta med Hem (Ny kund, Kunder, Testkunder), kundens arbetsområden och hela arbetsytan i
+appens eget fönster, mot den här motorn. Byggs och installeras med `desktop/installera.sh` (en gång; Rust behövs bara för
+att bygga). Första starten, identiteten mellan app och motor, låset, livscykeln och proven: `kunskap/desktop.md`.
+
 ```sh
 ./dashboard.sh start [kund]   # tjänsten i bakgrunden och arbetsytan (startvyn); startar inget arbete; Mac-appen: ./dashboard.sh genvag
 ./dashboard.sh        # http://127.0.0.1:4771 i terminalen (öppnar sidan med dashboardnyckeln: ägarens domar och flödets

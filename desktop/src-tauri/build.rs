@@ -12,7 +12,6 @@ fn main() {
             "las",
             "senast_kanda",
             "installning",
-            "prov_ogonblick",
         ]),
     ))
     .expect("tauri-build");

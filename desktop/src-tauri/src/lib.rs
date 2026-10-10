@@ -354,12 +354,6 @@ async fn installning(app: AppHandle, nyckel: String, varde: String) -> Result<se
     Ok(json!({ "avslut": inst.avslut, "las_efter_min": inst.las_efter_min }))
 }
 
-#[tauri::command]
-#[allow(unused_variables)]
-async fn prov_ogonblick(app: AppHandle) -> Result<(), String> {
-    Err("finns bara i provbygget".into())
-}
-
 // ---------- menyn ----------
 
 fn meny(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
@@ -581,8 +575,7 @@ pub fn kor() {
             oppna_arbetsytan,
             las,
             senast_kanda,
-            installning,
-            prov_ogonblick
+            installning
         ])
         .setup(|app| {
             let h = app.handle().clone();

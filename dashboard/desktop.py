@@ -298,3 +298,30 @@ def ny_kund(dash, data):
         raise
     kundstart_agare.anteckningar(dash.ROOT, r['arende'], operation, [('foretag', foretag), ('webbplats', webb), ('syfte', syfte), ('kontakt', kontakt)])
     return {'arende': r['arende'], 'slug': slug, 'nyckel': r['nyckel'], 'aterforsok': r['aterforsok'], 'test': test}
+
+
+_AI = {}  # ärende -> Popen för den AI-tur som portalen startat (en åt gången per ärende)
+
+
+def starta_ai(dash, eid):
+    """En AI-tur i intervjun, startad av ägarens uttryckliga klick: Kundstarts befintliga modellarbetare
+    (kontroller/kundstart_modell.py) för ett köjobb med pilotens transport (--live-cli), som själv bara tar fiktiva
+    ärenden och räknar budgeten. Ett verkligt ärende eller ett ärende utan köat jobb startar ingenting."""
+    import kundstart_agare
+    d = kundstart_agare.lager(dash.ROOT).internt(eid)
+    if d.get('fiktiv') is not True:
+        raise ValueError('AI-vägen i portalen gäller bara testkunder; ett verkligt ärende kräver separat aktivering')
+    if (d.get('modell') or {}).get('status') != 'ko':
+        raise ValueError('inget svar väntar på AI (modellens läge: %s)' % (d.get('modell') or {}).get('status'))
+    p = _AI.get(eid)
+    if p and p.poll() is None:
+        return {'startad': False, 'pagar': True, 'pid': p.pid}
+    modell = os.environ.get('NWP_KUNDSTART_MODELL') or 'claude-sonnet-5-5'
+    logg = Path(dash.ROOT) / 'underlag' / 'kundstart' / 'modellturer.log'
+    logg.parent.mkdir(parents=True, exist_ok=True)
+    with open(logg, 'a', encoding='utf-8') as f:
+        p = subprocess.Popen([str(Path(dash.ROOT) / '.venv/bin/python'), '-B', str(Path(dash.ROOT) / 'kontroller/kundstart_modell.py'),
+                              '--modell', modell, '--live-cli', '--effort', os.environ.get('NWP_KUNDSTART_EFFORT') or 'medium', '--antal', '1'],
+                             cwd=str(dash.ROOT), stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
+    _AI[eid] = p
+    return {'startad': True, 'pid': p.pid, 'modell': modell, 'transport': 'live-cli (pilotens abonnemangstransport, bara fiktiva ärenden)'}

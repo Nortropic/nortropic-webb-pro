@@ -6,7 +6,7 @@
 (() => {
   'use strict';
   const e_ = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const EGNA = ['start', 'kunder', 'testkunder', 'ny-kund', 'ny-testkund', 'kund'];
+  const EGNA = ['start', 'kunder', 'testkunder', 'ny-kund', 'ny-testkund', 'kund', 'intervju'];
   const P = { data: null, lastes: 0, desktop: null, filter: 'alla', sok: '', gen: 0 };
   const IKON = {
     hem: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -61,7 +61,7 @@
     const s = encodeURIComponent(k.slug), a = (k.arenden || [])[0];
     const ks = a ? '#/kundstart/' + encodeURIComponent(a.id) : null, p = k.projekt ? '#/arbetsyta/' + s : null;
     return [
-      ['kundstart', 'Kundstart', ks, 'samtalet och kundens svar', null],
+      ['kundstart', 'Kundstart', a ? '#/intervju/' + encodeURIComponent(a.id) : null, 'intervjun: samtalet och det växande underlaget', null],
       ['underlag', 'Underlag', ks, 'källbundna uppgifter och material', 'underlag'],
       ['funktioner', 'Funktioner', ks, 'K01–K18: behov, val och plan', 'funktioner'],
       ['forslag', 'Förslag', p && p + '/forslag', 'skisserna och dina val', null],
@@ -73,6 +73,7 @@
     ];
   }
   function aktivtOmrade(h) {
+    if (h.startsWith('intervju/')) return 'kundstart';
     if (h.startsWith('kundstart/')) { try { return sessionStorage.getItem('nwp-portal:omrade') || 'kundstart'; } catch { return 'kundstart'; } }
     if (/^arbetsyta\/[^/]+\/forslag/.test(h)) return 'forslag';
     if (/^arbetsyta\/[^/]+\/flode/.test(h)) return 'bygge';
@@ -85,7 +86,7 @@
     if (!d) return null;
     let m = h.match(/^(?:arbetsyta|kund|bygge)\/([^/]+)/);
     if (m) return d.kunder.find((k) => k.slug === decodeURIComponent(m[1])) || null;
-    m = h.match(/^kundstart\/([a-f0-9]{32})/);
+    m = h.match(/^(?:kundstart|intervju)\/([a-f0-9]{32})/);
     if (m) return d.kunder.find((k) => (k.arenden || []).some((a) => a.id === m[1])) || null;
     if (h === 'leverans') { let s = ''; try { s = localStorage.getItem('nwp-portal:kund') || ''; } catch { /* */ } return d.kunder.find((k) => k.slug === s) || null; }
     return null;
@@ -306,7 +307,7 @@
         const r = await skicka('/api/desktop/ny-kund', { foretag, webbplats: webb, syfte: f.syfte.value.trim(), kontakt: f.kontakt.value.trim(), test, operation: u.operation });
         try { localStorage.removeItem(lagring); localStorage.setItem('nwp-portal:kund', r.slug); if (r.nyckel) sessionStorage.setItem('nwp-portal:engang:' + r.arende, JSON.stringify({ arende: r.arende, nyckel: r.nyckel })); } catch { /* */ }
         P.data = null;
-        location.hash = '#/kundstart/' + encodeURIComponent(r.arende);
+        location.hash = '#/intervju/' + encodeURIComponent(r.arende);
       } catch (e) {
         if (e.status === 409 && e.svar?.arende) svar.innerHTML = `${e_(e.message)} <a href="#/kundstart/${encodeURIComponent(e.svar.arende)}">Öppna den befintliga kunden</a>`;
         else svar.textContent = e.message;
@@ -314,6 +315,99 @@
       }
     });
     f.foretag.focus();
+  }
+
+  // --- intervjun (P04): samtalet bredvid det växande, källmärkta underlaget ---
+  const AMNEN = { A: 'Verksamhet och mål', B: 'Besökare och uppgifter', C: 'Nuvarande lösning', D: 'Uttryck', E: 'Innehåll', F: 'Funktioner', G: 'Synlighet', H: 'Förvaltning', I: 'Ramar och ansvar', J: 'Särskilda behov' };
+  const KUNSKAP = { kunden_uppger: 'kundens ord', kunden_bekraftar: 'kunden bekräftar', agarens_rattelse: 'din rättelse', agarens_anteckning: 'din anteckning',
+    tolkning: 'AI:s tolkning', hypotes: 'AI:s hypotes', preferens: 'AI: möjlig preferens', okant: 'AI: okänt' };
+  const MODELL = { inte_startad: 'AI har inte tagit någon tur än.', ko: 'Svaret är sparat och väntar på en AI-tur.', pagar: 'AI arbetar med ditt senaste svar …', klar: 'AI har svarat. Rätta det som inte stämmer.',
+    fel: 'AI-turen misslyckades; svaren är sparade.', avstangd: 'AI är inte aktiverad för ärendet; svaren sparas.', budget_slut: 'AI-budgeten för ärendet är slut; svaren är sparade.', foraldrat: 'Ärendet ändrades under AI-turen; den gamla turen ersattes.' };
+  let intervjuPuls = null;
+  async function intervjuvy(eid) {
+    clearTimeout(intervjuPuls);
+    const hash = location.hash;
+    let d; try { d = await hamta('/api/kundstart/' + encodeURIComponent(eid)); } catch (e) { return fel(e); }
+    if (location.hash !== hash) return;
+    const a = d.arende, namn = (a.anteckningar || []).find((x) => x.slag === 'foretag')?.text || a.slug;
+    const utkastNyckel = 'nwp-portal:intervju:' + eid;
+    let utkast = ''; try { utkast = localStorage.getItem(utkastNyckel) || ''; } catch { /* */ }
+    const aktiv = document.activeElement?.id;
+    const ai = a.fiktiv === true && a.budget.anrop < a.budget.max_anrop;
+    const mstat = a.modell?.status || 'inte_startad';
+    const rad = (m) => m.roll === 'kund'
+      ? `<li class="pt-msg kund"><span class="pt-msg-vem">${m.via === 'agaren' ? 'Kundens svar, antecknat av dig' : 'Kundens svar'}</span>${e_(m.text)}<span class="pt-msg-tid">${e_(tid(m.tid))}</span></li>`
+      : `<li class="pt-msg ai"><span class="pt-msg-vem">AI-assistenten</span>${e_(m.text)}<span class="pt-msg-tid">${e_(tid(m.tid))}</span></li>`;
+    const post = (x, slag) => `<li class="pt-post" data-slag="${slag}"><span class="pt-post-kunskap k-${e_(x.kunskap)}">${e_(KUNSKAP[x.kunskap] || x.kunskap)}</span>
+        <span class="pt-post-text">${e_(x.text)}</span>${x.bestallning === 'rattat' ? '<span class="pt-etikett">rättad</span>' : ''}
+        ${slag !== 'anteckning' && x.bestallning !== 'rattat' ? `<button type="button" class="pt-lank" data-ratta="${e_(x.id)}" data-slag="${slag}" data-amne="${e_(x.amne)}">Rätta</button>` : ''}</li>`;
+    const perAmne = Object.keys(AMNEN).map((k) => {
+      const upp = Object.values(a.uppgifter || {}).filter((u) => u.amne === k);
+      const fs = Object.values(a.forslag || {}).filter((f) => f.amne === k && f.bestallning !== 'rattat');
+      if (!upp.length && !fs.length) return '';
+      return `<section class="pt-amne"><h3>${AMNEN[k]}</h3><ul>${upp.map((u) => post(u, 'uppgift')).join('')}${fs.map((f) => post(f, 'forslag')).join('')}</ul></section>`;
+    }).join('');
+    yta(`<div class="pt-rubrikrad"><h1>Kundintervju · ${e_(namn)}</h1>${a.fiktiv ? '<span class="pt-test">Testkund</span>' : ''}<a class="pt-knapp" href="#/kundstart/${encodeURIComponent(eid)}">Hela ärendet</a></div>
+      <p class="pt-ingress" id="pt-ai-lage" role="status" aria-live="polite">${e_(MODELL[mstat] || a.modell?.text || '')} ${a.fiktiv ? `AI-turer ${a.budget.anrop} av ${a.budget.max_anrop} (testkund, pilotens transport).` : 'Verklig kund: AI-vägen kräver separat aktivering; du för samtalet och underlaget själv.'}</p>
+      <div id="pt-engang"></div>
+      <div class="pt-intervju">
+        <section class="pt-panel pt-samtal" aria-labelledby="pt-samtal-r"><h2 id="pt-samtal-r">Samtalet</h2>
+          <ol class="pt-msgs" id="pt-msgs">${(a.meddelanden || []).map(rad).join('') || '<li class="pt-tomt">Inget sagt än. Börja med kundens egna ord om verksamheten och vad de vill uppnå.</li>'}</ol>
+          ${(a.fragor || []).length ? `<div class="pt-fragor"><h3>AI:s frågor till nästa svar</h3><ul>${a.fragor.map((q) => `<li><b>${e_(q.text)}</b><span>${e_(q.varfor)}${q.kritisk ? ' · behövs före nästa steg' : ''}</span></li>`).join('')}</ul></div>` : ''}
+          <form id="pt-svar-form" class="pt-form"><label for="pt-svar-text">Kundens svar (antecknas som kundens ord, via dig)</label>
+            <textarea id="pt-svar-text" rows="3" maxlength="30000" placeholder="Skriv kundens svar här">${e_(utkast)}</textarea>
+            <div class="pt-knapprad"><button type="submit" class="pt-knapp primar" name="ai" value="1"${ai ? '' : ' hidden'}>Spara svaret och låt AI fortsätta</button>
+              <button type="submit" class="pt-knapp${ai ? '' : ' primar'}" name="ai" value="0">Spara svaret</button></div>
+            <p class="pt-under" id="pt-svar-lage" role="status" aria-live="polite">${utkast ? 'Utkast sparat här på datorn, inte skickat.' : ''}</p></form>
+        </section>
+        <section class="pt-panel pt-underlag" aria-labelledby="pt-underlag-r"><h2 id="pt-underlag-r">Kundunderlag <span class="pt-under">uppdateras när samtalet sparas</span></h2>
+          ${(a.anteckningar || []).length ? `<section class="pt-amne"><h3>Dina anteckningar</h3><ul>${a.anteckningar.map((x) => post(x, 'anteckning')).join('')}</ul></section>` : ''}
+          ${perAmne || '<p class="pt-tomt">Inga uppgifter än. Det som saknas står som okänt.</p>'}
+          ${(a.material || []).length ? `<section class="pt-amne"><h3>Material</h3><ul>${a.material.map((m) => `<li class="pt-post"><span class="pt-post-text">${e_(m.namn)}</span><span class="pt-etikett">${m.lasning === 'inte_last' ? 'uppladdad, inte läst' : e_(m.lasning)}</span><span class="pt-etikett">rätt: ${e_(m.rattighet)}</span></li>`).join('')}</ul></section>` : ''}
+          <p class="pt-under">Kundens ord, dina anteckningar och rättelser och AI:s tolkningar är märkta var för sig. En AI-tolkning är aldrig kundens bekräftade fakta.</p>
+        </section>
+      </div>`);
+    try { const k = 'nwp-portal:engang:' + eid, e = JSON.parse(sessionStorage.getItem(k) || 'null'); if (e && e.nyckel) { sessionStorage.removeItem(k);
+      document.getElementById('pt-engang').innerHTML = `<div class="pt-panel pt-engang"><b>Kunden är skapad.</b> Vill du att kunden svarar själv senare finns en personlig länk; den visas bara nu och skickas inte automatiskt.
+        <label for="pt-lank">Kundens personliga länk (lokal)</label><input id="pt-lank" readonly value="${e_('http://127.0.0.1:4773/#arende=' + encodeURIComponent(e.arende) + '&nyckel=' + encodeURIComponent(e.nyckel))}"></div>`; } } catch { /* */ }
+    const msgs = document.getElementById('pt-msgs'); msgs.scrollTop = msgs.scrollHeight;
+    if (aktiv) document.getElementById(aktiv)?.focus({ preventScroll: true }); else fokus();
+    const f = document.getElementById('pt-svar-form'), ta = document.getElementById('pt-svar-text');
+    ta.addEventListener('input', () => { try { localStorage.setItem(utkastNyckel, ta.value); } catch { /* */ } document.getElementById('pt-svar-lage').textContent = ta.value ? 'Utkast sparat här på datorn, inte skickat.' : ''; });
+    let opNyckel = 'nwp-portal:intervju-op:' + eid;
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const text = ta.value.trim(); if (!text) { ta.focus(); return; }
+      const medAi = ev.submitter?.value === '1';
+      let op = null; try { const o = JSON.parse(localStorage.getItem(opNyckel) || 'null'); if (o && o.text === text && o.revision === a.revision) op = o.op; } catch { /* */ }
+      if (!op) { op = crypto.randomUUID(); try { localStorage.setItem(opNyckel, JSON.stringify({ op, text, revision: a.revision })); } catch { /* */ } }
+      f.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+      const lage = document.getElementById('pt-svar-lage'); lage.textContent = 'Sparar …';
+      try {
+        await skicka('/api/desktop/intervju/' + eid + '/svar', { revision: a.revision, operation: op, text });
+        try { localStorage.removeItem(utkastNyckel); localStorage.removeItem(opNyckel); } catch { /* */ }
+        if (medAi) { try { await skicka('/api/desktop/intervju/' + eid + '/ai', {}); } catch (e) { lage.textContent = 'Svaret är sparat. AI startade inte: ' + e.message; } }
+        intervjuvy(eid);
+      } catch (e) { lage.textContent = e.status === 409 ? e.message : 'Inte sparat: ' + e.message + ' Texten finns kvar här.'; f.querySelectorAll('button').forEach((b) => { b.disabled = false; }); }
+    });
+    document.querySelectorAll('[data-ratta]').forEach((b) => b.addEventListener('click', () => {
+      const li = b.closest('li'); if (li.querySelector('form')) return;
+      const nu = li.querySelector('.pt-post-text').textContent;
+      li.insertAdjacentHTML('beforeend', `<form class="pt-ratta"><label>Rätta till<textarea rows="2" maxlength="30000">${e_(nu)}</textarea></label><div class="pt-knapprad"><button class="pt-knapp primar" type="submit">Spara rättelsen</button><button class="pt-knapp" type="button" data-avbryt>Avbryt</button></div></form>`);
+      const fr = li.querySelector('form'); fr.querySelector('textarea').focus();
+      fr.querySelector('[data-avbryt]').onclick = () => fr.remove();
+      fr.onsubmit = async (ev) => {
+        ev.preventDefault();
+        const text = fr.querySelector('textarea').value.trim(); if (!text) return;
+        const data = { revision: a.revision, operation: crypto.randomUUID(), text, amne: b.dataset.amne };
+        if (b.dataset.slag === 'forslag') data.forslag = b.dataset.ratta; else data.uppgift = b.dataset.ratta;
+        try { await skicka('/api/desktop/intervju/' + eid + '/rattelse', data); intervjuvy(eid); }
+        catch (e) { fr.insertAdjacentHTML('beforeend', `<p class="pt-fel" role="alert">${e_(e.message)}</p>`); }
+      };
+    }));
+    // medan AI arbetar läses ärendet om; aldrig medan du skriver eller rättar (fokus och text står kvar)
+    const folj = () => { if (location.hash !== hash) return; if (document.querySelector('.pt-ratta') || (document.activeElement === ta && ta.value)) { intervjuPuls = setTimeout(folj, 4000); return; } intervjuvy(eid); };
+    if (['ko', 'pagar'].includes(mstat) && a.fiktiv) intervjuPuls = setTimeout(folj, 4000);
   }
 
   function fel(e) {
@@ -328,6 +422,7 @@
     if (v === 'ny-kund') return nykundvy(false);
     if (v === 'ny-testkund') return nykundvy(true);
     if (v === 'kund' && rest) return kundvy(decodeURIComponent(rest));
+    if (v === 'intervju' && /^[a-f0-9]{32}$/.test(rest || '')) return intervjuvy(rest);
     return startvy();
   };
   window.portalEgna = EGNA;

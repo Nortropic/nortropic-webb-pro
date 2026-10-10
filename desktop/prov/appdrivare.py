@@ -33,8 +33,7 @@ class App:
 
     def registrera(self, verktyg=None):
         """Provets registrering, som första starten skulle ha gjort: motorrot, port och verktyg med absoluta sökvägar."""
-        v = verktyg or {'claude': shutil.which('claude') and os.path.realpath(shutil.which('claude')) and '/opt/homebrew/bin/claude',
-                        'node': '/opt/homebrew/bin/node'}
+        v = verktyg or {k: p for k, p in (('claude', '/opt/homebrew/bin/claude'), ('node', '/opt/homebrew/bin/node')) if os.path.exists(p)}
         inst = {'rot': str(self.motorrot.resolve()), 'port': self.port, 'verktyg': v, 'avslut': 'fraga', 'fonster': None, 'las_efter_min': 30}
         self.data.mkdir(parents=True, exist_ok=True)
         (self.data / 'installningar.json').write_text(json.dumps(inst), encoding='utf-8')

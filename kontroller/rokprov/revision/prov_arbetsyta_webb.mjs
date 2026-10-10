@@ -15,7 +15,7 @@ const sov = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // --- dashboardens filer, som server.py serverar dem ---
 const TYP = { js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', html: 'text/html; charset=utf-8' };
-const filer = new Map(await Promise.all([['/', 'index.html'], ...['kundstart-agare.js', 'kundstart-agare.css', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css']
+const filer = new Map(await Promise.all([['/', 'index.html'], ...['kundstart-agare.js', 'kundstart-agare.css', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'portal.js', 'portal.css']
   .map((n) => ['/' + n, n])].map(async ([vag, n]) => [vag, { data: await readFile(resolve(root, 'dashboard', n)), typ: TYP[n.split('.').pop()] }])));
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
@@ -242,6 +242,7 @@ const srv = createServer(async (req, res) => {
     return json({ fel: 'finns inte' }, 404);
   }
   if (filer.has(vag)) { const f = filer.get(vag); res.writeHead(200, { 'Content-Type': f.typ }); return res.end(f.data); }
+  if (vag === '/api/desktop/lage') return json({ kontrakt: 'desktop/1', session: false });  // webbläsaren, inte Nortropic.app: portalens ram ritas inte
   if (vag === '/api/arbetsyta') return json({ tid: new Date().toISOString(), lagen: LAGEN, projekt: [{ slug: SLUG, namn: NAMN, testdata: true, senast_andrad: T(10) },
     { slug: 'prov-andra', namn: 'Provföretaget Två', testdata: true, senast_andrad: T(-600) }] });
   if (vag === `/api/arbetsyta/${SLUG}`) { if (hallLage) { lageHalls++; await hallLage; } return json(lage()); }

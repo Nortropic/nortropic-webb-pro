@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 const root = resolve(process.argv[2] || '.');
 const html = await readFile(resolve(root, 'dashboard/index.html'));
-const filer = new Map(await Promise.all(['kundstart-agare.js', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css'].map(async namn =>
+const filer = new Map(await Promise.all(['kundstart-agare.js', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'portal.js', 'portal.css'].map(async namn =>
   ['/' + namn, await readFile(resolve(root, 'dashboard', namn))])));
 const namn = ['Sessionen avslutades normalt', 'Tekniska kontroller', 'Designgranskning', 'Ägarens godkännande', 'Leverans inom angiven omfattning'];
 let fas = 'klar';
@@ -47,6 +47,7 @@ const srv = createServer(async (req, res) => {
   if (m && m[2]) { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end(`retry: 1000\nevent: lage\ndata: ${JSON.stringify(lage(m[1]))}\n\n`); return; }
   if (m) return json(lage(m[1]));
   if (vag === '/api/flode') return json(flodet);
+  if (vag === '/api/desktop/lage') return json({ kontrakt: 'desktop/1', session: false });  // webbläsaren, inte Nortropic.app
   if (vag === '/api/oversikt') return json({ byggen: [], backlog_vilande: 0, intag_pagar: 0, prospekt_vantar: 0 });
   if (vag.startsWith('/api/')) return json({});
   if (filer.has(vag)) { res.writeHead(200, { 'Content-Type': vag.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8' }); res.end(filer.get(vag)); return; }

@@ -102,6 +102,58 @@ def anteckningar(repo,eid,operation,poster):
     return len(nya)
 
 
+def _ko_om_ai(db,c,d):
+    # Ett AI-jobb köas bara när ett finns att köra: ett fiktivt ärende med budget kvar (pilotens transport). Ett verkligt
+    # ärende har ingen aktiverad AI-väg; svaret sparas och vyn säger det, i stället för en kö som aldrig töms.
+    if d.get('fiktiv') is True and d['budget']['anrop']<d['budget']['max_anrop']:
+        db._ko(c,d)
+    else:
+        d['modell']={'status':'avstangd','text':'Svaret är sparat. AI är inte aktiverad för det här ärendet: ett verkligt ärende kräver separat aktivering, och budgeten för ett testärende kan vara slut.'}
+
+
+def intervju(repo,eid,namn,data):
+    # Intervjun i portalen (dashboard/portal.js, kunskap/desktop.md): ägaren för samtalet med kunden.
+    # svar: kundens ord som ägaren antecknar under samtalet; ett kundmeddelande märkt via ägaren, en kundkälla som AI:s
+    # förslag får bindas till, och ett nytt AI-jobb köas som när kunden själv svarar (budget och transport gäller som förut).
+    # rattelse: ägarens rättelse av en uppgift eller ett AI-antagande; blir en uppgift märkt agarens_rattelse (aldrig
+    # kundens bekräftelse), och ett ersatt AI-förslag märks rattat. Samma operation ger samma svar; en annan revision än
+    # den ägaren såg nekas (Konflikt), så att ett sent AI-svar aldrig skriver över en senare rättelse.
+    import time
+    if namn not in ('svar','rattelse'):raise ks.Vagrad('Okänd handling i intervjun.')
+    ks.falt(data,('revision','operation','text','amne','forslag','uppgift'),('revision','operation','text'))
+    if type(data['revision']) is not int:raise ks.Vagrad('En aktuell revision behövs.')
+    db=lager(repo);ks.nyckel(eid);ks.nyckel(data['operation'])
+    finger=ks.sha(['agare',namn,data])
+    with db.trans() as c:
+        fore=c.execute('SELECT begaran,svar FROM operationer WHERE arende=? AND id=?',(eid,data['operation'])).fetchone()
+        if fore:
+            if fore[0]!=finger:raise ks.Konflikt('Begärans id har redan använts för ett annat innehåll.')
+            return json.loads(fore[1])
+        d=db._doc(c,eid)
+        if d['revision']!=data['revision']:raise ks.Konflikt('Ärendet har ändrats sedan du läste det. Läs om; din text är kvar.')
+        t=ks.text(data['text'],ks.MAX_TEXT)
+        if namn=='svar':
+            if len(d['meddelanden'])>=500:raise ks.Vagrad('Ärendet behöver intern genomgång innan fler svar tas emot.')
+            d['meddelanden'].append({'id':ks.id_(),'roll':'kund','person':'agaren','via':'agaren','text':t,'tid':time.time()})
+            _ko_om_ai(db,c,d)
+        else:
+            amne=data.get('amne')
+            if amne not in ks.AMNEN:raise ks.Vagrad('Välj vilket ämne rättelsen gäller.')
+            fid,uid=data.get('forslag'),data.get('uppgift')
+            if fid is not None and fid not in d['forslag']:raise ks.Vagrad('AI-förslaget finns inte längre.')
+            if uid is not None and uid not in d['uppgifter']:raise ks.Vagrad('Uppgiften finns inte längre.')
+            kid=uid or ks.id_()
+            if uid:d['historik'].append({'slag':'ersatt_uppgift','uppgift':d['uppgifter'][uid],'tid':time.time(),'av':'agaren'})
+            d['uppgifter'][kid]={'id':kid,'amne':amne,'text':t,'kunskap':'agarens_rattelse','bestallning':'onskemal','person':'agaren',
+                                 'kalla':ks.id_(),'tid':time.time(),'motsagelse':False,**({'ersatter_forslag':fid} if fid else {})}
+            if fid:d['forslag'][fid]['bestallning']='rattat'
+            _ko_om_ai(db,c,d)
+        db._spara(c,d)
+        svar={'revision':d['revision'],'modell':d['modell'],'ai':{'fiktiv':d.get('fiktiv') is True,'budget':d['budget']}}
+        c.execute('INSERT INTO operationer VALUES(?,?,?,?)',(eid,data['operation'],finger,ks.jsontext(svar)))
+        return svar
+
+
 def handling(repo,eid,namn,data):
     if namn not in HANDLINGAR:raise ks.Vagrad('Ägarhandlingen är inte tillåten.')
     db=lager(repo);ks.nyckel(eid)

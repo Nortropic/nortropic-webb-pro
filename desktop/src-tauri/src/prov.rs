@@ -11,7 +11,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
-use tauri::{AppHandle, Manager, Url};
+use tauri::{AppHandle, Url};
 
 pub const MARKE: &str = "nwp-provstyrning";
 
