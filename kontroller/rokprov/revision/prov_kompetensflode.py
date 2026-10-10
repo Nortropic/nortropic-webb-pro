@@ -19,6 +19,7 @@ import kompetens
 import korregister
 import skapande
 import forberedelse
+import referensfixtur  # referenskontraktets fixtur: paketet, genomgångarna och kedjan per kandidat
 
 
 def giltigt_kvitto(pass_):
@@ -77,9 +78,11 @@ class Kompetensflode(unittest.TestCase):
 
     def plan(self):
         k = dict({f: 'syntetiskt värde' for f, _ in kd.PLANFALT}, titel='Förslag', huvudreferens='egen riktning', referensbilder=[])
-        (self.r / 'KANDIDATPLAN.json').write_text(json.dumps({'kandidater': {'k01': k}, 'lage': 'skiss'}))
+        plan = referensfixtur.uppfyll(atelje.UNDERLAG, self.SLUG, {'kandidater': {'k01': k}, 'lage': 'skiss'})  # startvillkoret släpper skaparen
+        (self.r / 'KANDIDATPLAN.json').write_text(json.dumps(plan))
+        referensfixtur.uppdrag(atelje.UNDERLAG, self.SLUG, plan, 'k01')
         kd.satt_status(self.SLUG, 'k01', 'planerad', 'syntetiskt', version='fore')
-        return k
+        return plan['kandidater']['k01']
 
     def test_research_utan_kompetens_stoppar_fore_hamtning_och_sparar_kvitto(self):
         with patch.object(skapande, 'komplettera') as hamta:
@@ -91,13 +94,15 @@ class Kompetensflode(unittest.TestCase):
         self.assertEqual(post['kompetenskravbrister'], self.brist)
 
     def test_planering_sparar_kvitto_och_stoppar_brister(self):
-        self.so = {'variation': 'syntetisk', 'kandidater': [self.plan()]}
+        self.so = dict(referensfixtur.planfalt(self.SLUG), variation='syntetisk', kandidater=[self.plan()])
         (self.r / 'KANDIDATPLAN.json').unlink()
-        with self.assertRaisesRegex(RuntimeError, 'kompetens'):
-            kd.planera(self.SLUG, 1, 'skiss')
-        self.assertFalse((self.r / 'KANDIDATPLAN.json').exists())
-        self.brist = []
-        self.assertEqual(kd.planera(self.SLUG, 1, 'skiss'), ['k01'])
+        paket = referensfixtur.paket(atelje.UNDERLAG, self.SLUG)  # planen binds till det fångade paketet (referenskontraktet)
+        with patch.object(skapande, 'senaste_paket', lambda *a: paket):
+            with self.assertRaisesRegex(RuntimeError, 'kompetens'):
+                kd.planera(self.SLUG, 1, 'skiss')
+            self.assertFalse((self.r / 'KANDIDATPLAN.json').exists())
+            self.brist = []
+            self.assertEqual(kd.planera(self.SLUG, 1, 'skiss'), ['k01'])
         post = json.loads((self.r / 'KANDIDATPLAN.json').read_text())
         self.assertEqual(post['kompetens']['skill_anrop'], ['prov-skill'])
 
