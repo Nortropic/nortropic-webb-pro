@@ -52,7 +52,7 @@ Integritetstexten nämner Cloudflare som mottagare av förfrågan.
 
 `/api/nyhetsbrev/` skickar en anmälan med dubbel bekräftelse till verksamhetens Brevo-konto och sparar ingenting själv.
 Det kräver tre saker:
-- hemligheten `BREVO_API_NYCKEL`, som läggs med `npx wrangler secret put BREVO_API_NYCKEL`;
+- hemligheten `BREVO_API_NYCKEL`, som Nortropics aktivering lägger med `wrangler secret put`;
 - listans och bekräftelsemallens id i `vars`, `NYHETSBREV_LISTA` och `NYHETSBREV_MALL`;
 - sidorna `/nyhetsbrev/skickad/` och `/nyhetsbrev/bekraftad/`.
 

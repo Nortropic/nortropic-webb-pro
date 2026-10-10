@@ -4678,3 +4678,74 @@ scheman, prompter och arbetsytan; bara den observerade kvaliteten är designgrun
 efter; samma värd räknas en gång; funktionsuppgifter kräver fångade funktionsbelägg; planprövningen bedömer om
 observationerna stöder urvalet (`kunskap/referensjakt.md`, Rätt grunder för urvalet). Ort används bara i prospekt.py för
 att identifiera ett känt företags webbplats, och prospektpoängen nås inte från skapandeflödet.
+
+## Ägarens tillägg 2026-10-10 ~10:45Z: handlingskö, aktiveringskommando och säkert nyckelintag
+
+**Status:** gäller; genomfört lokalt (b3, grenen `claude/aktivering-20261010`), prövat med märkta attrapper. Inget är
+skarpt aktiverat: ingen D1, R2, nyckel eller verifierad mottagare har skapats hos Cloudflare.
+
+Ägarens text, inklistrad i chatten (avsändare och formulerare inte angivna), ordagrant:
+
+> Tillägg på planen: gör integrationerna smidiga för en ny kund — handlingskö, aktiveringskommando och säkert nyckelintag.
+>
+> Köas efter att grenen claude/k14-nyhetsbrev-20261010 är pushad. Samma mandat och gränser som integrationsuppdraget
+> 2026-10-09 (BESLUT.md): inga köp, planbyten, avtal, utskick eller kundpubliceringar utan eget mandat; inga
+> hemligheter i chatten, repot, loggar eller rapporter; repot är publikt.
+>
+> Mål: från att kunden valt funktioner i Kundstart till att allt är aktiverat ska det finnas en sammanhängande väg
+> utan handpåläggning i filer och utan att nycklar passerar chatten.
+>
+> 1. Handlingskö i Kundstart ("Detta behöver vi från kunden"):
+>    - räknas fram ur ärendets integrationsplan (katalogens manniska-fält och planens hinder), inte skriven för hand;
+>    - varje post: exakt handling, skäl, ansvarig (kunden, ägaren, Nortropic), vad som kan fortsätta under väntan,
+>      och status (väntar, klar med belägg, inaktuell när planen ändrats);
+>    - visas i ägarvyn och i kundens vy med kundens behörighet, utan tillgång till ägarfunktioner;
+>    - en post blir klar bara med belägg (kvitto, observation), aldrig genom ett kryss.
+>
+>
+> 2. Aktiveringskommando per kund (kontroller/aktivera.py <slug>):
+>    - torrkörning först: listar vad som skulle göras och vad som saknas, utan sidoeffekter;
+>    - med ägarens mandat (klick i dashboarden, som releasemandatet): skapar D1 och R2 med EU-jurisdiktion, skriver
+>      underlag/<slug>/CLOUDFLARE.json, lägger migreringarna, lägger hemligheter från nyckelintaget med wrangler
+>      secret put, och exporterar igen;
+>    - kundlås, avsikt före varje extern operation, kvitto med resultat, okänt utfall stäms av före nytt försök;
+>    - aldrig något utanför kundens egna resurser; fel kund, konto eller miljö nekas i verktyget.
+>
+>
+> 3. Säkert nyckelintag:
+>    - kunden eller ägaren lämnar en nyckel (Brevo, Pipedrive m.fl.) utan att den passerar chatten eller repot,
+>      till en privat plats (0600) utanför repot, per kund och leverantör;
+>    - nyckeln läses bara av aktiveringen och går bara till Wrangler; den visas aldrig igen, bara att den finns,
+>      när den lades och vilken leverantör;
+>    - rotation och återkallelse: ny nyckel ersätter den gamla, borttagning tar bort hemligheten i Workern.
+>
+>  Prov (lokala, med märkta attrapper; inget riktigt anrop utan mandat): handlingskön ur planen och dess
+>       inaktualisering när kunden ändrar sig; torrkörningen utan sidoeffekter; mandatet krävs och gäller en körning;
+>       fel kund nekas; dubbelstart och tappat svar; nyckeln syns aldrig i svar, logg, kvitto eller export. Nya prov i
+>       rökprovets lista, tempprefix i städningen. Kör katalogproven och berörda enskilda prov före fullprovet.
+>
+>       Dokumentation: lansering.md (aktiveringen), integrationer.md, BESLUT.md med dessa ord. Klart när en fiktiv kund kan
+>       gå från val till fullständigt torrkörd aktivering med komplett handlingskö, rökprovet är grönt och pushat, och
+>       slutbeskedet skiljer implementerat, lokalt prövat och skarpt aktiverat.
+
+**Tolkning och tre avvägningar** (genomförarens, för ägaren att rätta):
+- Nycklarna läggs med `wrangler secret put` först när produktionens Worker finns. Kommandot driftsätter en ny version
+  direkt (Cloudflares dokumentation, läst 2026-10-10), och före första releasen skulle det bli en publicering utan
+  releasens mandat. Steget väntar därför till efter releasen, och nästa aktivering lägger nycklarna.
+- Där inget verktyg kan observera en handling är beläggen ägarens intyg med en referens till vad som visar att
+  handlingen är gjord, och det redovisas som intyg. Det gäller verifieringsklicket, testbokningen och
+  integritetstexten. Ett kryss utan referens nekas.
+- En kund lämnar en nyckel bara som beslutsfattare. Nyckeln går direkt till nyckelintaget, och ärendet bär bara
+  händelsen. Att lägga verksamhetens brevlåda som verifierad mottagare i Email Routing förblir en handling i kön (med
+  intyg): leveranstokenen saknar den rättigheten, och den läggs inte till utan ägarens beslut.
+
+**Genomfört:**
+- Katalogens människors handlingar är strukturerade (handling, ansvarig, skäl, under väntan, belägg).
+- Handlingskön finns (`kontroller/handlingsko.py`).
+- Nyckelintaget finns (`kontroller/nyckelintag.py`).
+- Aktiveringen finns (`kontroller/aktivera.py`).
+- Kundstarts ägarvy och kundyta visar kön och nycklarna.
+- Aktivera finns i Byggflöde, med ägarens klick som mandat.
+- Proven `prov_nyckelintag`, `prov_aktivera` och `prov_handlingsko` och webbläsarproven för båda vyerna ligger i
+  rökprovet.
+- Vägen beskrivs i `kunskap/lansering.md`, under Aktiveringen.

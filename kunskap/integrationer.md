@@ -63,7 +63,8 @@ Pipedrive har ingen idempotensnyckel. Därför gäller följande:
 
 Nyckeln (hemligheten `PIPEDRIVE_TOKEN`) ger åtkomst till allt användaren ser. Workern gör bara de tre skrivningarna. En
 avgränsad OAuth-app kräver en publik app och ett eget mandat. Vägen är aktiv bara i produktionen, med kontots
-underdomän i `PIPEDRIVE_DOMAN` (ur `CLOUDFLARE.json`, `pipedrive_doman`).
+underdomän i `PIPEDRIVE_DOMAN`. Underdomänen och nyckeln lämnas i nyckelintaget, och aktiveringen skriver
+`pipedrive_doman` i `CLOUDFLARE.json` och lägger nyckeln i Workern (`kunskap/lansering.md`, Aktiveringen).
 
 Prövat i `kontroller/rokprov/revision/prov_kundregister.py` mot en märkt attrapp, inte mot Pipedrive.
 
@@ -82,9 +83,10 @@ Workern sparar ingenting. Brevo skickar bekräftelsemejlet ur kundens mall och l
 klicket. Workern ber om att öppningar och klick inte spåras, och avregistreringen sköts av Brevo.
 
 Vägen finns i produktionen bara när kunden har valt nyhetsbrevet:
-- Hemligheten `BREVO_API_NYCKEL` läggs med `wrangler secret put` i produktionens Worker.
-- `NYHETSBREV_LISTA` och `NYHETSBREV_MALL` är Brevos id. Exporten skriver in dem ur `underlag/<slug>/CLOUDFLARE.json`
-  (`nyhetsbrev_lista`, `nyhetsbrev_mall`).
+- Hemligheten `BREVO_API_NYCKEL` lämnas i nyckelintaget och läggs i produktionens Worker av aktiveringen
+  (`kunskap/lansering.md`, Aktiveringen).
+- `NYHETSBREV_LISTA` och `NYHETSBREV_MALL` är Brevos id. De lämnas i nyckelintaget, aktiveringen skriver dem i
+  `underlag/<slug>/CLOUDFLARE.json` (`nyhetsbrev_lista`, `nyhetsbrev_mall`), och exporten lägger in dem.
 - Utan något av dem svarar vägen 404 som en okänd väg.
 - Ett halvt konfigurerat val ger ett synligt 503, aldrig ett tyst tack.
 

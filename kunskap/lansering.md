@@ -89,33 +89,51 @@ skrivs aldrig i ett kvitto. Ingen ägarinloggning: Wranglers konfiguration ligge
   förhandsvisningen 302 till Access utan behörighet, med behörighet 200 och noindex; produktionen 200 utan noindex,
   robots.txt och sitemap.xml 200, säkerhetshuvudena på plats. Formulärets kontrakt: `kunskap/forfragan.md`.
 
-**Data (aktiveringen).** D1 och R2 skapas per kund med EU-jurisdiktion: `wrangler d1 create kund-<slug>-forfragningar
---jurisdiction eu` och `wrangler r2 bucket create kund-<slug>-bilagor --jurisdiction eu`. Jurisdiktionen sätts bara
-när resursen skapas och kan inte ändras efteråt; R2-bindningen i `wrangler.jsonc` bär `"jurisdiction": "eu"`.
-`database_id` skrivs in i kundrepots `wrangler.jsonc`, schemat läggs med `wrangler d1 migrations apply DB --remote`,
-och mottagaren och avsändaren står i `vars` (`FORFRAGAN_TILL`, `FORFRAGAN_FRAN`) och i `send_email`-bindningens
-listor, som exporten skriver in. Mejlet går genom Cloudflares e-post (K04, ägarens beslut 2026-10-10), utan nyckel:
-verksamhetens brevlåda läggs till som verifierad mottagare i Nortropics konto (Email Routing, Destination addresses),
-och verksamheten klickar på Cloudflares verifieringslänk före lanseringen. Avsändaren är en adress på
-`notis.nortropic.se`, routing-domänen i samma konto. Release nekas så länge bindningen bär mallens platshållare.
-Integritetstexten nämner Cloudflare som mottagare av förfrågan.
+**Aktiveringen** (ägarens tillägg 2026-10-10, `BESLUT.md`) är en väg från kundens val i Kundstart till aktiverade
+resurser, utan handpåläggning i filer och utan att nycklar passerar chatten:
 
-Har kunden valt nyhetsbrevet (K14, `kunskap/integrationer.md`), gör så här:
-- Skapa listan och bekräftelsemallen (dubbel bekräftelse) i kundens Brevo-konto.
-- Skriv deras id i `CLOUDFLARE.json` (`nyhetsbrev_lista`, `nyhetsbrev_mall`).
-- Lägg nyckeln med `wrangler secret put BREVO_API_NYCKEL` i produktionens Worker.
-- Ge `/api/nyhetsbrev/` samma hastighetsbegränsning som formuläret.
-- Låt integritetstexten nämna Brevo.
+1. **Handlingskön** ("Detta behöver vi från kunden", i Kundstarts ägarvy och i kundens yta) räknas fram ur ärendets
+   plan (`kontroller/handlingsko.py`). Varje post har handling, ansvarig, skäl och vad som kan fortsätta under väntan.
+   En post blir klar bara med belägg: ett kvitto, en observation, nyckelintaget eller, där inget verktyg kan observera
+   handlingen, ditt intyg med en referens till vad som visar att den är gjord. Ändrar kunden sig blir posterna inaktuella.
+2. **Nyckelintaget** (`kontroller/nyckelintag.py`) tar emot nycklar och uppgifter per leverantör: Brevo (nyckel, lista,
+   mall), Pipedrive (nyckel, underdomän) och formulärets mottagare.
+   - Kunden lämnar dem i sin yta, men bara som beslutsfattare.
+   - Ägaren lämnar dem i Kundstarts ägarvy eller i terminalen (`nyckelintag.py <slug> <leverantör>`, utan eko).
+   - Nyckeln sparas privat utanför repot (`~/.nortropic-hemligheter/webb-pro/kunder/<slug>/`, 0600) och visas aldrig
+     igen, bara att den finns.
+   - En ny nyckel ersätter den gamla, och `--aterkalla` tar bort den.
+3. **Torrkörningen** (`kontroller/aktivera.py <slug>`, och i ägarvyn) listar stegen och vad som saknas, utan
+   sidoeffekter:
+   - kontot;
+   - D1 `kund-<slug>-forfragningar` och R2 `kund-<slug>-bilagor` med EU-jurisdiktion, som sätts bara när resursen skapas
+     och inte kan ändras efteråt;
+   - driftvärdena i `underlag/<slug>/CLOUDFLARE.json`, där avsändaren är `<slug>@notis.nortropic.se`;
+   - en ny export;
+   - D1-schemat;
+   - nycklarna i produktionens Worker.
+4. **Körningen** startas med ditt klick på Aktivera i Byggflöde. Klicket skriver `AKTIVERINGSMANDAT.json`, som är
+   bundet till torrkörningens plan och gäller en körning.
+   - Allt sker under kundens lås, med avsikten i kvittot (`kunder/<slug>/leverans/AKTIVERING-*.json`) före varje
+     operation.
+   - D1 och R2 skapas bara om de saknas, och bara under kundens namn.
+   - Före schemat prövas att `database_id` är kundens egen databas.
+   - Ett okänt utfall stoppar körningen och stäms av med `aktivera.py <slug> --stam-av` före ett nytt försök.
+   - En fiktiv verksamhet torrkörs men aktiveras aldrig.
+5. **Nycklarna** läggs med `wrangler secret put` först när produktionens Worker finns. Kommandot driftsätter en ny
+   version direkt, så före första releasen väntar steget. Aktiveringen efter releasen lägger dem, och nästa aktivering
+   lägger en roterad nyckel eller tar bort en återkallad.
 
-Pröva en anmälan till en egen adress efter releasen. Det första riktiga anropet till Brevo görs där.
+Mejlet går genom Cloudflares e-post (K04, ägarens beslut 2026-10-10), utan nyckel.
+- Verksamhetens brevlåda läggs till som verifierad mottagare i Nortropics konto (Email Routing, Destination addresses).
+  Det är en post i handlingskön med ditt intyg som belägg.
+- Verksamheten klickar på Cloudflares verifieringslänk före lanseringen.
+- Release nekas så länge bindningen bär mallens platshållare.
+- Integritetstexten nämner Cloudflare, och för valda tjänster Brevo eller Pipedrive.
+- `/api/nyhetsbrev/` får samma hastighetsbegränsning som formuläret.
 
-Har kunden valt kundregistret (K10, Pipedrive), gör så här:
-- Lägg migreringen `0002_kundregister.sql` med `wrangler d1 migrations apply DB --remote` (den följer med varje export).
-- Skriv kontots underdomän i `CLOUDFLARE.json` (`pipedrive_doman`).
-- Lägg nyckeln med `wrangler secret put PIPEDRIVE_TOKEN`.
-- Låt integritetstexten nämna Pipedrive.
-
-Det första riktiga ärendet visar överföringen: se `forfragningar.py <kundrepo> --remote`, under kundregister.
+Efter releasen visar den första riktiga anmälan och det första riktiga ärendet att Brevo och Pipedrive tar emot
+(`forfragningar.py <kundrepo> --remote`, under kundregister).
 
 **Gränser på gratisnivån** (Workers Free; läst 2026-10-10, prövas mot kontots faktiska plan): statiska filer är
 gratis och obegränsade; Workern 100 000 anrop per dygn för hela kontot (därefter svarar `/api/*` 429 i stället för
