@@ -3093,6 +3093,14 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, desktop.uppmarksamhet(sys.modules[__name__]))
             if vag == '/api/desktop/pagaende':
                 return self.skicka(200, {'pagaende': desktop.pagaende(ROOT)})
+            m = re.fullmatch(r'/api/desktop/kommentarer/([a-z0-9-]{2,60})', vag)
+            if m:
+                try:
+                    return self.skicka(200, desktop.kommentarer(sys.modules[__name__], m.group(1)))
+                except LookupError as e:
+                    return self.skicka(404, {'fel': str(e)})
+                except desktop.Inaktuell as e:
+                    return self.skicka(409, {'fel': str(e), 'slag': 'Inaktuell'})
             m = re.fullmatch(r'/api/desktop/leverans/([a-z0-9-]{2,60})', vag)
             if m:
                 return self.skicka(200, desktop.leverans(sys.modules[__name__], m.group(1)))
@@ -3122,9 +3130,8 @@ class H(BaseHTTPRequestHandler):
                 if vag.endswith('/utgava'):
                     return self.skicka(200, u['beskrivning'])
                 return self.skicka(200, u['artefakt'].read_bytes(), 'application/gzip')
-            if vag == '/desktop/last':
-                return self.skicka(200, '<!doctype html><meta charset="utf-8"><title>Nortropic</title><p>Utloggad.</p>'.encode(), 'text/html; charset=utf-8',
-                                   {'Set-Cookie': desktop.kaka('', self.port(), ta_bort=True)})
+            if vag == '/desktop/last':  # ändrar inget: utloggningen är POST /api/desktop/utloggning
+                return self.skicka(200, '<!doctype html><meta charset="utf-8"><title>Nortropic</title><p>Utloggad.</p>'.encode(), 'text/html; charset=utf-8')
         except ValueError as e:
             return self.skicka(400, {'fel': str(e)})
         except Exception as e:  # noqa: BLE001 — ett läsfel blir ett svar, aldrig en bruten förbindelse
@@ -3134,13 +3141,24 @@ class H(BaseHTTPRequestHandler):
     def desktop_post(self, vag, nyckel_ok):
         """Engångskoden och låset kräver nyckeln (appens native-lager); utloggningen gäller den egna sessionen."""
         try:
-            n = int(self.headers.get('Content-Length') or 0)
-            data = json.loads(self.rfile.read(min(n, 64 * 1024)) or b'{}')
+            if getattr(self, '_kropp', None) is not None:
+                data = json.loads(self._kropp or b'{}')
+            else:
+                n = int(self.headers.get('Content-Length') or 0)
+                data = json.loads(self.rfile.read(min(n, 64 * 1024)) or b'{}')
         except (ValueError, json.JSONDecodeError):
             return self.skicka(400, {'fel': 'kroppen ska vara JSON'})
+        try:
+            return self._desktop_post(vag, nyckel_ok, data)
+        except Exception as e:  # noqa: BLE001 — ett oväntat fel blir ett svar, aldrig en bruten förbindelse
+            return self.skicka(500, {'fel': '%s: %s' % (type(e).__name__, str(e)[:300])})
+
+    def _desktop_post(self, vag, nyckel_ok, data):
+        if not isinstance(data, dict):
+            return self.skicka(400, {'fel': 'kroppen ska vara ett JSON-objekt'})
         if vag == '/api/desktop/session' and nyckel_ok:
             try:
-                return self.skicka(200, desktop.ny_kod((data or {}).get('instans')))
+                return self.skicka(200, desktop.ny_kod(data.get('instans')))
             except ValueError as e:
                 return self.skicka(409, {'fel': str(e)})
         if vag == '/api/desktop/las' and nyckel_ok:
@@ -3151,8 +3169,18 @@ class H(BaseHTTPRequestHandler):
             try:
                 return self.skicka(200, desktop.ny_kund(sys.modules[__name__], data))
             except desktop.DubblettKund as e:
-                return self.skicka(409, {'fel': str(e), 'arende': e.arende})
+                return self.skicka(409, {'fel': str(e), **({'arende': e.arende} if e.arende else {})})
             except (ks.Vagrad, ValueError) as e:
+                return self.skicka(400, {'fel': str(e)})
+        m = re.fullmatch(r'/api/desktop/kommentarer/([a-z0-9-]{2,60})', vag)
+        if m:
+            try:
+                return self.skicka(200, desktop.kommentar(sys.modules[__name__], m.group(1), data))
+            except LookupError as e:
+                return self.skicka(404, {'fel': str(e)})
+            except desktop.Inaktuell as e:
+                return self.skicka(409, {'fel': str(e), 'slag': 'Inaktuell'})
+            except ValueError as e:
                 return self.skicka(400, {'fel': str(e)})
         m = re.fullmatch(r'/api/desktop/intervju/([a-f0-9]{32})/(svar|rattelse|ai)', vag)
         if m:
@@ -3161,7 +3189,7 @@ class H(BaseHTTPRequestHandler):
             try:
                 if m.group(2) == 'ai':
                     return self.skicka(200, desktop.starta_ai(sys.modules[__name__], m.group(1)))
-                return self.skicka(200, kundstart_agare.intervju(ROOT, m.group(1), m.group(2), data if isinstance(data, dict) else {}))
+                return self.skicka(200, kundstart_agare.intervju(ROOT, m.group(1), m.group(2), data))
             except ks.Konflikt as e:
                 return self.skicka(409, {'fel': str(e)})
             except ks.Obehorig as e:
@@ -3169,7 +3197,9 @@ class H(BaseHTTPRequestHandler):
             except (ks.Vagrad, ValueError) as e:
                 return self.skicka(400, {'fel': str(e)})
         if vag == '/api/desktop/utloggning':
-            desktop.aterkalla(desktop.kaka_sid(self.headers.get('Cookie'), self.port()))
+            sid = desktop.kaka_sid(self.headers.get('Cookie'), self.port())
+            if sid:  # bara den egna sessionen; utan en giltig kaka återkallas ingenting (aldrig alla)
+                desktop.aterkalla(sid)
             return self.skicka(200, {'utloggad': True}, extra={'Set-Cookie': desktop.kaka('', self.port(), ta_bort=True)})
         return self.skicka(404, {'fel': 'finns inte'})
 
@@ -3201,7 +3231,7 @@ class H(BaseHTTPRequestHandler):
             self.wfile.flush()
             start, senaste_sig, senaste_hash, sekv, senast_full, senast_skrivet = time.time(), None, None, 0, 0, 0
             sid = desktop.kaka_sid(self.headers.get('Cookie'), self.port())
-            med_session = desktop.giltig(sid, rora=False)  # öppnad i Nortropic.app: strömmen gäller så länge sessionen gör det
+            med_session = bool(sid)  # öppnad i Nortropic.app: strömmen gäller så länge sessionen gör det
             while time.time() - start < STROMMAR['livslangd']:
                 if med_session and not desktop.giltig(sid, rora=False):
                     break
@@ -3404,6 +3434,14 @@ class H(BaseHTTPRequestHandler):
         if ursprung.scheme != 'http' or ursprung.netloc.lower() != vard:
             return self.skicka(403, {'fel': 'fel ursprung'})
         nyckel_ok = not NYCKEL['varde'] or hmac.compare_digest(str(self.headers.get('X-Nyckel') or ''), NYCKEL['varde'])
+        self._kropp = None
+        if not nyckel_ok and vag in ('/api/desktop/session', '/api/desktop/las') and self.headers.get('X-Desktop-Bevis'):
+            # appens native-lager bevisar nyckeln med HMAC över anropet i stället för att skicka den (dashboard/desktop.py)
+            try:
+                self._kropp = self.rfile.read(min(int(self.headers.get('Content-Length') or 0), 64 * 1024))
+            except ValueError:
+                self._kropp = b''
+            nyckel_ok = desktop.bevis_ok(self.headers.get('X-Desktop-Bevis'), vag, self._kropp, NYCKEL['varde'])
         # Nortropic.app: sessionskakan i stället för nyckeln, bara med exakt samma ursprung (dashboard/desktop.py). En
         # session kan aldrig skapa nya sessioner eller låsa: det gör appens native-lager med nyckeln.
         session_ok = not nyckel_ok and vag not in ('/api/desktop/session', '/api/desktop/las') and desktop.session_skriv_ok(self.headers, self.port())

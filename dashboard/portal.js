@@ -6,7 +6,7 @@
 (() => {
   'use strict';
   const e_ = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const EGNA = ['start', 'kunder', 'testkunder', 'ny-kund', 'ny-testkund', 'kund', 'intervju', 'leverans-kund'];
+  const EGNA = ['start', 'kunder', 'testkunder', 'ny-kund', 'ny-testkund', 'kund', 'intervju', 'leverans-kund', 'granska'];
   const P = { data: null, lastes: 0, desktop: null, filter: 'alla', sok: '', gen: 0 };
   const IKON = {
     hem: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -65,7 +65,7 @@
       ['underlag', 'Underlag', ks, 'källbundna uppgifter och material', 'underlag'],
       ['funktioner', 'Funktioner', ks, 'K01–K18: behov, val och plan', 'funktioner'],
       ['forslag', 'Förslag', p && p + '/forslag', 'skisserna och dina val', null],
-      ['forfining', 'Förfining', p, 'markera, jämför och ge uppdrag', null],
+      ['forfining', 'Förfining', p && '#/granska/' + s, 'kommentera den bevarade bilden och samla till ett uppdrag', null],
       ['bygge', 'Bygge', p && p + '/flode', 'helbygget och sessionerna', null],
       ['granskning', 'Granskning', p && p + '/kod', 'förhandsvisning, kod och kontroller', null],
       ['leverans', 'Leverans', '#/leverans-kund/' + s, 'publicering genom Cloudflare-vägen och leveransbeskedet', 'publicering'],
@@ -78,14 +78,14 @@
     if (/^arbetsyta\/[^/]+\/forslag/.test(h)) return 'forslag';
     if (/^arbetsyta\/[^/]+\/flode/.test(h)) return 'bygge';
     if (/^arbetsyta\/[^/]+\/kod/.test(h)) return 'granskning';
-    if (/^arbetsyta\/[^/]+/.test(h)) return 'forfining';
+    if (/^arbetsyta\/[^/]+/.test(h) || h.startsWith('granska/')) return 'forfining';
     if (h === 'leverans') return 'leverans';
     if (h.startsWith('leverans-kund/')) { try { return sessionStorage.getItem('nwp-portal:omrade') === 'forvaltning' ? 'forvaltning' : 'leverans'; } catch { return 'leverans'; } }
     return null;
   }
   function kundFor(h, d) {
     if (!d) return null;
-    let m = h.match(/^(?:arbetsyta|kund|bygge|leverans-kund)\/([^/]+)/);
+    let m = h.match(/^(?:arbetsyta|kund|bygge|leverans-kund|granska)\/([^/]+)/);
     if (m) return d.kunder.find((k) => k.slug === decodeURIComponent(m[1])) || null;
     m = h.match(/^(?:kundstart|intervju)\/([a-f0-9]{32})/);
     if (m) return d.kunder.find((k) => (k.arenden || []).some((a) => a.id === m[1])) || null;
@@ -339,8 +339,9 @@
     const rad = (m) => m.roll === 'kund'
       ? `<li class="pt-msg kund"><span class="pt-msg-vem">${m.via === 'agaren' ? 'Kundens svar, antecknat av dig' : 'Kundens svar'}</span>${e_(m.text)}<span class="pt-msg-tid">${e_(tid(m.tid))}</span></li>`
       : `<li class="pt-msg ai"><span class="pt-msg-vem">AI-assistenten</span>${e_(m.text)}<span class="pt-msg-tid">${e_(tid(m.tid))}</span></li>`;
+    const SLAG = { foretag: 'Företaget', webbplats: 'Befintlig webbplats', syfte: 'Vad de söker hjälp med', kontakt: 'Kontaktperson' };
     const post = (x, slag) => `<li class="pt-post" data-slag="${slag}"><span class="pt-post-kunskap k-${e_(x.kunskap)}">${e_(KUNSKAP[x.kunskap] || x.kunskap)}</span>
-        <span class="pt-post-text">${e_(x.text)}</span>${x.bestallning === 'rattat' ? '<span class="pt-etikett">rättad</span>' : ''}
+        <span class="pt-post-text">${slag === 'anteckning' && SLAG[x.slag] ? `<b>${SLAG[x.slag]}:</b> ` : ''}${e_(x.text)}</span>${x.bestallning === 'rattat' ? '<span class="pt-etikett">rättad</span>' : ''}
         ${slag !== 'anteckning' && x.bestallning !== 'rattat' ? `<button type="button" class="pt-lank" data-ratta="${e_(x.id)}" data-slag="${slag}" data-amne="${e_(x.amne)}">Rätta</button>` : ''}</li>`;
     const perAmne = Object.keys(AMNEN).map((k) => {
       const upp = Object.values(a.uppgifter || {}).filter((u) => u.amne === k);
@@ -349,7 +350,8 @@
       return `<section class="pt-amne"><h3>${AMNEN[k]}</h3><ul>${upp.map((u) => post(u, 'uppgift')).join('')}${fs.map((f) => post(f, 'forslag')).join('')}</ul></section>`;
     }).join('');
     yta(`<div class="pt-rubrikrad"><h1>Kundintervju · ${e_(namn)}</h1>${a.fiktiv ? '<span class="pt-test">Testkund</span>' : ''}<a class="pt-knapp" href="#/kundstart/${encodeURIComponent(eid)}">Hela ärendet</a></div>
-      <p class="pt-ingress" id="pt-ai-lage" role="status" aria-live="polite">${e_(MODELL[mstat] || a.modell?.text || '')} ${a.fiktiv ? `AI-turer ${a.budget.anrop} av ${a.budget.max_anrop} (testkund, pilotens transport).` : 'Verklig kund: AI-vägen kräver separat aktivering; du för samtalet och underlaget själv.'}</p>
+      <p class="pt-ingress" id="pt-ai-lage" role="status" aria-live="polite">${e_(MODELL[mstat] || a.modell?.text || '')} ${a.fiktiv ? `AI-turer ${a.budget.anrop} av ${a.budget.max_anrop} (testkund, pilotens transport).` : 'Verklig kund: AI-vägen kräver separat aktivering; du för samtalet och underlaget själv.'}
+        ${mstat === 'ko' && ai ? '<button type="button" class="pt-knapp" id="pt-ai-nu">Låt AI ta en tur nu</button>' : ''}</p>
       <div id="pt-engang"></div>
       <div class="pt-intervju">
         <section class="pt-panel pt-samtal" aria-labelledby="pt-samtal-r"><h2 id="pt-samtal-r">Samtalet</h2>
@@ -396,6 +398,11 @@
         intervjuvy(eid);
       } catch (e) { lage.textContent = e.status === 409 ? e.message : 'Inte sparat: ' + e.message + ' Texten finns kvar här.'; f.querySelectorAll('button').forEach((b) => { b.disabled = false; }); }
     });
+    document.getElementById('pt-ai-nu')?.addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      try { await skicka('/api/desktop/intervju/' + eid + '/ai', {}); intervjuvy(eid); }
+      catch (err) { e.target.insertAdjacentHTML('afterend', ` <span class="pt-fel" role="alert">${e_(err.message)}</span>`); e.target.disabled = false; }
+    });
     // frågekort: ingen sidoeffekt, bara skrivfältet
     document.querySelectorAll('[data-svara]').forEach((b) => b.addEventListener('click', () => { ta.focus(); ta.setAttribute('aria-description', 'Svar på: ' + b.dataset.svara); document.getElementById('pt-svar-lage').textContent = 'Svarar på: ' + b.dataset.svara; }));
     // funktionskort: samma väg och prövning som Funktioner i Kundstart (katalogen, revisionen); ett val ansluter inget konto
@@ -434,7 +441,9 @@
     const m = d.migrering || {}, akt = d.aktivering || {};
     const steg = (m.steg || []).map((x) => `<li class="pt-post"><span class="pt-post-kunskap ${x.status === 'ja' ? 'k-kunden_uppger' : x.status === 'nej' ? 'k-tolkning' : ''}">${e_(STEGSTATUS[x.status] || x.status)}</span><b>${e_(x.namn)}</b><span class="pt-post-text pt-under">${e_(x.belagg)}</span></li>`).join('');
     const aktSteg = (akt.steg || []).slice(0, 14).map((x) => `<li class="pt-post"><span class="pt-post-kunskap">${e_(x.status)}</span><span class="pt-post-text">${e_(x.text)}${x.varfor ? ' · ' + e_(x.varfor) : ''}</span></li>`).join('');
-    const besked = d.publicerad
+    const besked = m.fel
+      ? `<div class="pt-panel pt-besked"><h2>Leveransläget kunde inte läsas</h2><p class="pt-fel">${e_(m.fel)}</p><p class="pt-under">Inget är observerat härifrån: varken publicerat eller inte publicerat. Försök igen, eller se Byggflöde.</p></div>`
+      : d.publicerad
       ? `<div class="pt-panel pt-besked ok"><h2>Webbplatsen är publicerad</h2><p>${e_(m.besked)}</p><p class="pt-under">Produktionens Worker ${e_(d.worker.produktion)}, version ${e_(m.worker?.produktion_version || 'okänd')}. Kvarstående ansvar och kundens handlingar står i aktiveringen nedan.</p></div>`
       : `<div class="pt-panel pt-besked"><h2>Inte publicerad än</h2><p>${e_(m.besked || m.fel || 'Migreringsläget kunde inte läsas.')}</p><p class="pt-under">Leveransbeskedet visas först när en klar release finns och kundens egen adress har observerats svara från Workern. En förhandsvisning eller ett grönt prov är ingen publicering.</p></div>`;
     yta(`<div class="pt-rubrikrad"><h1>Leverans och förvaltning · ${e_(d.namn || slug)}</h1>${d.test ? '<span class="pt-test">Testkund: ingen skarp release, aktiveringen bara som torrkörning</span>' : ''}</div>
@@ -458,6 +467,121 @@
     if (del === 'forvaltning') document.getElementById('forvaltning')?.scrollIntoView(); else fokus();
   }
 
+  // --- förfining (P07/E6): kommentarer på den bevarade ögonblicksbilden, versionsbundna, samlade till ett uppdrag ---
+  const KSTATUS = { oppen: 'öppen', avvisad: 'avvisad', bestalld: 'beställd i ett uppdrag', lost_verifierad: 'verifierat löst' };
+  const G = { kandidat: null, bredd: '1440', lage: 'visa', punkt: null };
+  async function sha40(delar) {
+    const h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(delar))))).map((x) => x.toString(16).padStart(2, '0')).join('');
+    return h.slice(0, 40);
+  }
+  async function granskavy(slug) {
+    const hash = location.hash;
+    let d; try { d = await hamta('/api/desktop/kommentarer/' + encodeURIComponent(slug)); } catch (e) { return fel(e); }
+    if (location.hash !== hash) return;
+    const ks = d.kandidater.filter((k) => Object.keys(k.bilder).length);
+    if (!ks.find((k) => k.id === G.kandidat)) G.kandidat = ks[0]?.id || null;
+    const k = ks.find((x) => x.id === G.kandidat);
+    if (k && !k.bilder[G.bredd]) G.bredd = Object.keys(k.bilder)[0];
+    const mina = d.kommentarer.filter((c) => k && c.kandidat === k.id);
+    const aktuella = mina.filter((c) => !c.inaktuell && c.bredd === G.bredd), aldre = mina.filter((c) => c.inaktuell);
+    const nr = new Map(aktuella.map((c, i) => [c.id, i + 1]));
+    const kort = (c) => `<li class="pt-kommentar" id="pk-${e_(c.id)}" data-status="${e_(c.status)}">
+        ${c.status === 'oppen' && !c.inaktuell ? `<label class="pt-valj"><input type="checkbox" data-valj-k="${e_(c.id)}"><span class="pt-dold-text">Ta med i uppdraget</span></label>` : ''}
+        <span class="pt-nr" aria-hidden="true">${nr.get(c.id) || '·'}</span>
+        <div><p class="pt-post-text">${e_(c.text)}</p>
+        <p class="pt-under">${e_(KSTATUS[c.status] || c.status)} · ${c.x == null ? 'hela sidan' : 'punkt på bilden'} · ${e_(c.bredd)} px · version ${e_(c.version.slice(0, 12))}${c.inaktuell ? ' · <b>inaktuell: kandidaten har en nyare version</b>' : ''} · ${e_(tid(c.tid))}</p>
+        ${(c.svar || []).map((x) => `<p class="pt-svar">${e_(x.text)} <span class="pt-under">${e_(tid(x.tid))}</span></p>`).join('')}
+        <div class="pt-knapprad"><button type="button" class="pt-lank" data-svara-k="${e_(c.id)}">Svara</button>
+          ${c.status === 'oppen' ? `<button type="button" class="pt-lank" data-status-k="${e_(c.id)}" data-till="avvisad">Avvisa</button>` : ''}
+          ${['bestalld', 'oppen'].includes(c.status) && c.inaktuell ? `<button type="button" class="pt-lank" data-status-k="${e_(c.id)}" data-till="lost_verifierad">Verifierat löst i den nya versionen</button>` : ''}
+          ${c.status === 'avvisad' ? `<button type="button" class="pt-lank" data-status-k="${e_(c.id)}" data-till="oppen">Öppna igen</button>` : ''}</div></div></li>`;
+    yta(`<div class="pt-rubrikrad"><h1>Förfining · ${e_(d.namn || slug)}</h1>${d.blind ? '<span class="pt-etikett">neutrala etiketter före ditt första val</span>' : ''}<a class="pt-knapp" href="#/arbetsyta/${encodeURIComponent(slug)}">Arbetsytan: förhandsvisning och beslut</a></div>
+      ${!ks.length ? '<p class="pt-tomt">Ingen kandidat har en bevarad ögonblicksbild än. Kommentarer sätts på den bevarade bilden, så att de alltid gäller en bestämd version.</p>' : `
+      <div class="pt-verktyg" role="toolbar" aria-label="Kandidat, bredd och läge">
+        <label>Kandidat <select id="pk-kandidat">${ks.map((x) => `<option value="${e_(x.id)}"${x.id === G.kandidat ? ' selected' : ''}>${e_(x.etikett)} · version ${e_(x.version.slice(0, 12))}</option>`).join('')}</select></label>
+        <div class="pt-filter" role="group" aria-label="Bredd">${['1440', '390'].filter((b) => k.bilder[b]).map((b) => `<button type="button" data-bredd="${b}" aria-pressed="${G.bredd === b}">${b === '1440' ? 'Dator 1440' : 'Mobil 390'}</button>`).join('')}</div>
+        <div class="pt-filter" role="group" aria-label="Läge">${[['visa', 'Visa'], ['kommentera', 'Kommentera en punkt']].map(([v, n]) => `<button type="button" data-lage="${v}" aria-pressed="${G.lage === v}">${n}</button>`).join('')}</div>
+        <button type="button" class="pt-knapp" id="pk-hela">Kommentera hela sidan</button>
+      </div>
+      <p class="pt-under" id="pk-hjalp">${G.lage === 'kommentera' ? 'Klicka på bilden där kommentaren gäller. Ett klick väljer bara en punkt; ingenting på sajten händer.' : 'Visa: bilden är den bevarade ögonblicksbilden av versionen ovan. Välj Kommentera en punkt för att peka.'}</p>
+      <div class="pt-granska">
+        <figure class="pt-bildram${G.lage === 'kommentera' ? ' pt-pek' : ''}" id="pk-ram"><img id="pk-bild" src="/fil/${e_(k.bilder[G.bredd])}" alt="${e_(k.etikett)}, bevarad ögonblicksbild i ${e_(G.bredd)} px">
+          ${aktuella.filter((c) => c.x != null).map((c) => `<button type="button" class="pt-nal" style="left:${(c.x * 100).toFixed(2)}%;top:${(c.y * 100).toFixed(2)}%" data-hopp="${e_(c.id)}" aria-label="Kommentar ${nr.get(c.id)}: ${e_(c.text.slice(0, 60))}">${nr.get(c.id)}</button>`).join('')}
+          ${G.punkt ? `<span class="pt-nal ny" style="left:${(G.punkt.x * 100).toFixed(2)}%;top:${(G.punkt.y * 100).toFixed(2)}%" aria-hidden="true">+</span>` : ''}</figure>
+        <section class="pt-panel" aria-labelledby="pk-rubrik"><h2 id="pk-rubrik">Kommentarer</h2>
+          <form id="pk-ny" class="pt-form"${G.punkt || G.hela ? '' : ' hidden'}><label for="pk-text">${G.punkt ? 'Kommentar på punkten' : 'Kommentar på hela sidan'}</label>
+            <textarea id="pk-text" rows="3" maxlength="4000"></textarea><div class="pt-knapprad"><button class="pt-knapp primar" type="submit">Spara kommentaren</button><button class="pt-knapp" type="button" id="pk-avbryt">Avbryt</button></div>
+            <p class="pt-under">En kommentar är ingen ändringsorder. Samla flera och gör ett uppdrag när du är klar.</p></form>
+          <ul class="pt-kommentarer">${aktuella.map(kort).join('') || '<li class="pt-tomt">Inga kommentarer på den här versionen och bredden.</li>'}</ul>
+          <div class="pt-knapprad"><button type="button" class="pt-knapp" id="pk-samla" disabled>Gör ett uppdrag av de valda</button></div>
+          <form id="pk-uppdrag" class="pt-form" hidden></form>
+          <p id="pk-svar" class="pt-under" role="status" aria-live="polite"></p>
+          ${aldre.length ? `<details><summary>Äldre versioner (${aldre.length})</summary><ul class="pt-kommentarer">${aldre.map(kort).join('')}</ul></details>` : ''}
+        </section>
+      </div>`}`);
+    if (!ks.length) return fokus();
+    const svar = document.getElementById('pk-svar');
+    const rita = () => granskavy(slug);
+    document.getElementById('pk-kandidat').onchange = (e) => { G.kandidat = e.target.value; G.punkt = null; G.hela = false; rita(); };
+    document.querySelectorAll('[data-bredd]').forEach((b) => { b.onclick = () => { G.bredd = b.dataset.bredd; G.punkt = null; rita(); }; });
+    document.querySelectorAll('[data-lage]').forEach((b) => { b.onclick = () => { G.lage = b.dataset.lage; G.punkt = null; rita(); }; });
+    document.getElementById('pk-hela').onclick = () => { G.punkt = null; G.hela = true; rita(); setTimeout(() => document.getElementById('pk-text')?.focus(), 0); };
+    document.getElementById('pk-bild').onclick = (e) => {
+      if (G.lage !== 'kommentera') return;
+      const r = e.target.getBoundingClientRect();
+      G.punkt = { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; G.hela = false;
+      rita(); setTimeout(() => document.getElementById('pk-text')?.focus(), 0);
+    };
+    document.getElementById('pk-avbryt')?.addEventListener('click', () => { G.punkt = null; G.hela = false; rita(); });
+    document.getElementById('pk-ny')?.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const t = document.getElementById('pk-text').value.trim(); if (!t) return;
+      try {
+        await skicka('/api/desktop/kommentarer/' + encodeURIComponent(slug), { handling: 'ny', id: crypto.randomUUID(), kandidat: k.id, version: k.version, bredd: G.bredd,
+          bild: k.bilder[G.bredd], bild_sha: k.sha[G.bredd], x: G.punkt ? G.punkt.x : null, y: G.punkt ? G.punkt.y : null, text: t });
+        G.punkt = null; G.hela = false; rita();
+      } catch (e) { svar.textContent = (e.status === 409 ? 'Inaktuell: ' : 'Inte sparad: ') + e.message; }
+    });
+    document.querySelectorAll('[data-hopp]').forEach((b) => { b.onclick = () => document.getElementById('pk-' + b.dataset.hopp)?.scrollIntoView({ block: 'nearest' }); });
+    document.querySelectorAll('[data-status-k]').forEach((b) => { b.onclick = async () => {
+      try { await skicka('/api/desktop/kommentarer/' + encodeURIComponent(slug), { handling: 'status', id: b.dataset.statusK, status: b.dataset.till }); rita(); }
+      catch (e) { svar.textContent = e.message; } }; });
+    document.querySelectorAll('[data-svara-k]').forEach((b) => { b.onclick = () => {
+      const li = b.closest('li'); if (li.querySelector('.pt-ratta')) return;
+      li.insertAdjacentHTML('beforeend', '<form class="pt-ratta"><label>Svar<textarea rows="2" maxlength="4000"></textarea></label><div class="pt-knapprad"><button class="pt-knapp primar" type="submit">Spara svaret</button></div></form>');
+      const f = li.querySelector('.pt-ratta'); f.querySelector('textarea').focus();
+      f.onsubmit = async (ev) => { ev.preventDefault(); const t = f.querySelector('textarea').value.trim(); if (!t) return;
+        try { await skicka('/api/desktop/kommentarer/' + encodeURIComponent(slug), { handling: 'svara', id: b.dataset.svaraK, text: t }); rita(); } catch (e) { svar.textContent = e.message; } };
+    }; });
+    const valda = () => [...document.querySelectorAll('[data-valj-k]:checked')].map((x) => x.dataset.valjK);
+    document.querySelectorAll('[data-valj-k]').forEach((x) => { x.onchange = () => { document.getElementById('pk-samla').disabled = !valda().length; }; });
+    document.getElementById('pk-samla').onclick = () => {
+      const ids = valda(), texter = ids.map((id) => aktuella.find((c) => c.id === id)).map((c) => `${nr.get(c.id)}. ${c.text}${c.x == null ? '' : ` (punkt ${Math.round(c.x * 100)} % från vänster, ${Math.round(c.y * 100)} % uppifrån i ${c.bredd} px)`}`);
+      const f = document.getElementById('pk-uppdrag'); f.hidden = false;
+      f.innerHTML = `<label for="pk-typ">Uppdrag</label><select id="pk-typ"><option value="ratta">Rätta</option><option value="omarbeta">Omarbeta designen</option><option value="bygg_ut">Bygg ut</option></select>
+        <label for="pk-res">Önskat resultat</label><textarea id="pk-res" rows="2">Rätta de kommenterade punkterna i ${e_(k.etikett)}.</textarea>
+        <label for="pk-omf">Omfattning (en rad per punkt)</label><textarea id="pk-omf" rows="${Math.min(8, texter.length + 1)}">${e_(texter.join('\n'))}</textarea>
+        <label for="pk-bev">Det som ska bevaras</label><textarea id="pk-bev" rows="2" placeholder="Till exempel: allt annat i layouten och texterna"></textarea>
+        <div class="pt-knapprad"><button class="pt-knapp primar" type="submit">Spara uppdraget</button></div>
+        <p class="pt-under">Uppdraget sparas i domloggen bundet till kandidat och version, som ett uppdrag i arbetsytan. Inget arbete startar: du startar det under Kontroller.</p>`;
+      document.getElementById('pk-res').focus();
+      f.onsubmit = async (ev) => {
+        ev.preventDefault();
+        const rad = (id) => document.getElementById(id).value.split('\n').map((x) => x.trim()).filter(Boolean);
+        const uppdrag = { typ: document.getElementById('pk-typ').value, resultat: document.getElementById('pk-res').value.trim(), omfattning: rad('pk-omf'), bevara: rad('pk-bev') };
+        if (!uppdrag.resultat || !uppdrag.omfattning.length || !uppdrag.bevara.length) { svar.textContent = 'Uppdraget behöver resultat, omfattning och vad som ska bevaras.'; return; }
+        const text = 'Uppdrag ur portalens kommentarer: ' + uppdrag.omfattning.join(' · ');
+        const andringId = 'p' + await sha40([slug, ids, uppdrag, k.version, d.korning]);
+        try {
+          await skicka('/api/arbetsyta/' + encodeURIComponent(slug) + '/andring', { andring_id: andringId, text, beslut: 'uppdrag', uppdrag, kandidat: k.id, version: k.version, korning: d.korning, vy: 'Portalen, kommentarer' });
+          await skicka('/api/desktop/kommentarer/' + encodeURIComponent(slug), { handling: 'bestall', ids, andring_id: andringId });
+          rita();
+        } catch (e) { svar.textContent = (e.status === 409 ? 'Inaktuell: ' : 'Inte sparat: ') + e.message; }
+      };
+    };
+    fokus();
+  }
+
   function fel(e) {
     yta(`<h1>Kunderna kunde inte läsas</h1><p class="pt-fel" role="alert">${e_(e.message)}</p><p class="pt-under">Motorn svarade inte som väntat. Inget har ändrats. <a href="#/start">Försök igen</a></p>`);
     fokus();
@@ -472,6 +596,7 @@
     if (v === 'kund' && rest) return kundvy(decodeURIComponent(rest));
     if (v === 'intervju' && /^[a-f0-9]{32}$/.test(rest || '')) return intervjuvy(rest);
     if (v === 'leverans-kund' && rest) return leveransvy(decodeURIComponent(rest));
+    if (v === 'granska' && rest) return granskavy(decodeURIComponent(rest));
     return startvy();
   };
   window.portalEgna = EGNA;

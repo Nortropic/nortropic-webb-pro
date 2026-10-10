@@ -158,13 +158,18 @@ def main():
             a.vanta(lambda: a.js("!!document.getElementById('pt-form')"), text='formuläret')
             namn = 'Provkund %s (test)' % time.strftime('%H%M%S')
             a.js("""(function(){const f=document.getElementById('pt-form');f.foretag.value=%s;f.syfte.value='Fler bokningar';f.foretag.dispatchEvent(new Event('input',{bubbles:true}));const b=f.querySelector('button[type=submit]');b.click();b.click();b.click();return 1})()""" % json.dumps(namn))
-            h = a.vanta(lambda: (a.js("location.hash") or '').startswith('#/kundstart/') and a.js("location.hash"), text='Kundstart')
-            a.vanta(lambda: a.js("!!document.getElementById('ks-engang') && !document.getElementById('ks-engang').hidden"), text='kundens länk')
+            h = a.vanta(lambda: (a.js("location.hash") or '').startswith('#/intervju/') and a.js("location.hash"), text='intervjun')
+            a.vanta(lambda: a.js("!!document.getElementById('pt-lank')"), text='kundens länk, en gång')
             time.sleep(0.5)
             assert antal() == fore + 1, (fore, antal())
             steg = a.js("[...document.querySelectorAll('.pt-stegrad li')].map(l=>(l.classList.contains('aktiv')?'*':'')+l.innerText.replace(/\\s+/g,' ')).join(' | ')")
-            return {'nya_ärenden': antal() - fore, 'klick': 3, 'adress': h, 'stegrad': steg, 'bild': bild(a, ut, 'p04-kundstart-ny-testkund', motor)}
-        fall('Ny testkund: tre klick blir ett ärende, Kundstart i ramen', 'U06 U07 J01', u06)
+            b1 = bild(a, ut, 'p03-p04-intervju-ny-testkund', motor)
+            # intervjun: ett svar antecknat via ägaren, utan AI-tur
+            a.js("(function(){const t=document.getElementById('pt-svar-text');t.value='Vi lagar cyklar och säljer begagnade.';t.dispatchEvent(new Event('input',{bubbles:true}));[...document.querySelectorAll('#pt-svar-form button')].find(b=>b.value==='0').click();return 1})()")
+            a.vanta(lambda: 'Kundens svar, antecknat av dig' in (a.js("document.getElementById('pt-msgs').innerText") or ''), text='det sparade svaret')
+            time.sleep(0.4)
+            return {'nya_ärenden': antal() - fore, 'klick': 3, 'adress': h, 'stegrad': steg, 'bild': b1, 'svar_sparat': True, 'bild_svar': bild(a, ut, 'p04-intervju-svar', motor)}
+        fall('Ny testkund: tre klick blir ett ärende, intervjun i ramen med ett antecknat svar', 'U06 U07 U08 J01', u06)
 
         def d15():
             a.js("location.hash='#/ny-kund', true")
@@ -293,19 +298,20 @@ def main():
                     c.meny('avsluta')
                     time.sleep(2.5)
                     assert c.proc.poll() is None, 'appen avslutades utan att fråga'
-                    lista = subprocess.run([str(Path(__file__).resolve().parent / 'fonster')] if (Path(__file__).resolve().parent / 'fonster').exists() else ['/usr/bin/true'],
+                    lista = subprocess.run([str(Path(__file__).resolve().parent / 'fonster'), '--pid', str(c.proc.pid)] if (Path(__file__).resolve().parent / 'fonster').exists() else ['/usr/bin/true'],
                                            capture_output=True, text=True).stdout
-                    n = None
-                    for rad in lista.splitlines():
+                    n, rader = None, [r for r in lista.splitlines() if r.split('\t')[1:2] == [str(c.proc.pid)]]
+                    for rad in rader:
                         f = rad.split('\t')
-                        if len(f) > 3 and f[1] == str(c.proc.pid) and f[3] == 'synlig' and f[0] != str(fore):
+                        if f[0] != str(fore) and f[3] == 'synlig' and n is None:
                             n = f[0]
                     bildnamn = None
                     if n:
                         bildnamn = 'd16-fraga.png'
                         subprocess.run(['/usr/sbin/screencapture', '-x', '-o', '-l', n, str(ut / bildnamn)], check=False)
                     assert arbete.poll() is None
-                    return {'frågan_visas': True, 'appen_lever_tills_svar': True, 'dialogens_fönster': n, 'bild': bildnamn, 'arbetet_lever': True}
+                    # frågan_visas bara när dialogens fönster faktiskt syns; annars bara att appen inte avslutades
+                    return {'dialogens_fönster_syns': bool(n), 'appen_lever_tills_svar': True, 'dialogens_fönster': n, 'bild': bildnamn, 'arbetet_lever': True, 'fönster': rader}
                 finally:
                     c.avsluta()
             fall('Cmd-Q under pågående arbete frågar först; inget avslutas utan svar', 'D16', d16_fraga)

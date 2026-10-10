@@ -281,11 +281,11 @@ class ClaudeCLI:
         return svar
 
 
-def en_gang(lager, adapter):
+def en_gang(lager, adapter, arende=None):
     if not adapter.konfigurerad():
         jid=lager.avstangd_modell()
         return {'status':'avstangd' if jid else 'ingen_ko','jobb':jid}
-    jobb=lager.ta_jobb('kundstart-modell',lease=120,modell=adapter.modell,bara_fiktiva=bool(getattr(adapter,'bara_fiktiva',False)))
+    jobb=lager.ta_jobb('kundstart-modell',lease=120,modell=adapter.modell,bara_fiktiva=bool(getattr(adapter,'bara_fiktiva',False)),arende=arende)
     if not jobb:return {'status':'ingen_ko'}
     if jobb.get('nekad'):return {'status':'avstangd','jobb':jobb['id'],'skal':'abonnemangstransporten gäller bara fiktiva ärenden i piloten (%s)'%jobb['nekad']}
     matning=jobb['matning'];start=time.monotonic()
@@ -327,11 +327,13 @@ def main():
     g.add_argument('--live-cli',action='store_true',help='pilotens transport: en nästlad Claude Code-session på det lokala abonnemanget, bara fiktiva ärenden')
     p.add_argument('--effort',default='medium',help='effort för --live-cli (standard medium)')
     p.add_argument('--antal',type=int,default=1,help='högst så många köjobb i den här körningen (standard 1); ingen schemaläggare')
+    p.add_argument('--arende',help='bara det här ärendets köjobb (portalens AI-tur); andra ärenden rörs inte')
     a=p.parse_args()
+    if a.arende is not None:kundstart.nyckel(a.arende)
     lager=kundstart.Lager()
     adapter=ClaudeCLI(a.modell,True,effort=a.effort) if a.live_cli else ClaudeAPI(a.modell,a.live_api)
     for _ in range(max(1,min(a.antal,100))):
-        ut=en_gang(lager,adapter)
+        ut=en_gang(lager,adapter,a.arende)
         print(kundstart.jsontext(ut),flush=True)
         if ut.get('status') in ('ingen_ko','avstangd'):break
 

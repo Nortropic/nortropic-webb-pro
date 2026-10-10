@@ -52,6 +52,24 @@ pub enum Status {
     Verifierad { identitet: Identitet },
 }
 
+/// Kör ett verktyg med absolut sökväg och en tidsgräns; ett verktyg som hänger dödas och ger None.
+fn kor(program: &str, args: &[&str], sekunder: u64) -> Option<std::process::Output> {
+    use std::process::Stdio;
+    let mut c = Command::new(program).args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let slut = std::time::Instant::now() + Duration::from_secs(sekunder);
+    loop {
+        match c.try_wait() {
+            Ok(Some(_)) => return c.wait_with_output().ok(),
+            Ok(None) if std::time::Instant::now() < slut => std::thread::sleep(Duration::from_millis(20)),
+            _ => {
+                let _ = c.kill();
+                let _ = c.wait();
+                return None;
+            }
+        }
+    }
+}
+
 pub fn hem() -> PathBuf {
     PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
 }
@@ -90,7 +108,8 @@ pub fn validera_rot(rot: &Path) -> Result<PathBuf, String> {
             return Err(format!("{} saknar {del}: inte en körbar nortropic-webb-pro-utcheckning", r.display()));
         }
     }
-    let ut = Command::new(GIT).arg("-C").arg(&r).args(["config", "--get", "remote.origin.url"]).output().map_err(|e| e.to_string())?;
+    let rs = r.display().to_string();
+    let ut = kor(GIT, &["-C", &rs, "config", "--get", "remote.origin.url"], 5).ok_or("git svarade inte")?;
     let url = String::from_utf8_lossy(&ut.stdout).to_lowercase();
     if !url.contains("nortropic/nortropic-webb-pro") {
         return Err(format!("{} har inte Nortropic/nortropic-webb-pro som origin", r.display()));
@@ -127,17 +146,17 @@ fn slump_hex(n: usize) -> String {
 
 /// Pid för den process som lyssnar på 127.0.0.1:port, ur lsof (absolut sökväg).
 pub fn lyssnande_pid(port: u16) -> Option<u32> {
-    let ut = Command::new(LSOF).args(["-nP", &format!("-iTCP@127.0.0.1:{port}"), "-sTCP:LISTEN", "-t"]).output().ok()?;
+    let ut = kor(LSOF, &["-nP", &format!("-iTCP@127.0.0.1:{port}"), "-sTCP:LISTEN", "-t"], 5)?;
     String::from_utf8_lossy(&ut.stdout).lines().next().and_then(|l| l.trim().parse().ok())
 }
 
 fn process_cwd(pid: u32) -> Option<PathBuf> {
-    let ut = Command::new(LSOF).args(["-a", "-p", &pid.to_string(), "-d", "cwd", "-Fn"]).output().ok()?;
+    let ut = kor(LSOF, &["-a", "-p", &pid.to_string(), "-d", "cwd", "-Fn"], 5)?;
     String::from_utf8_lossy(&ut.stdout).lines().find_map(|l| l.strip_prefix('n').map(PathBuf::from)).and_then(|p| fs::canonicalize(p).ok())
 }
 
 fn process_uid(pid: u32) -> Option<u32> {
-    let ut = Command::new("/bin/ps").args(["-o", "uid=", "-p", &pid.to_string()]).output().ok()?;
+    let ut = kor("/bin/ps", &["-o", "uid=", "-p", &pid.to_string()], 5)?;
     String::from_utf8_lossy(&ut.stdout).trim().parse().ok()
 }
 
@@ -253,14 +272,23 @@ pub fn starta(inst: &Installningar) -> Result<Status, String> {
     Ok(status(inst))
 }
 
-/// Skriver till motorn med nyckeln, först efter ett nytt identitetsprov (nyckeln går aldrig till en obevisad process).
+/// Skriver till motorns två vägar för appen (/api/desktop/session och /las), först efter ett nytt identitetsprov. Anropet
+/// bevisas med HMAC-SHA256(nyckeln, tid, nonce, väg, kroppens sha256) i X-Desktop-Bevis; nyckeln själv skickas aldrig,
+/// så en process som tar porten mellan provet och skrivningen får inget den kan använda.
 pub fn skriv(inst: &Installningar, vag: &str, kropp: &serde_json::Value) -> Result<serde_json::Value, String> {
+    use sha2::Digest;
     let Status::Verifierad { identitet } = status(inst) else { return Err("motorn är inte verifierad".into()) };
     let rot = PathBuf::from(&identitet.rot);
     let nyckel = las_nyckel(&rot)?;
     let ursprung = format!("http://127.0.0.1:{}", inst.port);
     let b = serde_json::to_vec(kropp).map_err(|e| e.to_string())?;
-    let s = http::anrop(inst.port, "POST", vag, &[("X-Nyckel", &nyckel), ("Origin", &ursprung)], Some(&b), Duration::from_secs(10))?;
+    let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let nonce = slump_hex(16);
+    let msg = format!("nwp-desktop/1 skriv\n{ts}\n{nonce}\n{vag}\n{}", hex::encode(Sha256::digest(&b)));
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(nyckel.as_bytes()).expect("hmac");
+    mac.update(msg.as_bytes());
+    let bevis = format!("{ts}.{nonce}.{}", hex::encode(mac.finalize().into_bytes()));
+    let s = http::anrop(inst.port, "POST", vag, &[("X-Desktop-Bevis", &bevis), ("Origin", &ursprung)], Some(&b), Duration::from_secs(10))?;
     let j = s.json()?;
     if s.status >= 300 {
         return Err(j.get("fel").and_then(|v| v.as_str()).unwrap_or("motorn nekade").to_string());

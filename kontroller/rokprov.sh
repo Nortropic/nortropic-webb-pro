@@ -718,6 +718,9 @@ echo "   Nortropic.app, motorns sida (desktop/1, 2026-10-10): identiteten, engå
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_desktop.py" >"$ROOT/kunder/rokprov-mall/desktop-prov.log" 2>&1 \
   || { echo "FEL: desktopkontraktets prov"; tail -25 "$ROOT/kunder/rokprov-mall/desktop-prov.log"; exit 1; }
 echo "   desktopkontraktets prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/desktop-prov.log" | tr '\n' ' '))"
+node "$ROOT/kontroller/rokprov/revision/prov_portal_webb.mjs" "$ROOT" >"$ROOT/kunder/rokprov-mall/portal-webb-prov.log" 2>&1 \
+  || { echo "FEL: portalens webbläsarprov"; tail -20 "$ROOT/kunder/rokprov-mall/portal-webb-prov.log"; exit 1; }
+echo "   portalens webbläsarprov ok ($(tail -1 "$ROOT/kunder/rokprov-mall/portal-webb-prov.log" | cut -c1-160))"
 echo "   meddelandebussen och löparen: ägarens meddelanden under arbetet, agenternas avsändare, mandat, paus och blindning"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_meddelanden.py" >"$ROOT/kunder/rokprov-mall/meddelanden-prov.log" 2>&1 \
   || { echo "FEL: meddelandebussens prov"; tail -30 "$ROOT/kunder/rokprov-mall/meddelanden-prov.log"; exit 1; }

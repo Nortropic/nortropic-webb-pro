@@ -125,14 +125,28 @@ pub fn installera(inst: &Installningar, u: &Utgava, data: &Path) -> Result<PathB
         return Err("utgåvan är inte Nortropic i den annonserade versionen".into());
     }
     let forra = data.join("forra-version");
-    let _ = fs::remove_dir_all(&forra);
-    fs::create_dir_all(&forra).map_err(|e| e.to_string())?;
-    fs::rename(&paket, forra.join("Nortropic.app")).map_err(|e| format!("den nuvarande appen kunde inte flyttas undan: {e}"))?;
+    let gammal = data.join(format!("forra-version-gammal-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&gammal);
+    if forra.exists() {
+        fs::rename(&forra, &gammal).map_err(|e| e.to_string())?;
+    }
+    let atergang = |fel: String| {
+        let _ = fs::remove_dir_all(&forra);
+        if gammal.exists() {
+            let _ = fs::rename(&gammal, &forra);
+        }
+        let _ = fs::remove_dir_all(&ny_kat);
+        fel
+    };
+    fs::create_dir_all(&forra).map_err(|e| atergang(e.to_string()))?;
+    if let Err(e) = fs::rename(&paket, forra.join("Nortropic.app")) {
+        return Err(atergang(format!("den nuvarande appen kunde inte flyttas undan: {e}")));
+    }
     if let Err(e) = fs::rename(&ny, &paket) {
         let _ = fs::rename(forra.join("Nortropic.app"), &paket);
-        let _ = fs::remove_dir_all(&ny_kat);
-        return Err(format!("den nya appen kunde inte läggas på plats; den gamla är tillbaka: {e}"));
+        return Err(atergang(format!("den nya appen kunde inte läggas på plats; den gamla är tillbaka: {e}")));
     }
+    let _ = fs::remove_dir_all(&gammal);
     let _ = fs::remove_dir_all(&ny_kat);
     Ok(paket)
 }
@@ -160,8 +174,9 @@ pub fn ga_tillbaka(data: &Path) -> Result<PathBuf, String> {
 pub fn starta_om(paket: &Path) {
     let _ = std::process::Command::new("/bin/sh")
         .arg("-c")
-        .arg("sleep 1; /usr/bin/open \"$0\"")
+        .arg("while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$0\"")
         .arg(paket)
+        .arg(std::process::id().to_string())
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())

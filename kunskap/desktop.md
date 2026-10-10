@@ -55,9 +55,15 @@ och UI:t ändras i samma commit flera gånger om dagen; ett UI inbakat i appen s
 
 - **Upplåsningen** är macOS LocalAuthentication (`deviceOwnerAuthentication`: Touch ID eller användarens lösenord). Den
   är en lokal operatörsupplåsning, ingen extern kontoinloggning, och den ger inget kostnads- eller publiceringsmandat.
-- **Sessionen:** appen hämtar med nyckeln en engångskod (`POST /api/desktop/session`, 60 s, bunden till motorns
-  instans) och navigerar fönstret till `/desktop/inloggning?kod=…`, som byter koden mot en slumpad session i en
-  HttpOnly-kaka med SameSite=Strict (`nwp_session_<port>`). JavaScript ser varken nyckeln eller kakan.
+- **Sessionen:** appen hämtar en engångskod (`POST /api/desktop/session`, 60 s, bunden till motorns instans) och
+  navigerar fönstret till `/desktop/inloggning?kod=…`, som byter koden mot en slumpad session i en HttpOnly-kaka med
+  SameSite=Strict utan Max-Age (`nwp_session_<port>`, en sessionskaka). JavaScript ser varken nyckeln eller kakan.
+  Appens två skrivningar (koden och låset) bevisas med HMAC-SHA256(nyckeln, tid, nonce, väg, kroppens sha256) i
+  `X-Desktop-Bevis`, med högst två minuters tidsskillnad och varje nonce en gång; nyckeln själv skickas aldrig.
+- **Kakor i samma värd:** kakor skiljer inte på portar, så en förhandsvisad sajt kan sätta en kaka med samma namn.
+  Motorn prövar därför varje värde med kakans namn, och utloggningssidan `/desktop/last` ändrar ingenting (utloggningen
+  är `POST /api/desktop/utloggning` med sessionen och samma ursprung). Appen låses av `/desktop/last` bara när
+  huvudramen laddar den, aldrig när en iframe gör det.
 - **Skrivningar med sessionen** godtas bara med exakt samma ursprung (Origin `http://<Host>`) och Sec-Fetch-Site
   same-origin när WebKit skickar det. En förhandsvisad sajt på en annan port i samma värd, Origin null och same-site
   nekas. En session kan aldrig skapa en ny session eller låsa; det gör appens native-lager med nyckeln.
@@ -74,17 +80,19 @@ och UI:t ändras i samma commit flera gånger om dagen; ett UI inbakat i appen s
 |---|---|
 | Dubbelklick i Finder eller Dock | En appinstans (Tauri Single Instance och macOS); en andra start fokuserar fönstret. Motorns startlås i `dashboard.sh` gäller ändå. |
 | Röda knappen, Cmd-W | Fönstret göms; appen och motorn lever. Dock visar samma fönster, vy och osparade fält igen. |
-| Cmd-Q (Avsluta Nortropic) | Pågår arbete i motorn (körregistret) frågar appen: avsluta och låt arbetet fortsätta, visa det pågående arbetet, eller avbryt. Stopp görs i arbetsytan med motorns stoppväg (Kontroller). Valet "fråga inte" finns i Inställningar. |
-| Dock-menyns Avsluta, utloggning ur macOS | Avslutar appen utan frågan (Apple Event); motorn och arbetet påverkas inte. |
+| Cmd-Q (Avsluta Nortropic) | Pågår arbete i motorn (körregistret) frågar appen: avsluta och låt arbetet fortsätta, visa det pågående arbetet, eller avbryt. Stopp görs i arbetsytan med motorns stoppväg (Kontroller). Valet "fråga inte" finns i Inställningar. Avslutet återkallar appens sessioner i motorn. |
+| Dock-menyns Avsluta, utloggning ur macOS | Avslutar appen utan frågan (Apple Event); sessionerna återkallas, motorn och arbetet påverkas inte. |
 | Lås | Se ovan. |
 | UI eller webvy kraschar | Arbetet lever i motorn; nästa start läser läget ur motorn. |
 | Motorn stoppas eller byter identitet | Vakten (var 20:e sekund) visar skalets frånkopplade läge; inget skickas förrän identiteten prövats igen. |
 | Sömn | Ingen beräkning i appen att fortsätta; vid återkomst prövar vakten motorn igen. |
 
-Menyn: Nortropic (Om, Motor och diagnos, Lås, Göm, Avsluta), Arkiv (Ny kund Cmd-N, Kunder Cmd-1, Testkunder Cmd-2,
+Menyn: Nortropic (Om, Motor och diagnos, Sök efter uppdatering, Lås, Göm, Avsluta), Arkiv (Ny kund Cmd-N, Kunder Cmd-1, Testkunder Cmd-2,
 Översikt Cmd-Shift-H, Stäng fönstret), Redigera (Ångra, Gör om, Klipp ut, Kopiera, Klistra in, Markera allt i det
 fokuserade fältet), Visa (Läs in igen, Större, Mindre, Verklig storlek, Helskärm), Fönster och Hjälp. Menyval byter bara
 vy (adressens fragment, ingen omladdning) och går genom sidans egna knappar och kontrakt; inget menyval skriver något.
+Undantagen: Motor och diagnos, Sök efter uppdatering och Hjälp visar skalet, och då lämnas arbetsytan (formulärens utkast
+står kvar i portalens lagring, ett öppet rättelsefält gör det inte).
 Fönstrets plats sparas och används bara när den hamnar på en skärm som finns.
 
 ## Förhandsvisningen och native-gränsen
@@ -96,8 +104,11 @@ Fönstrets plats sparas och används bara när den hamnar på en skärm som finn
   registrerade porten, och motorroten prövas innan den godtas.
 - Navigeringen: wry frågar för varje ram, också förhandsvisningens iframes, så navigeringsspärren nekar filer, okända
   scheman och motorns adress när appen är låst. Huvudramen prövas dessutom vid varje sidladdning: bara skalet och den
-  verifierade motorns arbetsyta får visas där; allt annat leds tillbaka. Nya fönster (target=_blank, window.open)
-  öppnas aldrig i appen: https och http utanför loopback går till systemets webbläsare, resten nekas.
+  verifierade motorns arbetsyta får visas där; allt annat leds tillbaka. Kontrollen sker när sidan har börjat laddas
+  (wry:s sidladdning), så en sida som motorns egen kod skulle leda huvudramen till hinner köra innan den leds tillbaka,
+  utan native-rättigheter; motorns sidor öppnar externa länkar i nya fönster, och förhandsvisningens sandlåda saknar
+  allow-top-navigation. Nya fönster (target=_blank, window.open) öppnas aldrig i appen: https och http, också
+  förhandsvisningen i en ny flik, går till systemets webbläsare (det uttryckliga undantaget); andra scheman nekas.
 - Förhandsvisningen körs som förut på en egen port i en sandlådad iframe och får inga native-rättigheter.
 - Hotmodellen: skydden gäller webbangrepp (en förhandsvisad sajt, en annan webbsida, DNS-ombindning). Kod som redan kör
   som samma macOS-användare kan läsa nyckelfilen och motorns lästa vägar; appen skyddar inte mot ett komprometterat konto.
@@ -126,9 +137,48 @@ arbetsytans variabler portalens ljusa värden (målbildens ljusa yta och mörka 
   (AI kräver separat aktivering), en testkund tio anrop för syntetiskt material. Webbplatsen och syftet sparas som
   ägarens anteckningar (`anteckningar`, `kunskap: agarens_anteckning`), skilda från kundens uppgifter och AI:s förslag.
   Kundens personliga länk visas en gång i Kundstart.
-- **Arbetsområdena** i stegraden: Kundstart, Underlag och Funktioner leder till kundens Kundstartärende; Förslag,
-  Förfining, Bygge och Granskning till arbetsytans Förslagen, Arbetsyta, Byggflöde och Kod och preview; Leverans och
-  Förvaltning till Leverans och förvaltning. Det är namn på befintliga steg, ingen ny statusmaskin.
+- **Intervjun** (`#/intervju/<ärende>`, P04): samtalet bredvid det källmärkta underlaget. Ägaren antecknar kundens svar
+  (`POST /api/desktop/intervju/<ärende>/svar`: ett kundmeddelande märkt via ägaren, en kundkälla), rättar en uppgift
+  eller ett AI-antagande (`…/rattelse`: en uppgift märkt `agarens_rattelse`, AI-förslaget märkt rättat) och, för en
+  testkund med budget kvar, låter AI ta en tur (`…/ai`: Kundstarts modellarbetare för just det ärendets köjobb,
+  `kundstart_modell.py --live-cli --antal 1 --arende <ärende>`, högst två samtidigt). Ett verkligt ärende får ingen
+  AI-tur och ingen kö som aldrig töms. AI:s frågor är frågekort utan sidoeffekter; AI:s funktionsförslag är kort som går
+  genom Kundstarts planväg (`integrationsval`) och ansluter inget konto. Samma revision som ägaren såg krävs; ett sent
+  AI-svar ersätts när ärendet ändrats.
+- **Förfining** (`#/granska/<kund>`, P07/E6): kommentarer på kandidatens bevarade ögonblicksbild (en punkt på bilden
+  eller hela sidan), bundna till kandidat, hel version, bredd och bildens sha256; tråd, avvisa och verifierat löst (bara
+  när en nyare version finns). De valda samlas till ett uppdrag (Rätta, Omarbeta designen, Bygg ut) genom arbetsytans
+  ändringsväg och märks beställda; inget arbete startar förrän det startas under Kontroller. Kommentarerna ligger i
+  bussens katalog, som sessionerna inte kan läsa.
+- **Leverans och förvaltning** (`#/leverans-kund/<kund>`, P10–P12): migreringslägets fem belägg, aktiveringens
+  torrkörning, leveranskvittona och Worker-namnen (`GET /api/desktop/leverans/<kund>`). Leveransbeskedet säger
+  publicerat bara efter en klar release och en observation av kundens egen adress; ett läge som inte går att läsa står
+  som det. Besök och förfrågningar står som ej anslutna. Releasen görs i Byggflöde med ditt klick som mandat.
+- **Arbetsområdena** i stegraden: Kundstart leder till intervjun, Underlag och Funktioner till kundens Kundstartärende,
+  Förslag, Bygge och Granskning till arbetsytans Förslagen, Byggflöde och Kod och preview, Förfining till kommentarerna
+  (arbetsytan med besluten nås därifrån), Leverans och Förvaltning till kundens leveransvy. Det är namn på befintliga
+  steg, ingen ny statusmaskin.
+
+## Uppdatering
+
+- **Utgåvan:** `desktop/bygg-utgava.sh "<ändringen>"` bygger releasen, packar appen som `Nortropic.app.tar.gz` och
+  signerar den med minisign-nyckeln `~/.nortropic-hemligheter/webb-pro/desktop-uppdatering.key` (skapad med
+  `npx tauri signer generate`, 0600). Signaturen binds till versionen i `tauri.conf.json` (`--app-version`). Utgåvan
+  ligger i `desktop/utgava/` (utanför git), och motorn serverar den från loopback (`/desktop/uppdatering/utgava` och
+  `/artefakt`); ingen extern uppdateringstjänst finns eller påstås.
+- **I appen:** Nortropic → Sök efter uppdatering (eller Motor och diagnos). Appen hämtar beskrivningen ur den
+  verifierade motorn, kräver kontraktet `desktop/1` och en högre version, och visar Installera eller Senare. Pågår arbete
+  i motorn säger knappen "Installera ändå" (arbetet körs av motorn och påverkas inte).
+- **Kontrollen:** artefakten prövas mot den inbyggda publika nyckeln (`desktop/src-tauri/uppdatering.pub`) med samma
+  minisign-kontroll som Tauris uppdateringsmodul, och den signerade versionen ska vara den annonserade (en äldre
+  signatur kan inte spelas upp som ny). Först sedan packas den upp i en tom katalog bredvid appen (inga absoluta
+  sökvägar eller `..`; tar-biblioteket prövar länkar), och paketet ska vara Nortropic (`se.nortropic.desktop`) i den
+  versionen. Bara en app i `~/Applications` eller `/Applications` uppdateras på plats.
+- **Bytet och återgången:** den nuvarande appen flyttas till appens datakatalog (`forra-version/`), den nya läggs på
+  plats, och appen startar om när den gamla processen har slutat. Misslyckas bytet läggs den gamla tillbaka.
+  "Gå tillbaka till föregående version" byter tillbaka; det gäller bara appkoden, aldrig motorns data eller kontrakt.
+- **Inte gjort:** Developer ID-signering och notarisering (inget utvecklarkonto; appen är ad hoc-signerad och byggd
+  lokalt) och en publik uppdateringskanal.
 
 ## Lagring
 
@@ -165,7 +215,9 @@ införandet (karenstiden i `kunskap/beroenden.md`). Rust installeras med rustup 
 
 ## Inte gjort eller inte prövat (2026-10-10)
 
-Se rapporten `underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md` (privat) för täckningsmatrisen U01–U40,
-D01–D28 och J01–J12 med bevisnivå per prov. I korthet: intervjuvyn med samtal och växande underlag sida vid sida (P04),
-typade handlingskort (E5), markering, kommentarer och direktredigering i förhandsvisningen (E6), signerad uppdatering
-(E9), Developer ID och notarisering (inget utvecklarkonto), och ett mänskligt användbarhetsprov med ägaren.
+Täckningsmatrisen U01–U40, D01–D28 och J01–J12 med bevisnivå per prov står i den privata rapporten
+`underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md`. I korthet inte gjort: direktredigering av text i
+förhandsvisningen och elementmarkering i den levande förhandsvisningen (E6; kommentarerna gäller den bevarade bilden),
+strömmande partnersvar (partnern svarar som förut i hela turer), ett handlingskort "Genomför i utkastet" ur partnern,
+filimport ur Finder i portalen, Developer ID och notarisering, en publik uppdateringskanal, VoiceOver-prov och ett
+mänskligt användbarhetsprov med ägaren. Upplåsningen med Touch ID eller lösenord kan bara en människa pröva.

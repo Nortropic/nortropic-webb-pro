@@ -161,7 +161,7 @@ async function sokUppdatering() {
     else {
       const pag = (r.pagaende || []).length;
       svar.textContent = `Version ${r.utgava.version} finns (du har ${r.nuvarande}). ${r.utgava.noter || ''} Signaturen prövas före installationen.${pag ? ` ${pag} arbete pågår i motorn; det påverkas inte av en uppdatering av appen, men du kan vänta.` : ''}`;
-      knappar.unshift(`<button class="knapp primar" id="installera-uppd" type="button" data-version="${esc(r.utgava.version)}" data-pag="${pag}">Installera och starta om</button>`, '<button class="knapp" id="senare-uppd" type="button">Senare</button>');
+      knappar.unshift(`<button class="knapp primar" id="installera-uppd" type="button" data-version="${esc(r.utgava.version)}" data-pag="${pag}">${pag ? 'Installera ändå och starta om' : 'Installera och starta om'}</button>`, '<button class="knapp" id="senare-uppd" type="button">Senare</button>');
     }
     h.innerHTML = knappar.join('');
     $('#sok-uppd')?.addEventListener('click', sokUppdatering);

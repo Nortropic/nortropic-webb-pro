@@ -65,13 +65,11 @@ fn visa(app: &AppHandle) {
     }
 }
 
-/// Öppnar en extern adress i systemets webbläsare (bara https och http utanför loopback; aldrig en fil eller ett schema).
+/// Öppnar en adress i systemets webbläsare (bara https och http; aldrig en fil eller ett schema). Det är det uttryckliga
+/// undantaget för en förhandsvisning i en ny flik och för externa länkar (kunskap/desktop.md).
 fn oppna_externt(url: &Url) {
-    let ok = match url.scheme() {
-        "https" => true,
-        "http" => !matches!(url.host_str(), Some("127.0.0.1") | Some("localhost") | Some("[::1]")),
-        _ => false,
-    };
+    // https och http (också förhandsvisningen på 127.0.0.1); aldrig file:, javascript: eller ett eget schema
+    let ok = matches!(url.scheme(), "https" | "http") && url.host_str().is_some();
     if ok {
         let _ = std::process::Command::new("/usr/bin/open").arg(url.as_str()).spawn();
     }
@@ -111,11 +109,6 @@ fn tillat_navigering(app: &AppHandle, url: &Url) -> bool {
             }
             let port = url.port().unwrap_or(80);
             if port == l.inst().port {
-                if url.path() == "/desktop/last" {
-                    let a = app.clone();
-                    std::thread::spawn(move || las_appen(&a, "utloggad"));
-                    return false;
-                }
                 return l.upplast.load(Ordering::SeqCst) && l.motorport.load(Ordering::SeqCst) == port;
             }
             true // förhandsvisningarnas egna portar, i sandlådade iframes
@@ -130,6 +123,12 @@ fn prova_huvudram(w: &WebviewWindow, url: &Url) {
     let app = w.app_handle().clone();
     let l = lage(&app);
     let motor = l.motorport.load(Ordering::SeqCst);
+    // portalens Lås: sidan har redan loggat ut med POST /api/desktop/utloggning och går sedan till /desktop/last i
+    // huvudramen; bara huvudramens sidladdning låser appen (en förhandsvisnings iframe kan aldrig göra det)
+    if url.scheme() == "http" && url.host_str() == Some("127.0.0.1") && url.port() == Some(motor) && motor != 0 && url.path() == "/desktop/last" {
+        std::thread::spawn(move || las_appen(&app, "utloggad"));
+        return;
+    }
     let ok = match url.scheme() {
         "tauri" => url.host_str() == Some("localhost"),
         "http" => l.upplast.load(Ordering::SeqCst) && url.host_str() == Some("127.0.0.1") && url.port() == Some(motor) && motor != 0,
@@ -367,8 +366,8 @@ async fn sok_uppdatering(app: AppHandle) -> Result<serde_json::Value, String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Installerar den signerade utgåvan efter ägarens val och startar om appen. Pågår arbete i motorn krävs ett uttryckligt
-/// "ändå" (arbetet påverkas inte: det körs av motorn), annars skjuts uppdateringen upp.
+/// Installerar den signerade utgåvan efter ägarens val och startar om appen. Pågår arbete i motorn visar skalet det och
+/// knappen säger "Installera ändå" (arbetet påverkas inte: det körs av motorn); utan det klicket skjuts den upp.
 #[tauri::command]
 async fn installera_uppdatering(app: AppHandle, version: String, aven_under_arbete: bool) -> Result<serde_json::Value, String> {
     let l = lage(&app);
@@ -385,6 +384,7 @@ async fn installera_uppdatering(app: AppHandle, version: String, aven_under_arbe
         }
         let paket = uppdatering::installera(&inst, &u, &l.data)?;
         uppdatering::starta_om(&paket);
+        aterkalla_sessioner(&inst);
         a.exit(0);
         Ok(json!({ "installerad": true, "version": u.version }))
     })
@@ -537,14 +537,15 @@ fn avsluta(app: &AppHandle) {
         _ => vec![],
     };
     if pagaende.is_empty() || inst.avslut == "behall" {
+        aterkalla_sessioner(&inst);
         app.exit(0);
         return;
     }
     let upplast = l.upplast.load(Ordering::SeqCst);
     let lista = if upplast {
-        pagaende.iter().take(6).map(|p| format!("• {} ({})", p.get("namn").and_then(|v| v.as_str()).unwrap_or("kund"), p.get("vad").and_then(|v| v.as_str()).unwrap_or("arbete"))).collect::<Vec<_>>().join("\n")
+        pagaende.iter().take(6).map(|p| format!("• {} ({})", p.get("slug").and_then(|v| v.as_str()).unwrap_or("okänd kund"), p.get("vad").and_then(|v| v.as_str()).unwrap_or("arbete"))).collect::<Vec<_>>().join("\n")
     } else {
-        format!("{} pågående arbeten (lås upp för att se vilka)", pagaende.len())
+        format!("{} pågående {} (lås upp för att se vilka)", pagaende.len(), if pagaende.len() == 1 { "arbete" } else { "arbeten" })
     };
     let r = app
         .dialog()
@@ -554,8 +555,14 @@ fn avsluta(app: &AppHandle) {
         .buttons(MessageDialogButtons::YesNoCancelCustom("Avsluta, arbetet fortsätter".into(), "Visa pågående arbete".into(), "Avbryt".into()))
         .blocking_show_with_result();
     match r {
-        MessageDialogResult::Yes | MessageDialogResult::Ok => app.exit(0),
-        MessageDialogResult::Custom(t) if t.starts_with("Avsluta") => app.exit(0),
+        MessageDialogResult::Yes | MessageDialogResult::Ok => {
+            aterkalla_sessioner(&inst);
+            app.exit(0)
+        }
+        MessageDialogResult::Custom(t) if t.starts_with("Avsluta") => {
+            aterkalla_sessioner(&inst);
+            app.exit(0)
+        }
         MessageDialogResult::No => {
             let slug = pagaende.first().and_then(|p| p.get("slug")).and_then(|v| v.as_str()).unwrap_or("").to_string();
             ga_till(app, &format!("#/arbetsyta/{slug}"));
@@ -568,6 +575,30 @@ fn avsluta(app: &AppHandle) {
     }
 }
 
+/// Appens sessioner i motorn återkallas när appen avslutas (högst två sekunder; kakan är dessutom en sessionskaka).
+fn aterkalla_sessioner(inst: &Installningar) {
+    let inst = inst.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = motor::skriv(&inst, "/api/desktop/las", &json!({}));
+        let _ = tx.send(());
+    });
+    let _ = rx.recv_timeout(Duration::from_secs(2));
+}
+
+/// Låset efter tid utan fokus, i en egen tråd som aldrig väntar på motorn eller ett verktyg.
+fn lastimer(app: AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(15));
+        let l = lage(&app);
+        let min = l.inst().las_efter_min;
+        let sedan = l.ofokuserad_sedan.load(Ordering::SeqCst);
+        if l.upplast.load(Ordering::SeqCst) && min > 0 && sedan > 0 && nu().saturating_sub(sedan) > min as u64 * 60 {
+            las_appen(&app, "tidsgrans");
+        }
+    });
+}
+
 /// Bakgrundsvakten: låser efter inställd tid utan fokus, upptäcker en ny motorinstans och aviserar när något nytt
 /// väntar på ägaren. Läser bara; startar aldrig något arbete eller någon modell.
 fn vakt(app: AppHandle) {
@@ -576,11 +607,6 @@ fn vakt(app: AppHandle) {
         let l = lage(&app);
         let inst = l.inst();
         let upplast = l.upplast.load(Ordering::SeqCst);
-        let sedan = l.ofokuserad_sedan.load(Ordering::SeqCst);
-        if upplast && inst.las_efter_min > 0 && sedan > 0 && nu().saturating_sub(sedan) > inst.las_efter_min as u64 * 60 {
-            las_appen(&app, "tidsgrans");
-            continue;
-        }
         if inst.rot.is_none() {
             continue;
         }
@@ -664,6 +690,7 @@ pub fn kor() {
             app.on_menu_event(|app, ev| menyval(app, ev.id().as_ref()));
             skapa_fonster(&h)?;
             vakt(h.clone());
+            lastimer(h.clone());
             #[cfg(feature = "prov")]
             prov::starta(h.clone());
             Ok(())
@@ -686,6 +713,13 @@ pub fn kor() {
         .expect("Nortropic kunde inte starta")
         .run(|app, ev| match ev {
             RunEvent::Reopen { .. } => visa(app),
+            RunEvent::Exit => {
+                // också Dock-menyns Avsluta och utloggning ur macOS (Apple Event): sessionerna återkallas
+                let l = lage(app);
+                if l.upplast.load(Ordering::SeqCst) {
+                    aterkalla_sessioner(&l.inst());
+                }
+            }
             RunEvent::ExitRequested { api, code, .. } => {
                 // sista fönstret som göms avslutar inte appen (Mac-konventionen); bara Avsluta gör det
                 if code.is_none() {

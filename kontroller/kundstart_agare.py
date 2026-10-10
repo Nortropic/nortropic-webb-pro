@@ -95,7 +95,7 @@ def anteckningar(repo,eid,operation,poster):
         d=db._doc(c,eid);fore={a['id'] for a in d.get('anteckningar',[])};nya=[]
         for slag,text in poster:
             if not text:continue
-            aid=ks.sha([operation,slag])[:32]
+            aid=ks.sha([operation,slag,text])[:32]
             if aid in fore:continue
             nya.append({'id':aid,'slag':slag,'text':ks.text(text,2000),'kunskap':'agarens_anteckning','tid':time.time()})
         if nya:d.setdefault('anteckningar',[]).extend(nya);db._spara(c,d)

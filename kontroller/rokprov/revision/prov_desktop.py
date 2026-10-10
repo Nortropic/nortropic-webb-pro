@@ -327,6 +327,7 @@ class Desktop(unittest.TestCase):
             s, _, j = self.intervju(t['arende'], 'ai', {})
             self.assertEqual((s, j['startad']), (200, True), j)
             self.assertIn('--live-cli', startade[0])
+            self.assertEqual(startade[0][startade[0].index('--arende') + 1], t['arende'], 'arbetaren tar bara det här ärendets jobb')
             self.assertTrue(startade[0][2].endswith('kontroller/kundstart_modell.py'))
             s, _, j = self.intervju(t['arende'], 'ai', {})
             self.assertEqual((s, j['startad'], j['pagar']), (200, False, True), 'en tur åt gången per ärende')
@@ -384,6 +385,141 @@ class Desktop(unittest.TestCase):
         self.assertEqual([k['slag'] for k in d['kvitton']], ['PREVIEW'])
         self.assertEqual(self.anropa('GET', '/api/desktop/leverans/x--forhandsvisning')[0], 400)
 
+    # --- granskningens rättelser (separat granskning 2026-10-10) ---
+
+    def test_skuggad_kaka_och_utloggningssidan(self):
+        kaka, _ = self.session()
+        vag = '/api/finns-inte-efter-sparren'
+        namn = 'nwp_session_%d' % self.port
+        skuggad = '%s=forhandsvisningens-varde; %s' % (namn, kaka)  # en längre sökväg från en förhandsvisning skickas först
+        self.assertNotEqual(self.anropa('POST', vag, {}, {'Cookie': skuggad, 'Origin': self.ursprung})[0], 403, 'varje värde prövas')
+        s, r, _ = self.anropa('GET', '/desktop/last', huvud={'Cookie': kaka})
+        self.assertEqual(s, 200)
+        self.assertIsNone(r.getheader('Set-Cookie'), 'ett GET (en bild, en iframe) raderar aldrig sessionen')
+        self.assertNotEqual(self.anropa('POST', vag, {}, {'Cookie': kaka, 'Origin': self.ursprung})[0], 403)
+        andra, _ = self.session()
+        self.assertEqual(self.anropa('POST', '/api/desktop/utloggning', {}, {'X-Nyckel': NYCKEL, 'Origin': self.ursprung})[0], 200)
+        self.assertNotEqual(self.anropa('POST', vag, {}, {'Cookie': andra, 'Origin': self.ursprung})[0], 403,
+                            'en utloggning utan giltig kaka återkallar ingen annan session')
+        self.assertNotIn('Max-Age=', self.session()[1], 'en sessionskaka utan Max-Age')
+
+    def test_appens_bevis_i_stallet_for_nyckeln(self):
+        import hashlib as hl, hmac as hm
+        _, _, j = self.anropa('GET', '/api/desktop/identitet?utmaning=' + 'ab' * 16)
+        kropp = json.dumps({'instans': j['instans']}).encode()
+
+        def bevis(vag, kropp, ts=None, nonce=None):
+            ts = str(int(ts if ts is not None else time.time()))
+            nonce = nonce or os.urandom(16).hex()
+            msg = 'nwp-desktop/1 skriv\n%s\n%s\n%s\n%s' % (ts, nonce, vag, hl.sha256(kropp).hexdigest())
+            return '%s.%s.%s' % (ts, nonce, hm.new(NYCKEL.encode(), msg.encode(), hl.sha256).hexdigest())
+
+        def post(vag, b, kropp_=kropp):
+            c = http.client.HTTPConnection('127.0.0.1', self.port, timeout=10)
+            try:
+                c.request('POST', vag, kropp_, {'Origin': self.ursprung, 'X-Desktop-Bevis': b, 'Content-Type': 'application/json'})
+                r = c.getresponse()
+                return r.status, json.loads(r.read() or b'{}')
+            finally:
+                c.close()
+        b = bevis('/api/desktop/session', kropp)
+        s, k = post('/api/desktop/session', b)
+        self.assertEqual(s, 200, k)
+        self.assertIn('kod', k)
+        self.assertEqual(post('/api/desktop/session', b)[0], 403, 'samma nonce en gång')
+        self.assertEqual(post('/api/desktop/session', bevis('/api/desktop/session', b'{}'))[0], 403, 'beviset gäller kroppen')
+        self.assertEqual(post('/api/desktop/session', bevis('/api/desktop/las', kropp))[0], 403, 'beviset gäller vägen')
+        self.assertEqual(post('/api/desktop/session', bevis('/api/desktop/session', kropp, ts=time.time() - 600))[0], 403, 'för gammal tid')
+        self.assertEqual(post('/api/desktop/session', 'skrap')[0], 403)
+        self.assertEqual(post('/api/kalibrering/x', bevis('/api/kalibrering/x', kropp))[0], 403, 'beviset gäller bara appens två vägar')
+        self.assertEqual(post('/api/desktop/las', bevis('/api/desktop/las', b'{}'), b'{}')[0], 200)
+
+    def test_testslug_och_riktig_slug_krockar_aldrig(self):
+        (s, _, r), _ = self.ny(test=False, foretag='Test Bageriet AB')
+        self.assertEqual((s, r['slug']), (200, 'k-test-bageriet-ab'), r)
+        (s, _, t), _ = self.ny(test=True, foretag='Bageriet AB')
+        self.assertEqual((s, t['slug']), (200, 'test-bageriet-ab'))
+        self.assertIs(self.arende(r['arende'])['fiktiv'], False)
+        self.assertIs(self.arende(t['arende'])['fiktiv'], True)
+        (s, _, j), _ = self.ny(foretag='Hemlig ' + 'sk-ant-' + 'a' * 40)
+        self.assertEqual(s, 400, 'en text som ser ut som en hemlighet nekas före skapandet, inte efter')
+        self.assertEqual(len(dash_lista(self.root)), 2)
+
+    def test_ai_jobbet_tas_bara_ur_sitt_arende(self):
+        db = ks.Lager(self.root / 'underlag' / 'kundstart')
+        (_, _, a), _ = self.ny(foretag='Kund A')
+        (_, _, b), _ = self.ny(foretag='Kund B')
+        for eid in (a['arende'], b['arende']):
+            d = db.internt(eid)
+            self.intervju(eid, 'svar', {'revision': d['revision'], 'operation': str(uuid.uuid4()), 'text': 'Svar för ' + eid})
+        jobb = db.ta_jobb('prov', lease=60, modell='attrapp', arende=b['arende'])
+        self.assertEqual(jobb['arende'], b['arende'])
+        self.assertEqual(db.internt(a['arende'])['modell']['status'], 'ko', 'det andra ärendets jobb rörs inte')
+        self.assertEqual(db.internt(a['arende'])['budget']['anrop'], 0)
+
+    def test_ovantat_fel_blir_ett_svar(self):
+        import kundstart_agare
+        (_, _, t), _ = self.ny()
+        with patch.object(kundstart_agare, 'intervju', side_effect=RuntimeError('provfel')):
+            s, _, j = self.intervju(t['arende'], 'svar', {'revision': 1, 'operation': str(uuid.uuid4()), 'text': 'x'})
+        self.assertEqual((s, j['fel']), (500, 'RuntimeError: provfel'))
+        self.assertEqual(self.nyckelpost('/api/desktop/session', [1, 2])[0], 400, 'en lista i stället för ett objekt')
+
+    def test_kommentarer_binds_till_version_och_bild_och_bestalls_som_uppdrag(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import arbetsyta_fixtur
+        import atelje
+        import observation
+        import meddelanden
+        slug = 'testdata-kommentarer'
+        for m in (atelje,):
+            self.stack.enter_context(patch.multiple(m, ROOT=self.root, UNDERLAG=self.root / 'underlag', KUNDER=self.root / 'kunder'))
+        self.stack.enter_context(patch.multiple(observation, ROOT=self.root, UNDERLAG=self.root / 'underlag'))
+        self.stack.enter_context(patch.object(meddelanden, 'UNDERLAG', self.root / 'underlag'))
+        self.stack.enter_context(patch.object(dash, 'ab_oavgjord', return_value=False))
+        arbetsyta_fixtur.bygg(self.root, slug, None, med_sajt=False)
+        # utan mallsajten har fixturen ingen bevarad version: kandidaten får en, som fotograferingen skulle ha gett
+        stf = self.root / 'underlag' / slug / 'atelje' / 'kandidater' / 'k01' / 'STATUS.json'
+        st = json.loads(stf.read_text(encoding='utf-8'))
+        st.update(version='ab' * 32, fotograferad='2026-10-09T05:30:00Z')
+        stf.write_text(json.dumps(st), encoding='utf-8')
+        b = self.root / 'underlag' / slug / 'atelje' / 'kandidater' / 'k01' / 'bilder' / 'start' / 'vy-390-forsta.png'
+        b.parent.mkdir(parents=True, exist_ok=True)
+        b.write_bytes(bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'
+                                    '1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082'))
+        s, _, d = self.anropa('GET', '/api/desktop/kommentarer/' + slug)
+        self.assertEqual(s, 200, d)
+        k = next(x for x in d['kandidater'] if x['id'] == 'k01')
+        self.assertIn('390', k['bilder'])
+        vag = '/api/desktop/kommentarer/' + slug
+        cid = str(uuid.uuid4())
+        ny = {'handling': 'ny', 'id': cid, 'kandidat': 'k01', 'version': k['version'], 'bredd': '390', 'bild': k['bilder']['390'], 'bild_sha': k['sha']['390'],
+              'x': 0.25, 'y': 0.5, 'text': 'Rubriken bryts fel i mobilen.'}
+        self.assertEqual(self.nyckelpost(vag, dict(ny, version='0' * 64))[0], 409, 'en annan version än kandidatens')
+        self.assertEqual(self.nyckelpost(vag, dict(ny, bild_sha='0' * 64))[0], 409, 'en annan bild än ögonblicksbilden')
+        for fel in ({'x': 0.3, 'y': None}, {'x': 1.5}, {'x': True, 'y': 0.2}, {'bredd': '768'}, {'text': ''}, {'id': 'x'}):
+            with self.subTest(fel=fel):
+                self.assertEqual(self.nyckelpost(vag, dict(ny, **fel))[0], 400)
+        s, _, j = self.nyckelpost(vag, ny)
+        self.assertEqual((s, j['upprepat'], j['kommentar']['status']), (200, False, 'oppen'))
+        self.assertEqual(self.nyckelpost(vag, ny)[2]['upprepat'], True, 'samma id och innehåll: samma kommentar')
+        self.assertEqual(self.nyckelpost(vag, dict(ny, text='annat'))[0], 409, 'samma id med annan text')
+        hela = dict(ny, id=str(uuid.uuid4()), x=None, y=None, text='Kontaktvägen syns för sent.')
+        self.assertEqual(self.nyckelpost(vag, hela)[0], 200, 'en kommentar på hela sidan utan punkt (alternativ till att peka)')
+        self.assertEqual(self.nyckelpost(vag, {'handling': 'svara', 'id': cid, 'text': 'Gäller bara 390.'})[0], 200)
+        self.assertEqual(self.nyckelpost(vag, {'handling': 'status', 'id': cid, 'status': 'lost_verifierad'})[0], 409,
+                         'verifierat löst kräver en nyare version än den kommenterade')
+        self.assertEqual(self.nyckelpost(vag, {'handling': 'bestall', 'ids': [cid, hela['id']], 'andring_id': 'x'})[0], 400)
+        s, _, j = self.nyckelpost(vag, {'handling': 'bestall', 'ids': [cid, hela['id']], 'andring_id': 'p' + 'a' * 40})
+        self.assertEqual((s, sorted(j['bestallda'])), (200, sorted([cid, hela['id']])))
+        s, _, d = self.anropa('GET', vag)
+        c = {x['id']: x for x in d['kommentarer']}
+        self.assertEqual((c[cid]['status'], c[cid]['andring_id'], c[cid]['svar'][0]['text']), ('bestalld', 'p' + 'a' * 40, 'Gäller bara 390.'))
+        self.assertFalse(c[cid]['inaktuell'])
+        self.assertEqual(self.nyckelpost(vag, {'handling': 'bestall', 'ids': [cid], 'andring_id': 'p' + 'b' * 40})[0], 409, 'redan beställd i ett annat uppdrag')
+        self.assertEqual(self.anropa('POST', vag, ny, {'Origin': self.ursprung})[0], 403, 'utan nyckel och session')
+        self.assertEqual(self.anropa('GET', '/api/desktop/kommentarer/finns-inte')[0], 404)
+
     def test_utgavan_serveras_bara_nar_den_finns(self):
         self.assertEqual(self.anropa('GET', '/desktop/uppdatering/utgava')[0], 404)
         kat = self.root / 'desktop' / 'utgava'
@@ -415,5 +551,37 @@ def dash_lista(root):
     return kundstart_agare.lista(root)['arenden']
 
 
+def provserver():
+    """Motorns riktiga hanterare i en provrot för portalens webbläsarprov (prov_portal_webb.mjs): ingen nyckel krävs, ingen
+    modell, aldrig repots underlag eller kunder."""
+    import signal
+
+    def stopp(*_):
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM, stopp)
+    with korregister.egen_tmp_med('nwp-desktop-', 'portalens webbläsarprov') as tmp:
+        rot = Path(tmp).resolve()
+        (rot / 'underlag').mkdir()
+        (rot / 'kunder').mkdir()
+        import atelje
+        import exportera
+        dash.ROOT, dash.UNDERLAG, dash.KUNDER = rot, rot / 'underlag', rot / 'kunder'
+        atelje.ROOT, atelje.UNDERLAG, atelje.KUNDER = rot, rot / 'underlag', rot / 'kunder'
+        exportera.ROOT, exportera.UNDERLAG, exportera.KUNDER = rot, rot / 'underlag', rot / 'kunder'
+        os.environ['NWP_NYCKELINTAG'] = str(rot / 'nyckelintag')
+        os.environ['NWP_CLOUDFLARE_FIL'] = str(rot / 'saknas' / 'cloudflare.env')
+        srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
+        dash.VARD['tillatna'] = {'127.0.0.1:%d' % srv.server_address[1]}
+        desktop.konfigurera(rot, srv.server_address[1])
+        print(json.dumps({'port': srv.server_address[1]}), flush=True)
+        try:
+            srv.serve_forever()
+        finally:
+            srv.server_close()
+
+
 if __name__ == '__main__':
-    unittest.main(verbosity=1)
+    if '--provserver' in sys.argv:
+        provserver()
+    else:
+        unittest.main(verbosity=1)

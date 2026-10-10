@@ -79,6 +79,34 @@ def identitet(utmaning, nyckel, dashkatalog):
             'stod': {'arbetsyta': 'arbetsyta/1'}, 'bevis': bevis}
 
 
+_NONCER = {}  # nonce -> tid, för appens bevisade skrivningar (en nonce gäller en gång)
+BEVIS_FONSTER = 120
+
+
+def bevis_ok(huvud, vag, kropp, nyckel):
+    """Appens skrivning till /api/desktop/session och /las bevisas med HMAC-SHA256(nyckeln, tid, nonce, väg, kroppens
+    sha256) i X-Desktop-Bevis, så att nyckeln själv aldrig skickas över en anslutning. Tiden högst BEVIS_FONSTER sekunder
+    bort, och varje nonce en gång."""
+    try:
+        ts, nonce, mac = (huvud or '').split('.', 2)
+        t = int(ts)
+    except ValueError:
+        return False
+    if not nyckel or abs(time.time() - t) > BEVIS_FONSTER or not (16 <= len(nonce) <= 64 and all(c in '0123456789abcdef' for c in nonce)):
+        return False
+    msg = 'nwp-desktop/1 skriv\n%s\n%s\n%s\n%s' % (ts, nonce, vag, hashlib.sha256(kropp or b'').hexdigest())
+    if not hmac.compare_digest(mac, hmac.new(nyckel.encode(), msg.encode(), hashlib.sha256).hexdigest()):
+        return False
+    with _LAS:
+        nu = time.time()
+        for k in [k for k, v in _NONCER.items() if nu - v > 2 * BEVIS_FONSTER]:
+            del _NONCER[k]
+        if nonce in _NONCER:
+            return False
+        _NONCER[nonce] = nu
+    return True
+
+
 def ny_kod(instans):
     if instans != INSTANS:
         raise ValueError('koden gäller en annan instans av motorn')
@@ -126,19 +154,28 @@ def aterkalla(sid=None):
             _KODER.clear()
 
 
-def kaka_sid(cookie_huvud, port):
+def kaka_sider(cookie_huvud, port):
+    """Alla värden med kakans namn. En förhandsvisad sajt i samma värd kan sätta en kaka med samma namn och längre
+    sökväg, som webbläsaren skickar först; därför prövas varje värde, aldrig bara det första."""
     namn = KAKA % int(port)
+    ut = []
     for del_ in (cookie_huvud or '').split(';'):
         k, _, v = del_.strip().partition('=')
         if k == namn and v:
-            return v
-    return None
+            ut.append(v)
+    return ut
+
+
+def kaka_sid(cookie_huvud, port):
+    """Den giltiga sessionen bland kakans värden, eller None."""
+    return next((v for v in kaka_sider(cookie_huvud, port) if giltig(v, rora=False)), None)
 
 
 def kaka(sid, port, ta_bort=False):
     if ta_bort:
         return '%s=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' % (KAKA % int(port))
-    return '%s=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=%d' % (KAKA % int(port), sid, SESSION_TID)
+    # en sessionskaka (ingen Max-Age): den försvinner när appen avslutas, och motorn återkallar sessionen vid avslutet
+    return '%s=%s; Path=/; HttpOnly; SameSite=Strict' % (KAKA % int(port), sid)
 
 
 def session_skriv_ok(headers, port):
@@ -149,7 +186,8 @@ def session_skriv_ok(headers, port):
     sfs = (headers.get('Sec-Fetch-Site') or '').strip().lower()
     if sfs and sfs != 'same-origin':
         return False
-    return giltig(kaka_sid(headers.get('Cookie'), port))
+    sid = kaka_sid(headers.get('Cookie'), port)
+    return giltig(sid) if sid else False
 
 
 def _cachat(namn, sek, f):
@@ -239,16 +277,19 @@ def oversikt(dash):
 def uppmarksamhet(dash):
     """Det som väntar på ägaren (för appens avisering): antal och första raden, utan annan kunduppgift."""
     def r():
+        import arbetsyta
+        test = {p['slug'] for p in arbetsyta.projekt(dash) if p.get('testdata')}
         ut = []
         for k in dash.kundlagen():
-            if k.get('vantar') and not k.get('ab_dold'):
+            if k.get('vantar') and not k.get('ab_dold') and k['slug'] not in test:
                 ut.append('%s: %s' % (k['slug'], ', '.join(k['vantar'][:2])))
         return {'antal': len(ut), 'forsta': ut[0] if ut else None}
     return _cachat('uppmarksamhet', 15, r)
 
 
 class DubblettKund(ValueError):
-    """En kund med samma namn (slug) finns redan: öppna den i stället för att skapa en dubblett."""
+    """En kund med samma namn (slug) finns redan: öppna den i stället för att skapa en dubblett. arende är None när den
+    befintliga är av det andra slaget (test mot riktig), som aldrig öppnas i stället."""
     def __init__(self, text, arende):
         super().__init__(text)
         self.arende = arende
@@ -287,43 +328,56 @@ def ny_kund(dash, data):
         raise ValueError('test ska vara sant eller falskt')
     if not isinstance(operation, str) or not re.fullmatch(r'[0-9a-f-]{36}', operation):
         raise ValueError('operationen ska vara ett UUID')
-    slug = ('test-' if test else '') + _slug(foretag)
+    grund = _slug(foretag)
+    # testkundernas slugar börjar med test-; en riktig kund får aldrig en sådan, så att de två aldrig kan krocka
+    slug = ('test-' + grund) if test else (('k-' + grund) if grund.startswith('test-') or grund == 'test' else grund)
     person = kontakt or 'Kontaktperson ej angiven'
+    for t in (foretag, webb, syfte, kontakt):  # samma prövning som anteckningarna, före skapandet (en hemlighet nekas)
+        if t:
+            ks.text(t, 2000)
     try:
         r = kundstart_agare.skapa(dash.ROOT, {'slug': slug, 'namn': person, 'fiktiv': test, 'modellbudget': 10 if test else 0, 'operation': operation})
     except ks.Konflikt as e:
-        befintligt = next((a['id'] for a in kundstart_agare.lista(dash.ROOT).get('arenden', []) if a['slug'] == slug), None)
+        befintligt = next((a for a in kundstart_agare.lista(dash.ROOT).get('arenden', []) if a['slug'] == slug), None)
+        if befintligt and bool(befintligt.get('fiktiv')) == test:
+            raise DubblettKund('En kund med det namnet finns redan.', befintligt['id']) from e
         if befintligt:
-            raise DubblettKund('En kund med det namnet finns redan.', befintligt) from e
+            raise DubblettKund('Namnet krockar med en %s; välj ett annat arbetsnamn.' % ('riktig kund' if test else 'testkund'), None) from e
         raise
     kundstart_agare.anteckningar(dash.ROOT, r['arende'], operation, [('foretag', foretag), ('webbplats', webb), ('syfte', syfte), ('kontakt', kontakt)])
     return {'arende': r['arende'], 'slug': slug, 'nyckel': r['nyckel'], 'aterforsok': r['aterforsok'], 'test': test}
 
 
 _AI = {}  # ärende -> Popen för den AI-tur som portalen startat (en åt gången per ärende)
+_AI_LAS = threading.Lock()
+AI_TAK = 2  # högst så många samtidiga AI-turer ur portalen
 
 
 def starta_ai(dash, eid):
     """En AI-tur i intervjun, startad av ägarens uttryckliga klick: Kundstarts befintliga modellarbetare
-    (kontroller/kundstart_modell.py) för ett köjobb med pilotens transport (--live-cli), som själv bara tar fiktiva
-    ärenden och räknar budgeten. Ett verkligt ärende eller ett ärende utan köat jobb startar ingenting."""
+    (kontroller/kundstart_modell.py) för det här ärendets köjobb (--arende) med pilotens transport (--live-cli), som själv
+    bara tar fiktiva ärenden och räknar budgeten. Ett verkligt ärende, ett ärende utan köat jobb eller fler än AI_TAK
+    samtidiga turer startar ingenting; andra ärendens jobb rörs aldrig."""
     import kundstart_agare
     d = kundstart_agare.lager(dash.ROOT).internt(eid)
     if d.get('fiktiv') is not True:
         raise ValueError('AI-vägen i portalen gäller bara testkunder; ett verkligt ärende kräver separat aktivering')
     if (d.get('modell') or {}).get('status') != 'ko':
         raise ValueError('inget svar väntar på AI (modellens läge: %s)' % (d.get('modell') or {}).get('status'))
-    p = _AI.get(eid)
-    if p and p.poll() is None:
-        return {'startad': False, 'pagar': True, 'pid': p.pid}
-    modell = os.environ.get('NWP_KUNDSTART_MODELL') or 'claude-sonnet-5-5'
-    logg = Path(dash.ROOT) / 'underlag' / 'kundstart' / 'modellturer.log'
-    logg.parent.mkdir(parents=True, exist_ok=True)
-    with open(logg, 'a', encoding='utf-8') as f:
-        p = subprocess.Popen([str(Path(dash.ROOT) / '.venv/bin/python'), '-B', str(Path(dash.ROOT) / 'kontroller/kundstart_modell.py'),
-                              '--modell', modell, '--live-cli', '--effort', os.environ.get('NWP_KUNDSTART_EFFORT') or 'medium', '--antal', '1'],
-                             cwd=str(dash.ROOT), stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
-    _AI[eid] = p
+    with _AI_LAS:
+        p = _AI.get(eid)
+        if p and p.poll() is None:
+            return {'startad': False, 'pagar': True, 'pid': p.pid}
+        if sum(1 for x in _AI.values() if x.poll() is None) >= AI_TAK:
+            raise ValueError('%d AI-turer pågår redan; vänta tills en är klar' % AI_TAK)
+        modell = os.environ.get('NWP_KUNDSTART_MODELL') or 'claude-sonnet-5-5'
+        logg = Path(dash.ROOT) / 'underlag' / 'kundstart' / 'modellturer.log'
+        logg.parent.mkdir(parents=True, exist_ok=True)
+        with open(logg, 'a', encoding='utf-8') as f:
+            p = subprocess.Popen([str(Path(dash.ROOT) / '.venv/bin/python'), '-B', str(Path(dash.ROOT) / 'kontroller/kundstart_modell.py'),
+                                  '--modell', modell, '--live-cli', '--effort', os.environ.get('NWP_KUNDSTART_EFFORT') or 'medium', '--antal', '1', '--arende', eid],
+                                 cwd=str(dash.ROOT), stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
+        _AI[eid] = p
     return {'startad': True, 'pid': p.pid, 'modell': modell, 'transport': 'live-cli (pilotens abonnemangstransport, bara fiktiva ärenden)'}
 
 
@@ -374,3 +428,141 @@ def leverans(dash, slug):
     ut['forvaltning'] = {'analys': {'lage': 'ej_ansluten', 'text': 'Ingen besöks- eller förfrågningsstatistik är ansluten i motorn för kunden. '
                                                                    'Ingen siffra visas förrän en källa är ansluten och har mätt en hel period.'}}
     return ut
+
+
+# --- kommentarerna (E6): bestående, versionsbundna arbetsobjekt på kandidatens bevarade ögonblicksbild ---
+
+_KLAS = threading.Lock()
+
+
+class Inaktuell(ValueError):
+    """Kandidatens version eller bild är inte den ägaren kommenterade."""
+
+
+def _kfil(dash, slug):
+    # bussens katalog: nekad för sessionernas Read, Edit och Write (kunskap/arbetsyta.md), så kommentarerna är ägarens tills
+    # han samlar dem till ett uppdrag
+    return Path(dash.UNDERLAG) / slug / 'arbetsyta' / 'KOMMENTARER.json'
+
+
+def _klasa(dash, slug):
+    try:
+        d = json.loads(_kfil(dash, slug).read_text(encoding='utf-8'))
+        return d if isinstance(d, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def _kskriv(dash, slug, lista):
+    f = _kfil(dash, slug)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_name('.%s.%d.tmp' % (f.name, os.getpid()))
+    tmp.write_text(json.dumps(lista, ensure_ascii=False, indent=1), encoding='utf-8')
+    os.replace(tmp, f)
+
+
+def _klage(dash, slug):
+    import arbetsyta
+    if slug not in {p['slug'] for p in arbetsyta.projekt(dash)}:
+        raise LookupError('ingen kund som arbetsytan känner till')
+    lage = arbetsyta.lage(dash, slug)
+    if lage.get('ab_dold'):
+        raise Inaktuell('kunden är en arm i en blind jämförelse; välj i Jämförelser först')
+    return lage
+
+
+def kommentarer(dash, slug):
+    """Kundens kommentarer med kandidaterna som har en bevarad ögonblicksbild; en kommentar på en äldre version är
+    inaktuell (den pekar på en bild som inte längre är kandidatens)."""
+    lage = _klage(dash, slug)
+    kand = [k for k in lage.get('kandidater') or [] if k.get('version_hel')]
+    nu = {k['id']: k.get('version_hel') for k in kand}
+    lista = _klasa(dash, slug)
+    for c in lista:
+        c['inaktuell'] = nu.get(c.get('kandidat')) != c.get('version')
+    return {'slug': slug, 'namn': (lage.get('projekt') or {}).get('namn'), 'blind': lage.get('blind'), 'korning': (lage.get('korning') or {}).get('startad'),
+            'vantar_pa_agaren': bool((lage.get('korning') or {}).get('vantar_pa_agaren')),
+            'kandidater': [{'id': k['id'], 'etikett': k.get('etikett'), 'version': k['version_hel'],
+                            'bilder': {b: k['snapshot'].get(b) for b in ('390', '1440') if (k.get('snapshot') or {}).get(b)},
+                            'sha': {b: (k['snapshot'].get('sha') or {}).get(b) for b in ('390', '1440') if (k.get('snapshot') or {}).get(b)}} for k in kand],
+            'kommentarer': lista}
+
+
+def kommentar(dash, slug, data):
+    """Ny kommentar, svar i tråden, status eller beställning. En ny kommentar binds till kandidaten, hela versionen,
+    bredden, ögonblicksbilden och dess sha256 som ägaren såg; en annan version eller bild nu ger Inaktuell. En kommentar
+    är ingen ändringsorder: först "bestall" knyter de valda till ett uppdrag som redan sparats genom arbetsytans
+    ändringsväg. Verifierat löst kräver att ägaren sett en nyare version än den kommenterade."""
+    import re
+    if not isinstance(data, dict):
+        raise ValueError('kommentaren ska vara ett objekt')
+    h = data.get('handling')
+    lage = _klage(dash, slug)
+    kand = {k['id']: k for k in lage.get('kandidater') or []}
+    nu = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    text = lambda n=4000: (lambda t: t if 1 <= len(t) <= n else (_ for _ in ()).throw(ValueError('skriv en text (högst %d tecken)' % n)))(str(data.get('text') or '').strip())  # noqa: E731
+    with _KLAS:
+        lista = _klasa(dash, slug)
+        efter = {c['id']: c for c in lista}
+        if h == 'ny':
+            cid = str(data.get('id') or '')
+            if not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', cid):
+                raise ValueError('kommentarens id ska vara ett UUID')
+            k = kand.get(str(data.get('kandidat') or ''))
+            if not k or not k.get('version_hel'):
+                raise ValueError('välj en kandidat med en bevarad version')
+            bredd = str(data.get('bredd') or '')
+            if bredd not in ('390', '1440'):
+                raise ValueError('bredden ska vara 390 eller 1440')
+            if data.get('version') != k['version_hel']:
+                raise Inaktuell('kandidaten har en annan version nu än den du kommenterade; se den nya versionen först')
+            snap = k.get('snapshot') or {}
+            if not snap.get(bredd) or snap.get(bredd) != data.get('bild') or (snap.get('sha') or {}).get(bredd) != data.get('bild_sha'):
+                raise Inaktuell('bilden du kommenterade är inte kandidatens ögonblicksbild nu; läs om')
+            x, y = data.get('x'), data.get('y')
+            if (x is None) != (y is None) or (x is not None and not all(isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1 for v in (x, y))):
+                raise ValueError('punkten anges som x och y mellan 0 och 1, eller utelämnas för hela sidan')
+            post = {'id': cid, 'kandidat': k['id'], 'etikett': k.get('etikett'), 'version': k['version_hel'], 'bredd': bredd, 'bild': snap[bredd],
+                    'bild_sha': snap['sha'][bredd], 'x': x, 'y': y, 'text': text()}
+            if cid in efter:
+                if any(efter[cid].get(f) != v for f, v in post.items()):
+                    raise Inaktuell('kommentarens id har redan använts för en annan kommentar')
+                return {'kommentar': efter[cid], 'upprepat': True}
+            post.update({'status': 'oppen', 'avsandare': 'agaren', 'tid': nu, 'korning': (lage.get('korning') or {}).get('startad'), 'svar': [], 'historik': []})
+            lista.append(post)
+            _kskriv(dash, slug, lista)
+            return {'kommentar': post, 'upprepat': False}
+        if h in ('svara', 'status'):
+            c = efter.get(str(data.get('id') or ''))
+            if not c:
+                raise LookupError('kommentaren finns inte')
+            if h == 'svara':
+                c['svar'].append({'text': text(), 'tid': nu, 'avsandare': 'agaren'})
+            else:
+                st = data.get('status')
+                if st not in ('oppen', 'avvisad', 'lost_verifierad'):
+                    raise ValueError('status: oppen, avvisad eller lost_verifierad')
+                if st == 'lost_verifierad' and (kand.get(c['kandidat']) or {}).get('version_hel') in (None, c['version']):
+                    raise Inaktuell('verifierat löst kräver att du sett en nyare version än den du kommenterade; ett "fixat" i ett svar räcker inte')
+                c['historik'].append({'fran': c['status'], 'till': st, 'tid': nu, 'avsandare': 'agaren'})
+                c['status'] = st
+            _kskriv(dash, slug, lista)
+            return {'kommentar': c}
+        if h == 'bestall':
+            ids, aid = data.get('ids'), str(data.get('andring_id') or '')
+            if not re.fullmatch(r'[A-Za-z0-9_-]{8,80}', aid) or not isinstance(ids, list) or not ids or len(ids) > 30:
+                raise ValueError('välj kommentarerna och ange uppdragets ändrings-id')
+            valda = [efter.get(str(i)) for i in ids]
+            if not all(valda):
+                raise LookupError('en vald kommentar finns inte')
+            if len({(c['kandidat'], c['version']) for c in valda}) != 1:
+                raise ValueError('ett uppdrag gäller en kandidat och en version')
+            if any(c['status'] == 'bestalld' and c.get('andring_id') != aid for c in valda) or any(c['status'] in ('avvisad', 'lost_verifierad') for c in valda):
+                raise Inaktuell('en vald kommentar är redan beställd, avvisad eller löst')
+            for c in valda:
+                if c['status'] != 'bestalld':
+                    c['historik'].append({'fran': c['status'], 'till': 'bestalld', 'tid': nu, 'avsandare': 'agaren', 'andring_id': aid})
+                    c['status'], c['andring_id'] = 'bestalld', aid
+            _kskriv(dash, slug, lista)
+            return {'bestallda': [c['id'] for c in valda], 'andring_id': aid}
+        raise ValueError('handlingen ska vara ny, svara, status eller bestall')

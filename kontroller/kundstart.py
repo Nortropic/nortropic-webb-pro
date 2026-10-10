@@ -425,16 +425,20 @@ class Lager:
             if not row: raise Obehorig('Materialet är inte tillgängligt.')
             return tuple(row)
 
-    def ta_jobb(self, arbetare, lease=120, modell=None, bara_fiktiva=False):
+    def ta_jobb(self, arbetare, lease=120, modell=None, bara_fiktiva=False, arende=None):
         """bara_fiktiva: pilotens abonnemangstransport (ägarens beslut 2026-10-08) tar bara ärenden märkta fiktiva; ett
-        verkligt ärendes jobb stängs av utan lease och utan förbrukad budget."""
+        verkligt ärendes jobb stängs av utan lease och utan förbrukad budget. arende: bara det ärendets jobb (portalens
+        AI-tur, dashboard/desktop.py); andra ärendens jobb rörs inte alls."""
         nyckel(arbetare)
+        if arende is not None:
+            nyckel(arende)
         if type(lease) is not int or not 1<=lease<=300: raise Vagrad('Ogiltig lease.')
         with self.trans() as c:
             import kundstart_matt as matt
             matt.avbrutna(c)
             c.execute("UPDATE jobb SET status='ko' WHERE status='pagar' AND lease_slut<?",(time.time(),))
-            rows=c.execute("SELECT * FROM jobb WHERE status='ko' ORDER BY rowid").fetchall()
+            rows=(c.execute("SELECT * FROM jobb WHERE status='ko' AND arende=? ORDER BY rowid",(arende,)) if arende is not None
+                  else c.execute("SELECT * FROM jobb WHERE status='ko' ORDER BY rowid")).fetchall()
             from kundstart_lagring import journal
             sparrade=journal(self)['arenden']
             for row in rows:
