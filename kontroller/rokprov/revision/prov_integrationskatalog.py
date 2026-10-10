@@ -47,7 +47,8 @@ class Katalog(unittest.TestCase):
         self.brist(lambda k: p(k, 'k07-matning-utreds')['kostnad'].update(belopp=0), 'kräver valuta, källa och datum')
         self.brist(lambda k: p(k, 'k03-formular-worker').update(prov=[]), 'kontraktsprovat utan prov')
         self.brist(lambda k: p(k, 'k03-formular-worker').update(prov=['kontroller/finns-inte.py']), 'finns inte')
-        self.brist(lambda k: p(k, 'k09-bokningslank')['funktioner'].update(tillampa=None) or p(k, 'k09-bokningslank').update(fardighet='implementerat'), 'utan körväg')
+        self.brist(lambda k: p(k, 'k04-befintlig-brevlada').update(fardighet='implementerat'), 'utan körväg')  # varken tillämpning, prov eller komponent
+        self.brist(lambda k: p(k, 'k09-bokningslank').pop('komponent'), 'utan körväg')
         self.brist(lambda k: p(k, 'k12-handel-utreds').update(fardighet='implementerat'), 'under utredning')
         self.brist(lambda k: p(k, 'k02-cloudflare-workers').update(fardighet='leverantorsprovat'), 'privat leverantörsbevis')
         self.brist(lambda k: k.update(paket=[x for x in k['paket'] if x['omrade'] != 'K13']), 'K13 saknar paket')

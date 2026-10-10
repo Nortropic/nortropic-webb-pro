@@ -127,7 +127,8 @@ class Funktioner(unittest.TestCase):
         self.assertEqual(v['behov'][0]['bestallning'], 'kundval'); self.assertEqual(v['behov'][0]['anslutning']['konto'], 'okant')
         self.assertEqual(v['val'][0]['paket'], 'k09-bokningslank')
         p = next(x for o in v['omraden'] for x in o['paket'] if x['id'] == 'k09-bokningslank')
-        self.assertEqual(p['fardighet'], 'dokumenterat')
+        katalog = next(x for x in ki.ik.las()['paket'] if x['id'] == 'k09-bokningslank')
+        self.assertEqual((p['fardighet'], p['version']), (katalog['fardighet'], katalog['version']), 'paketets färdighet ur katalogen, skild från kundens läge')
 
 
 class AiForslag(unittest.TestCase):
@@ -155,7 +156,8 @@ class AiForslag(unittest.TestCase):
                                                                f('oklart', 'K18', 'utreds'), f('gammal', 'K04', 'k04-resend-transaktion'))))
         d = self.db.internt(self.e)
         x = {p['id']: p for p in d['integrationsforslag']['forslag']}
-        self.assertEqual((x['bok']['paket'], x['bok']['utreds'], x['bok']['paketversion']), ('k09-bokningslank', False, '1.0.0'))
+        k09 = next(p for p in ki.ik.las()['paket'] if p['id'] == 'k09-bokningslank')
+        self.assertEqual((x['bok']['paket'], x['bok']['utreds'], x['bok']['paketversion']), ('k09-bokningslank', False, k09['version']))
         self.assertEqual((x['crm']['paket'], x['crm']['utreds'], x['crm']['avvisat_paket']), (None, True, 'k10-hubspot-api'))
         self.assertTrue(x['hosting']['utreds'] and x['fel-omrade']['utreds'] and x['oklart']['utreds'])
         self.assertIsNone(x['oklart']['avvisat_paket'])
