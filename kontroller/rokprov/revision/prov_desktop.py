@@ -571,6 +571,20 @@ def dash_lista(root):
     return kundstart_agare.lista(root)['arenden']
 
 
+# en 400 × 300 px PNG (ljusgrå yta med en mörk rubrikrad), som en bevarad ögonblicksbild att peka i
+def _provbild():
+    import struct
+    import zlib
+    b, h = 400, 300
+    rader = b''.join(b'\x00' + (b'\x2a\x2e\x48' * b if y < 40 else b'\xf0\xf1\xf5' * b) for y in range(h))
+    def bit(t, d):
+        return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+    return b'\x89PNG\r\n\x1a\n' + bit(b'IHDR', struct.pack('>IIBBBBB', b, h, 8, 2, 0, 0, 0)) + bit(b'IDAT', zlib.compress(rader)) + bit(b'IEND', b'')
+
+
+PROVBILD = _provbild()
+
+
 def provserver():
     """Motorns riktiga hanterare i en provrot för portalens webbläsarprov (prov_portal_webb.mjs): ingen nyckel krävs, ingen
     modell, aldrig repots underlag eller kunder."""
@@ -590,6 +604,22 @@ def provserver():
         exportera.ROOT, exportera.UNDERLAG, exportera.KUNDER = rot, rot / 'underlag', rot / 'kunder'
         os.environ['NWP_NYCKELINTAG'] = str(rot / 'nyckelintag')
         os.environ['NWP_CLOUDFLARE_FIL'] = str(rot / 'saknas' / 'cloudflare.env')
+        # en fiktiv kund i skapandeflödet med en bevarad ögonblicksbild, för Förfiningens kommentarer
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import arbetsyta_fixtur
+        import observation
+        import meddelanden
+        observation.ROOT, observation.UNDERLAG = rot, rot / 'underlag'
+        meddelanden.UNDERLAG = rot / 'underlag'
+        dash.ab_oavgjord = lambda slug: False
+        arbetsyta_fixtur.bygg(rot, 'testdata-kommentarer', None, med_sajt=False)
+        k01 = rot / 'underlag' / 'testdata-kommentarer' / 'atelje' / 'kandidater' / 'k01'
+        st = json.loads((k01 / 'STATUS.json').read_text(encoding='utf-8'))
+        st.update(version='ab' * 32, fotograferad='2026-10-09T05:30:00Z')
+        (k01 / 'STATUS.json').write_text(json.dumps(st), encoding='utf-8')
+        bild = k01 / 'bilder' / 'start' / 'vy-1440-forsta.png'
+        bild.parent.mkdir(parents=True, exist_ok=True)
+        bild.write_bytes(PROVBILD)
         srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
         dash.VARD['tillatna'] = {'127.0.0.1:%d' % srv.server_address[1]}
         desktop.konfigurera(rot, srv.server_address[1])

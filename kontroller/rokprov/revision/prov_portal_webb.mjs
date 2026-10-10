@@ -1,6 +1,6 @@
 // Portalens vyer (dashboard/portal.js; kunskap/desktop.md, Portalen) i Chromium mot motorns riktiga hanterare i en provrot
-// (prov_desktop.py --provserver): Hem i tomt och fyllt läge, Ny testkund med fel nära fälten och tangentbordet, kundlistan
-// med urval, intervjun med ett sparat svar, bredderna 320–1440 utan spill och axe (WCAG 2.2 AA) i varje vy. Ingen modell,
+// (prov_desktop.py --provserver): Hem utan riktiga kunder och med en ny testkund, Ny testkund med fel nära fälten och tangentbordet, kundlistan
+// med urval, intervjun med ett sparat svar, Förfiningens kommentarer samlade till ett uppdrag, bredderna 320–1440 utan spill och axe (WCAG 2.2 AA) i varje vy. Ingen modell,
 // ingen app: appens WKWebView prövas av desktop/prov/prov_app.py.
 import {spawn} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
@@ -33,9 +33,9 @@ try {
   // Hem, tomt läge
   await page.goto(origin + '/#/start');
   await page.getByRole('heading', {name: 'Välkommen', exact: true}).waitFor();
-  for (const t of ['Ny kund', 'Kunder', 'Testkunder', 'Fortsätt där du slutade', 'Behöver din uppmärksamhet', 'Inga kunder än']) assert((await page.locator('#vy').innerText()).includes(t), t);
+  for (const t of ['Ny kund', 'Kunder 0', 'Testkunder 1', 'Fortsätt där du slutade', 'Behöver din uppmärksamhet', 'Inget hos riktiga kunder väntar']) assert((await page.locator('#vy').innerText()).includes(t), t);
   assert.equal(await page.locator('#pt-nav a[aria-current="page"]').innerText(), 'Hem');
-  await granska('Hem (tomt)');
+  await granska('Hem (inga riktiga kunder)');
   // Ny testkund: felet står vid fältet och fokus flyttas dit; tangentbordet räcker
   await page.goto(origin + '/#/ny-testkund');
   await page.getByRole('heading', {name: 'Skapa testkund', exact: true}).waitFor();
@@ -70,13 +70,35 @@ try {
   await page.getByRole('button', {name: 'Påbörjade intervjuer', exact: true}).click();
   assert.equal(await page.getByRole('button', {name: 'Påbörjade intervjuer', exact: true}).getAttribute('aria-pressed'), 'true');
   await granska('Testkunder');
+  // Förfining: en kommentar på en punkt och en på hela sidan, samlade till ett uppdrag genom arbetsytans ändringsväg
+  await page.goto(origin + '/#/granska/testdata-kommentarer');
+  await page.getByRole('heading', {name: /Förfining/}).waitFor();
+  await page.getByRole('button', {name: 'Kommentera en punkt', exact: true}).click();
+  const bild = page.locator('#pk-bild'); await bild.waitFor();
+  const r = await bild.boundingBox();
+  await bild.click({position: {x: r.width * 0.25, y: r.height * 0.5}});
+  await page.getByLabel('Kommentar på punkten').fill('Rubriken behöver mer luft.');
+  await page.getByRole('button', {name: 'Spara kommentaren', exact: true}).click();
+  await page.locator('.pt-nal[data-hopp]').first().waitFor();
+  await page.getByRole('button', {name: 'Kommentera hela sidan', exact: true}).click();
+  await page.getByLabel('Kommentar på hela sidan').fill('Kontaktvägen syns för sent.');
+  await page.getByRole('button', {name: 'Spara kommentaren', exact: true}).click();
+  await page.getByText('Kontaktvägen syns för sent.').waitFor();
+  assert.equal(await page.locator('.pt-kommentar').count(), 2);
+  for (const c of await page.locator('[data-valj-k]').all()) await c.check();
+  await page.getByRole('button', {name: 'Gör ett uppdrag av de valda', exact: true}).click();
+  assert((await page.getByLabel('Omfattning (en rad per punkt)').inputValue()).includes('Rubriken behöver mer luft.'));
+  await page.getByLabel('Det som ska bevaras').fill('Allt annat i layouten och texterna.');
+  await granska('Förfining');
+  await page.getByRole('button', {name: 'Spara uppdraget', exact: true}).click();
+  await page.waitForFunction(() => document.querySelectorAll('.pt-kommentar[data-status="bestalld"]').length === 2);
   // Hem, fyllt läge
   await page.goto(origin + '/#/start');
   await page.getByRole('heading', {name: 'Välkommen', exact: true}).waitFor();
   assert((await page.locator('#vy').innerText()).includes('Provcykel Umeå (test)'));
   await granska('Hem (fyllt)');
   assert.deepEqual(fel, []);
-  console.log(JSON.stringify({api: 'motorns riktiga hanterare i provrot', vyer: ['Hem tomt', 'Ny testkund', 'Intervjun', 'Testkunder', 'Hem fyllt'], bredder: [320, 390, 768, 1440], axe_fynd: 0, tangentbord: true, ingen_ai: true}));
+  console.log(JSON.stringify({api: 'motorns riktiga hanterare i provrot', vyer: ['Hem utan riktiga kunder', 'Ny testkund', 'Intervjun', 'Testkunder', 'Förfining', 'Hem fyllt'], forfining: {kommentarer: 2, bestallda_i_ett_uppdrag: 2}, bredder: [320, 390, 768, 1440], axe_fynd: 0, tangentbord: true, ingen_ai: true}));
 } finally {
   await browser?.close();
   child.kill('SIGTERM');
