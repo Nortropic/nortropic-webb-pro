@@ -21,6 +21,11 @@ class Kirurg(unittest.TestCase):
     def setUp(self):
         self.stack=contextlib.ExitStack();self.addCleanup(self.stack.close)
         self.tmp=Path(self.stack.enter_context(korregister.egen_tmp_med('nwp-kirurg-','syntetisk förbättringskedja'))).resolve()
+        # provets eget körregister: ett riktigt kundarbete på maskinen (en annan sessions kandidat) får inte göra provet rött;
+        # fallen om upptagen kapacitet injicerar sitt eget hinder (patch av kirurg_drift.kapacitet)
+        register=self.tmp/'korregister';register.mkdir()
+        self.stack.enter_context(patch.object(korregister,'KATALOG',register))
+        self.stack.enter_context(patch.dict(os.environ,{'NWP_KORREGISTER':str(register)}))
         self.root=self.tmp/'repo';self.root.mkdir();(self.root/'kontroller/rokprov').mkdir(parents=True)
         self.loop=kl.Loop(self.tmp/'kirurgen/forbattringar')
         self.bastext="def overfor(data):\n    return {'mal': data['mal']}\n"
