@@ -110,6 +110,29 @@ class Drift(unittest.TestCase):
             import shutil
             shutil.rmtree(privat, ignore_errors=True)
 
+    def test_kundregistret_i_laget_och_gallringen_med_framande_nycklar(self):
+        self.db.execute('PRAGMA foreign_keys = ON')  # som D1
+        for fid, status, pid, lid, uppd, fel in (('00000000-0000-4000-8000-000000000001', 'klar', '11', 'a-1', tid(hours=-5), None),
+                                                ('00000000-0000-4000-8000-000000000002', 'skickar', '12', None, tid(minutes=-40), 'kundregistret bekräftade inte (HTTP 502)'),
+                                                ('00000000-0000-4000-8000-000000000003', 'fel', None, None, tid(minutes=-30), 'kundregistret nekade (HTTP 401)'),
+                                                ('00000000-0000-4000-8000-000000000005', 'klar', '15', 'a-5', tid(days=-399), None)):
+            self.db.execute('INSERT INTO kundregister (forfragan, status, person_id, lead_id, forsok, fel, uppdaterad) VALUES (?,?,?,?,1,?,?)',
+                            (fid, status, pid, lid, fel, uppd))
+        k = ff.lage(self.kor, NU)['kundregister']
+        self.assertEqual(k['status'], {'klar': 2, 'skickar': 1, 'fel': 1})
+        self.assertEqual([(x['id'][-1], x['person_id']) for x in k['oklara']], [('2', '12')], 'avstämningen ser hur långt överföringen kom')
+        self.assertEqual([x['id'][-1] for x in k['fel']], ['3'])
+        self.assertNotIn('Hemlig Persson', json.dumps(k, ensure_ascii=False))
+        plan = ff.gallra(self.kor, self.ta_bort, NU, utfor=True)
+        self.assertTrue(plan['utfort'], plan)
+        self.assertEqual(self.db.execute("SELECT count(*) FROM kundregister WHERE forfragan LIKE '%5'").fetchone()[0], 0)
+        self.assertEqual(self.db.execute('SELECT count(*) FROM kundregister').fetchone()[0], 3)
+
+    def test_laget_utan_kundregistrets_tabell(self):
+        self.db.execute('DROP TABLE kundregister')  # en äldre kunds D1 före migreringen 0002
+        self.assertIsNone(ff.lage(self.kor, NU)['kundregister'])
+        self.assertTrue(ff.gallra(self.kor, self.ta_bort, NU, utfor=True)['utfort'])
+
     def test_konverteringar_per_vecka_utan_personuppgifter(self):
         # NU är lördag 2026-10-10 (vecka 41); ärendena ovan är mottagna i veckorna 41 (fyra) och, 400 dagar tidigare, utanför
         k = ff.konverteringar(self.kor, NU, veckor=3)

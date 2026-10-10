@@ -35,7 +35,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import korregister  # noqa: E402
 
-FORBJUDNA = ('/worker/index.js', '/wrangler.jsonc', '/migrations/0001_forfragningar.sql', '/.dev.vars', '/package.json', '/package-lock.json',
+FORBJUDNA = ('/worker/index.js', '/wrangler.jsonc', '/migrations/0001_forfragningar.sql', '/migrations/0002_kundregister.sql', '/.dev.vars', '/package.json', '/package-lock.json',
              '/_headers', '/README.md', '/CLAUDE.md')
 
 

@@ -109,6 +109,14 @@ Har kunden valt nyhetsbrevet (K14, `kunskap/integrationer.md`), gör så här:
 
 Pröva en anmälan till en egen adress efter releasen. Det första riktiga anropet till Brevo görs där.
 
+Har kunden valt kundregistret (K10, Pipedrive), gör så här:
+- Lägg migreringen `0002_kundregister.sql` med `wrangler d1 migrations apply DB --remote` (den följer med varje export).
+- Skriv kontots underdomän i `CLOUDFLARE.json` (`pipedrive_doman`).
+- Lägg nyckeln med `wrangler secret put PIPEDRIVE_TOKEN`.
+- Låt integritetstexten nämna Pipedrive.
+
+Det första riktiga ärendet visar överföringen: se `forfragningar.py <kundrepo> --remote`, under kundregister.
+
 **Gränser på gratisnivån** (Workers Free; läst 2026-10-10, prövas mot kontots faktiska plan): statiska filer är
 gratis och obegränsade; Workern 100 000 anrop per dygn för hela kontot (därefter svarar `/api/*` 429 i stället för
 att falla tillbaka), 10 ms CPU per anrop (väntan på D1, R2 och fetch räknas inte); D1 500 MB per databas, 5 GB per

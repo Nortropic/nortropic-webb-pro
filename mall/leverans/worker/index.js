@@ -15,7 +15,8 @@
 // - utanför produktionen (MILJO annat än produktion) sparas och skickas ingenting.
 //
 // Nyhetsbrevet (POST /api/nyhetsbrev/, katalogens k14-brevo-dubbel) när kunden har valt det: anmälan med dubbel
-// bekräftelse hos Brevo; se nyhetsbrev() nedan.
+// bekräftelse hos Brevo; se nyhetsbrev() nedan. Kundregistret (katalogens k10-pipedrive-lead) när kunden har valt det:
+// ett sparat ärende förs över som person, lead och anteckning i verksamhetens Pipedrive efter svaret; se tillKundregister().
 // Svar som Workern skapar får sina säkerhetshuvuden här; _headers gäller bara de statiska filerna.
 
 const MAX_BYTE = 4_400_000;
@@ -223,7 +224,7 @@ function frammande(request) {
   return site ? !['same-origin', 'none'].includes(site) : Boolean(origin && origin !== new URL(request.url).origin);
 }
 
-async function forfragan(request, env) {
+async function forfragan(request, env, ctx) {
   if (frammande(request)) return enkel(403, 'Förfrågan kom från en annan webbplats och togs inte emot.');
   let result;
   try { result = await lasForm(request); }
@@ -265,6 +266,9 @@ async function forfragan(request, env) {
   catch (e) { console.error('forfragan: lagringen kunde inte bekräftas: ' + orsak(e)); }
   if (!sparad) return felvy(raw, {}, 503, 'fel', OBEKRAFTAD, !!bild, t('inskick'));
   if (sparad.dubblett) return svar(sparad.dubblett.status === 'accepterad' ? '/tack/' : '/mottagen/', 'dubblett');
+  // Kundregistret efter svaret (ctx.waitUntil): besökaren väntar aldrig på det, och ett fel där påverkar inte svaret.
+  if (kundregisterAktivt(env) && ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(tillKundregister(env, id, falt, !!bild));
+  else if (kundregisterValt(env)) console.error('kundregister: valt men inte konfigurerat (PIPEDRIVE_TOKEN eller PIPEDRIVE_DOMAN saknas eller är ogiltigt)');
   if (!konfigurerad(env)) { console.error('forfragan: mejlmottagaren är inte konfigurerad'); return mottagen(); }
   // Avsikten före nätanropet: "skickar" utan slutläge efter ett avbrott är ett osäkert utfall, inte ett skäl att skicka igen.
   try { await utkorg(env, id, 'skickar'); } catch { return mottagen(); }
@@ -279,6 +283,58 @@ async function forfragan(request, env) {
     try { await utkorg(env, id, e && e.nekad ? 'fel' : 'skickar', { forsok: 1, fel: orsak(e) }); }
     catch { console.error('forfragan: aviseringen föll och utkorgen kunde inte uppdateras'); }
     return mottagen();
+  }
+}
+
+// Kundregistret (katalogens k10-pipedrive-lead; kunskap/integrationer.md, Kundregister): ett sparat ärende blir en person
+// (namn och telefon), ett lead och en anteckning med meddelandet i verksamhetens Pipedrive. Pipedrive har ingen
+// idempotensnyckel: raden i D1-tabellen kundregister skrivs före första anropet och efter varje steg, ett andra inskick av
+// samma ärende stoppas redan som dubblett, och "skickar" utan slutläge stäms av i Pipedrive i stället för att skickas
+// igen. Bara de tre skrivningarna görs, fast nyckeln (hemligheten PIPEDRIVE_TOKEN) ger åtkomst till mer. Bilden förs inte
+// över. Aktivt bara i produktionen när kunden valt kundregistret (PIPEDRIVE_DOMAN och nyckeln).
+const FRIST_KUNDREGISTER = 8000;
+const kundregisterValt = (env) => env.MILJO === 'produktion' && Boolean(env.PIPEDRIVE_TOKEN || env.PIPEDRIVE_DOMAN);
+const kundregisterAktivt = (env) => kundregisterValt(env) && Boolean(env.DB && env.PIPEDRIVE_TOKEN
+  && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(String(env.PIPEDRIVE_DOMAN || '')));
+
+async function pipedrive(env, vag, kropp) {
+  const r = await frist(fetch(`https://${env.PIPEDRIVE_DOMAN}.pipedrive.com${vag}`, { method: 'POST', body: JSON.stringify(kropp),
+    headers: { 'x-api-token': env.PIPEDRIVE_TOKEN, 'content-type': 'application/json', accept: 'application/json' } }), FRIST_KUNDREGISTER, 'kundregistret');
+  let d = null;
+  try { d = await r.json(); } catch { /* oläsbart kvitto: obekräftat nedan */ }
+  // Ett klientfel (utom 429) är ett slutligt nej: inget skapades. Allt annat utan kvitto är ett okänt utfall.
+  if (r.status >= 400 && r.status < 500 && r.status !== 429) throw egen('kundregistret nekade (HTTP ' + r.status + ')', { nekad: true });
+  const id = d && d.success === true && d.data ? d.data.id : null;
+  if (!r.ok || (typeof id !== 'number' && typeof id !== 'string') || !/^[A-Za-z0-9-]{1,64}$/.test(String(id))) {
+    throw egen('kundregistret bekräftade inte (HTTP ' + r.status + ')');
+  }
+  return String(id);
+}
+
+function kundregisterRad(env, id, status, falt = {}) {
+  return frist(env.DB.prepare(`INSERT INTO kundregister (forfragan, status, person_id, lead_id, forsok, fel, uppdaterad) VALUES (?, ?, ?, ?, 1, ?, ?)
+    ON CONFLICT(forfragan) DO UPDATE SET status = excluded.status, person_id = COALESCE(excluded.person_id, kundregister.person_id),
+    lead_id = COALESCE(excluded.lead_id, kundregister.lead_id), fel = excluded.fel, uppdaterad = excluded.uppdaterad`)
+    .bind(id, status, falt.person_id ?? null, falt.lead_id ?? null, falt.fel ?? null, new Date().toISOString()).run(), FRIST_LAGRING, 'kundregistrets rad');
+}
+
+async function tillKundregister(env, id, falt, medBild) {
+  try { await kundregisterRad(env, id, 'skickar'); }
+  catch { console.error('kundregister: raden kunde inte skrivas; inget skickas'); return; }
+  const steg = {};
+  try {
+    steg.person_id = await pipedrive(env, '/api/v2/persons', { name: falt.namn, phones: [{ value: falt.telefon, primary: true, label: 'work' }] });
+    await kundregisterRad(env, id, 'skickar', steg);
+    steg.lead_id = await pipedrive(env, '/api/v1/leads', { title: `Förfrågan från webbplatsen: ${falt.namn.slice(0, 60)}`, person_id: Number(steg.person_id) });
+    await kundregisterRad(env, id, 'skickar', steg);
+    const text = esc(falt.meddelande).replace(/\n/g, '<br>');
+    await pipedrive(env, '/api/v1/notes', { lead_id: steg.lead_id, content: `<p>${text}</p>${medBild ? '<p>En bild finns i ärendet på webbplatsen.</p>' : ''}<p>Ärende ${id}</p>` });
+    await kundregisterRad(env, id, 'klar', steg);
+  } catch (e) {
+    // Bara ett nej innan något skapats är fel; annars står raden kvar som skickar med de id som hann sparas.
+    const slut = e && e.nekad && !steg.person_id ? 'fel' : 'skickar';
+    try { await kundregisterRad(env, id, slut, { ...steg, fel: orsak(e) }); }
+    catch { console.error('kundregister: överföringen föll och raden kunde inte uppdateras'); }
   }
 }
 
@@ -348,7 +404,7 @@ async function nyhetsbrev(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === '/api/nyhetsbrev/' && (env.MILJO !== 'produktion' || nyhetsbrevValt(env))) {
       if (request.method !== 'POST') return enkel(405, 'Endast POST.', { Allow: 'POST' });
@@ -356,7 +412,7 @@ export default {
     }
     if (url.pathname === '/api/forfragan/') {
       if (request.method !== 'POST') return enkel(405, 'Endast POST.', { Allow: 'POST' });
-      return forfragan(request, env);
+      return forfragan(request, env, ctx);
     }
     if (url.pathname === '/api/forfragan') return new Response(null, { status: 308, headers: { ...SAKERHET, Location: '/api/forfragan/' } });
     if (url.pathname.startsWith('/api/')) return enkel(404, 'Finns inte.');

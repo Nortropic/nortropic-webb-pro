@@ -52,11 +52,22 @@ def lage(kor, nu=None):
     fel = kor("SELECT f.id AS id, f.mottagen AS mottagen, u.forsok AS forsok, u.fel AS fel FROM forfragningar f "
               "JOIN utkorg u ON u.forfragan = f.id WHERE u.status = 'fel' ORDER BY f.mottagen")
     utgangna = kor("SELECT id, gallras, bilaga FROM forfragningar WHERE gallras < '%s' ORDER BY gallras" % nu_s)
-    return {'tid': nu_s, 'status': status, 'totalt': sum(status.values()),
+    kundreg = None
+    if har_kundregister(kor):  # K10 när kunden valt det (migreringen 0002); "skickar" efter gränsen stäms av i Pipedrive
+        kundreg = {'status': {r['status']: r['n'] for r in kor('SELECT status, count(*) AS n FROM kundregister GROUP BY status')},
+                   'oklara': [{k: r[k] for k in ('id', 'person_id', 'lead_id', 'uppdaterad')} for r in kor(
+                       "SELECT forfragan AS id, person_id, lead_id, uppdaterad FROM kundregister WHERE status = 'skickar' "
+                       "AND uppdaterad < '%s' ORDER BY uppdaterad" % grans)],
+                   'fel': [{'id': r['id'], 'fel': r['fel']} for r in kor("SELECT forfragan AS id, fel FROM kundregister WHERE status = 'fel' ORDER BY uppdaterad")]}
+    return {'tid': nu_s, 'status': status, 'totalt': sum(status.values()), 'kundregister': kundreg,
             'oklara': [{k: r[k] for k in ('id', 'mottagen', 'status', 'uppdaterad', 'forsok')} for r in oklara],
             'fel': [{k: r[k] for k in ('id', 'mottagen', 'forsok', 'fel')} for r in fel],
             'utgangna': [{'id': r['id'], 'gallras': r['gallras'], 'bilaga': bool(r['bilaga'])} for r in utgangna],
             '_bilagor': [r['bilaga'] for r in utgangna if r['bilaga']]}
+
+
+def har_kundregister(kor):
+    return bool(kor("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'kundregister'"))
 
 
 def konverteringar(kor, nu=None, veckor=8):
@@ -101,7 +112,9 @@ def gallra(kor, ta_bort_bilaga, nu=None, utfor=False):
     ids = [r['id'] for r in l['utgangna']]
     assert all(re.fullmatch(r'[0-9a-f-]{36}', i) for i in ids)
     lista = ', '.join("'%s'" % i for i in ids)
-    kor('DELETE FROM utkorg WHERE forfragan IN (%s); DELETE FROM forfragningar WHERE id IN (%s)' % (lista, lista))
+    # kundregistrets rad först (D1 håller främmande nycklar); det som förts över till Pipedrive gallras där, av verksamheten
+    kr = 'DELETE FROM kundregister WHERE forfragan IN (%s); ' % lista if har_kundregister(kor) else ''
+    kor('%sDELETE FROM utkorg WHERE forfragan IN (%s); DELETE FROM forfragningar WHERE id IN (%s)' % (kr, lista, lista))
     plan['utfort'] = True
     return plan
 

@@ -141,7 +141,8 @@ def wrangler_namn(text, slug, drift=None):
     text = text.replace('kund-SLUG', 'kund-%s' % slug)
     for nyckel, monster in (('database_id', r'("database_id":\s*")AKTIVERAS-VID-LANSERING(")'),
                             ('forfragan_till', r'("FORFRAGAN_TILL":\s*")(")'), ('forfragan_fran', r'("FORFRAGAN_FRAN":\s*")(")'),
-                            ('nyhetsbrev_lista', r'("NYHETSBREV_LISTA":\s*")(")'), ('nyhetsbrev_mall', r'("NYHETSBREV_MALL":\s*")(")')):
+                            ('nyhetsbrev_lista', r'("NYHETSBREV_LISTA":\s*")(")'), ('nyhetsbrev_mall', r'("NYHETSBREV_MALL":\s*")(")'),
+                            ('pipedrive_doman', r'("PIPEDRIVE_DOMAN":\s*")(")')):
         if drift and drift.get(nyckel):
             text, n = re.subn(monster, lambda m, v=drift[nyckel]: m.group(1) + v + m.group(2), text, count=1)
             if n != 1:
@@ -169,7 +170,7 @@ def driftvarden(slug):
     if not f.is_file() or f.is_symlink():
         return None
     d = json.loads(f.read_text(encoding='utf-8'))
-    if not isinstance(d, dict) or set(d) - {'database_id', 'forfragan_till', 'forfragan_fran', 'nyhetsbrev_lista', 'nyhetsbrev_mall'}:
+    if not isinstance(d, dict) or set(d) - {'database_id', 'forfragan_till', 'forfragan_fran', 'nyhetsbrev_lista', 'nyhetsbrev_mall', 'pipedrive_doman'}:
         raise ValueError('CLOUDFLARE.json har okända fält')
     if d.get('database_id') and not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', d['database_id']):
         raise ValueError('database_id ska vara D1-databasens id')
@@ -182,6 +183,8 @@ def driftvarden(slug):
             raise ValueError('%s ska vara Brevos numeriska id' % n)
         if d.get(n) is not None:
             d[n] = str(d[n])
+    if d.get('pipedrive_doman') is not None and not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', str(d['pipedrive_doman'])):
+        raise ValueError('pipedrive_doman ska vara Pipedrive-kontots underdomän (<doman>.pipedrive.com)')
     return d
 
 

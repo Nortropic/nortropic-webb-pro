@@ -42,6 +42,34 @@ Payment Link i verksamhetens konto. Priset ligger hos Stripe, och sidan sätter 
 bara med `testlage`, och då visar sidan att ingen verklig betalning görs (samma prov som bokningen).
 Åtkomst begärs på säker väg (åtkomstfil 0600 utanför repot), aldrig i intervjusvar.
 
+## Kundregister (K10, 2026-10-10)
+
+Katalogen har två nivåer:
+- `forfragningar.py --csv` (k10-csv-export) ger en fil som verksamheten importerar själv.
+- Pipedrive (k10-pipedrive-lead) är API-vägen. När kunden valt den förs varje sparat ärende över efter besökarens svar,
+  som en person (namn och telefon), ett lead och en anteckning med meddelandet. Bilden förs inte över.
+
+API:t: [leads](https://developers.pipedrive.com/docs/api/v1/Leads#addLead),
+[personer](https://developers.pipedrive.com/docs/api/v1/Persons#addPerson) och
+[anteckningar](https://developers.pipedrive.com/docs/api/v1/Notes#addNote), lästa 2026-10-10.
+
+Pipedrive har ingen idempotensnyckel. Därför gäller följande:
+- Workern skriver raden i D1-tabellen `kundregister` före första anropet och efter varje steg (`skickar` → `klar` |
+  `fel`, med `person_id` och `lead_id`).
+- Ett andra inskick av samma ärende stoppas redan som dubblett.
+- `skickar` utan slutläge stäms av i Pipedrive. Det skickas aldrig igen i blindo.
+- `forfragningar.py <kundrepo> --remote` visar kundregistrets status utan personuppgifter.
+- Gallringen tar bort raden med ärendet. Det som finns i Pipedrive gallras där, av verksamheten.
+
+Nyckeln (hemligheten `PIPEDRIVE_TOKEN`) ger åtkomst till allt användaren ser. Workern gör bara de tre skrivningarna. En
+avgränsad OAuth-app kräver en publik app och ett eget mandat. Vägen är aktiv bara i produktionen, med kontots
+underdomän i `PIPEDRIVE_DOMAN` (ur `CLOUDFLARE.json`, `pipedrive_doman`).
+
+Prövat i `kontroller/rokprov/revision/prov_kundregister.py` mot en märkt attrapp, inte mot Pipedrive.
+
+Avveckling: töm `PIPEDRIVE_DOMAN` och ta bort hemligheten (`wrangler secret delete PIPEDRIVE_TOKEN`). Tabellen
+`kundregister` står kvar tom eller gallras med ärendena.
+
 ## Nyhetsbrev
 
 Nyhetsbrevet är ett eget ändamål, skilt från förfrågan och från sajtens transaktionsmejl (K04). Standardvägen är

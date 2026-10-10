@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.8",
+  "version": "2026-10-10.9",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -320,9 +320,28 @@
       "paverkar": {"brief": "uppföljningen", "design": null, "kod": null, "externt": null}, "manniska": ["lämna filen till verksamheten på ett säkert sätt"]
     },
     {
-      "id": "k10-crm-utreds", "version": "1.0.0", "omrade": "K10", "niva": "utreds", "grund": false,
-      "funktion": "Förfrågningar till verksamhetens kundregister med fältmappning, dubblettskydd och ansvarig.",
-      "passar": "Verksamheter som redan arbetar i ett kundregister.", "passar_inte": "Få förfrågningar som hanteras i mejlen.",
+      "id": "k10-pipedrive-lead", "version": "1.0.0", "omrade": "K10", "niva": "api", "grund": false,
+      "funktion": "Ett sparat ärende förs över till verksamhetens Pipedrive som person (namn och telefon), lead och anteckning med meddelandet, efter besökarens svar.",
+      "passar": "Verksamheter som följer upp förfrågningar i Pipedrive eller vill börja med ett kundregister.", "passar_inte": "Ett annat befintligt kundregister (utreds); bara enstaka förfrågningar (mejlet räcker).",
+      "kunduppgifter": ["Pipedrive-konto och dess underdomän", "vem som äger leads"], "bevara": ["befintliga personer och leads"],
+      "kallor": [{"url": "https://developers.pipedrive.com/docs/api/v1/Leads#addLead", "last": "2026-10-10"}, {"url": "https://developers.pipedrive.com/docs/api/v1/Persons#addPerson", "last": "2026-10-10"}, {"url": "https://developers.pipedrive.com/docs/api/v1/Notes#addNote", "last": "2026-10-10"}, {"url": "https://pipedrive.readme.io/docs/core-api-concepts-authentication", "last": "2026-10-10"}],
+      "formagor": ["kundregister"], "kraver": ["k03-formular-worker"], "utesluter": [],
+      "konto": {"agare": "kund", "typ": "kundens Pipedrive-konto; API-nyckeln som hemligheten PIPEDRIVE_TOKEN i produktionens Worker", "plan": null, "region": "nya konton från EU i Pipedrives EU-datacenter enligt sökresultatet om dess hjälpsida (2026-10-10); kontots plats bekräftas hos Pipedrive"},
+      "rattigheter": {"tillampa": "Pipedrives API-nyckel ger åtkomst till allt användaren ser; Workern gör bara de tre skrivningarna"},
+      "dataflode": "Namn, telefon och meddelande till Pipedrive efter att ärendet sparats; bilden förs inte över.", "lagring": "Pipedrive (verksamhetens); D1 sparar bara status och id.",
+      "kostnad": {"modell": "Pipedrives plan (inte läst i katalogen)", "belopp": null, "valuta": null, "kalla": null, "datum": null},
+      "funktioner": {"inspektera": "forfragningar.lage", "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
+      "komponent": "mall/leverans/worker/index.js",
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Workerns överföring mot en märkt attrapp av Pipedrives API med D1 som riktig SQLite: tre steg med raden efter varje, nej, okänt utfall, frist, dubblett och konfigurationsfel; läget och gallringen i forfragningar.py. Inget anrop mot Pipedrive är gjort.",
+      "prov": ["kontroller/rokprov/revision/prov_kundregister.py", "kontroller/rokprov/revision/prov_forfragningar.py"], "driftkontroll": "kontroller/forfragningar.py <kundrepo> --remote (kundregistrets status)",
+      "begransningar": ["Pipedrive har ingen idempotensnyckel: ett okänt utfall stäms av i Pipedrive, aldrig ett nytt försök i blindo.", "Ingen dubblettkontroll mot befintliga personer i Pipedrive: samma telefonnummer kan ge en ny person.", "API-nyckeln är bred; en avgränsad OAuth-app kräver en publik app och eget mandat."],
+      "paverkar": {"brief": "uppföljningen och vem som äger leads", "design": null, "kod": "worker/index.js, migrations/0002_kundregister.sql, wrangler.jsonc", "externt": "Pipedrive"},
+      "manniska": ["API-nyckeln läggs med wrangler secret put PIPEDRIVE_TOKEN", "underdomänen skrivs i underlag/<slug>/CLOUDFLARE.json (pipedrive_doman)", "migreringen 0002 läggs med wrangler d1 migrations apply DB --remote", "integritetstexten nämner Pipedrive"]
+    },
+    {
+      "id": "k10-crm-utreds", "version": "1.1.0", "omrade": "K10", "niva": "utreds", "grund": false,
+      "funktion": "Förfrågningar till verksamhetens befintliga kundregister (till exempel HubSpot) med fältmappning, dubblettskydd och ansvarig.",
+      "passar": "Verksamheter som redan arbetar i ett annat kundregister än Pipedrive.", "passar_inte": "Få förfrågningar som hanteras i mejlen.",
       "kunduppgifter": ["befintligt kundregister", "fält", "ansvarig"], "bevara": ["kundregistret"],
       "kallor": [], "formagor": ["kundregister"], "kraver": ["k03-formular-worker"], "utesluter": [],
       "konto": {"agare": "kund", "typ": "kundregistrets API-nyckel med minsta behörighet", "plan": null, "region": null}, "rattigheter": {}, "dataflode": "Förfrågans fält till kundregistret.", "lagring": "Kundregistret.",
