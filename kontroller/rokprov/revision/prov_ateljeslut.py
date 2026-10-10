@@ -68,6 +68,11 @@ import korslut  # noqa: E402
 import observation  # noqa: E402
 import prototyp  # noqa: E402
 import skapande  # noqa: E402
+from prov_kompetensflode import giltigt_kvitto  # noqa: E402
+
+# Modellstegen är attrapper, men de lämnar samma kompetensbevis som grindarna kräver.
+# Barnprocesserna får en serialiserad kopia; själva kravtolkaren ersätts aldrig.
+KOMPETENS_FIXTUR = {p: giltigt_kvitto(p) for p in ('forska', 'planera', 'planprovning', 'skapa')}
 
 RT = TMP / 'rot'  # som repots rot: underlag/ och kunder/ bredvid varandra (korslut.startsidan läser dem så)
 U, K = RT / 'underlag', RT / 'kunder'
@@ -182,7 +187,8 @@ def ersatt_stegen(slug, ids, fel_i=None):
     def forska(s, n, skiss=False):
         if fel_i == 'forska':
             raise RuntimeError('provets research föll')
-        post = {'tid': kandidater.nu(), 'fel': None, 'nytt': {'paket': None, 'sajter': [], 'tjanster': None}, 'antaganden': [], 'fragor': [], 'sajter': []}
+        post = {'tid': kandidater.nu(), 'fel': None, 'nytt': {'paket': None, 'sajter': [], 'tjanster': None}, 'antaganden': [], 'fragor': [], 'sajter': [],
+                'kompetens': KOMPETENS_FIXTUR['forska']}
         skriv(kandidater.rot(s) / 'FORSKNING.json', post)
         skriv(kandidater.rot(s) / 'FORSKNING.md', '# Research före kandidatplanen\n')
         return post
@@ -190,7 +196,8 @@ def ersatt_stegen(slug, ids, fel_i=None):
     def planera(s, n, lage=None):
         if fel_i == 'planera':
             raise RuntimeError('provets plan föll')
-        plan = {'tid': kandidater.nu(), 'lage': 'skiss', 'kandidater': {k: {'titel': 'Förslag %s' % k, 'hypotes': 'h', 'huvudreferens': 'egen'} for k in ids}}
+        plan = {'tid': kandidater.nu(), 'lage': 'skiss', 'kandidater': {k: {'titel': 'Förslag %s' % k, 'hypotes': 'h', 'huvudreferens': 'egen'} for k in ids},
+                'kompetens': KOMPETENS_FIXTUR['planera']}
         skriv(kandidater.rot(s) / 'KANDIDATPLAN.json', plan)
         for k in ids:
             kandidater.satt_status(s, k, 'planerad', 'uppdraget skrivet', titel='Förslag %s' % k, hypotes='h', huvudreferens='egen')
@@ -200,7 +207,7 @@ def ersatt_stegen(slug, ids, fel_i=None):
     kandidater.uppdragsmaterial = lambda s, klient=None: skriv(kandidater.rot(s) / kandidater.UPPDRAGSMATERIAL, {'tid': kandidater.nu()}) and {}
     # samma form som den riktiga prövningen, med bindningen till planversionen (N01: provade)
     kandidater.planprovning = lambda s, bara=None: skriv(kandidater.rot(s) / 'PLANPROVNING.json', {'tid': kandidater.nu(), 'andrade': 0, 'sekunder': 1,
-                                                                                                    'kvitto': {}, 'provade': kandidater.provade_uppdrag(s)}) and {'andrade': 0, 'sekunder': 1}
+                                                                                                    'kvitto': KOMPETENS_FIXTUR['planprovning'], 'provade': kandidater.provade_uppdrag(s)}) and {'andrade': 0, 'sekunder': 1}
     kandidater.PARALLELLT = 2
     return spara
 
@@ -228,7 +235,8 @@ def klar_kandidat(s, kid, text='<h1>Skiss</h1>'):
     skriv(d / 'kod' / 'index.astro', text)
     skriv(d / 'DESIGN.md', '# Design\n')
     skriv(d / 'RIKTNING.md', '# Riktning\n')
-    return kandidater.satt_status(s, kid, 'klar', 'fotograferad', version=kandidater.version(s, kid), varv=1)
+    return kandidater.satt_status(s, kid, 'klar', 'fotograferad', version=kandidater.version(s, kid), varv=1,
+                                 kompetens={'skiss:skapa': {'kvitto': KOMPETENS_FIXTUR['skapa']}})
 
 
 # ===== fallen =====
@@ -348,18 +356,23 @@ def skriv(f, d):
     f.write_text(json.dumps(d, ensure_ascii=False), encoding='utf-8')
     return d
 # stegen före skisserna i provets form och utan sessioner, som ersatt_stegen i provet
-kandidater.leverera_metod = lambda slug: {}
+KOMPETENS = json.loads(__KOMPETENS_FIXTUR__)
+METOD = json.loads(__METOD_FIXTUR__)
+def leverera_metod(slug):
+    skriv(kandidater.metodkatalog(slug) / 'METOD.json', {'tid': kandidater.nu(), 'steg': METOD})
+    return dict(METOD)
+kandidater.leverera_metod = leverera_metod
 def forska(slug, n, skiss=False):
-    return skriv(kandidater.rot(slug) / 'FORSKNING.json', {'tid': atelje.nu(), 'fel': None, 'nytt': {'paket': None, 'sajter': [], 'tjanster': None}})
+    return skriv(kandidater.rot(slug) / 'FORSKNING.json', {'tid': atelje.nu(), 'fel': None, 'nytt': {'paket': None, 'sajter': [], 'tjanster': None}, 'kompetens': KOMPETENS['forska']})
 IDS = ['k01', 'k02']
 def planera(slug, n, lage=None):
-    plan = skriv(kandidater.rot(slug) / 'KANDIDATPLAN.json', {'tid': atelje.nu(), 'lage': 'skiss', 'kandidater': {k: {'titel': 'Förslag %s' % k} for k in IDS}})
+    plan = skriv(kandidater.rot(slug) / 'KANDIDATPLAN.json', {'tid': atelje.nu(), 'lage': 'skiss', 'kandidater': {k: {'titel': 'Förslag %s' % k, 'hypotes': 'h', 'huvudreferens': 'egen'} for k in IDS}, 'kompetens': KOMPETENS['planera']})
     for k in IDS:
-        kandidater.satt_status(slug, k, 'planerad', 'uppdraget skrivet', titel='Förslag %s' % k)
+        kandidater.satt_status(slug, k, 'planerad', 'uppdraget skrivet', titel='Förslag %s' % k, hypotes='h', huvudreferens='egen')
     return plan
 kandidater.forska, kandidater.planera = forska, planera
 kandidater.uppdragsmaterial = lambda slug, klient=None: skriv(kandidater.rot(slug) / kandidater.UPPDRAGSMATERIAL, {'tid': atelje.nu()}) and {}
-kandidater.planprovning = lambda slug, bara=None: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1, 'provade': kandidater.provade_uppdrag(slug)}) and {'andrade': 0, 'sekunder': 1}
+kandidater.planprovning = lambda slug, bara=None: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1, 'provade': kandidater.provade_uppdrag(slug), 'kvitto': KOMPETENS['planprovning']}) and {'andrade': 0, 'sekunder': 1}
 kandidater.PARALLELLT = 2
 def behandla_skiss(slug, kid):
     kandidater.satt_status(slug, kid, 'under_arbete', 'skiss, försök 1', forsok=1, startad=atelje.nu(), frist=2700)
@@ -380,7 +393,7 @@ if sys.argv[5:6] == ['SystemExit']:  # ett annat avbrott i huvudtråden: planen 
 atelje.skriv_status(rot, {'slug': s, 'startad': atelje.nu(), 'steg': 'startar', 'pid': None, 'lage': 'ny', 'kandidatflode': True})
 atelje.arbeta(s, 'ny')
 print('ARBETAREN SLUTADE', flush=True)
-"""
+""".replace('__KOMPETENS_FIXTUR__', repr(json.dumps(KOMPETENS_FIXTUR))).replace('__METOD_FIXTUR__', repr(json.dumps(METOD_STEG)))
 VAKT_CLAUDE = r'''#!/bin/sh
 echo "$*" | cut -c1-200 >> "$(dirname "$0")/anrop.log"
 exit 1
@@ -541,7 +554,8 @@ def _stopp_i_laget_full():
         st = kandidater.las_status(s, 'k01')
         assert st['status'] == 'under_arbete' and (st.get('forbattras') or {}).get('fore') == 'a' * 64, ('märkningen forbattras står kvar för återupptagningen', st)
         atelje.STOPP.clear()
-        kandidater.satt_status(s, 'k01', 'klar', 'fotograferad', version='a' * 64, ta_bort=('forbattras',), forbattrad={'tid': atelje.nu(), 'behovdes_inte': True})
+        kandidater.satt_status(s, 'k01', 'klar', 'fotograferad', version='a' * 64, ta_bort=('forbattras',), forbattrad={'tid': atelje.nu(), 'behovdes_inte': True},
+                               kompetens={'full:skapa': {'kvitto': KOMPETENS_FIXTUR['skapa']}})
 
         def kritik(slug, kid, namn='KRITIK.json'):
             atelje.STOPP.set()
@@ -801,6 +815,7 @@ if os.environ.get('NWP_PROV_ATELJE_STEG'):
     import kandidater, atelje
 
     IDS = ['k01', 'k02']
+    KOMPETENS = json.loads(__KOMPETENS_FIXTUR__)
 
     def skriv(f, d):
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -808,9 +823,9 @@ if os.environ.get('NWP_PROV_ATELJE_STEG'):
         return d
 
     def planera(slug, n, lage=None):
-        plan = skriv(kandidater.rot(slug) / 'KANDIDATPLAN.json', {'tid': atelje.nu(), 'lage': 'skiss', 'kandidater': {k: {'titel': 'Förslag %s' % k} for k in IDS}})
+        plan = skriv(kandidater.rot(slug) / 'KANDIDATPLAN.json', {'tid': atelje.nu(), 'lage': 'skiss', 'kandidater': {k: {'titel': 'Förslag %s' % k, 'hypotes': 'h', 'huvudreferens': 'egen'} for k in IDS}, 'kompetens': KOMPETENS['planera']})
         for k in IDS:
-            kandidater.satt_status(slug, k, 'planerad', 'uppdraget skrivet', titel='Förslag %s' % k)
+            kandidater.satt_status(slug, k, 'planerad', 'uppdraget skrivet', titel='Förslag %s' % k, hypotes='h', huvudreferens='egen')
         return plan
 
     def behandla_skiss(slug, kid):
@@ -831,14 +846,18 @@ if os.environ.get('NWP_PROV_ATELJE_STEG'):
             raise atelje.Stoppad('försöket avbröts av stoppet')
         return kandidater.satt_status(slug, kid, 'klar', 'efter sessionen')
 
-    kandidater.leverera_metod = lambda slug: {}
-    kandidater.forska = lambda slug, n, skiss=False: skriv(kandidater.rot(slug) / 'FORSKNING.json', {'tid': atelje.nu(), 'fel': None, 'nytt': {'paket': None, 'sajter': [], 'tjanster': None}})
+    METOD = json.loads(__METOD_FIXTUR__)
+    def leverera_metod(slug):
+        skriv(kandidater.metodkatalog(slug) / 'METOD.json', {'tid': kandidater.nu(), 'steg': METOD})
+        return dict(METOD)
+    kandidater.leverera_metod = leverera_metod
+    kandidater.forska = lambda slug, n, skiss=False: skriv(kandidater.rot(slug) / 'FORSKNING.json', {'tid': atelje.nu(), 'fel': None, 'nytt': {'paket': None, 'sajter': [], 'tjanster': None}, 'kompetens': KOMPETENS['forska']})
     kandidater.planera = planera
     kandidater.uppdragsmaterial = lambda slug, klient=None: skriv(kandidater.rot(slug) / kandidater.UPPDRAGSMATERIAL, {'tid': atelje.nu()}) and {}
-    kandidater.planprovning = lambda slug, bara=None: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1, 'provade': kandidater.provade_uppdrag(slug)}) and {'andrade': 0, 'sekunder': 1}
+    kandidater.planprovning = lambda slug, bara=None: skriv(kandidater.rot(slug) / 'PLANPROVNING.json', {'tid': atelje.nu(), 'andrade': 0, 'sekunder': 1, 'provade': kandidater.provade_uppdrag(slug), 'kvitto': KOMPETENS['planprovning']}) and {'andrade': 0, 'sekunder': 1}
     kandidater.PARALLELLT = 2
     kandidater.behandla_skiss = behandla_skiss
-'''
+'''.replace('__KOMPETENS_FIXTUR__', repr(json.dumps(KOMPETENS_FIXTUR))).replace('__METOD_FIXTUR__', repr(json.dumps(METOD_STEG)))
 
 
 def stopp_verklig(sig=None):

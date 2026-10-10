@@ -79,7 +79,10 @@ for k_ in ('NWP_SLUG', 'NWP_SKISSKRITIK', 'NWP_KANDIDAT_FRIST_SKISSKRITIK', 'NWP
 os.environ['NWP_STADNING'] = 'av'
 os.environ['NWP_OBSERVATION'] = 'av'  # sessionerna här är falska: observatören ska inte fråga claude --help
 
-sys.path.insert(0, str(KOPIA / 'kontroller'))
+# Även delprovens hjälpare måste importeras ur kopian: de använder sin egen
+# __file__ för att lägga kontroller/ först och kan ladda fler produktionsmoduler.
+# En återställning av sys.path efter en import räcker inte för sys.modules.
+sys.path[:0] = [str(KOPIA / 'kontroller'), str(KOPIA / 'kontroller' / 'rokprov' / 'revision')]
 import atelje  # noqa: E402
 import bildkedja  # noqa: E402
 import forhandsvisa  # noqa: E402
@@ -88,8 +91,12 @@ import kompetens  # noqa: E402
 import metod  # noqa: E402
 import prova  # noqa: E402
 import korregister  # noqa: E402
+from prov_kompetensflode import giltigt_kvitto
+from prov_omgranskning import kompetenssteg
 korregister.registrera_tmp(TMP, 'prov_skisskritik')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 assert atelje.ROOT == KOPIA and forhandsvisa.ROOT == KOPIA and bildkedja.ROOT == KOPIA, (atelje.ROOT, forhandsvisa.ROOT)
+for namn in ('prov_kompetensflode', 'prov_omgranskning'):
+    assert Path(sys.modules[namn].__file__).resolve().is_relative_to(KOPIA), 'provens hjälpare lästes utanför kopian: ' + namn
 bildkedja.PROJEKT = TMP / 'projekt'  # sessionernas transkript: provets egna, aldrig ägarens
 
 SLUG = 'kv-prov'
@@ -129,7 +136,7 @@ def kund(slug=SLUG):
     skriv(u / 'referenser' / 'tjanster' / 'TJANSTER.md', '# tjänsterna %s\n' % UPPDRAGSMARKOR)
     skriv(u / 'DESIGNDOMAR.jsonl', json.dumps({'tid': '2026-10-02T10:00:00Z', 'kalla': 'ägaren', 'beslut': 'ny_riktning', 'text': 'pröva nya grundidéer'}) + '\n')
     r = kd.rot(slug)
-    skriv(r / 'KANDIDATPLAN.json', json.dumps({'lage': 'skiss', 'tid': '2026-10-07T08:00:00Z', 'kandidater': {
+    skriv(r / 'KANDIDATPLAN.json', json.dumps({'lage': 'skiss', 'tid': '2026-10-07T08:00:00Z', 'kompetens': giltigt_kvitto('planera'), 'kandidater': {
         'k01': {'uppgift': 'Besökaren vill se ett liknande jobb och ringa.', 'titel': UPPDRAGSMARKOR},
         'k02': {'uppgift': 'Besökaren vill skriva en förfrågan.'}}}))
     skriv(r / 'FORSKNING.md', '# Research %s\n' % UPPDRAGSMARKOR)
@@ -242,7 +249,7 @@ def transkript(handelser, sid):
     """Ett transkript i Claude Codes radformat: (verktyg, input, svar) där svar är text, ('fel', text), ('bild',) eller None."""
     rader = [rad(type='user', timestamp='2026-10-07T10:00:00.000Z', message={'role': 'user', 'content': 'uppdraget'}),
              rad(type='attachment', attachment={'type': 'deferred_tools_delta', 'pendingMcpServers': [], 'needsAuthMcpServers': [], 'failedMcpServers': [],
-                                               'addedNames': ['mcp__refero__refero_search_screens', 'mcp__mobbin__search_screens']})]
+                                               'addedNames': ['mcp__refero__refero_search_screens', 'mcp__mobbin__search_screens', 'mcp__21st__search']})]
     for i, (namn, inp, svar) in enumerate(handelser, 1):
         rader.append(rad(type='assistant', timestamp='2026-10-07T10:00:%02d.000Z' % (i % 60), message={'role': 'assistant', 'model': 'claude-sonnet-5-5',
                                                                                                          'content': [{'type': 'tool_use', 'id': 't%d' % i, 'name': namn, 'input': inp}]}))
@@ -259,11 +266,50 @@ def transkript(handelser, sid):
     return sid
 
 
+def kompetens_transkript(pass_, extra=()):
+    """Explicit syntetisk kompetens för positiva flödesfixturer; negativa läsprov ger eget transkript."""
+    import uuid
+    h = [(n, inp, 'syntetiskt läskvitto') for n, inp in kompetenssteg(pass_)]
+    for m in dict.fromkeys(m for r in kompetens.for_pass(pass_) for m in r.get('mcp_krav', [])):
+        namn = {'refero': 'refero_search_styles', 'mobbin': 'search_screens', '21st': 'search'}[m]
+        h.append(('mcp__%s__%s' % (m, namn), {'query': 'synthetic service', 'mode': 'standard'}, ('bild',)))
+    return transkript(h + list(extra), str(uuid.uuid4()))
+
+
+def session_utan_block_fixtur(karta):
+    """Pröva skälregeln även när alla verkliga sessioner numera har kompetensblock.
+
+    Bara en syntetisk kodfil ändras; sessionsfel läser den med sin riktiga AST-tolk.
+    """
+    namn = 'syntetisk_session_utan_block'
+    kod = (KOPIA / 'kontroller' / 'kandidater.py').read_text(encoding='utf-8')
+    fil = Path(tempfile.mkdtemp(dir=TMP)) / 'kandidater.py'
+    fil.write_text(kod + '\n\ndef %s(ut):\n    return atelje.session("syntetiskt uppdrag", [], ut)\n' % namn, encoding='utf-8')
+    rad = namn + ': En syntetisk lässession utan skrivning; dess fasta svar och utdata prövas uttryckligen av detta isolerade prov.'
+    block = kompetens.UTANBLOCK.search(karta)
+    assert block, 'kartan saknar listan över sessioner utan block'
+    karta = karta[:block.end('rader')] + rad + '\n' + karta[block.end('rader'):]
+    assert kompetens.sessioner_i_koden(fil)[namn][0]['kompetens'] is False
+    assert kompetens.sessionsfel(karta, fil=fil) == [], kompetens.sessionsfel(karta, fil=fil)
+    return namn, rad, karta, fil
+
+
 def sess_falsk(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, blind=None):
     SESSIONER.append({'prompt': prompt, 'verktyg': list(verktyg), 'ut': Path(ut).name, 'schema': schema, 'frist': frist, 'nekas': list(nekas),
                       'slug': slug, 'modell': modell, 'effort': effort, 'max_turer': max_turer, 'blind': blind})
     nyckel = next((k_ for k_ in SVAR if k_(prompt, schema)), None)
     so, sid = SVAR[nyckel](prompt, schema) if nyckel else (None, None)
+    # Framgångsfixturernas modeller lämnar numera verklig syntetisk läs-/Skill-evidens.
+    # Ett uttryckligt session-id används orört, också när dess transkript saknas.
+    if sid is None:
+        pass_ = next((p for s, p in ((kd.SKISSKRITIK_SCHEMA, 'skisskritik'), (kd.JAMFOR_SCHEMA, 'jamforelse'),
+                                    (kd.KRITIK_A_SCHEMA, 'kritik_a'), (kd.KRITIK_B_SCHEMA, 'kritik_b')) if schema is s), None)
+        if schema is None:
+            pass_ = 'fordjupa' if Path(ut).name.startswith(('svar-forfina-', 'svar-uppdrag-')) else 'skapa'
+        elif schema is kd.PASS_SCHEMA:
+            pass_ = next(p for p, namn in kompetens.PASSNAMN.items() if 'specialisten för %s' % namn in prompt)
+        if pass_:
+            sid = kompetens_transkript(pass_)
     svar_ = {'structured_output': so, 'num_turns': 9, 'duration_ms': 60000, 'total_cost_usd': 0.1, 'session_id': sid}
     Path(ut).write_text(json.dumps(svar_))
     return svar_
@@ -527,8 +573,13 @@ def _kvitto():
                         '- 390 px tangentbord: 6 steg, 0 utan synlig fokus')], '3f0e0d0c-0b0a-4908-8706-050403020104')
     assert not kd.bedomt(tsid, SLUG, 'k01')['tillstand']['tangentbord'], 'skaparens förhandsvisning är inte granskarens'
     # kvittot för en session utan transkript är inte observerat, aldrig inte gjort
-    kritiker()
-    post = kd.skisskritik(SLUG, 'k01')
+    kritiker(lambda: '00000000-0000-4000-8000-000000000099')
+    try:
+        kd.skisskritik(SLUG, 'k01')
+        raise AssertionError('saknat transkript fick passera kompetensgrinden')
+    except RuntimeError as e:
+        assert 'kompetenskrav' in str(e), e
+    post = json.loads((kd.kdir(SLUG, 'k01') / 'SKISSKRITIK.json').read_text())
     t2 = {r_['roll']: r_ for r_ in post['kompetens']['tillstand']}[roll['id']]
     assert not post['kompetens']['verifierad'] and t2['verktyg']['förhandsvisning'] == T['ej_observerat'] and not post['bedomt']['bedomda_bredder'], t2
 
@@ -591,8 +642,7 @@ def _andra():
     SVAR[lambda p, s: s in (kd.FORSKA_SCHEMA, kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED)] = lambda p, s: (
         {'varfor': 'befintligt material räcker', 'riktningar': 'tre grunder', 'sajter': [], 'fragor': [],
          'antaganden': [{'antagande': 'besökaren vill se jobb', 'underlag': 'ännu inte observerat', 'provning': 'uppgift', 'om_fel': 'kontakt först'}]},
-        transkript([('Read', {'file_path': str(KOPIA / kompetens.vag(f))}, 'x') for f in kompetens.for_pass('forska')[0]['karna']]
-                   + [('mcp__refero__refero_search_styles', {'query': 'warm craftsman editorial'}, ('bild',))], '2f0e0d0c-0b0a-4908-8706-050403020102'))
+        kompetens_transkript('forska'))
     SESSIONER.clear()
     import skapande
     spara_k = skapande.komplettera
@@ -604,7 +654,8 @@ def _andra():
     s = SESSIONER[0]
     assert 'Rollerna i researchen' in s['prompt'] and 'Bash(.venv/bin/python -B kontroller/uxsok.py *)' in s['verktyg'] and s['slug'] == SLUG, s['verktyg']
     fo = json.loads((kd.rot(SLUG) / 'FORSKNING.json').read_text())
-    assert fo['kompetens']['verifierad'] and not fo['kompetens']['saknas'] and fo['kompetens']['mcp_anrop'] == {'mcp__refero__refero_search_styles': 1}, fo['kompetens']
+    assert fo['kompetens']['verifierad'] and not fo['kompetens']['saknas'] and fo['kompetens']['mcp_anrop'] == {
+        'mcp__refero__refero_search_styles': 1, 'mcp__mobbin__search_screens': 1, 'mcp__21st__search': 1}, fo['kompetens']
     assert 'Kompetensen' in (kd.rot(SLUG) / 'FORSKNING.md').read_text()
     # jämförelsen och granskningens två pass (läget full)
     for kid in ('k01', 'k02'):
@@ -652,12 +703,15 @@ def _andra():
         assert {'lasningen', 'skapar_prompt'} <= anropade, (f_, sorted(anropade))
         assert 'METOD-skapa' in utan[f_] and 'lasningen' in utan[f_], 'skälet säger vad som prövas: %s' % utan[f_]
     assert 'METOD-skapa' in kd.skapar_prompt(SLUG, 'k01') and 'METOD-skapa' in kd.skapar_prompt(SLUG, 'k01', forbattra=True)
-    # en session utan block som saknar skäl i kartan fälls, och ett tomt skäl likaså
+    # en syntetisk session utan block som saknar skäl i kartan fälls, och ett tomt skäl likaså
     karta = metod.KARTA.read_text(encoding='utf-8')
-    utan_rad = re.search(r'(?m)^(%s): .+$' % re.escape(sorted(utan)[0]), karta).group(0)
-    assert any(sorted(utan)[0] in f_ for f_ in kompetens.sessionsfel(karta.replace(utan_rad + '\n', ''))), 'en session utan block och utan skäl fälls'
-    assert any(sorted(utan)[0] in f_ for f_ in kompetens.prova(karta.replace(utan_rad + '\n', ''))), 'kompetens.prova fäller den också'
-    assert any('skäl' in f_ for f_ in kompetens.sessionsfel(karta.replace(utan_rad, '%s: ingen tilldelning' % sorted(utan)[0]))), '"ingen tilldelning" är inget skäl'
+    utan_namn, utan_rad, provkarta, provkod = session_utan_block_fixtur(karta)
+    assert any(utan_namn in f_ for f_ in kompetens.sessionsfel(provkarta.replace(utan_rad + '\n', ''), fil=provkod)), 'en session utan block och utan skäl fälls'
+    from unittest.mock import patch
+    las_koden = kompetens.sessioner_i_koden
+    with patch.object(kompetens, 'sessioner_i_koden', side_effect=lambda fil=None: las_koden(fil or provkod)):
+        assert any(utan_namn in f_ for f_ in kompetens.prova(provkarta.replace(utan_rad + '\n', ''))), 'kompetens.prova fäller den också'
+    assert any('skäl' in f_ for f_ in kompetens.sessionsfel(provkarta.replace(utan_rad, '%s: ingen tilldelning' % utan_namn), fil=provkod)), '"ingen tilldelning" är inget skäl'
     # jämförelsen går inte att lura med ett alias för atelje.session: som värde, som argument eller som import fälls det
     # (GR-20261007-r103#K2)
     kod_ = (KOPIA / 'kontroller' / 'kandidater.py').read_text(encoding='utf-8')
@@ -926,7 +980,8 @@ def _kritik_identitet():
     assert not kd.skisskritik_giltig(SLUG,'k01',post)
     (d/'SKISSKRITIK.json').unlink()
     assert not kd.skisskritik_giltig(SLUG,'k01')
-    kd.satt_status(SLUG,'k01','klar',forsok=2)
+    kd.satt_status(SLUG,'k01','klar',forsok=2,
+                   kompetens={'skiss:skapa': {'pass': 'skapa', 'kvitto': giltigt_kvitto('skapa')}})
     antal=len(SESSIONER);kd.behandla_skiss(SLUG,'k01')
     assert len(SESSIONER)==antal,'färdig skiss arbetades om automatiskt'
 
@@ -934,7 +989,11 @@ def _kritik_identitet():
 def godkann_foto():
     st=kd.fotografera(SLUG,'k01',skiss=True)
     assert st['status']=='klar',st
-    kd.satt_status(SLUG,'k01','forfinad',design_fel=[])
+    # Detta fall prövar material/version, så det får explicit syntetiskt komplett förfiningsunderlag.
+    kd.satt_status(SLUG,'k01','forfinad',design_fel=[],
+                   forfining={'dom': 'syntetisk', 'kompetens': giltigt_kvitto('fordjupa')},
+                   kompetens={'fordjupa:syntetisk:%s' % p: {'pass': p, 'genomford': True, 'uppfyllt': True,
+                                                           'kvitto': giltigt_kvitto(p)} for p in kd.KOMPETENSPASS})
     skriv(kd.rot(SLUG)/'STATUS.json',json.dumps({'kandidatflode':True,'steg':'klar_for_bedomning','fas':'forfining'}))
     return atelje.doma(SLUG,'ägaren','godkand','Syntetiskt godkännande.',
                        kandidater=[{'id':'k01','version':st['version']}],belagg='syntetiskt prov',tid=atelje.nu())
@@ -1077,7 +1136,7 @@ def _forlopp():
 
 @fall('23 förberett A/B träffar bara skisskaparens två pass genom riktiga körvägen')
 def _ab_skiss():
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(KOPIA / 'kontroller' / 'rokprov' / 'revision'))
     from prov_ab_skiss_kedja import kor
     kor(globals())
 
@@ -1155,10 +1214,9 @@ def _luckor_r103():
     kd.fotografera(SLUG, 'k01', skiss=True)
     assert kd.version(SLUG, 'k01') == v_, 'en kundbild i src/assets/atelje/ gav kritiken en annan version än fotograferingen'
     # M60: ett skäl i listan över sessioner utan block måste vara prövbart, inte en kort fras
-    lista_ = kompetens.utan_block()
-    sess_ = next(iter(lista_))
-    kort = re.sub(r'(?m)^(%s):\s*.*$' % re.escape(sess_), r'\1: för kort skäl här', karta, count=1)
-    assert any(sess_ in f_ and 'prövbart skäl' in f_ for f_ in kompetens.sessionsfel(kort)), kompetens.sessionsfel(kort)
+    sess_, _, provkarta, provkod = session_utan_block_fixtur(karta)
+    kort = re.sub(r'(?m)^(%s):\s*.*$' % re.escape(sess_), r'\1: för kort skäl här', provkarta, count=1)
+    assert any(sess_ in f_ and 'prövbart skäl' in f_ for f_ in kompetens.sessionsfel(kort, fil=provkod)), kompetens.sessionsfel(kort, fil=provkod)
 
 
 @fall('26 granskningen startar bara när skaparen hinner svara på den (GR-20261007-r103#K1, M53)')

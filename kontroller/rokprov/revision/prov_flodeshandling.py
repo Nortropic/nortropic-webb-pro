@@ -25,7 +25,7 @@ import os
 class Flodeshandling(unittest.TestCase):
     def setUp(self):
         self.stack = contextlib.ExitStack(); self.addCleanup(self.stack.close)
-        self.root = Path(self.stack.enter_context(korregister.egen_tmp_med('nwp-kallgap-', 'flödesvyns syntetiska ingång')))
+        self.root = Path(self.stack.enter_context(korregister.egen_tmp_med('nwp-kallgap-', 'flödesvyns syntetiska ingång'))).resolve()
         self.slug = 'prov-flodeshandling'
         self.u, self.k = self.root / 'underlag' / self.slug, self.root / 'kunder' / self.slug
         (self.u / 'atelje').mkdir(parents=True); self.k.mkdir(parents=True)
@@ -42,6 +42,7 @@ class Flodeshandling(unittest.TestCase):
         if historisk:
             t['tekniskt_godkant'] = {'varde': None, 'historik': {'varde': True}, 'text': 'gällde den gamla versionen'}
         return {'typ': korslut.TYP, 'datum': '2026-01-01T01:00:00Z', 'korning': 'prov', 'dist_sha256': 'abc',
+                'slutkod': 0, 'kontroller': {'kompetens': {'uppfyllt': True}},
                 'tillstand': t, 'brister': ['MARKOR-DOLD-KRITIK'], 'atgarder': ['MARKOR-REKOMMENDATION']}
 
     def test_fem_besked_lases_ur_slutposten(self):
@@ -123,6 +124,44 @@ class Flodeshandling(unittest.TestCase):
         with patch.object(korslut, 'aktuell', return_value=post), patch.object(ateljeslut, 'aktuell', return_value=None), \
                 patch.object(dash, '_fil', return_value=None):
             self.assertEqual(dash.flode(self.slug)['steg'][5]['status'], 'kontrollerat')
+
+    def test_kompetensbrist_i_slutpost_kan_inte_bli_kontrollerat(self):
+        for kompetens_, kod, vantat in (({'uppfyllt': False}, 1, 'stoppat'),
+                                       (None, 0, 'inte observerat'),
+                                       ({'uppfyllt': True}, 3, 'stoppat'),
+                                       ({'uppfyllt': True}, 0, 'kontrollerat')):
+            with self.subTest(kompetens=kompetens_, slutkod=kod):
+                post = self.post(); post.update(slutkod=kod, kontroller={'kompetens': kompetens_})
+                with patch.object(korslut, 'aktuell', return_value=post), patch.object(ateljeslut, 'aktuell', return_value=None), \
+                     patch.object(dash, '_fil', return_value=None):
+                    steg = dash.flode(self.slug)['steg'][5]
+                self.assertEqual(steg['status'], vantat)
+                if isinstance(kompetens_, dict) and kompetens_.get('uppfyllt') is False:
+                    self.assertIn('kompetensbrist', ' '.join(steg['brister']))
+
+    def test_aldre_slutkod_utan_bevis_ar_inte_kontrollerat(self):
+        post = self.post(); post.pop('slutkod'); post.pop('kontroller')
+        with patch.object(korslut, 'aktuell', return_value=post), patch.object(ateljeslut, 'aktuell', return_value=None), \
+             patch.object(dash, '_fil', return_value=None):
+            flode = dash.flode(self.slug)
+            steg = flode['steg'][5]
+        self.assertEqual(steg['status'], 'inte observerat')
+        self.assertIn('kompetensbevis saknas', ' '.join(steg['brister']))
+        self.assertEqual(flode['steg'][6]['status'], 'beslutat', 'saknat kompetensbevis upphäver inte en dom på samma dist')
+
+    def test_aldre_prov_utan_slutpost_ar_inte_kontrollerat(self):
+        (self.k / 'sajt').mkdir(); (self.k / 'sajt/package.json').write_text('{}')
+        (self.k / 'prov').mkdir(); (self.k / 'prov/STATUS.json').write_text(json.dumps(
+            {'ok': True, 'tid': '2026-01-01T01:00:00Z', 'dist_sha256': 'abc', 'grindar': {}}))
+        with patch.object(korslut, 'aktuell', return_value=None), patch.object(ateljeslut, 'aktuell', return_value=None), \
+             patch.object(korslut, 'vald_granskning', return_value=({}, 'abc', [], None)), \
+             patch.object(korslut, 'ar_godkant', return_value=(True, 'syntetiskt tekniskt ja')), \
+             patch.object(dash, 'granskningen', return_value={'finns': False}), patch.object(dash, '_fil', return_value=None):
+            flode = dash.flode(self.slug)
+            steg = flode['steg'][5]
+        self.assertEqual(steg['status'], 'inte observerat')
+        self.assertIn('kompetensbevis saknas', ' '.join(steg['brister']))
+        self.assertEqual(flode['steg'][6]['status'], 'beslutat', 'saknat kompetensbevis upphäver inte en dom på samma dist')
 
     def test_startmiljon_visas_och_hindrar_helbygget_fore_starten(self):
         # F07 (motorinventeringen): Flöde visar startmiljön, och ett helbygge med Kundstarts lager utan sandlåda hindras vid

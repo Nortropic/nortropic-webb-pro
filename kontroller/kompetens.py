@@ -64,8 +64,8 @@ import metod  # noqa: E402  kalla(): repots kunskap/ eller en skills fil
 ROOT = Path(__file__).resolve().parents[1]
 BLOCK = re.compile(r'^```kompetens[ \t]+(?P<id>[a-z]+)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
 PASS = ('forbered', 'planera', 'planprovning', 'skapa', 'fordjupa', 'rorelse', 'granskning', 'forska', 'skisskritik', 'jamforelse', 'kritik_a', 'kritik_b',
-        'fore_efter')
-PASSNAMN = {'forbered': 'förberedelsen av kundunderlaget', 'planera': 'planeringen', 'planprovning': 'planprövningen', 'skapa': 'skissen', 'fordjupa': 'uppdraget',
+        'fore_efter', 'helbygge')
+PASSNAMN = {'helbygge': 'helbygget från godkänd startsida', 'forbered': 'förberedelsen av kundunderlaget', 'planera': 'planeringen', 'planprovning': 'planprövningen', 'skapa': 'skissen', 'fordjupa': 'uppdraget',
             'rorelse': 'interaktion och rörelse', 'granskning': 'tillgänglighet och visuell granskning',
             'forska': 'researchen', 'skisskritik': 'skisskritiken', 'jamforelse': 'jämförelsen',
             'kritik_a': 'granskningens första pass', 'kritik_b': 'granskningens andra pass',
@@ -95,11 +95,22 @@ VERKTYG = {
     # kandidaten, och material.py vägrar en andra --kandidat och en fil utanför kandidatens katalog
     'material': (['Bash(.venv/bin/python kontroller/material.py <slug> --kandidat <id> *)'],
                  'materialsteget (illustrativt och koncept, aldrig verksamhetens egna bilder): `.venv/bin/python kontroller/material.py <slug> '
-                 '--kandidat <id> --canvas <fil i kandidatens koncept/> --bestall "<vad konceptet visar>"` registrerar ett koncept ur '
+                 '--kandidat <id> --canvas <fil i kandidatens koncept/ eller kompetens/skillskript/> --bestall "<vad konceptet visar>"` registrerar ett koncept ur '
                  'canvas-design, `--anvand <m-id> --plats <plats>` lägger en genererad tillgång i src/assets/material/ (en video kräver '
                  '`--poster <bild-id>`), `--visa` visar kandidatens egna tillgångar och det gemensamma kundmaterialet, och '
                  '`--anvandning` säger vad som är kopierat, importerat i källan och renderat i bygget; '
-                 'leverantörernas generering kräver konto och är inte införd'),
+                 'en leverantörsbeställning sparas med --leverantor och --bestall; den betrodda materialkörningen kräver '
+                 'konto, uppdragets hash, uttryckligt kostnadsmandat och rättigheter (kunskap/materialtransport.md). '
+                 'En väntande beställning är ingen genererad tillgång'),
+    'skillskript': (['Bash(.venv/bin/python kontroller/skillskript.py <slug> --kandidat <id> --uppdrag *)',
+                    'Write(./underlag/<slug>/atelje/kandidater/<id>/kompetens/skriptuppdrag/*.json)',
+                    'Edit(./underlag/<slug>/atelje/kandidater/<id>/kompetens/skriptuppdrag/*.json)',
+                    'Write(./underlag/<slug>/atelje/kandidater/<id>/koncept/**)',
+                    'Edit(./underlag/<slug>/atelje/kandidater/<id>/koncept/**)'],
+                   'skillsens körbara hjälpmedel: `.venv/bin/python kontroller/skillskript.py <slug> --kandidat <id> '
+                   '--uppdrag <JSON i kandidatens kompetens/skriptuppdrag/>`. Fasta åtgärder för varumärkespalett, tokenexport, tokenkontroll '
+                   'och canvas till PNG/PDF; kontrakt och exempel i kunskap/skillskript.md. Resultaten hamnar i kandidatens '
+                   'kompetens/skillskript/, aldrig direkt i sajtkoden. Läs och bedöm resultatet före införande'),
 }
 # granskarens form av förhandsvisningen och detektorn, i de granskande passen: bilderna i kandidatens granskare/ (aldrig
 # skaparens varv/), alla fyra bredderna med menyn, tangentbordet och reflow, och ingen kod i det som ges tillbaka
@@ -117,8 +128,8 @@ GRANSKARVERKTYG = {
 BLINDSAKRA = ('förhandsvisning', 'detektor', 'uxsok')  # i granskarens form ger de aldrig kod eller skaparens text
 # ett körkommando (python … kontroller/<verktyg>.py), aldrig en läsning av skriptet med cat, grep eller sed
 # (GR-20261008-r117-claude#C7)
-VERKTYGSKOMMANDO = re.compile(r'(?:^|[\s;&|(])(?:\S*/)?python[0-9.]*\s+(?:-[A-Za-z]+\s+)*(?:\S*/)?kontroller/(uxsok|forhandsvisa|detektor|design|material)\.py\b')
-SKRIPTVERKTYG = {'uxsok': 'uxsok', 'forhandsvisa': 'förhandsvisning', 'detektor': 'detektor', 'design': 'design', 'material': 'material'}
+VERKTYGSKOMMANDO = re.compile(r'(?:^|[\s;&|(])(?:\S*/)?python[0-9.]*\s+(?:-[A-Za-z]+\s+)*(?:\S*/)?kontroller/(uxsok|forhandsvisa|detektor|design|material|skillskript)\.py\b')
+SKRIPTVERKTYG = {'uxsok': 'uxsok', 'forhandsvisa': 'förhandsvisning', 'detektor': 'detektor', 'design': 'design', 'material': 'material', 'skillskript': 'skillskript'}
 MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en källa). Trybloom används inte (ägarens ord 2026-10-05)
     'refero': None, 'mobbin': None,
     # Motions fria dokumentations-MCP (kontroller/mcp/motion.json; ägarens uppdrag 2026-10-07, punkt 5C, och beslutet "bara den
@@ -127,7 +138,7 @@ MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en käll
     'motion': ('mcp__motion__search-motion-docs',),
     # 21st.dev Builder (kontroller/mcp/21st.json; ägarens val 2026-10-07, uppdraget 2026-10-08, 2C): verktygen vid tools/list
     # 2026-10-08 (51 på servern; sessionsprovet i rapporten). Rollen komposition söker komponenter generiskt (search, fritt),
-    # hämtar en vald komponents kod med källa, licens och beroenden (get_component, förbrukar Builders hämtningar) och
+    # hämtar en vald komponents kod med källa, licens och beroenden (get_component; åtkomsten avgörs av kontot) och
     # läser inspirationsflödet (get_inspiration); katalogens publicerings-, konto- och videoverktyg har ingen uppgift
     '21st': ('mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration', 'mcp__21st__get_theme'),
 }
@@ -199,7 +210,8 @@ def tolka(text=None):
         ut[k['id']] = {'id': k['id'], 'namn': k.get('namn', k['id']), 'uppgift': k.get('uppgift', ''),
                        'pass': lista(k.get('pass'), ','), 'karna': karna,
                        'valj': [f for f in lista(k.get('välj'), ';') if f not in karna],
-                       'verktyg': lista(k.get('verktyg'), ','), 'mcp': lista(k.get('mcp'), ','), 'visar': k.get('visar', '')}
+                       'verktyg': lista(k.get('verktyg'), ','), 'mcp': lista(k.get('mcp'), ','),
+                       'mcp_krav': lista(k.get('mcp-krav'), ','), 'visar': k.get('visar', '')}
     return ut
 
 
@@ -288,6 +300,7 @@ def prova(text=None):
         fel += ['%s: okänt pass %s' % (kid, p_) for p_ in x['pass'] if p_ not in PASS]
         fel += ['%s: okänt verktyg %s' % (kid, v) for v in x['verktyg'] if v not in VERKTYG]
         fel += ['%s: okänd MCP %s' % (kid, m) for m in x['mcp'] if m not in MCP]
+        fel += ['%s: MCP-kravet %s saknar tilldelad tjänst' % (kid, m) for m in x.get('mcp_krav', []) if m not in x['mcp']]
         if not x['uppgift'] or not x['karna']:
             fel.append('%s: uppgiften eller kärnan saknas' % kid)
         for p_ in (p_ for p_ in x['pass'] if p_ in BLINDA):  # ett verktyg som ger kod eller skaparens text är ett läckage
@@ -458,7 +471,9 @@ def aktiveringstext(filer):
     skills, las = aktiverbara(filer)
     delar = []
     if skills:
-        delar.append('aktivera med skillverktyget: ' + ', '.join('%s (%s)' % (s, vag(s + '/SKILL.md')) for s in skills))
+        import bildkedja
+        delar.append('aktivera med skillverktyget: ' + ', '.join('%s (%s)' % (
+            bildkedja.skillkommando(s) or ('OKÄNT SKILLNAMN: ' + s), vag(s + '/SKILL.md')) for s in skills))
     if las:
         delar.append('läs hela med Read: ' + ', '.join(vag(f) for f in las))
     return '; '.join(delar)
@@ -524,6 +539,16 @@ def prompt_rader(pass_, slug, kid=None, k=None):
                           ' krediter)' if 'mobbin' in x['mcp'] else '') +
                          ('; Motions search-motion-docs söker mönstret du bygger (inView, stagger, spring, layout) med platform js'
                           ' eller react, och träffar märkta Motion+ (betalda) används inte' if 'motion' in x['mcp'] else ''))
+        if x.get('mcp_krav'):
+            rader.append('- obligatorisk undersökning före nästa steg: ' + ', '.join(x['mcp_krav']) +
+                         '. Gör generiska sökningar, inspektera resultaten och redovisa vad som valdes eller förkastades och varför.'
+                         ' Saknad åtkomst, tomma eller misslyckade resultat är en uppgiftsbrist, aldrig ett genomfört steg.')
+        if '21st' in x['mcp']:
+            rader.append('- 21st: sök användbara implementationsgrunder innan formen låses; jämför förhandsvisningarna, hämta vald'
+                         ' komponent med get_component eller temat med get_theme och kontrollera kod, licens och beroenden.'
+                         ' För vidare id, källa, hämtad fil och avsedd användningsplats. Bygg vidare på den hämtade koden och'
+                         ' pröva resultatet i mobil och dator. En referensbild är ingen kodmall. Följ projektets befintliga'
+                         ' beroendeprocess; kontoåtgärder och extern AI-generering ingår inte.')
         rader.append('- passet visar: ' + x['visar'])
     return rader
 
@@ -600,7 +625,9 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
         las_s, fore_s = set((ml.get('fore') or []) + (ml.get('efter') or [])), set(ml.get('fore') or [])
         per.append({'session': str(sid), 'lasta': [f for f in filer if f in las_s], 'saknas': [f for f in filer if f not in las_s],
                     'fore_forsta_andring': [f for f in filer if f in fore_s], 'andrade': bool(ml.get('forsta_skrivning')),
-                    'skill_anrop': sorted(set(ml.get('skill_anrop') or []))})
+                    'skill_anrop': sorted(set(ml.get('skill_anrop') or [])),
+                    'skill_fore': sorted(set(ml.get('skill_fore') or [])),
+                    'valda': [f for f in val if f in las_s and f not in (ml.get('via_metod') or [])]})
         fore.update(ml.get('fore') or [])
         lasta.update((ml.get('fore') or []) + (ml.get('efter') or []))
         egna.update(set((ml.get('fore') or []) + (ml.get('efter') or [])) - set(ml.get('via_metod') or []))
@@ -659,13 +686,13 @@ def anvandningsnivaer(kv, svar=None, anvanda=None, andrad=None, aterstalld=None)
     bedömd (bara av en oberoende bedömning; skaparens eget omdöme står som källa). Värdet är True, False eller None för
     okänt, med källan bredvid. Ett lyckat anrop eller en läst fil visar bara laddningen."""
     so = svar if isinstance(svar, dict) else {}
-    verifierad = bool((kv or {}).get('verifierad'))
+    verifierad = bool((kv or {}).get('verifierad')) and not (kv or {}).get('ofullstandig')
     skillknutna = [x for x in so.get('kod_andrad') or [] if isinstance(x, dict) and x.get('skill')]
     eget = (so.get('visuell_bedomning') or {}).get('omdome') if isinstance(so.get('visuell_bedomning'), dict) else None
     return {
         'erbjuden': {'varde': bool((kv or {}).get('filer')), 'kalla': 'rollens kärna i passets uppdrag'},
         'laddad': {'varde': (not (kv or {}).get('saknas')) if verifierad else None,
-                   'kalla': 'transkriptet: kärnan läst hel' if verifierad else 'transkriptet saknas: okänt'},
+                   'kalla': 'transkriptet: kärnan läst hel' if verifierad else 'transkript saknas eller observationen är ofullständig: okänt'},
         'anrop_med_resultat': {'varde': (bool(anvanda) if anvanda is not None else None) if verifierad else None,
                                'kalla': 'verktygs- och MCP-anrop med innehåll' if anvanda is not None else 'inget verktyg tilldelat eller okänt'},
         'redovisad': {'varde': bool(skillknutna) if so else None, 'kalla': 'svarets ändringar knutna till en skill (skaparens egen redovisning)'},
@@ -687,6 +714,63 @@ def sen_karna(kv):
     return [f for f in kv.get('lasta') or [] if f not in fore]
 
 
+def kravbrister(kv, pass_, k=None):
+    """Observerade arbetskrav för ett pass, aldrig en dom om designkvalitet.
+
+    Varje ny session måste läsa sin kärna och aktivera aktiverbara skills själv.
+    Read ersätter bara Skill för dokument och uttryckligen väntande skills. Ett
+    saknat transkript är okänt och får inte passera som komplett kompetens.
+    MCP-krav kommer ur rollens mcp-krav, inte ur hela listan av möjligheter.
+    """
+    if not isinstance(kv, dict) or not kv.get('verifierad') or kv.get('ofullstandig'):
+        return ['kompetensen är inte fullständigt observerad: transkript saknas']
+    import bildkedja
+    k = tolka() if k is None else k
+    roller = for_pass(pass_, k)
+    if not roller:
+        return ['passet saknar kompetensroll: %s' % pass_]
+    karnafiler = set(lasfiler(pass_, k))
+    fel = ['kärnan saknas: %s' % f for f in sorted(karnafiler - set(kv.get('lasta') or []))]
+    skrivande = pass_ not in GRANSKANDE + FORSKANDE + ('planera', 'planprovning')
+    if skrivande:
+        fel += ['%s (läst först efter första ändringen)' % Path(f).name for f in sen_karna(kv) or []]
+    per = kv.get('per_session')
+    if not isinstance(per, list) or not per:
+        fel.append('aktivering per session är inte observerad')
+    else:
+        antal = kv.get('sessioner') or {}
+        if antal.get('saknade') or antal.get('forvantade') != len(per) or antal.get('sedda') != len(per):
+            fel.append('sessionernas antal stämmer inte med aktiveringskvittot')
+        karna = [f for r in roller for f in r['karna']]
+        alternativ = [f for r in roller for f in r['valj']]
+        for i, p in enumerate(per, 1):
+            if not isinstance(p, dict):
+                fel.append('session %d: ogiltigt aktiveringskvitto' % i)
+                continue
+            fel += ['session %d: kärnan saknas: %s' % (i, f) for f in sorted(karnafiler - set(p.get('lasta') or []))]
+            if not isinstance(p.get('andrade'), bool):
+                fel.append('session %d: läsordningen är inte observerad' % i)
+            if skrivande and p.get('andrade'):
+                fel += ['session %d: %s (läst först efter första ändringen)' % (i, f)
+                        for f in sorted(karnafiler - set(p.get('fore_forsta_andring') or []))]
+            filer = karna + [f for f in alternativ if vag(f) in (p.get('valda') or [])]
+            krav, _ = aktiverbara(filer)
+            sedda = {bildkedja.skillnamn(n) for n in p.get('skill_anrop') or []}
+            tidiga = {bildkedja.skillnamn(n) for n in p.get('skill_fore') or []}
+            for namn in krav:
+                if namn not in sedda:
+                    fel.append('session %d: Skill-aktivering saknas: %s' % (i, namn))
+                elif skrivande and p.get('andrade') and namn not in tidiga:
+                    fel.append('session %d: Skill aktiverades inte före första ändringen: %s' % (i, namn))
+    for m in dict.fromkeys(m for r in roller for m in r.get('mcp_krav', [])):
+        utfall = kv.get('mcp_utfall')
+        lyckade = sum(n for a, u in (utfall or {}).items() if a.startswith('mcp__%s__' % m)
+                      for t, n in u.items() if t in MED_INNEHALL and isinstance(n, int) and n > 0)
+        if not lyckade:
+            fel.append('obligatorisk MCP-undersökning saknar observerat resultat: %s' % m)
+    return list(dict.fromkeys(fel))
+
+
 def mcp_tillstand(m, anrop, utfall, lage, sett):
     """En tilldelad MCP-tjänsts tillstånd i en roll: blockerat när sessionen inte hade tjänsten (tilldelad men åtkomst
     saknas), använt med resultat bara när ett svar hade innehåll, blockerat när anropen bara gav tomma svar eller fel,
@@ -699,7 +783,11 @@ def mcp_tillstand(m, anrop, utfall, lage, sett):
                     orsak='tilldelad men åtkomst saknas: sessionen %s, så rollens egna anrop till tjänsten gick inte' % (
                         'hade inte %s' % m if m not in lage else 'hade %s med status %s' % (m, lage[m])))
     if isinstance(utfall, dict):
-        egna = {u: n for a, uf in utfall.items() if str(a).startswith('mcp__%s__' % m) for u, n in uf.items()}
+        egna = {}
+        for a, uf in utfall.items():
+            if str(a).startswith('mcp__%s__' % m):
+                for u, n in uf.items():
+                    egna[u] = egna.get(u, 0) + n
         med = sum(n for u, n in egna.items() if u in MED_INNEHALL)
         if med:
             return dict(ut, med_innehall=med, tillstand=TILLSTAND['anvant'])
@@ -766,7 +854,7 @@ def tillstand(kv, pass_, k=None, mcp_lage=None):
         verktyg_rader = {v: verktygstillstand(v, va, helt) for v in x['verktyg']}
         aktiverade, misslyckade = sorted(s for s in skill if s in erbjudna), sorted(s for s in skill_fel if s in erbjudna)
         n_fore = sum(1 for f in karna if f in fore) if fore is not None else None
-        if not sett:
+        if not helt:  # kärnan för hela passet är okänd när någon session inte observerats
             karna_t = TILLSTAND['ej_observerat']
         elif n == len(karna):  # hel läsning; i ett ändrande pass också ordningen: kärnan före första ändringen (F05)
             karna_t = LASKVITTO if n_fore is None or n_fore == n or pass_ in GRANSKANDE + FORSKANDE else \

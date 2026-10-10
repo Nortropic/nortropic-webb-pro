@@ -24,7 +24,7 @@ kärna (kompetenskvittot, avsnittet Kompetenserna). Uppslaget slås upp när upp
 **Verktygen, en källa:** kompetensblocken nedan säger vilka skills, verktyg och MCP:er varje pass har. Samma block ger
 sessionens behörigheter (`kontroller/kompetens.py` till `--allowedTools`) och raderna i passets uppdrag, så att
 dokumentationen, prompten och behörigheten säger samma sak. Sessionerna har skillverktyget och verktygssökningen. Av
-MCP-anslutningarna används Refero, Mobbin och Motions fria dokumentationssökning genom kundvakten
+MCP-anslutningarna används Refero, Mobbin, 21st och Motions fria dokumentationssökning genom kundvakten
 (`kontroller/kundvakt.py`, före varje anrop); Chrome DevTools når bara den separata lokala tjänsten enligt H1.
 Kundvakten tillåter bara flödets angivna verktyg med generiska argument och stoppar resten,
 och varje annat MCP-anrop nekas (dontAsk). Frågorna till tjänsterna är alltid generiska: bransch och uppgift, utan
@@ -42,7 +42,7 @@ mening, stoppas som hela par. En ort stoppas efter ett platsverb och, utanför �
 §7, där förlagorna och typsnitten står, läses bara för orter och mailto-länkar. Ett typsnitt ur Google Fonts och en term
 som "Dark Mode" är inga namn, så en generisk fråga med en förlaga eller ett typsnitt ur designriktningen går.
 Detaljerna, och var felet går åt det säkra hållet, står i kundvaktens beskrivning. Mobbins `search_screens` går bara med
-`mode` "standard", eftersom verktygets standardläge deep kostar krediter. Sessionerna når Refero, Mobbin och Motion genom
+`mode` "standard", eftersom verktygets standardläge deep kostar krediter. Sessionerna når Refero, Mobbin, 21st och Motion genom
 `kontroller/mcp/` (`--mcp-config` med `--strict-mcp-config` i `atelje.session_args`; Referos fil får nyckeln ur
 hemlighetsmappen, `atelje.refero_mcp_fil`): inga servrar på användarnivån laddas (det verkliga sessionsprovet
 2026-10-08 visade tio sådana bredvid flödets tre, GR-20261008-r117-claude#E1), och Mobbin, som annars bara finns på
@@ -139,6 +139,14 @@ sessionerna.
 
 ## Kompetenserna
 
+Körbara hjälpmedel följer rollens uppgift. Komposition och designsystem har `skillskript` för brand-, token-,
+Tailwind- och canvasfunktionerna; kontrakt, exempel och begränsningar finns i `kunskap/skillskript.md`.
+Valda referenssidor profileras genom DevTools efter planprövningen enligt `kunskap/referensprofil.md`. Skaparens
+UPPDRAG.md får bara profiler som är bundna till den valda sidan, paketet och metoden. Äldre lösa profiler injiceras inte.
+Materialbeställning och generering är skilda steg enligt `kunskap/materialtransport.md`: kandidaten kan beställa,
+men den betrodda körningen behöver ett uppdragsspecifikt kostnadsmandat och konto innan något skickas.
+Läsning, aktivering och tekniskt lyckat resultat redovisas separat från visuell kvalitet.
+
 **Användningen i sex nivåer** (ägarens uppdrag 2026-10-09 om ett källförankrat arbetssätt, punkt 5): observationen
 redovisar varje nivå för sig och okänt som okänt (`kompetens.anvandningsnivaer`, i specialistpassens post): erbjuden
 (rollens kärna i uppdraget), laddad (kärnan läst hel, ur transkriptet), anrop med användbart resultat (verktygs- och
@@ -150,6 +158,31 @@ en förbättring som inte går att belägga, och ett anrop görs aldrig bara fö
 effekt bedömd. En misslyckad åtkomst (nekad av kundvakten, fel, saknad nyckel) står som det den är, en faktisk
 begränsning, och aldrig som oanvänd. Återkopplingen har formen bild, version, element eller område, tillstånd och
 avvikelse, med kodkoppling när den finns (`skapande.FYND_SCHEMA`, `kandidater.kodkoppling`).
+
+**Arbetskrav före fortsättningen** (rättelse 2026-10-09). `kompetens.kravbrister` prövar kvittot mot rollen:
+hela kärnan och lyckad Skill-aktivering av aktiverbara kärnskills i varje session. Samma kontroll gäller alternativ
+som transkriptet visar fullständigt lästa. I ändrande pass krävs aktiveringen före den första observerade kodändringen.
+Alternativ som bara deklarerats i svaret men aldrig observerats lästa omfattas inte av denna grind; det är en kvarstående
+kontrollucka, inte bevis för genomförd aktivering. En ny session ärver inte ett tidigare kvitto. Skillens mappnamn och dess
+frontmatternamn binds till samma lokala fil; ett främmande plugin med samma kortnamn får ingen lokal läskredit.
+Read gäller fortfarande dokument och de uttryckliga Initial Response-undantagen. Saknade transkript är okänt och
+kan inte göra ett obligatoriskt moment genomfört. Gamla resultat bevaras som historik, men återanvänds inte som
+aktuella kompetensbevis när uppgiften kräver den nya kontrollen.
+
+`mcp` anger vilka möjligheter rollen har; `mcp-krav` anger vilka undersökningar den måste genomföra med observerat
+resultat före nästa steg. Researchen undersöker Refero, Mobbin och 21st före planen. Planeraren prövar den hämtade
+grunden mot kundens material. Skaparen använder det som faktiskt hämtats och gör kompletterande anrop när underlaget
+inte räcker; identiska sökningar upprepas inte bara för ett kvitto. Vald kod eller tema följer med som id, källa,
+fil, licens och beroenden till implementationen. En lyckad sökning bevisar inte att koden integrerats: detta ska
+visas i den renderade versionen och bedömas där. Uppgiften för 21st följer leverantörens ordning sök, välj, hämta kod,
+integrera och anpassa ([officiell skill](https://github.com/21st-dev/magic-mcp/blob/main/skills/21st-ui/SKILL.md), läst
+2026-10-09). Ett Builder-abonnemang bevisar inte åtkomst till separat AI-generering eller en viss betald mall.
+
+**Räckvidd.** Grinden gäller skapandeflödets kvitton och helbyggets eget slutkvitto. Helbygget ansluter samma fyra
+designtjänster via `byggmcp.py` och kundvakten. Det kräver sitt eget underlag från byggsessionen, inte prototypens
+aktivering. DevTools beställs i en separat inspektionssession efter planprövningen. Materialleverantörernas
+transport finns genom den betrodda CLI-vägen; automatisk vidarebefordran från en skaparsession ingår inte.
+Tillgång, användning och kvalitet redovisas var för sig; kontraktsprov är inget bevis för ett fungerande konto.
 
 Ägarens ord 2026-10-05 18:15Z: "du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA"; ägarens uppdrag 18:53Z, punkt 5: varje
 roll läser de fullständiga relevanta delarna, utan tunna sammanfattningar och utan att varje metodtext läggs i varje
@@ -184,11 +217,12 @@ räknades den, rättat samma dag). En referensfil som inte är en skill (`kunska
 hel med Read enligt skillens instruktion, och kvittot räknar den läst först när läsningarna täckt alla rader. Kvittot
 skiljer tre saker som aldrig byter plats: aktiveringen och läsningen (kärnan hel, valda alternativ, `skill_anrop`),
 användningen (verktygs- och tjänsteanrop med utfall) och bedömd kvalitet, som kvittot aldrig ser (`tillampning` står
-alltid som inte observerat; kvaliteten bedöms av kritiken och ägaren). En saknad eller misslyckad laddning syns som en
-kärnfil i `saknas` eller ett alternativ utan anrop, och hanteras innan beroende arbete fortsätter: i passen rörelse och
-granskning får sessionen ett omförsök (`kontroller/kandidater.py`), i skissen står passet som inte genomfört
-(`genomford`) och planprövningen redovisar kvittot, och kritiken sparar kvittot i SKISSKRITIK.json; ett alternativ som
-inte gick att ladda skrivs i svaret med felet och räknas inte som använt. Att ett verktyg finns installerat räcker inte:
+alltid som inte observerat; kvaliteten bedöms av kritiken och ägaren). Saknad kärnläsning och misslyckad obligatorisk
+Skill-aktivering fäller arbetskravet: i passen rörelse och granskning får sessionen ett omförsök
+(`kontroller/kandidater.py`), i skissen står passet som inte genomfört (`genomford`), planprövningen redovisar kvittot
+och kritiken sparar kvittot i SKISSKRITIK.json. Ett alternativ som inte gick att ladda ska skrivas i svaret med felet
+och får inte redovisas som använt. Grinden fångar dock inte ett deklarerat alternativ som aldrig observerats läst,
+så den delen är en instruktion och ingen garanterad kontroll. Att ett verktyg finns installerat räcker inte:
 tillståndsorden nedan skiljer tillgängligt, provat, tilldelat och använt med resultat.
 
 Rollerna arbetar där de gör nytta, en gång:
@@ -211,8 +245,8 @@ Rollerna arbetar där de gör nytta, en gång:
   beteendet som prövades och den visuella bedömningen före och efter, och dessutom aktiveringen av rollens skills och, i
   rörelsen, teknikvalet per beteende (CSS, Motion, GSAP eller stilla, med skäl).
 
-Varje session aktiverar rollens skills uttryckligen med skillverktyget där Claude Code stöder det (en skills SKILL.md i
-mappens rot) och läser referensfilerna enligt skillens egna instruktioner; en aktivering eller läsning som misslyckas
+I skapandeflödets kompetensroller ska sessionen aktivera kärnskills och valda alternativ uttryckligen med Skill där
+Claude Code stöder det, med Read-undantagen ovan, och läsa referensfilerna enligt skillens egna instruktioner. En aktivering eller läsning som misslyckas
 syns i svaret och hanteras innan beroende arbete fortsätter. En tilldelad verktygs- eller MCP-uppgift är genomförd
 först genom ett faktiskt anrop med ett kontrollerat resultat och en redovisning av hur resultatet användes; att
 verktyget finns räcker inte, och kvittot skiljer aktivering, lyckad användning och bedömd kvalitet åt (ägarens
@@ -220,10 +254,21 @@ förtydligande 2026-10-07; `kontroller/kompetens.py`, `nivaer`). Externa designt
 når aldrig kundens uppgifter (kontroller/kundvakt.py). Varje block nedan: rollen, uppgiften, passen, kärnan,
 alternativen, verktygen, MCP:erna och vad passet visar.
 
-Sammanfattningen kräver bara aktiverbara kärnskills och valda alternativ; Read är inte Skill. Sparade kvitton
+Sammanfattningen kräver aktiverbara kärnskills och de alternativ som observerats fullständigt lästa; Read är inte Skill. Sparade kvitton
 behåller verktygs-/MCP-utfall, och okända resultat visas som inte observerade, också när andra verktyg har lyckats.
 Motion-val i kompetenspasset kräver observerat söksvar med innehåll; ett misslyckat eller tomt söksvar ger
 uppgiftsbrist efter det avgränsade omförsöket, aldrig genomfört pass.
+
+```kompetens helbygge
+namn: Helbygge och leveransförberedelse
+uppgift: Bygga vidare på den av ägaren godkända startsidan och dess faktiska kod, innehåll och designsystem. Bevara designversionens kvaliteter genom undersidor, responsivitet, tillgänglighet, SEO och fungerande kontaktvägar; pröva resultatet i webbläsaren. Ny formgivning kräver det befintliga designbeslutets mandat.
+pass: helbygge
+kärna: bygg-sajt/SKILL.md; frontend-design/SKILL.md; modern-web-guidance/SKILL.md; kunskap/byggstandard.md; kunskap/designregler.md
+välj: ui-ux-pro-max/SKILL.md; impeccable/SKILL.md; better-accessibility/SKILL.md; better-typography/SKILL.md; better-colors/SKILL.md
+verktyg: uxsok
+mcp: refero, mobbin, 21st, motion
+visar: slutbygget jämförs mot den godkända startsidan; kompletteringar anger hämtad källa eller komponent och användningsplats; tekniska prov och granskning gäller samma slutliga version. Byggsessionens egen aktivering och läsning prövas i slutposten; prototypens kvitto återanvänds inte som byggets.
+```
 
 ```kompetens plan
 namn: Planering och planprövning (design och innehåll)
@@ -232,7 +277,7 @@ pass: planera, planprovning
 kärna: refero-design/SKILL.md; impeccable/reference/shape.md; impeccable/reference/clarify.md; kunskap/bild.md
 välj: hallmark/references/macrostructures.md; hallmark/references/structure.md; frontend-design/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; ui-ux-pro-max/SKILL.md; brand/SKILL.md
 verktyg: uxsok
-mcp: refero, mobbin
+mcp: refero, mobbin, 21st
 visar: varje uppdrag formulerar en idé, vad den prövar och en uppgift för besökaren, med huvudreferensen som förslag och de observerbara egenskaper som prövas, utan exakta värden; uppdragen skiljer sig i komposition, berättelse, bildanvändning och uttryck
 ```
 
@@ -241,8 +286,8 @@ namn: Design och komposition
 uppgift: Forma en sammanhängande, kundspecifik riktning ur referenserna, kundens material och besökarens uppgift, och pröva referensens kvalitet (proportioner, komposition, bildstorlek och beskärning, komponenternas form) i kundens innehåll, eller ersätt den med något lika genomarbetat.
 pass: skapa, fordjupa
 kärna: refero-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md; frontend-design/SKILL.md
-välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md; canvas-design/SKILL.md
-verktyg: uxsok, förhandsvisning, material
+välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md; canvas-design/SKILL.md; kunskap/skillskript.md; kunskap/materialtransport.md; kunskap/referensprofil.md
+verktyg: uxsok, förhandsvisning, material, skillskript
 mcp: refero, mobbin, 21st
 visar: riktningen syns i den renderade sidan i mobil, mellanbredd och dator; referensens bärande kvaliteter är prövade eller ersatta med något lika genomarbetat; RIKTNING.md säger vilken synlig förbättring varje kompetens gav; skissen skiljer sig från de andra i komposition, berättelse och bildanvändning; ett koncept ur canvas-design står i BILDER.md med källa, version och Egen nej och är aldrig prototypen (metodkartan, Grafiska koncept ur canvas-design)
 ```
@@ -307,8 +352,8 @@ namn: Designsystem och överlämning
 uppgift: Låta DESIGN.md och koden säga samma sak, med stilpaketets importerade värden och de valda tillstånden, så att leveransen utvecklar den godkända koden vidare.
 pass: fordjupa
 kärna: kunskap/bygge-referens.md; impeccable/reference/extract.md; design-system/SKILL.md
-välj: impeccable/reference/document.md; taste-stitch/SKILL.md
-verktyg: design
+välj: impeccable/reference/document.md; taste-stitch/SKILL.md; kunskap/skillskript.md
+verktyg: design, skillskript
 mcp:
 visar: DESIGN.md stämmer med koden, och sidorna använder dess variabler eller stilpaketets
 ```
@@ -326,12 +371,13 @@ visar: RESEARCH.md, BRIEF.md, TEXTUNDERLAG.md och BESTALLNING.md med belägg, hy
 
 ```kompetens forska
 namn: Research och referensjakt
-uppgift: Formulera antagandena om besökarna som kan ändra designbesluten, och frågorna och sajterna som öppnar verkligt skilda grundidéer ur verksamhetens värld och material; pröva territorierna med egna generiska sökningar i Refero och Mobbin innan frågorna skrivs, så att referenssteget hämtar material som bär och inte frågar efter det tjänsterna saknar.
+uppgift: Formulera antagandena om besökarna som kan ändra designbesluten, och undersöka visuella förebilder, besökarflöden och återanvändbar kod innan riktningarna bestäms. Refero ger stil, skärmar och sajter; Mobbin ger sektioner och flöden; 21st ger komponenter och teman att pröva som implementationsgrund. Sök generiskt i alla tre och granska resultaten före planen. För vidare id, källa, användningsplats och skäl för urval eller bortval; en vald komponent hämtas med kod, licens och beroenden, och en skärmbild kallas aldrig kodmall.
 pass: forska
 kärna: kunskap/referensjakt.md; refero-design/SKILL.md; refero-design/references/mcp-tools.md
 välj: kunskap/referenser-professionella.md; impeccable/reference/shape.md; better-explain-interface/SKILL.md; hallmark/references/macrostructures.md; ui-ux-pro-max/SKILL.md; refero-design/references/example-workflow.md
 verktyg: uxsok
-mcp: refero, mobbin
+mcp: refero, mobbin, 21st
+mcp-krav: refero, mobbin, 21st
 visar: frågorna och sajterna spänner över skilda grundidéer ur verksamhetens värld och är prövade mot vad tjänsterna har; varje antagande har underlag eller "ännu inte observerat", en prövning och en följd; ett tomt eller misslyckat prov står som det är och är inget material
 ```
 
@@ -424,17 +470,16 @@ Gemensamma kundbilder och deras faktauppgifter är fortsatt läsbara. Ett koncep
 rendering, utan att ge blindkritiken andra studier eller skaparens avsikt. Materialsteget (gren H4 i uppdraget) får
 uppdraget att ta koncepten som ingång: ett koncept som ska bli en tillgång får ett konkret visuellt uppdrag
 (användningsplats, uttryck, format, beskärning, vad det ska bidra med), webboptimeras genom `astro:assets` och
-registreras med källa och vald version. Tills steget finns skriver skaparen en kompositionsstudie som SVG, form i
-koden, i det egna projektet; `.venv` saknar Pillow och reportlab, så en PNG eller PDF ur skillen tas fram utanför
-flödets sessioner (KALLA.md, Beroenden).
+registreras med källa och vald version. Skaparen skriver den statiska SVG-studien i sin konceptkatalog och ett
+uppdrag i kompetens/skriptuppdrag/. `skillskript.py` renderar PNG/PDF med befintligt Playwright, utan Pillow eller
+reportlab; i sandlådan delegeras just renderingen till webbtjänsten. Resultat och kvitto ligger i kandidatens
+kompetens/skillskript/ och importeras därifrån med `material.py --canvas`. Kontrakt: `kunskap/skillskript.md`.
 
-**Sessioner utan block**, den enda listan över kandidatflödets sessioner utan en roll (`kontroller/kandidater.py`, varje
+**Sessioner utan block**, för närvarande tom även för läget full och dess objektiva rättelser. Den enda listan över kandidatflödets sessioner utan en roll (`kontroller/kandidater.py`, varje
 `atelje.session`): funktionen och skälet. `kontroller/kompetens.py --prova` jämför listan med koden, så att en session
 utan block och utan skäl, eller ett skäl som bara säger "ingen tilldelning", fälls.
 
 ```sessioner-utan-block
-skapa: skaparen i läget full, en tillfällig växel som tas bort när ägaren dömt skissläget (BESLUT.md 2026-10-05, kväll); den bygger efter metodens före-fil METOD-skapa.md, vars läsning före första ändringen prövas i transkriptet (kandidater.lasningen), med förhandsvisningen och typsnitten i sina verktyg
-forbattra: förbättringsrundan i läget full rättar bara granskningens objektiva fel (krav, aldrig smak) med skaparens uppdrag och metodens före-fil METOD-skapa.md, vars läsning prövas (kandidater.lasningen); en roll med alternativ skulle bjuda in de stilbyten som rundan inte får göra före ägarens val
 ```
 
 **Tjänsternas verktyg** (ägarens uppdrag 2026-10-07, punkt 2 och 3): ett beslut per verktyg som Refero, Mobbin och
@@ -513,7 +558,7 @@ generate-css-easing: ingen uppgift — verktyget står i skillen (motion/codex/i
 ```
 
 ```tjanstverktyg 21st
-search: uppgift — rollen kompositions komponent- och temaresearch i 21st.dev Builder (fritt): generiska sökningar efter komponenttyper för besökarens uppgift (hero, tjänstelista, kontaktformulär, galleri) och teman (type "theme"), aldrig kundens uppgifter; svaret är metadata med förhandsbild och id, som bedöms innan något hämtas (förhandsbilderna är 21st:s och visas aldrig för kunden)
+search: uppgift — researchens undersökning före planen och kompositionens kompletterande komponent- och temaresearch i 21st.dev Builder (fritt): generiska sökningar efter komponenttyper för besökarens uppgift (hero, tjänstelista, kontaktformulär, galleri) och teman (type "theme"), aldrig kundens uppgifter; svaret är metadata med förhandsbild och id, som bedöms innan något hämtas (förhandsbilderna är 21st:s och visas aldrig för kunden)
 get_component: uppgift — hämtning av en vald komponents kod och demo med installationskommando och beroenden (förbrukar Builders dagliga hämtningar; svaret kan vara låst eller saknat och är då inget material); koden är material att anpassa till riktningen, mallens CSS och CSP:n, aldrig ett paket som installeras på egen hand (kunskap/beroenden.md); källan (adressen), författaren, licensen och beroendena skrivs i RIKTNING.md under Referenser
 get_inspiration: uppgift — inspirationsflödet som generisk förebild för komposition och detaljer, bedömt som referensbilder och aldrig kopierat rakt av
 search_logo: ingen uppgift — logotyper tillhör kunden och hämtas ur kundens underlag, aldrig genom en logotypsökning i katalogen; prövat 2026-10-08
@@ -579,16 +624,16 @@ tillämpats, och ett lyckat anrop säger inte att svaret blev användbart materi
 **Ingen uppgift i flödet**, den enda listan över skills utan roll (de finns i verktygslådan; en skill i ett
 kompetensblock ovan har sin uppgift där): emil-write-swift (Swift), emil-animate-expo (React Native och Expo),
 emil-ask-sonner (en toast i en app), slides (presentationer), taste-imagegen-frontend-mobile (appskärmar),
-modern-web-guidance (helbyggets recept med webbläsarstöd, bygg-sajt steg 5.3 och 5.5; ingen roll i skapandet förrän ett
-avgränsat försök visat vad den ger, intagskrav 4),
 emil-pick-ui-library (paketval görs utanför flödet, `kunskap/beroenden.md`), emil-prototype (kandidaterna är
 varianterna), taste-v1 (ersatt av taste), taste-gpt (fast AIDA-ordning mot K22; dess GSAP-recept används inte heller
 sedan GSAP togs in 2026-10-07, eftersom rollen rorelse väljer CSS, Motion eller GSAP per beteende med skillen gsap och
 `kunskap/beroenden.md`). Bildgenererande skills (design, taste-brandkit, taste-imagegen-frontend-web, taste-image-to-code) kräver
 en bildgenerator som flödets sessioner inte har; illustrativt material som inte utger sig för att visa verksamheten
 beställs som material (Avgörandena, Bilder). Ur taste-image-to-code används bara listan för bildanalys (rad 327–360),
-som ett uppslag i Researchen. Flödets egna processkills (bygg-sajt, kirurg, backlog, writing-for-agents) styr arbetet
-och är inga designkompetenser; writing-for-agents är för den som skriver om kartan, förorden eller en skill. Övriga
+som ett uppslag i Researchen. Flödets egna processkills styr arbetet: bygg-sajt ingår i helbyggets arbetskrav; kirurg, backlog och writing-for-agents
+används i systemarbetet, inte som formgivningskompetens. writing-for-agents är för den som skriver om kartan, förorden
+eller en skill. modern-web-guidance ingår i helbygget; ett införande i skisskapandet kräver fortfarande det avgränsade
+försöket i intagskrav 4. Övriga
 MCP-anslutningar (Gmail, Google Drive, GitHub, Resend, Jotform, Railway, Claude Docs med flera) rör kunddata, utskick
 eller drift och har ingen uppgift i skapandet; sessionerna nekar dem. Trybloom används inte (ägarens ord 2026-10-05) och
 nekas likaså. Figma ingår bara i ett pilotprov, utanför normalflödet (`kunskap/skapandeflodet.md`, Figma).
@@ -873,7 +918,8 @@ brand/references/voice-framework.md
 ## Helbygge och prov
 
 **Fråga:** genomför bygget den godkända prototypen på alla sidor, med fungerande tillgänglighet, prestanda, säkerhet och
-sökbarhet? **Kompetens:** `.claude/skills/bygg-sajt/SKILL.md` steg 1–7, `kunskap/byggstandard.md`, `kunskap/seo.md`,
+sökbarhet? Helbyggets rollblock ovan prövas mot den egna sessionen i slutposten; prototypens aktivering ersätter det
+inte. **Kompetens:** `.claude/skills/bygg-sajt/SKILL.md` steg 1–7, `kunskap/byggstandard.md`, `kunskap/seo.md`,
 förfiningens DESIGN.md och provet (`kontroller/prova.py`: axe i tillstånd, Lighthouse-metoden, WebKit, resorna,
 säkerhetshuvudena). **Tillämpning:** responsivitet, rörelse och tillgänglighet byggs in och kontrolleras med samma
 kompetens. **Resultat och överlämning:** `kunder/<slug>/sajt/` med dist, provets rapporter och jämförelsen mot den

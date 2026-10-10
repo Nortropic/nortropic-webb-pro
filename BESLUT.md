@@ -4485,6 +4485,41 @@ konto, Workern i workerd, formulärets felvägar), integrationskatalogen K01–K
 Nortropics Cloudflare-konto är inte anslutet: inget är prövat mot Cloudflare, och inget är driftaktiverat eller
 avvecklat. Var vägen och fakta står: `kunskap/lansering.md` (Cloudflare-steget) och `kunskap/forfragan.md`.
 
+## Tillägg 2026-10-09: kompetensens verkliga användning i rätt steg
+
+**Status:** gäller som uppdrag; rättelserna ligger i en separat gren och är inte aktiverade i drift.
+
+Ägarens aktuella uppdrag, ordagrant:
+
+> SE ÖVER ALLA SKILLS OCH MCPS OCH SÄKERSTÄLL ATT DE ANVÄNDER FULLT UT I I RÄTTA STEG
+
+Codex tillämpning i en separat arbetsgren, inte ett nytt ägarbeslut om konton eller publicering:
+
+- Inventeringen skiljer installerat, rollens uppgift, tillgång i sessionen, observerad användning, vald artefakt och
+  bedömd effekt. Rapporten och de fullständiga tabellerna är privata under
+  `underlag/granskningar/GR-20261009-kompetens-hela-flodet.md`.
+- Refero, Mobbin och 21st undersöks före planen. 21st får även hämta ett valt tema. Vald komponent eller tema följer
+  med som källa, id, rättigheter och beroenden; ett söksvar är inte bevis för implementerad kod. Leverantörens
+  ordning är sök, välj, hämta kod och integrera: https://github.com/21st-dev/magic-mcp/blob/main/skills/21st-ui/SKILL.md.
+- Varje kandidatflödessession prövas mot rollens kärna och aktiverbara skills. En ny session behöver ett eget
+  kvitto. Laddning via Skill och full läsning binds till rätt lokala fil även när frontmatternamnet skiljer sig
+  från mappen. Dokument och Initial Response-undantagen följer den befintliga läsformen.
+- Brister sparas och hindrar ett aktuellt klart resultat, även vid återupptagning. Planering och förfining får
+  egna kvitton. Gamla underlag bevaras; inga historiska domar ändras till ny evidens.
+- Helbygget ansluter ateljéns fyra designtjänster med samma kundvakt och skyddade nyckelhantering. Ett uttryckligt
+  av-läge finns för isolerade prov. Ingen tjänst får fria MCP-behörigheter och gamla Inspo-konfigurationen saknar
+  den kundvakt som denna ingång kräver.
+- Startkontrollen använder den aktuella fasens obligatoriska tjänster. Förfining med ett befintligt giltigt
+  researchunderlag kräver inte en ny research. Flödesvyn visar inte helbygget som kontrollerat utan slutkod 0
+  och ett uppfyllt eget kompetenskvitto.
+- Räckvidden är mekanik, inte visad designförbättring. Automatisk DevTools-beställning och externa materialleverantörers
+  generering är fortfarande luckor. Helbygget får ett eget kompetenskvitto knutet till byggsessionen, och dess
+  obligatoriska aktivering och läsning måste vara observerad för slutkod 0. Verkliga sessioner och betald
+  åtkomst har inte prövats i denna rättelseomgång. Inget helbygge, ingen extern publicering eller kontoändring ingår.
+
+Samordna med det separata arbetet för tio förslag före sammanslagning. Rättelsen ändrar inte det arbetets
+formgivningsval, arbetsordning eller ägarens godkännandegränser.
+
 ## Ägarens beslut 2026-10-10 ~06:05Z: Cloudflares e-post är K04:s huvudväg i stället för Resend
 
 **Status:** gäller; genomfört i leveransvägen och prövat lokalt (b3, grenen `claude/cloudflare-20261009`). Ersätter
@@ -4514,3 +4549,39 @@ under `cf2024-1._domainkey.nortropic.se`; posterna före ändringen sparade priv
 `underlag/<slug>/CLOUDFLARE.json`), proven (attrappen av bindningen med felkoder; Wranglers simulering i
 `workersprov.py`), katalogen och dokumentationen (`kunskap/forfragan.md`, `kunskap/lansering.md`). Inget riktigt mejl
 är skickat: en verifierad mottagare och ett första skarpt prov kräver en verklig verksamhet och sitt eget mandat.
+
+## Tillägg 2026-10-10: införande av kompetensens återstående körvägar
+
+**Status:** gäller som uppdrag; genomförs i separat gren, inte aktiverat på main eller i dashboarden.
+
+Ägarens ord:
+
+> åtgärda sakerna du nämner
+
+Uppdraget fortsätter granskningen av skills och MCP:er. Föregående rättelser integreras med det nya
+uppdragsstyrda förfiningsflödet. Befintliga avgränsningar för konton, publicering och privata uppgifter gäller.
+
+- Valda referenssidor får en separat DevTools-inspektion före skaparna, bunden till sida, bilder, paket och metod.
+  Ett fullständigt oförändrat resultat återanvänds. Brister sparas och stoppar berört fortsatt skapande.
+- Brand-, token-, Tailwind- och canvasfunktioner körs genom en kandidatbunden skriptbrygga med fasta åtgärder.
+  Renderingen ger faktiska PNG/PDF-filer; utfallet är ett underlag för bedömning, aldrig ett designgodkännande.
+- Materialsteget får transportkontrakt för text till bild/video hos de angivna leverantörerna. Beställning och
+  betrodd verkställighet hålls isär: uppdragshash, kostnadsmedgivande, rättigheter och konto krävs före nätanrop.
+  Ett sparat jobb återupptas utan en ny beställning. Denna rättelse aktiverar inget konto och beställer ingen media.
+- Före/efter-bedömning kräver observerad kompetens och båda versionernas bilder. Ett gammalt jämförelsekvitto får
+  inte styra en ny version. Specialistpass som bara bedömer får läsande verktyg; en faktisk kodändring återställs.
+- Motion+ och Mobbins deep-läge öppnas inte genom detta uppdrag: tidigare uttryckliga ägaravgränsningar kvarstår.
+  Cloudflare-arbetet fortsätter separat och denna gren ändrar inte leveransplattform eller aktiverar drift.
+
+Kontrakt: `kunskap/referensprofil.md`, `kunskap/skillskript.md`, `kunskap/materialtransport.md` och metodkartan.
+Verifieringen redovisas i `underlag/granskningar/GR-20261010-kompetens-inforande.md`. Lokala prov visar mekanik;
+verkliga kontoresultat, modellens tillämpning och visuell kvalitet kräver fortfarande sina verkliga prov.
+
+Provavgränsning: Dyad-provets verkliga CLI använder en lokal modellattrapp i en egen hem- och konfigurationskatalog,
+med tomma MCP-konfigurationer och OS-nekande av andra nätmål. Ingen åtkomst till användarens riktiga Claude- eller
+hemlighetsmappar behövs. Detta är transportprov, inte extern integration eller modellkvalitet.
+
+Verifieringen hittade också ett tidsfönster i axe-kontrollens formulärläge: en blockerad navigation kunde
+ha bytt dokument innan webbadressen ändrats. Kontrollen följer nu huvudramens navigationsbegäran och
+publicerar inga formulärfynd från ett annat dokument, även om URL:en ligger kvar. Regressionen använder
+riktig Chromium, läsvakt och axe med en kontrollerat kvarhållen URL; vanliga required-fel mäts fortfarande.

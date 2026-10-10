@@ -8,8 +8,16 @@ Steg 3, rollerna: riktiga `claude -p`-sessioner genom flödets egna funktioner (
 uppdrag_session) i en kopia av repot, och för varje roll: modellen och ansträngningen, instruktionen ordagrant, varje
 bild uppdraget nämner (sha256 lika filens, eller nedskalad av Claude Code med samma proportioner), att de blinda rollerna
 nekas skaparens anteckningar och uppdrag medan skaparen läser dem, och att inga nyckelvärden står i dumparna.
-Steg 3 kräver Claude Code (`claude`) och hoppas över utan det, med skälet.
+Attrappen aktiverar och läser respektive rolls aktuella kärna genom riktiga Skill/Read-anrop före svaret. De vanliga
+kompetenskraven prövas också för skaparrollen, vars uppdrag_session i sig bara kör transporten. Detta visar laddningen,
+inte att en verklig modell kan förstå eller tillämpa kompetensen.
+Steg 3 kräver Claude Code (`claude`) och macOS sandbox-exec; saknas någon hoppas det över med skälet.
+
+Testskydd: egen HOME och CLAUDE_CONFIG_DIR, tomma MCP-konfigurationer bara i repokopian, och en CLI-wrapper som
+med OS-regler nekar nät utom attrappens exakta loopbackport samt läsning/skrivning i användarens riktiga Claude- och
+hemlighetsmappar. Provet visar Messages-transport, bilder och läsgränser, aldrig verklig MCP-åtkomst eller modellkvalitet.
 """
+import contextlib
 import json
 import os
 import secrets
@@ -21,6 +29,7 @@ import tempfile
 import unittest
 import zlib
 from pathlib import Path
+from urllib.parse import urlsplit
 from unittest.mock import patch
 
 HAR = Path(__file__).resolve()
@@ -33,12 +42,170 @@ ROT = HAR.parents[3]
 SLUG = 'dyad-prov'
 
 
+SANDBOX = '/usr/bin/sandbox-exec'
+MCP_PROV = ('refero.json', 'mobbin.json', 'motion.json', '21st.json')
+
+
+def prov_miljo(bas, hem, bin_, tmp):
+    """Ett explicit barn-env, aldrig en ändring av förälderns HOME eller Claude-konfiguration.
+
+    Inga auth-, proxy-, modell-, NWP- eller globala Claude-inställningar ärvs. Konfigurationsvägen
+    sätts EFTER filtreringen och överlever nastlad.miljo (CLAUDE_CONFIG_DIR har inte CODE_-prefixet).
+    """
+    env = {k: bas[k] for k in ('LANG', 'LC_ALL', 'LC_CTYPE', 'TZ', 'TERM') if k in bas}
+    env.update(HOME=str(hem), CLAUDE_CONFIG_DIR=str(Path(hem) / '.claude'),
+               XDG_CONFIG_HOME=str(Path(hem) / '.config'), XDG_CACHE_HOME=str(Path(hem) / '.cache'),
+               TMPDIR=str(tmp), PATH=str(bin_) + os.pathsep + bas.get('PATH', '/usr/bin:/bin'))
+    return env
+
+
+def tomma_prov_mcp(kopia):
+    """Messages-transporten prövas här, inte MCP-start/åtkomst. Bara den egna kopians konfig ändras."""
+    for namn in MCP_PROV:
+        fil = Path(kopia) / 'kontroller' / 'mcp' / namn
+        if fil.is_symlink():
+            raise RuntimeError('provkopians MCP-konfiguration får inte vara en länk')
+        fil.parent.mkdir(parents=True, exist_ok=True)
+        fil.write_text('{"mcpServers": {}}\n', encoding='utf-8')
+
+
+def cli_plan(manifest, argument, miljo):
+    """Argv/env för verklig CLI med OS-gräns: endast attrappens exakta loopbackport.
+
+    Ingen kontoinloggning eller global CLI-konfiguration krävs. Även --help körs med skyddet.
+    Detta är en ren funktion så att vägar, miljö och nekanden kan prövas utan att starta Claude.
+    """
+    eget = Path(manifest['eget']).resolve()
+    hem = Path(manifest['hem']).resolve()
+    konfig = hem / '.claude'
+    if not hem.is_relative_to(eget) or hem == eget:
+        raise RuntimeError('provhemmet ligger utanför den egna katalogen')
+    if Path(miljo.get('HOME', '')).resolve() != hem or Path(miljo.get('CLAUDE_CONFIG_DIR', '')).resolve() != konfig:
+        raise RuntimeError('provets HOME eller CLAUDE_CONFIG_DIR försvann före CLI-starten')
+    if argument == ['--help']:
+        port = None
+    else:
+        u = urlsplit(miljo.get('ANTHROPIC_BASE_URL', ''))
+        if (u.scheme != 'http' or u.hostname != '127.0.0.1' or not u.port or u.username or u.password
+                or u.path not in ('', '/') or u.query or u.fragment):
+            raise RuntimeError('CLI tillåts bara mot attrappens exakta loopbackadress')
+        if not str(miljo.get('ANTHROPIC_API_KEY', '')).startswith(fm.PREFIX):
+            raise RuntimeError('CLI saknar provnyckeln; inget återfall till ett konto tillåts')
+        port = u.port
+    q = lambda x: json.dumps(str(x), ensure_ascii=False)
+    profil = ['(version 1)', '(allow default)', '(deny network-outbound)', '(deny network-bind)', '(deny network-inbound)',
+              '(deny file-write*)', '(allow file-write* (subpath %s))' % q(eget),
+              '(allow file-write* (literal "/dev/null") (literal "/dev/zero") (regex #"^/dev/fd/") (regex #"^/dev/tty"))']
+    if port:
+        profil.append('(allow network-outbound (remote ip "localhost:%d"))' % port)
+    # HOME styr de normala vägarna; OS-gränsen skyddar även mot hårdkodade verkliga användarvägar.
+    for namn in ('.claude', '.claude.json', '.nortropic-hemligheter'):
+        p = Path(manifest['verkligt_hem']) / namn
+        for vag in dict.fromkeys((str(p), str(p.resolve()))):
+            profil.append('(deny file-read* file-write* (subpath %s) (literal %s))' % (q(vag), q(vag)))
+    env = {k: v for k, v in miljo.items() if k in (
+        'HOME', 'CLAUDE_CONFIG_DIR', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'TMPDIR', 'PATH', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ', 'TERM')}
+    env.update(CLAUDE_CODE_DISABLE_AUTO_MEMORY='1', CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1',
+               DISABLE_TELEMETRY='1', DISABLE_AUTOUPDATER='1', DISABLE_ERROR_REPORTING='1')
+    if port:
+        env.update(ANTHROPIC_BASE_URL=miljo['ANTHROPIC_BASE_URL'], ANTHROPIC_API_KEY=miljo['ANTHROPIC_API_KEY'])
+    return [SANDBOX, '-p', '\n'.join(profil) + '\n', manifest['claude'], *argument], env
+
+
+def skyddad_cli(manifestfil, argument):
+    manifest = json.loads(Path(manifestfil).read_text(encoding='utf-8'))
+    if not Path(SANDBOX).is_file():
+        raise RuntimeError('sandbox-exec saknas: ingen oskyddad Claude-start tillåts')
+    argv, env = cli_plan(manifest, argument, os.environ)
+    os.execve(SANDBOX, argv, env)
+
+
+def forbered_cli(eget, kopia, claude_bin, bas):
+    """Egen wrapper, hem och config för provets barnprocess. Inga filer ur ägarens hem kopieras."""
+    eget = Path(eget).resolve()
+    hem, bin_, tmp = eget / 'hem', eget / 'bin', eget / 'tmp'
+    for p in (hem / '.claude', bin_, tmp):
+        p.mkdir(parents=True)
+    manifest = eget / 'cli-isolering.json'
+    manifest.write_text(json.dumps({'eget': str(eget), 'hem': str(hem), 'verkligt_hem': bas.get('HOME', str(Path.home())),
+                                   'claude': str(Path(claude_bin).resolve())}), encoding='utf-8')
+    wrapper = bin_ / 'claude'
+    wrapper.write_text('#!' + sys.executable + '\nimport runpy, sys\n' +
+                       'prov = runpy.run_path(' + repr(str(Path(kopia) / 'kontroller/rokprov/revision/prov_dyad.py')) + ')\n' +
+                       'prov["skyddad_cli"](' + repr(str(manifest)) + ', sys.argv[1:])\n', encoding='utf-8')
+    wrapper.chmod(0o700)
+    tomma_prov_mcp(kopia)
+    return prov_miljo(bas, hem, bin_, tmp)
+
+
 def png(bredd, hojd, farg):
     """En hel PNG i en färg (filter 0 per rad, zlib), så att Claude Code kan läsa och skala den som en riktig bild."""
     rad = b'\x00' + bytes(farg) * bredd
     kropp = zlib.compress(rad * hojd, 9)
     bit = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)  # noqa: E731
     return b'\x89PNG\r\n\x1a\n' + bit(b'IHDR', struct.pack('>IIBBBBB', bredd, hojd, 8, 2, 0, 0, 0)) + bit(b'IDAT', kropp) + bit(b'IEND', b'')
+
+
+def kompetensplan(pass_):
+    """Skriptets faktiska verktygsanrop ur rollens aktuella kärna, aldrig ett syntetiskt godkänt kvitto."""
+    import bildkedja
+    import kompetens
+    filer = list(dict.fromkeys(f for roll in kompetens.for_pass(pass_) for f in roll['karna']))
+    skills, las = kompetens.aktiverbara(filer)
+    namn = [bildkedja.skillkommando(s) for s in skills]
+    if any(n is None for n in namn):
+        raise RuntimeError('provrollen har ett olöst Skill-namn')
+    return {'skills': namn, 'las_fore': [kompetens.vag(f) for f in las]}
+
+
+class AttrappensArbete(unittest.TestCase):
+    """Attrappen måste utföra kompetensplanen via verktyg; kräver varken CLI, modell eller nät."""
+
+    def test_aktivering_och_hela_karnan_fore_bilder_och_svar(self):
+        with korregister.egen_tmp_med('nwp-dyad-', 'Dyad-attrappens anropsföljd') as t:
+            rot = Path(t)
+            (rot / 'karna.md').write_text('syntetisk rad\n' * 205, encoding='utf-8')
+            server = fm.Server(rot / 'dump', rot, skills=['prov-skill'], las_fore=['karna.md'], las_ocksa=['nekad.md'])
+            body = {'tools': [{'name': n, 'input_schema': {'type': 'object'}} for n in ('Skill', 'Read', 'StructuredOutput')],
+                    'messages': [{'role': 'user', 'content': 'Bilden bilder/prov.png'}]}
+            alla_id = []
+
+            def ta_anrop():
+                typ, block = server.drag(body)
+                self.assertEqual(typ, 'anrop')
+                alla_id.extend(b['id'] for b in block)
+                body['messages'].append({'role': 'assistant', 'content': block})
+                body['messages'].append({'role': 'user', 'content': [
+                    {'type': 'tool_result', 'tool_use_id': b['id'], 'content': 'syntetiskt verktygssvar'} for b in block]})
+                return block
+
+            self.assertEqual([(b['name'], b['input']) for b in ta_anrop()], [('Skill', {'skill': 'prov-skill'})])
+            las = ta_anrop()
+            self.assertEqual([b['name'] for b in las], ['Read'] * 3)
+            self.assertEqual([b['input']['offset'] for b in las], [1, 101, 201])
+            self.assertTrue(all(b['input']['limit'] == 100 and b['input']['file_path'] == str(rot / 'karna.md') for b in las))
+            bilder = ta_anrop()
+            self.assertEqual([b['input'] for b in bilder], [{'file_path': str(rot / 'bilder/prov.png')}, {'file_path': str(rot / 'nekad.md')}])
+            self.assertEqual(server.drag(body)[0], 'svar')
+            self.assertEqual(len(alla_id), len(set(alla_id)), 'faserna får inte återanvända tool_use-id')
+
+    def test_saknat_verktyg_ger_inte_fardigt_svar(self):
+        with korregister.egen_tmp_med('nwp-dyad-', 'Dyad-attrappens saknade verktyg') as t:
+            server = fm.Server(Path(t) / 'dump', t, skills=['prov-skill'])
+            typ, svar = server.drag({'tools': [{'name': 'StructuredOutput'}], 'messages': []})
+            self.assertEqual(typ, 'text')
+            self.assertIn('PROV-FEL', svar)
+            self.assertIn('Skill', svar)
+
+    def test_rollernas_plan_anvander_de_riktiga_karnorna(self):
+        import bildkedja
+        import kompetens
+        for pass_ in ('skisskritik', 'fore_efter', 'fordjupa'):
+            with self.subTest(pass_=pass_):
+                plan = kompetensplan(pass_)
+                laddade = ['.claude/skills/%s/SKILL.md' % bildkedja.skillnamn(s) for s in plan['skills']]
+                self.assertEqual(set(plan['las_fore'] + laddade), set(kompetens.lasfiler(pass_)))
+                self.assertTrue(all((ROT / f).is_file() for f in plan['las_fore']))
 
 
 class Provlaget(unittest.TestCase):
@@ -132,7 +299,8 @@ def kopiera_repo(fran, till):
             os.symlink((fran / lank).resolve(), till / lank)
 
 
-@unittest.skipUnless(shutil.which('claude'), 'Claude Code (claude) saknas: rollerna kräver riktiga claude -p-sessioner')
+@unittest.skipUnless(shutil.which('claude') and Path(SANDBOX).is_file(),
+                     'Claude Code eller sandbox-exec saknas: lokalt transportprov körs aldrig oskyddat')
 class Rollerna(unittest.TestCase):
     """Steg 3: rollerna i en kopia av repot, mot den falska modellen."""
 
@@ -141,13 +309,112 @@ class Rollerna(unittest.TestCase):
             kopia = Path(t) / 'repo'
             kopiera_repo(ROT, kopia)
             ut = Path(t) / 'ut'
+            env = forbered_cli(t, kopia, shutil.which('claude'), os.environ)
             p = subprocess.run([str(kopia / '.venv' / 'bin' / 'python'), '-B', str(kopia / 'kontroller' / 'rokprov' / 'revision' / 'prov_dyad.py'),
                                 '--i-kopian', str(ut)], cwd=str(kopia), capture_output=True, text=True, timeout=900,
-                               env={k: v for k, v in os.environ.items() if not k.startswith(('CLAUDE', 'ANTHROPIC', 'NWP_'))})
+                               env=env)
             sys.stderr.write(p.stderr[-6000:])
             self.assertEqual(p.returncode, 0, p.stdout[-3000:] + p.stderr[-3000:])
             fakta = json.loads((ut / 'FAKTA.json').read_text(encoding='utf-8'))
             sys.stderr.write('Dyad-provet: %s\n' % json.dumps(fakta['sammanfattning'], ensure_ascii=False))
+
+
+class Isolering(unittest.TestCase):
+    """Skyddets mekanik prövas utan Claude. Barnmiljöfallet kan köras mot sparad förekod."""
+
+    def setUp(self):
+        self.stack = contextlib.ExitStack(); self.addCleanup(self.stack.close)
+        self.tmp = Path(self.stack.enter_context(korregister.egen_tmp_med('nwp-dyad-', 'Dyad-provets isoleringskontrakt'))).resolve()
+        self.hem, self.bin = self.tmp / 'hem', self.tmp / 'bin'
+        self.manifest = {'eget': str(self.tmp), 'hem': str(self.hem), 'verkligt_hem': '/syntetiskt/agare', 'claude': '/syntetiskt/claude'}
+        self.env = prov_miljo({'PATH': '/usr/bin:/bin', 'HOME': '/syntetiskt/agare'}, self.hem, self.bin, self.tmp / 'tmp')
+        self.env.update(ANTHROPIC_BASE_URL='http://127.0.0.1:5123', ANTHROPIC_API_KEY=fm.PREFIX + '1234567890')
+
+    def test_barnets_miljo_isoleras_efter_filtrering_genom_riktiga_testingangen(self):
+        # Föreprov: kör förekodens Rollerna.test_rollerna_i_kopian med bara CLI-processen ersatt.
+        # Ingen verklig CLI, inget gammalt kundmaterial och ingen grindsfunktion ersätts.
+        basfil = os.environ.get('NWP_DYAD_ISOLERING_BAS')
+        ns = globals()
+        if basfil:
+            ns = {'__name__': 'dyad_forekod', '__file__': str(HAR)}
+            exec(compile(Path(basfil).read_text(encoding='utf-8'), str(HAR), 'exec'), ns)
+        calls = []
+        def process(args, **kw):
+            calls.append((args, kw))
+            ut = Path(args[-1]); ut.mkdir(parents=True)
+            (ut / 'FAKTA.json').write_text('{"sammanfattning": {}}')
+            return subprocess.CompletedProcess(args, 0, '', '')
+        eget = self.tmp / 'ingang'; eget.mkdir()
+        def kopia(fran, till):
+            (Path(till) / 'kontroller/rokprov/revision').mkdir(parents=True)
+        with patch.object(korregister, 'egen_tmp_med', return_value=contextlib.nullcontext(str(eget))), \
+                patch.dict(ns, {'kopiera_repo': kopia}), patch.object(subprocess, 'run', side_effect=process), \
+                patch.object(shutil, 'which', return_value='/syntetiskt/claude'):
+            ns['Rollerna']('test_rollerna_i_kopian').test_rollerna_i_kopian()
+        env = calls[0][1]['env']
+        self.assertEqual(Path(env['HOME']).resolve(), eget / 'hem', 'testet ärvde ägarens HOME')
+        self.assertEqual(Path(env.get('CLAUDE_CONFIG_DIR', '')).resolve(), eget / 'hem/.claude', 'konfigurationsvägen tappades i filtret')
+        self.assertEqual(Path(env['PATH'].split(os.pathsep)[0]), eget / 'bin', 'CLI går förbi provets OS-wrapper')
+        self.assertFalse({'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'HTTP_PROXY', 'HTTPS_PROXY'} & env.keys())
+
+    def test_configdir_overlever_nastlad_miljo_utan_agarens_variabler(self):
+        bas = {'HOME': '/syntetiskt/agare', 'PATH': '/usr/bin:/bin', 'CLAUDE_CONFIG_DIR': '/syntetiskt/gammal',
+               'ANTHROPIC_AUTH_TOKEN': 'hemligt', 'HTTP_PROXY': 'http://127.0.0.1:9999', 'CLAUDE_CODE_USE_BEDROCK': '1'}
+        fore = dict(bas)
+        env = prov_miljo(bas, self.hem, self.bin, self.tmp / 'tmp')
+        env.update(NWP_FALSK_MODELL='http://127.0.0.1:5123', NWP_FALSK_NYCKEL=fm.PREFIX + '1234567890')
+        m = nastlad.miljo(env, rot=self.tmp / 'repo')
+        self.assertEqual(m['CLAUDE_CONFIG_DIR'], str(self.hem / '.claude'))
+        self.assertEqual(m['HOME'], str(self.hem))
+        self.assertEqual(m['ANTHROPIC_API_KEY'], fm.PREFIX + '1234567890')
+        self.assertFalse({'ANTHROPIC_AUTH_TOKEN', 'HTTP_PROXY', 'CLAUDE_CODE_USE_BEDROCK'} & m.keys())
+        self.assertEqual(bas, fore, 'förälderns miljö ändrades')
+
+    def test_os_gransen_slipper_bara_attrappens_exakta_port(self):
+        argv, env = cli_plan(self.manifest, ['-p', 'syntetiskt'], dict(self.env, HTTP_PROXY='http://127.0.0.1:9999'))
+        self.assertEqual(argv[:2], [SANDBOX, '-p'])
+        profil = argv[2]
+        self.assertIn('(deny network-outbound)', profil)
+        self.assertIn('(allow network-outbound (remote ip "localhost:5123"))', profil)
+        self.assertEqual(profil.count('(allow network-outbound'), 1)
+        self.assertNotIn('localhost:*', profil)
+        self.assertIn('(deny file-write*)', profil)
+        self.assertIn('/syntetiskt/agare/.claude', profil)
+        self.assertIn('/syntetiskt/agare/.nortropic-hemligheter', profil)
+        self.assertEqual(argv[3:], ['/syntetiskt/claude', '-p', 'syntetiskt'])
+        self.assertNotIn('HTTP_PROXY', env)
+
+    def test_cli_nekar_tappad_isolering_eller_extern_modell(self):
+        for andring in ({'HOME': '/syntetiskt/agare'}, {'CLAUDE_CONFIG_DIR': '/syntetiskt/agare/.claude'},
+                        {'ANTHROPIC_BASE_URL': 'https://api.anthropic.com'}, {'ANTHROPIC_BASE_URL': 'http://127.0.0.1:5123/?annan=1'},
+                        {'ANTHROPIC_API_KEY': ''}):
+            with self.subTest(andring=andring), self.assertRaises(RuntimeError):
+                cli_plan(self.manifest, ['-p'], dict(self.env, **andring))
+
+    def test_help_far_inget_nat_och_ingen_nyckel(self):
+        argv, env = cli_plan(self.manifest, ['--help'], self.env)
+        self.assertNotIn('(allow network-outbound', argv[2])
+        self.assertNotIn('ANTHROPIC_API_KEY', env)
+        self.assertIn('(deny network-outbound)', argv[2])
+
+    def test_tomma_mcp_galler_bara_provkopian(self):
+        kopia, granne = self.tmp / 'repo', self.tmp / 'annat'
+        for rot in (kopia, granne):
+            for namn in MCP_PROV:
+                f = rot / 'kontroller/mcp' / namn; f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text('{"mcpServers": {"syntetisk": {"url": "https://exempel.invalid"}}}')
+        tomma_prov_mcp(kopia)
+        for namn in MCP_PROV:
+            self.assertEqual(json.loads((kopia / 'kontroller/mcp' / namn).read_text()), {'mcpServers': {}})
+            self.assertIn('syntetisk', json.loads((granne / 'kontroller/mcp' / namn).read_text())['mcpServers'])
+
+    def test_wrapper_startar_sandbox_och_inte_cli_direkt(self):
+        manifest = self.tmp / 'isolering.json'; manifest.write_text(json.dumps(self.manifest))
+        with patch.dict(os.environ, self.env, clear=True), patch.object(Path, 'is_file', return_value=True), \
+                patch.object(os, 'execve') as start:
+            skyddad_cli(manifest, ['-p', 'syntetiskt'])
+        self.assertEqual(start.call_args.args[0], SANDBOX)
+        self.assertEqual(start.call_args.args[1][3], '/syntetiskt/claude')
 
 
 # --- i kopian: kundens fixtur och de tre rollerna ---
@@ -157,6 +424,7 @@ def i_kopian(ut):
     import atelje
     import kandidater as kd
     import skapande
+    import kompetens
     ut = Path(ut)
     ut.mkdir(parents=True, exist_ok=True)
     assert ROT.resolve() != nastlad.HUVUD, 'kopian får aldrig vara huvudutcheckningen'
@@ -194,16 +462,18 @@ def i_kopian(ut):
 
     roller = []
 
-    def kor(namn, blind, modell, effort, fn):
+    def kor(namn, pass_, blind, modell, effort, fn):
         dumpkat = ut / 'dump' / namn
-        with fm.Server(dumpkat, ROT, las_ocksa=skapare) as s:
+        with fm.Server(dumpkat, ROT, las_ocksa=skapare, **kompetensplan(pass_)) as s:
             with patch.dict(os.environ, {'NWP_FALSK_MODELL': s.url, 'NWP_FALSK_NYCKEL': s.nyckel}):
                 resultat = fn()
-            roller.append({'namn': namn, 'blind': blind, 'modell': modell, 'effort': effort, 'resultat': resultat, 'dump': dumpkat, 'nyckel': s.nyckel})
+            kv = resultat.get('kompetens') or kompetens.kvitto([resultat], pass_)
+            roller.append({'namn': namn, 'blind': blind, 'modell': modell, 'effort': effort, 'resultat': resultat,
+                           'kompetensbrister': kompetens.kravbrister(kv, pass_), 'dump': dumpkat, 'nyckel': s.nyckel})
 
-    kor('skisskritiken', True, kd.GRANSKARE_MODELL, 'high', lambda: kd.skisskritik(SLUG, 'k01'))
-    kor('fore_efter', True, kd.GRANSKARE_MODELL, 'high', lambda: kd.fore_efter(SLUG, 'k01', v0, v1))
-    kor('skaparen', False, atelje.MODELL, atelje.EFFORT,
+    kor('skisskritiken', 'skisskritik', True, kd.GRANSKARE_MODELL, 'high', lambda: kd.skisskritik(SLUG, 'k01'))
+    kor('fore_efter', 'fore_efter', True, kd.GRANSKARE_MODELL, 'high', lambda: kd.fore_efter(SLUG, 'k01', v0, v1))
+    kor('skaparen', 'fordjupa', False, atelje.MODELL, atelje.EFFORT,
         lambda: kd.uppdrag_session(SLUG, 'k01', dom, uppdrag, d / 'svar-uppdrag-dyad.json'))
 
     instruktion = {'skisskritiken': 'Du är den kritiska granskaren av en designskiss', 'fore_efter': 'Du jämför två versioner, X och Y,',
@@ -213,7 +483,8 @@ def i_kopian(ut):
     for r in roller:
         reqs = fm.dumpar(r['dump'])
         sessioner = sorted({x['session'] for x in reqs})
-        rad = {'forfragningar': len(reqs), 'sessioner': len(sessioner)}
+        rad = {'forfragningar': len(reqs), 'sessioner': len(sessioner), 'kompetensbrister': r['kompetensbrister']}
+        fel += ['%s: %s' % (r['namn'], brist) for brist in r['kompetensbrister']]
         if not reqs:
             fel.append('%s: ingen förfrågan nådde den falska modellen' % r['namn'])
             continue

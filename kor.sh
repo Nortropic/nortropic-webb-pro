@@ -20,7 +20,7 @@
 # Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400),
 # NWP_STOPP_TAK (8), NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång),
 # NWP_GRANSKNING_MAX (5 per körning), NWP_FRIST (10: sekunder från SIGTERM till SIGKILL när bygget stoppas),
-# NWP_MCP_CONFIG (av; kontroller/mcp/inspo.json, mobbin.json eller refero.json ansluter en referenstjänst i
+# NWP_MCP_CONFIG (tomt: Refero, Mobbin, Motion och 21st; av: inga; en av deras repolokala mallar väljer en tjänst i
 # A/B-prövningen), NWP_ATELJE (pa; av = nödvägen utan godkänd startsida, där byggaren skriver KONCEPT.md och DESIGN.md
 # själv), NWP_SANDLADA (av; pa kräver en godkänd startsida, eftersom skapandeflödet körs utanför sandlådan, före bygget:
 # kunskap/skapandeflodet.md).
@@ -179,8 +179,9 @@ grans() {
 # DOM.json:s sha256. En körning som dödas utan slutpost känns igen av nästa start och av korslut.py --visa.
 DOMSHA=null
 if [ -f "$DOMFIL" ] && [ ! -L "$DOMFIL" ]; then DOMSHA="\"$(shasum -a 256 "$DOMFIL" | cut -d' ' -f1)\""; fi
+SESSION_ID="$("$ROOT/.venv/bin/python" -B -c 'import uuid; print(uuid.uuid4())')" || stopp "byggsessionens identitet kunde inte skapas"
 mkdir -p "$ROOT/kunder/$SLUG/korningar/$STAMP" \
-  && printf '{"korning": "%s", "pid": %d, "start": "%s", "dom_sha256": %s, "start_id": "%s"}\n' "$STAMP" $$ "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$DOMSHA" "$START_ID" \
+  && printf '{"korning": "%s", "pid": %d, "start": "%s", "dom_sha256": %s, "start_id": "%s", "session_id": "%s"}\n' "$STAMP" $$ "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$DOMSHA" "$START_ID" "$SESSION_ID" \
      > "$ROOT/kunder/$SLUG/korningar/$STAMP/START.json" \
   || stopp "körningens katalog kunder/$SLUG/korningar/$STAMP kunde inte skapas; bygget startas inte"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/korslut.py" --avbrutna "$ROOT/kunder/$SLUG" "$STAMP" || true
@@ -298,45 +299,18 @@ elif [ "${NWP_ATELJE:-pa}" = "pa" ]; then
   stopp "ingen godkänd startsida: kör .venv/bin/python kontroller/prototyp.py $SLUG, välj bland förslagen och godkänn en i dashboardens vy Prototyp före bygget; NWP_ATELJE=av är nödvägen utan ateljé"
 fi
 
-# Referenstjänster via MCP (A/B-posterna om Inspo och om Refero/Mobbin): bara när NWP_MCP_CONFIG pekar på en av filerna i
-# kontroller/mcp/ ansluts tjänsten, och bara dess läsande verktyg släpps igenom; annars laddas inga anslutningar alls.
-# Alla tre är hostade ändpunkter (ingen lokal kod); inloggningen (OAuth) gör ägaren en gång i en interaktiv session.
-# Refero och Mobbin: flödets verktyg ur referenstjanster.TJANSTER, samma lista som kundvakten släpper och metodkartans
-# beslut (Tjänsternas verktyg) prövas mot, så att det finns en källa (ägarens uppdrag 2026-10-07, punkt 3A).
-tjanstens_verktyg() {
-  "$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
-import referenstjanster
-print(" ".join(referenstjanster.TJANSTER[sys.argv[2]]["verktyg"]))' "$ROOT" "$1"
-}
-INSPO=()
-if [ -n "${NWP_MCP_CONFIG:-}" ] && [ "$NWP_MCP_CONFIG" != "av" ]; then
-  [ -f "$NWP_MCP_CONFIG" ] || stopp "NWP_MCP_CONFIG pekar inte på en fil: $NWP_MCP_CONFIG"
-  # bara filerna i kontroller/mcp/ (den verkliga sökvägen, inte bara namnet), och bara tjänstens namngivna läsverktyg
-  MCP_VERKLIG="$(cd "$(dirname "$NWP_MCP_CONFIG")" && pwd -P)/$(basename "$NWP_MCP_CONFIG")"
-  case "$MCP_VERKLIG" in
-    "$ROOT/kontroller/mcp/inspo.json")  INSPO=(mcp__inspo__recommend mcp__inspo__search_screens mcp__inspo__get_screen);;
-    "$ROOT/kontroller/mcp/mobbin.json")
-      TJ="$(tjanstens_verktyg mobbin)" && [ -n "$TJ" ] || stopp "Mobbins verktyg gick inte att läsa ur referenstjanster.TJANSTER"
-      INSPO=($TJ);;
-    "$ROOT/kontroller/mcp/refero.json")
-      TJ="$(tjanstens_verktyg refero)" && [ -n "$TJ" ] || stopp "Referos verktyg gick inte att läsa ur referenstjanster.TJANSTER"
-      INSPO=($TJ)
-      # Refero ansluts med en personlig nyckel (ingen webbläsarinloggning): anslutningsfilen bär ${REFERO_MCP_TOKEN},
-      # värdet ligger i ägarens hemlighetsmapp och exporteras bara till byggets claude-process. Aldrig i repot.
-      REFERO_ENV="$HOME/.nortropic-hemligheter/webb-pro/refero.env"
-      [ -f "$REFERO_ENV" ] || stopp "Refero: $REFERO_ENV saknas (REFERO_MCP_TOKEN=…, chmod 600)"
-      set -a; . "$REFERO_ENV"; set +a
-      [ -n "${REFERO_MCP_TOKEN:-}" ] || stopp "Refero: REFERO_MCP_TOKEN saknas i $REFERO_ENV";;
-    *) stopp "NWP_MCP_CONFIG: okänd anslutning $MCP_VERKLIG; kända: $ROOT/kontroller/mcp/inspo.json, mobbin.json, refero.json";;
-  esac
-fi
+# Referenstjänster via MCP: helbygget har samma fyra designtjänster som ateljén.
+# byggmcp.py fogar kundvakten till sandlådans inställningar och återanvänder ateljéns
+# 0600-konfigurationer; ingen nyckel exporteras till modellens miljö. Ett uttryckligt
+# NWP_MCP_CONFIG=av stänger tjänsterna; en repolokal mall begränsar till den tjänsten.
+# MCP-namn står aldrig i allowedTools: kundvaktens uttryckliga tillåtelse krävs.
 
 ARGS=(-p
+  --session-id "$SESSION_ID"
   --max-turns "${NWP_MAX_TURNS:-400}"
   --permission-mode dontAsk
   --output-format stream-json --verbose
-  --allowedTools Read Write Edit Glob Grep WebFetch WebSearch Skill Task TaskCreate TaskUpdate TaskList TaskGet
-  ${INSPO[@]+"${INSPO[@]}"}
+  --allowedTools Read Write Edit Glob Grep WebFetch WebSearch Skill ToolSearch Task TaskCreate TaskUpdate TaskList TaskGet
   # npm bara mot byggets egen sajt: målarbygget 2026-10-01 installerade först ett typsnitt i repots rot.
   "Bash(npm install --prefix kunder/$SLUG/*)" "Bash(npm ci --prefix kunder/$SLUG/*)" "Bash(npm run build --prefix kunder/$SLUG/*)"
   "Bash(npm --prefix kunder/$SLUG/*)" "Bash(npm view *)" "Bash(npm ls *)" "Bash(npm pack *)"
@@ -353,6 +327,9 @@ ARGS=(-p
   "Bash(.venv/bin/python kontroller/upptagna_val.py *)" "Bash(.venv/bin/python kontroller/ta_bort.py *)" "Bash(.venv/bin/python kontroller/backlog.py *)"
   "Bash(.venv/bin/python kontroller/rubriker.py *)" "Bash(.venv/bin/python kontroller/bilddatum.py *)" "Bash(.venv/bin/python kontroller/seo_kontroll.py *)"
   "Bash(.venv/bin/python kontroller/standard_kontroll.py *)" "Bash(.venv/bin/python kontroller/prelaunch.py *)" "Bash(.venv/bin/python kontroller/stegbevis.py *)"
+  "Bash(.venv/bin/python -B kontroller/uxsok.py *)"
+  "Bash(.venv/bin/python kontroller/skillskript.py $SLUG --kandidat *)"
+  "Bash(.venv/bin/python kontroller/design.py $SLUG)" "Bash(.venv/bin/python kontroller/design.py $SLUG --skriv)"
   "Bash(.venv/bin/python underlag/$SLUG/skript/*)" "Bash(curl -sSL -o underlag/$SLUG/*)"
   "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" "Bash(cp *)" "Bash(mv *)" "Bash(find *)"
   "Bash(file *)" "Bash(sips *)" "Bash(wc *)" "Bash(head *)" "Bash(tail *)" "Bash(cat *)" "Bash(grep *)"
@@ -385,9 +362,8 @@ for f in ${FRYSTA[@]+"${FRYSTA[@]}"}; do ARGS+=("Write(./underlag/$SLUG/$f)" "Ed
 # Bara projektets inställningar: då gäller --allowedTools som vitlista (ägarens egna allow-regler i
 # ~/.claude/settings.json läses inte). Modell och effort anges därför uttryckligen; gh får sin konfigurationsmapp.
 GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
-# --strict-mcp-config utan --mcp-config: inga anslutningar (Gmail, Drive, Resend …) laddas i bygget.
+# --strict-mcp-config: bara flödets egna anslutningar, aldrig servrar på användarnivån.
 ARGS+=(--setting-sources project,local --strict-mcp-config --model "${NWP_MODELL:-opus[1m]}" --effort "${NWP_EFFORT:-medium}")
-if [ ${#INSPO[@]} -gt 0 ]; then ARGS+=(--mcp-config "$NWP_MCP_CONFIG"); fi
 # Sandlådan (backlogposten om gräns på processnivå, F1): NWP_SANDLADA=pa ger claude Claude Codes inbyggda sandlåda för
 # Bash och dess barn: skrivning bara i kunder/<slug>, underlag/<slug>, backlog/ och tmp; mekaniken och .git skrivskyddade;
 # hemligheter olästa; nätet bara till verksamhetens domän (ur uppdragstexten), NWP_NAT_DOMANER (kommaseparerat) och
@@ -403,7 +379,18 @@ else
   SANDLADA+=(--av)
 fi
 SETTINGS="$("$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sandlada.py" "$SLUG" ${GH_DIR:+--gh-dir "$GH_DIR"} ${GODKAND:+--fryst-underlag} ${SANDLADA[@]+"${SANDLADA[@]}"})" || stopp "inställningarna (kontroller/sandlada.py) kunde inte skapas"
-if [ "$SETTINGS" != "{}" ]; then ARGS+=(--settings "$SETTINGS"); fi
+MCP_ARGS="$ROOT/kunder/$SLUG/korningar/$STAMP/mcp.args"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/byggmcp.py" "$SLUG" "${NWP_MCP_CONFIG:-}" "$SETTINGS" > "$MCP_ARGS" \
+  || stopp "helbyggets MCP-konfiguration och kundvakt kunde inte förberedas"
+while IFS= read -r -d '' x_; do ARGS+=("$x_"); done < "$MCP_ARGS"
+BYGGKOMPETENS="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller"); import kompetens
+print("\n".join(kompetens.prompt_rader("helbygge", sys.argv[2])))' "$ROOT" "$SLUG")" \
+  || stopp "helbyggets kompetensuppdrag kunde inte läsas"
+PROMPT="$PROMPT
+
+$BYGGKOMPETENS
+Aktivera helbyggets obligatoriska skills och läs dess kärna före första kodändringen. Körningens eget transkript
+prövas i slutbeskedet; prototypens tidigare kompetenskvitto ersätter inte denna sessions arbete."
 # R06: med NWP_ARBETSROT=kundrepo och ett kundrepo startar byggsessionen i kunder/$SLUG/kundrepo (kontroller/arbetsrot.py),
 # som skapandeflödets sessioner: absoluta regler, motorns rot genom --add-dir, projektets krokar i --settings och inget
 # skrivande i kundrepot. Standard är motorns rot tills det verkliga sessionsprovet gett belägg (kontroller/formagoprov.py).
@@ -424,7 +411,7 @@ fi
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort; bygget skriver
 # aldrig i ägarens automatiska minne (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 nedan, kontroller/nastlad.py).
 # Bygget går på prenumerationen: API-nyckel, token och bas-URL följer aldrig med (som kontroller/nastlad.py API).
-RENSA=(-u CLAUDECODE -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_BASE_URL)
+RENSA=(-u CLAUDECODE -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_BASE_URL -u REFERO_MCP_TOKEN -u TWENTYFIRST_API_KEY)
 while IFS='=' read -r namn _; do
   case "$namn" in CLAUDE_CODE_*) RENSA+=(-u "$namn");; esac
 done < <(env)

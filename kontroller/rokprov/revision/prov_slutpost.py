@@ -264,6 +264,10 @@ def listor(k, fore=None, efter=None):
 
 INGA_KVAR = json.dumps({'stoppade': [], 'kvar': []})
 
+# Bara provets egen logg och eget hem. En fullständig syntetisk session behövs
+# när fallen prövar rapport/dom/processer; kompetensgrinden körs oförändrad.
+from prov_helbygge_fixtur import KOMPETENS_FIXTUR, skapa_bevis
+
 
 def minne(k, f, e):
     """kor.sh:s minne som korslut får det: hashlistornas sha256, sha256 för DOM.json när den låstes (här ur listan före)
@@ -273,8 +277,11 @@ def minne(k, f, e):
 
 
 def korslut_(k, korning, rc='0', fore=None, efter=None, rot=None, env=None, med_minne=True, **andra):
+    hem = TMP / 'korslut-hem'
+    skapa_bevis(rot or ROOT, hem, k, korning, PY)
     f, e = listor(k, fore, efter)
     m = dict(os.environ if env is None else env)
+    m['HOME'] = str(hem)
     if med_minne:
         m.update(minne(k, f, e))
     m.update(andra)
@@ -544,6 +551,8 @@ KR = TMP / 'kor-repo'
 FALSK = TMP / 'falsk-claude'
 FALSK_SKRIPT = r'''#!/bin/sh
 K=kunder/"$NWP_SLUG"
+SID="$(.venv/bin/python -B -c 'import sys; print(sys.argv[sys.argv.index("--session-id")+1])' "$@")"
+.venv/bin/python -B "$PROV_KOMPETENS_FIXTUR" "$PWD" "$HOME" "$NWP_SLUG" "$SID"
 if [ -n "$PROV_ARGV" ]; then cat > "$K"/PROMPT.txt; else cat > /dev/null; fi
 [ -z "$PROV_IGNORERA_TERM" ] || trap '' TERM
 [ -z "$PROV_ARGV" ] || printf '%s\n' "$@" > "$K"/ARGV.txt
@@ -620,7 +629,7 @@ time.sleep(120)
 fi
 if [ -n "$PROV_BARN" ]; then sleep "$PROV_BARN" & echo $! > "$K"/BARN.pid; wait; fi
 if [ -n "$PROV_SOV" ]; then exec sleep "$PROV_SOV"; fi
-echo '{"type":"result","subtype":"success","num_turns":3,"duration_ms":1000}'
+printf '{"type":"result","subtype":"success","is_error":false,"session_id":"%s","num_turns":3,"duration_ms":1000}\n' "$SID"
 exit 0
 '''
 
@@ -639,6 +648,8 @@ def kor_repo():
     for mapp in ('kontroller', 'kritik', 'kunskap', 'dashboard'):
         shutil.copytree(ROOT / mapp, KR / mapp, ignore=shutil.ignore_patterns('node_modules', '__pycache__', 'rokprov'), symlinks=True)
     shutil.copytree(ROOT / '.claude' / 'hooks', KR / '.claude' / 'hooks', ignore=shutil.ignore_patterns('__pycache__'))
+    for namn in ('bygg-sajt', 'frontend-design', 'modern-web-guidance'):
+        shutil.copytree(ROOT / '.claude/skills' / namn, KR / '.claude/skills' / namn)
     for f in (ROOT / '.claude').glob('settings*.json'):
         shutil.copy2(f, KR / '.claude' / f.name)
     (KR / 'backlog').mkdir()
@@ -646,18 +657,21 @@ def kor_repo():
     os.symlink(ROOT / 'kontroller' / 'node_modules', KR / 'kontroller' / 'node_modules')
     git = lambda *a: subprocess.run(['git', '-C', str(KR), *a], capture_output=True, text=True)  # noqa: E731
     git('init', '-q')
+    git('config', 'user.name', 'prov')
+    git('config', 'user.email', 'prov@example.invalid')
     git('add', '-A')
     git('-c', 'user.name=prov', '-c', 'user.email=prov@example.invalid', 'commit', '-q', '-m', 'bas')
     git('branch', '-M', 'main')
     FALSK.mkdir()
     skriv(FALSK / 'claude', FALSK_SKRIPT)
+    skriv(FALSK / 'kompetens.py', KOMPETENS_FIXTUR)
     (FALSK / 'claude').chmod(0o755)
 
 
 def miljo(**extra):
     m = {k: v for k, v in os.environ.items() if not k.startswith(('CLAUDE_CODE_', 'NWP_', 'PROV_')) and k != 'CLAUDECODE'}
     m.update(PATH=str(FALSK) + os.pathsep + m.get('PATH', ''), NWP_STARTKONTROLL='av', NWP_SANDLADA='av', NWP_KORREGISTER=str(TMP / 'korregister'),
-             NWP_FRIST='2')
+             NWP_FRIST='2', NWP_MCP_CONFIG='av', HOME=str(TMP / 'kor-hem'), PROV_KOMPETENS_FIXTUR=str(FALSK / 'kompetens.py'))
     m.update(extra)
     return m
 
@@ -1398,12 +1412,13 @@ def _kor_set_e():
     assert korslut.text(post_) in ut, ut[-400:]
     rc2, ut2, _ = kor('sete-prov', NWP_ATELJE='av')
     assert rc2 == 1 and 'Förra körningen' not in ut2, (rc2, ut2[-300:])
-    # en trasig refero.env avslutar bash med kod 0 utan att set -e fångar något: kor.sh stannar ändå med en post
+    # En otillåten MCP-konfiguration avbryter argumentberedningen: kor.sh stannar med en post.
+    # Referos nyckelfil parsas numera som data av byggmcp/atelje, aldrig som skalkod.
     hem = TMP / 'hem-sete'
-    skriv(hem / '.nortropic-hemligheter' / 'webb-pro' / 'refero.env', 'REFERO_MCP_TOKEN=(\n')
-    rc3, ut3, _ = kor('sete-prov', NWP_ATELJE='av', HOME=str(hem), NWP_MCP_CONFIG=str(KR / 'kontroller' / 'mcp' / 'refero.json'))
+    skriv(hem / 'okand-mcp.json', '{"mcpServers": {}}\n')
+    rc3, ut3, _ = kor('sete-prov', NWP_ATELJE='av', HOME=str(hem), NWP_MCP_CONFIG=str(hem / 'okand-mcp.json'))
     post3 = slutpost(k, korningar('sete-prov')[-1])
-    assert rc3 == 2 and post3['slutkod'] == 2 and 'före bygget' in str(post3.get('skal', '')), (rc3, post3.get('skal'), ut3[-300:])
+    assert rc3 == 2 and post3['slutkod'] == 2 and 'MCP-konfiguration' in str(post3.get('skal', '')), (rc3, post3.get('skal'), ut3[-300:])
 
 
 @fall('kor.sh: en signal till gruppen i avslutet avbryter varken avslutet eller dess barn (KAN 8: N22)')

@@ -311,11 +311,20 @@ class Uppdragsfixtur(unittest.TestCase):
                 self.skapare(prompt)
                 vd = self.d / 'varv' / 'start' / ('varv-%02d' % ((len(list((self.d / 'varv' / 'start').glob('varv-*'))) if (self.d / 'varv' / 'start').is_dir() else 0) + 1))
                 rita_bilder(vd)  # ett helt förhandsvarv med fyra bilder
-            svar = {'structured_output': so, 'session_id': None}
+            svar = {'structured_output': so, 'session_id': 'syntetisk-roll'}
             Path(ut).write_text(json.dumps(svar))
             return svar
 
         self.stack.enter_context(patch.object(atelje, 'session', session))
+        from prov_kompetensflode import giltigt_kvitto
+        def observerat_kvitto(svar, pass_, **kw):
+            kv = giltigt_kvitto(pass_)
+            if pass_ in kd.KOMPETENSPASS or pass_ in kompetens.GRANSKANDE:
+                kv['per_session'][0]['andrade'] = False  # dessa attrapper skriver ingen källkod
+            return kv
+        self.stack.enter_context(patch.object(kompetens, 'kvitto', side_effect=observerat_kvitto))
+        self.stack.enter_context(patch.object(bildkedja, 'lasning', return_value={'verifierad': True, 'grupper': {
+            'X': {'saknas': [], 'kravda': 4, 'lasta': 4}, 'Y': {'saknas': [], 'kravda': 4, 'lasta': 4}}}))
         self.stack.enter_context(patch.multiple(kd, fotografera=foto, aterstall_och_fotografera=ater, bevara_version=bevara,
                                                 bevarad=lambda slug, kid, v: str(v) in self.versioner,
                                                 designkontroll=lambda slug, kid: {'ok': True, 'fel': []}, lasningen=lambda *a: None,

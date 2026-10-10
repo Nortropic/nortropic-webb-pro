@@ -21,9 +21,10 @@ claude:
    tillståndsorden: ett läskvitto är belägg för läsning, ett tomt MCP-svar är inget material, och en session utan
    tjänsten är blockerad (också hela vägen genom observatören); en session som observatören inte kan läsa gör utfallet
    och läget okända, också när en annan session observerades;
-7. en källa: kor.sh läser tjänsternas verktyg ur referenstjanster.TJANSTER, och metodkartans beslut prövas mot listan;
-8. tåligheten: en oväntad form i underlaget, ett undantag i åtkomsten eller ett sessionsprov som kastar stoppar aldrig
-   starten, och research utan material står aldrig som använd;
+7. en källa: kor.sh ansluter genom byggmcp med kundvakten, vars verktyg följer referenstjanster.TJANSTER;
+   metodkartans beslut prövas mot samma lista;
+8. tåligheten: en oväntad form i underlaget blir ett synligt fel. Ett okänt nödvändigt åtkomstprov stoppar starten
+   före researchen; senare faser startar inte om researchen. Research utan material står aldrig som använd;
 9. körvägen följer ateljéns läge, och ett prov som inte gjorts är inte observerat;
 10. kundvakten stoppar personnamn ur underlaget, med en fixtur i verkliga datas form som är giltig mot schemat (10);
     granskarens generiska frågor går, också med förlagor och typsnitt ur briefens §7 och par i rubriker (10a); varje
@@ -130,6 +131,10 @@ import refero_mcp  # noqa: E402
 import stadning  # noqa: E402
 import korregister  # noqa: E402
 korregister.registrera_tmp(TMP, 'prov_startkvitto')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
+atelje.REFERO_ENV = TMP / 'refero.env'
+atelje.TJUGOFORSTA_ENV = TMP / '21st.env'
+atelje.REFERO_ENV.write_text('REFERO_MCP_TOKEN=syntetisk-provnyckel\n')
+atelje.TJUGOFORSTA_ENV.write_text('TWENTYFIRST_API_KEY=syntetisk-provnyckel\n')
 assert vl.ROOT == KOPIA, vl.ROOT
 stadning.disk_matt = lambda p: (1000, 400)  # 40 % ledigt: diskvakten städar aldrig här
 stadning.Ram.verklig = classmethod(lambda cls, *a, **k: (_ for _ in ()).throw(AssertionError('provet städar aldrig det verkliga systemet')))
@@ -569,13 +574,14 @@ def _atkomst():
     sessionsrader = [r for r in kv['rader'] if 'Mobbin' in r['namn'] and 'session' in r['namn']]
     assert sessionsrader, 'kvittot säger inget om Mobbin i ateljéns session: %s' % [(r['namn'], r['resultat']) for r in kv['rader'] if 'obbin' in r['namn']]
     m = sessionsrader[0]
-    assert m['resultat'] == 'fel' and 'tilldelad men åtkomst saknas' in m['detalj'] and 'Konsekvens' in m['detalj'] and 'Åtgärd' in m['detalj'], m
+    assert m['resultat'] == 'fel' and m['nodvandig'] and 'tilldelad men åtkomst saknas' in m['detalj'] and 'Starten stoppas' in m['detalj'] and 'Åtgärd' in m['detalj'], m
+    assert kv['status'] == 'stoppad' and any('Mobbin i ateljéns session' in x for x in kv['stoppar']), kv['stoppar']
     assert not [r for r in sessionsrader if r['resultat'] == 'ok'], 'en tjänst som sessionen inte når står som ok'
     assert next(r for r in kv['rader'] if r['namn'] == 'Refero i ateljéns session')['resultat'] == 'ok'
     roll = {r['roll']: r for r in kv['roller']}
     for kid in ('plan', 'komposition', 'innehall', 'responsiv'):
         assert roll[kid]['atkomst']['mcp']['mobbin']['tillstand'] == 'blockerat', (kid, roll[kid]['atkomst'])
-    assert 'tilldelad men åtkomst saknas' in kvitto_md(slug)
+    assert 'tilldelad men åtkomst saknas' in kvitto_md(slug, 'STARTKVITTO-STOPP')
     # med ateljéns egna argument: Refero, Mobbin och Motion genom kontroller/mcp/ i strikt läge (GR-20261008-r117-claude#E1)
     kv = sk.kor_kontroll(slug, 'ny')
     rad = {r['namn']: r for r in kv['rader']}
@@ -592,7 +598,7 @@ def _atkomst():
                  '--permission-mode dontAsk'):
         assert del_ in sista, (del_, sista[:300])
     assert sista.split('--mcp-config ', 1)[1].split()[0].endswith(('/refero.json', '/refero-mcp.json')), sista[:300]
-    # helbygget laddar ingen MCP och prövar inga ateljésessioner
+    # Helbygget har en egen MCP-väg. Startkvittot krediterar inte åtkomst från ateljéns sessionsprov.
     kvb = sk.kor_kontroll(slug, 'bygge')
     assert not [r for r in kvb['rader'] if r['grupp'] == 'åtkomst'] and kvb['roller'] == [], kvb['roller']
     # M14: maskinens anslutning (claude mcp list) är tillgänglig, inte provad; K9: sessionens övriga MCP-servrar syns
@@ -752,7 +758,7 @@ def _roller():
 
 # ===== 8. tåligheten =====
 
-@fall('8 en oväntad form i underlaget eller ett sessionsprov som kastar stoppar aldrig starten')
+@fall('8 en oväntad form redovisas och ett okänt nödvändigt sessionsprov stoppar före researchen')
 def _talig():
     slug = 'k8-form'
     u = researchat(slug)
@@ -773,7 +779,8 @@ def _talig():
     finally:
         vl.prova_sessionen = orig
     rad = {r_['namn']: r_ for r_ in kv['rader']}
-    assert kv['status'] != 'stoppad' and rad['Mobbin i ateljéns session']['resultat'] == 'okand', (kv['stoppar'], rad.get('Mobbin i ateljéns session'))
+    assert kv['status'] == 'stoppad' and rad['Mobbin i ateljéns session']['resultat'] == 'fel', (kv['stoppar'], rad.get('Mobbin i ateljéns session'))
+    assert rad['Mobbin i ateljéns session']['tillstand'] == 'ej_observerat' and rad['Mobbin i ateljéns session']['nodvandig']
     assert 'provets fel' in rad['Mobbin i ateljéns session']['detalj'] and kv['roller'], rad['Mobbin i ateljéns session']
     # M27: ett undantag i referensunderlaget (en oväntad form i TJANSTER.json) blir en rad, aldrig ett stopp
     u = researchat('k8-undantag')
@@ -783,7 +790,7 @@ def _talig():
     kv = sk.kor_kontroll('k8-undantag', 'fortsatt')
     r = rad_(kv, 'referensunderlaget') or {}
     assert kv['status'] != 'stoppad' and r.get('resultat') == 'okand' and 'kunde inte prövas' in r.get('detalj', ''), (kv['stoppar'], r)
-    # M28: ett undantag i åtkomstraderna och rollerna blir en rad och ett besked, aldrig ett stopp
+    # M28: ett undantag i åtkomsten är okänt; ett obligatoriskt steg får aldrig tolka det som redo.
     orig_atk = sk.mcp_atkomst
 
     def kastar_atk(sess, tjanst):
@@ -793,9 +800,9 @@ def _talig():
         kv = sk.kor_kontroll(slug, 'ny')
     finally:
         sk.mcp_atkomst = orig_atk
-    r = rad_(kv, 'åtkomsten i ateljéns session') or {}
-    assert kv['status'] != 'stoppad' and r.get('resultat') == 'okand' and 'provets fel i åtkomsten' in r.get('detalj', ''), (kv['stoppar'], r)
-    assert kv['roller'] is None and 'provets fel i åtkomsten' in kv.get('roller_fel', '') and 'Kvittot per roll kunde inte göras' in kvitto_md(slug)
+    r = rad_(kv, 'Mobbin i ateljéns session') or {}
+    assert kv['status'] == 'stoppad' and r.get('resultat') == 'fel' and r.get('tillstand') == 'ej_observerat' and r.get('nodvandig'), (kv['stoppar'], r)
+    assert kv['roller'] is None and 'provets fel i åtkomsten' in kv.get('roller_fel', '') and 'Kvittot per roll kunde inte göras' in kvitto_md(slug, 'STARTKVITTO-STOPP')
 
 
 # ===== 9. körvägen och det som inte prövats =====
@@ -1315,18 +1322,30 @@ def _sessionsprovet_avslutar():
 
 # ===== 7. en källa för tjänsternas verktyg =====
 
-@fall('7 en källa: kor.sh läser tjänsternas verktyg ur TJANSTER, och metodkartans beslut prövas mot listan')
+@fall('7 en källa: kor.sh använder byggmcp och kundvakten följer TJANSTER, och metodkartans beslut prövas mot listan')
 def _en_kalla():
+    import byggmcp
     kor = (KOPIA / 'kor.sh').read_text()
     assert not re.search(r'mcp__(mobbin__search|refero__refero_)', kor), 'kor.sh har en egen lista över tjänsternas verktyg'
-    m = re.search(r"tjanstens_verktyg\(\) \{\n  \"\$ROOT/\.venv/bin/python\" -B -c '(?P<kod>.*?)' \"\$ROOT\" \"\$1\"\n\}", kor, re.S)
-    assert m and 'tjanstens_verktyg mobbin' in kor and 'tjanstens_verktyg refero' in kor, 'kor.sh läser inte TJANSTER'
+    assert '"$ROOT/kontroller/byggmcp.py" "$SLUG" "${NWP_MCP_CONFIG:-}" "$SETTINGS"' in kor, 'kor.sh ansluter inte via den gemensamma kundvakten'
     for t in ('mobbin', 'refero'):
-        r = subprocess.run([sys.executable, '-B', '-c', m.group('kod'), str(KOPIA), t], capture_output=True, text=True, timeout=60)
-        assert r.returncode == 0 and r.stdout.split() == referenstjanster.TJANSTER[t]['verktyg'], (t, r.stdout, r.stderr[-300:])
-        # M25: anslutningsfilen för tjänsten läser just den tjänstens verktyg
-        gren = re.search(r'"\$ROOT/kontroller/mcp/%s\.json"\)\n\s*TJ="\$\(tjanstens_verktyg (\w+)\)"' % t, kor)
-        assert gren and gren.group(1) == t, (t, gren.group(1) if gren else None)
+        fil = KOPIA / 'kontroller' / 'mcp' / (t + '.json')
+        args = byggmcp.argument('k7-kalla', str(fil), {'sandbox': {'enabled': True}})
+        mcp = args[args.index('--mcp-config') + 1:]
+        forvantad = atelje.refero_mcp_fil() if t == 'refero' else str(fil)
+        assert mcp == [forvantad], (t, mcp)
+        settings = json.loads(args[args.index('--settings') + 1])
+        assert settings['sandbox'] == {'enabled': True}
+        assert settings['hooks'] == json.loads(kundvakt.installningar('k7-kalla', atelje.UNDERLAG, rot=atelje.ROOT))['hooks']
+        # Verktygslistan härleds vid anropet, också efter ändring; ingen separat kopia i byggvägen.
+        fore = referenstjanster.TJANSTER[t]['verktyg']
+        nytt = 'mcp__%s__syntetiskt_listprov' % t
+        try:
+            referenstjanster.TJANSTER[t]['verktyg'] = [nytt]
+            tillatna = kundvakt.tillatna()
+            assert nytt in tillatna and not set(fore) & tillatna, (t, tillatna)
+        finally:
+            referenstjanster.TJANSTER[t]['verktyg'] = fore
     karta = (KOPIA / 'kunskap' / 'metodkarta.md').read_text()
     assert kompetens.tjanstverktyg_fel(karta) == [] and kompetens.prova(karta) == [], kompetens.prova(karta)
     fel = kompetens.tjanstverktyg_fel(re.sub(r'(?m)^search_flows: uppgift.*\n', '', karta))

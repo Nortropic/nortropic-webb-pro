@@ -100,14 +100,21 @@ stadning.disk_matt = lambda p: (1000, 400)
 stadning.Ram.verklig = classmethod(lambda cls, *a, **k: (_ for _ in ()).throw(AssertionError('provet städar aldrig det verkliga systemet')))
 assert vl.ROOT == KOPIA and vl.LAGE == KOPIA / 'underlag' / 'startkontroll', vl.ROOT
 import referenstjanster  # noqa: E402
+import kompetens  # noqa: E402
+import atelje  # noqa: E402
+# Sessionsargumenten byggs på riktigt, men kan aldrig läsa eller skriva maskinens nyckelfiler.
+atelje.REFERO_ENV = TMP / 'refero.env'
+atelje.TJUGOFORSTA_ENV = TMP / '21st.env'
+atelje.TJUGOFORSTA_ENV.write_text('TWENTYFIRST_API_KEY=syntetisk-provnyckel\n')
 ALLA_REFERO = [v.split('__')[-1] for v in referenstjanster.TJANSTER['refero']['verktyg']] + ['refero_search_apps']
 
 
 def init_rad(med_mobbin):
-    """Init-beskedet i en session med ateljéns argument: Refero ur den lokala nivån, Mobbin bara ur --mcp-config."""
-    servrar = [{'name': 'refero', 'status': 'connected', 'source': 'local'}] + ([{'name': 'mobbin', 'status': 'connected', 'source': 'dynamic'}] if med_mobbin else [])
+    """Init-beskedet i en session med ateljéns argument: alla fyra tilldelade designtjänster."""
+    servrar = [{'name': 'refero', 'status': 'connected', 'source': 'local'}] + (
+        [{'name': t, 'status': 'connected', 'source': 'dynamic'} for t in ('mobbin', 'motion', '21st')] if med_mobbin else [])
     verktyg = ['Glob', 'Grep', 'Read', 'Skill', 'ToolSearch'] + ['mcp__refero__' + v for v in ALLA_REFERO] + (
-        list(referenstjanster.TJANSTER['mobbin']['verktyg']) if med_mobbin else [])
+        [v for t in ('mobbin', 'motion', '21st') for v in kompetens.mcp_verktyg(t)] if med_mobbin else [])
     return json.dumps({'type': 'system', 'subtype': 'init', 'mcp_servers': servrar, 'tools': verktyg,
                        'skills': sorted(p.name for p in (KOPIA / '.claude' / 'skills').iterdir() if p.is_dir())}) + '\n'
 

@@ -235,8 +235,10 @@ kontroller/referenstjanster.py <slug>`. Steget räknar anropen ur sessionens log
 de andra. Tjänsterna ger hantverks- och UX-rollen, inte branschen. Skapandeflödet beställer samma steg på begäran
 (`kunskap/skapandeflodet.md`).
 
-**När Mobbin eller Refero är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG` = `kontroller/mcp/mobbin.json` eller
-`refero.json`): Mobbins `search_screens`, `search_flows` och `search_sections` söker skärmar, flöden och sektioner ur
+**Helbyggets designtjänster:** `byggmcp.py` ansluter normalt Refero, Mobbin, 21st och Motion genom kundvakten.
+`NWP_MCP_CONFIG=av` stänger av dem; en angiven konfiguration kan välja en av dessa fyra. Tillgång är inte bevis för
+användning. Helbygget utgår från den godkända startsidans material och kompletterar vid behov, utan att upprepa
+researchens undersökningar bara för ett kvitto. Mobbins `search_screens`, `search_flows` och `search_sections` söker skärmar, flöden och sektioner ur
 riktiga produkter (flöden för bokning och kontakt, sektioner för tjänster och omdömen); Referos verktyg ger stilar,
 skärmar och flöden i den ordningen, och varje beslut skrivs med sin källa i REFERENSER.md som i Referos liggare. Varje
 vald referens öppnas ändå med inspektera.mjs och skrivs i REFERENSER.md med källa; bedöm bilden, aldrig bara
@@ -245,10 +247,10 @@ läge i arkivet går ofta inte att återskapa vid ett besök, så skriv vilken b
 din egen inspektion) och låt arkivbilden gälla för det läget. Dessa tjänster saknar hantverkare och lokala tjänster:
 de ger hantverks- och UX-rollen, inte branschen.
 
-**När Inspo är anslutet** (bara i A/B-prövningen, `NWP_MCP_CONFIG`): `recommend` och `search_screens` med briefen är en
-sökingång för hantverksrollen och mobilparen, och `get_screen` visar en skärm. Varje vald referens öppnas ändå med
-inspektera.mjs ovan och skrivs i REFERENSER.md med källa Inspo. Färgerna, formen och första vyn kommer ur
-verksamheten och DESIGN.md (den aktuella designen; KONCEPT.md har alternativen och beslutet), inte ur arkivets förslag.
+21st används för återanvändbara komponenter och teman: sök, välj, hämta kod och kontrollera licens och beroenden före
+anpassningen. Motion ger fri dokumentationssökning för valda rörelsebeteenden; tillgång innebär inte att rörelse ska
+läggas till. Uppgifter och tillåtna verktyg står i `kunskap/metodkarta.md`. Inspo är inte tillåtet i denna körväg:
+dess konfiguration nekas tills en egen kundvakt är införd och prövad. Designen följer kundens underlag och DESIGN.md.
 
 ## Steg 4 — Innehåll före form
 

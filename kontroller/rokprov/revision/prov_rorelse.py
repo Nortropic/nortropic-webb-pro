@@ -79,6 +79,7 @@ for k_ in ('NWP_SLUG', 'NWP_STARTKONTROLL', 'NWP_KANDIDATFLODE', 'NWP_ATELJE', '
     os.environ.pop(k_, None)
 
 sys.path.insert(0, str(KOPIA / 'kontroller'))
+sys.path.insert(0, str(KOPIA / 'kontroller' / 'rokprov' / 'revision'))
 import atelje  # noqa: E402
 import bildkedja  # noqa: E402
 import kandidater as kd  # noqa: E402
@@ -89,6 +90,7 @@ import metod  # noqa: E402
 import referenstjanster  # noqa: E402
 import stadning  # noqa: E402
 import startkontroll as sk  # noqa: E402
+from prov_kompetensflode import giltigt_kvitto  # noqa: E402
 
 korregister.registrera_tmp(TMP, 'prov_rorelse')  # provets egen katalog, registrerad som körningens (städregeln, 2026-10-07)
 SLUG = 'kv-rorelse'
@@ -424,7 +426,10 @@ def _dokumentationen():
     k = (KOPIA / 'kunskap' / 'metodkarta.md').read_text(encoding='utf-8')
     assert 'GSAP finns inte bland de låsta' not in k, 'listan Ingen uppgift säger inte längre att GSAP saknas i låset'
     assert 'Motion och GSAP (`kunskap/beroenden.md`)' in k and 'fylla en kvot' in k and 'Framer Motion' in k, 'Avgörandena Teknik'
-    assert 'aktiverar rollens skills uttryckligen med skillverktyget' in k and 'aktivering, lyckad användning och bedömd kvalitet' in k, 'ägarens förtydligande i Kompetenserna'
+    aktivering = re.sub(r'\s+', ' ', k)
+    assert ('aktivera kärnskills och valda alternativ uttryckligen med Skill' in aktivering
+            and 'med Read-undantagen ovan' in aktivering
+            and 'aktivering, lyckad användning och bedömd kvalitet' in aktivering), 'ägarens förtydligande och Read-undantagen i Kompetenserna'
     reg = (KOPIA / 'kunskap' / 'REGISTER.md').read_text(encoding='utf-8')
     assert 'Inget för våra sajter. Sämre. (Ersatt 2026-10-07 för GSAP' in reg, 'kirurgens post står kvar med ersättningsraden'
     assert '### 2026-10-07 · greensock/gsap-skills' in reg and '### 2026-10-07 · motiondivision/ai-kit' in reg, 'intagsposterna'
@@ -495,10 +500,10 @@ def _passets_hela_kvitto():
         def foto(*a, **kw):
             st['version'] = 'v2'
             return deepcopy(st)
-        kv = {'verifierad': True, 'saknas': [], 'lasta': [], 'valda': [], 'skill_anrop': [], 'skill_fel': [],
-              'mcp_anrop': {MOTION_VERKTYG: 1} if outcome else {},
-              'mcp_utfall': {MOTION_VERKTYG: {outcome: 1}} if outcome else {},
-              'mcp_lage': {'motion': 'ansluten'}, 'verktyg_anrop': {'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}}}
+        # Kärnan och aktiveringen är kompletta syntetiska observationsdata; bara det här provets MCP-utfall varierar.
+        kv = dict(giltigt_kvitto('rorelse'), mcp_anrop={MOTION_VERKTYG: 1} if outcome else {},
+                  mcp_utfall={MOTION_VERKTYG: {outcome: 1}} if outcome else {},
+                  mcp_lage={'motion': 'ansluten'}, verktyg_anrop={'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}})
         # schemat kräver bildens väg per prövat beteende, och genomfört kräver att bilden finns (GR-20261008-r117-claude#C4)
         bildfil = atelje.UNDERLAG / SLUG / 'syntetisk-beteendebild.png'
         skriv(bildfil, b'\x89PNG syntetisk')
@@ -519,8 +524,8 @@ def _passets_hela_kvitto():
     assert not errors, errors
     # utan bild för ett prövat beteende är passet inte genomfört, fast sessionen rapporterar det (C4)
     st = {'status': 'klar', 'version': 'v1', 'kompetens': {}}
-    kv = {'verifierad': True, 'saknas': [], 'lasta': [], 'valda': [], 'skill_anrop': [], 'skill_fel': [], 'mcp_anrop': {}, 'mcp_utfall': {},
-          'mcp_lage': {'motion': 'ansluten'}, 'verktyg_anrop': {'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}}}
+    kv = dict(giltigt_kvitto('rorelse'), mcp_anrop={}, mcp_utfall={}, mcp_lage={'motion': 'ansluten'},
+              verktyg_anrop={'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}})
     so = {'teknikval': [{'beteende': 'menyn', 'teknik': 'css', 'skal': 'syntetiskt'}],
           'beteende_provat': [{'vad': 'menyn', 'hur': 'lokalt prov', 'resultat': 'öppnad', 'bild': ''}],
           'kod_andrad': [], 'ingen_andring': '', 'aktivering': [], 'kvarstar': []}
@@ -542,8 +547,7 @@ def _krav_pa_observerat_anrop():
     so = {'teknikval': [{'beteende': 'menyn', 'teknik': 'css', 'skal': 'syntetiskt'}],
           'beteende_provat': [{'vad': 'menyn', 'hur': 'lokalt prov', 'resultat': 'öppnad', 'bild': str(bildfil)}],
           'kod_andrad': [], 'ingen_andring': 'inget att ändra', 'aktivering': [], 'kvarstar': []}
-    bas = {'verifierad': True, 'saknas': [], 'lasta': [], 'valda': [], 'skill_anrop': [], 'skill_fel': [], 'mcp_anrop': {}, 'mcp_utfall': {},
-           'mcp_lage': {'motion': 'ansluten', 'refero': 'ansluten'}}
+    bas = dict(giltigt_kvitto('rorelse'), mcp_anrop={}, mcp_utfall={}, mcp_lage={'motion': 'ansluten', 'refero': 'ansluten'})
     utfall = []
     for namn, va, mu, so_ in (('inget anrop', {}, {}, so),
                               ('förhandsvisning använd', {'förhandsvisning': {'anrop': 1, 'ok': 1, 'fel': 0}}, {}, so),

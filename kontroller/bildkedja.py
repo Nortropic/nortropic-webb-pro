@@ -26,6 +26,58 @@ BILD = re.compile(r'\.(%s)$' % BILDTYPER, re.I)
 SESSION = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
 
+def _skillregister(root=None):
+    """Lokala toppnivåskills: namn → möjliga mappar och mapp → frontmatternamn.
+
+    Ett inventeringsfel är okänt, aldrig belägg för ett unikt namn. Pluginprefix
+    skalas inte bort: ett främmande plugin kan ha samma kortnamn som en lokal skill.
+    """
+    katalog = Path(root or ROOT) / '.claude' / 'skills'
+    if not katalog.exists():
+        return {}, {}
+    aliases, kommandon = {}, {}
+    try:
+        for p in sorted(katalog.iterdir()):
+            if not p.is_dir() or not (p / 'SKILL.md').is_file():
+                continue
+            text = (p / 'SKILL.md').read_text(encoding='utf-8')
+            huvud = text.split('---', 2)[1] if text.startswith('---\n') and text.count('---') >= 2 else ''
+            m = re.search(r'^name:[ \t]*(.+?)[ \t]*$', huvud, re.M)
+            namn = m.group(1).strip().strip('\"\'') if m else p.name
+            if not re.fullmatch(r'[a-z0-9][a-z0-9-]*', namn):
+                namn = p.name
+            kommandon[p.name] = namn
+            for alias in {p.name, namn}:
+                aliases.setdefault(alias, set()).add(p.name)
+    except (OSError, UnicodeError):
+        return None, None
+    return aliases, kommandon
+
+
+def skillnamn(namn, root=None):
+    """Kanonisk lokal mapp, okänt namn oförändrat; None vid tvetydighet/läsfel.
+
+    Både frontmatterns namn och mappnamnet kan förekomma i ett transkript. Bara
+    entydig lokal identitet får uppfylla ett lokalt krav; ett plugin:namn behålls.
+    """
+    aliases, _ = _skillregister(root)
+    if aliases is None or not isinstance(namn, str):
+        return None
+    mappar = aliases.get(namn, set())
+    return next(iter(mappar)) if len(mappar) == 1 else None if mappar else namn
+
+
+def skillkommando(mapp, root=None):
+    """Skill-namnet att skriva i uppdraget, utan att gissa vid en namnkrock."""
+    aliases, kommandon = _skillregister(root)
+    if aliases is None or mapp not in kommandon:
+        return None
+    for namn in (kommandon[mapp], mapp):
+        if aliases.get(namn) == {mapp}:
+            return namn
+    return None
+
+
 def las_json(p):
     try:
         return json.loads(Path(p).read_text(encoding='utf-8'))
@@ -268,15 +320,18 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
     alla dess rader (ett Read utan offset och limit täcker 2 000 rader); en fil som bara lästs i delar står i 'delvis'
     (granskning 2, N5). En fil som en helt läst metodfil bär hel, med samma sha, räknas som läst när metodfilen lästs
     (levererade_hela); de som bara lästs så står också i 'via_metod'. Ger {'verifierad', 'fore': [...], 'efter': [...], 'saknas': [...],
-    'delvis': [...], 'via_metod': [...], 'skill_anrop': [...], 'skill_fel': [...]}; saknas omfattar de delvis lästa."""
+    'delvis': [...], 'via_metod': [...], 'skill_anrop': [...], 'skill_fel': [...], 'skill_fore': [...],
+    'skill_efter': [...], 'skill_okanda': [...]}; saknas omfattar de delvis lästa. Skillnamnen är kanoniska lokala
+    mappnamn när de kan lösas entydigt; ett främmande pluginprefix ger aldrig lokal läskredit. Ordningen avser lyckade
+    verktygssvar före första Write/Edit/MultiEdit under skrivprefix; den mäter inte godtyckliga Bash-skrivningar."""
     t = transkript(session_id)
     if t is None:
         return {'verifierad': False, 'skal': 'transkriptet saknas'}
     h = handelser(t)
     felade = {x[1] for x in h if x[0] == 'svar' and x[3]}
-    skill_fel = sorted({x[3]['skill'] for x in h if x[0] == 'anrop' and x[1] in felade
+    skill_fel = sorted({skillnamn(x[3]['skill']) or x[3]['skill'] for x in h if x[0] == 'anrop' and x[1] in felade
                         and x[2] == 'Skill' and isinstance(x[3].get('skill'), str)})
-    krav = [relativ(f).strip('/') for f in filer] + ['.claude/skills/%s/SKILL.md' % s for s in skills]
+    krav = [relativ(f).strip('/') for f in filer] + ['.claude/skills/%s/SKILL.md' % (skillnamn(s) or s) for s in skills]
     radantal = {}
     for k in krav:
         try:
@@ -284,6 +339,7 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
         except OSError:
             radantal[k] = None
     forsta, sedda, anrop, tackt, metodhel, metodrader = None, {}, [], {}, {}, {}
+    skill_tid, skill_okanda = {}, []
     vantar = {}
     for i, x in enumerate(h):
         if x[0] == 'anrop':
@@ -317,8 +373,13 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
                     metodhel.setdefault(v, i)
         elif x[2] == 'Skill' and isinstance(x[3].get('skill'), str) and x[1] not in felade:
             # Aktivering/läsning är observerad mekanik, aldrig bevis för tillämpning eller designkvalitet.
-            anrop.append(x[3]['skill'])
-            sedda.setdefault('.claude/skills/%s/SKILL.md' % x[3]['skill'].split(':')[-1], i)
+            namn = skillnamn(x[3]['skill'])
+            if namn is None:
+                skill_okanda.append(x[3]['skill'])
+                continue
+            anrop.append(namn)
+            skill_tid.setdefault(namn, i)
+            sedda.setdefault('.claude/skills/%s/SKILL.md' % namn, i)
     via, direkt = (levererade_hela(metodhel, set(krav)) if metodhel else {}), set(sedda)
     for k, i in via.items():
         sedda[k] = min(sedda.get(k, i), i)
@@ -326,7 +387,10 @@ def metodlasning(session_id, filer, skills=(), skrivprefix=None):
     efter = [k for k in krav if k in sedda and k not in fore]
     return {'verifierad': True, 'fore': fore, 'efter': efter, 'saknas': [k for k in krav if k not in sedda],
             'delvis': [k for k in krav if k not in sedda and k in tackt], 'via_metod': [k for k in krav if k in via and k not in direkt],
-            'skill_anrop': anrop, 'skill_fel': skill_fel, 'forsta_skrivning': forsta is not None}
+            'skill_anrop': anrop, 'skill_fel': skill_fel, 'skill_okanda': sorted(set(skill_okanda)),
+            'skill_fore': sorted(s for s, i in skill_tid.items() if forsta is None or i < forsta),
+            'skill_efter': sorted(s for s, i in skill_tid.items() if forsta is not None and i >= forsta),
+            'forsta_skrivning': forsta is not None}
 
 
 def klass(v):

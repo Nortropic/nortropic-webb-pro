@@ -14,7 +14,7 @@ dashboarden startar), så här bekräftas bara läget. Kontrollen
 2. prövar förmågan med små prov som återanvänds medan förutsättningarna är oförändrade (fingeravtryck av version,
    nyckel och konfiguration): modellerna, MCP-anslutningarna, Refero direkt utan modell, Mobbins senaste fullständiga
    prov, kundvaktens mekanik, webbläsarkedjan och Impeccables detektor. Refero, Mobbin och kundvakten krävs för
-   ateljéns starter; helbygget (start bygge) laddar ingen MCP och redovisar dem bara;
+   researchen när metodkartan kräver dem; förberedelse och senare designfaser följer sina egna rollkrav;
 3. läser kunskapens aktualitet (spaningen, källornas läsdatum, metodreglerna, metodlåset), reglerna (ersatta och
    förlegade formuleringar i aktiva uppdrag, skills och verktyg utan uppgift) och kundens behov ur BRIEF.md mot flödets
    förmåga;
@@ -69,10 +69,10 @@ import verktygslada as vl  # noqa: E402
 
 NODVANDIGA_MCP = ('refero', 'mobbin')
 # dokumentations-MCP:er som rollerna når genom kundvakten utan att researchen hämtar något ur dem (kompetens.MCP med egen
-# lista): Motions fria server (ägarens uppdrag 2026-10-07, punkt 5C). Tilldelade, men stoppar aldrig starten
+# lista): Motions fria server (ägarens uppdrag 2026-10-07, punkt 5C). Tilldelning ensam stoppar inte starten.
 DOKUMENTATIONS_MCP = ('motion',)
 # komponenttjänster med nyckel ur hemlighetsmappen: 21st.dev Builder (ägarens val 2026-10-07; uppdraget 2026-10-08, 2C).
-# Tilldelade rollen komposition, men stoppar aldrig starten: researchens bilder och mallens komponenter finns ändå
+# Tilldelningen och eventuellt obligatoriskt åtkomstkrav kommer ur metodkartans mcp respektive mcp-krav.
 KOMPONENT_MCP = ('21st',)
 VANTA_INTAG = 1200  # s: ett intag i underhållet väntas ut högst så länge; sedan stoppas starten (fynd 2)
 DISKVAKT = 0.15  # under 15 % ledigt städas det före starten (städregeln, BESLUT.md 2026-10-06, punkt 6)
@@ -160,13 +160,52 @@ def provtillstand(resultat):
     return 'provat' if resultat == 'ok' else 'blockerat' if resultat == 'fel' else 'ej_observerat'
 
 
-def prova_formagan(k, version, start='ny'):
-    """Förmågeproven. Helbygget (start bygge) laddar ingen MCP (utom med NWP_MCP_CONFIG) och använder inte kundvakten:
-    där redovisas de utan att stoppa (fynd 15). Ger (raderna, claude mcp list, sessionsprovet, de upptäckta verktygen per
-    tjänst eller None när tjänstens lista inte lästes)."""
+def mcp_krav_for_fas(vag=None):
+    """(alla roller, obligatoriska tjänster med roller) ur metodkartan för startens fas.
+
+    Okänd körväg eller oläsbara krav är fel, aldrig en tom kravlista. Utan väg
+    gäller hela inventeringen. Förberedelse och återupptagen design är egna steg.
+    """
+    import kompetens
+    roller = kompetens.tolka()
+    if not isinstance(roller, dict) or not roller:
+        raise ValueError('metodkartan saknar kompetensroller')
+    if vag is None or (vag.get('id'), vag.get('fas')) == ('ingen', None):
+        valda = list(roller.values())
+    elif (vag.get('id'), vag.get('fas')) == ('forberedelse', 'forberedelse'):
+        valda = kompetens.for_pass('forbered', roller)
+    elif (vag.get('id'), vag.get('fas')) == ('kandidatflodet', 'fore_research'):
+        valda = kompetens.for_pass('forska', roller)
+    elif (vag.get('id'), vag.get('fas')) == ('kandidatflodet', 'efter_research'):
+        valda = [x for x in roller.values() if set(x['pass']) & (set(kompetens.PASS) - {'forska', 'forbered', 'helbygge'})]
+    elif (vag.get('id'), vag.get('fas')) in (('aldre', 'fore_utforskning'), ('aldre', 'efter_val')):
+        valda = kompetens.for_pass('skapa' if vag['fas'] == 'fore_utforskning' else 'fordjupa', roller)
+    else:
+        raise ValueError('körvägens kompetenskrav kunde inte fastställas')
+    if not valda:
+        raise ValueError('fasen saknar kompetensroller')
+    if any(t not in kompetens.MCP or t not in x['mcp'] for x in roller.values() for t in x.get('mcp_krav', [])):
+        raise ValueError('ett obligatoriskt MCP-krav saknar tilldelad tjänst')
+    return roller, {t: sorted(x['id'] for x in valda if t in x.get('mcp_krav', [])) for t in kompetens.MCP}
+
+
+def prova_formagan(k, version, start='ny', vag=None):
+    """Förmågeproven för startens fas. Ateljéns åtkomstkrav hämtas ur metodkartan.
+
+    Helbyggets MCP-konfiguration byggs separat av byggmcp.py; ateljéns sessionsprov
+    bevisar inte åtkomst med helbyggets egna argument. Dess startkontroll återanvänder
+    därför bara de fristående maskin- och tjänsteproven här, aldrig ateljéns session.
+    Ger (raderna, claude mcp list, ateljéns sessionsprov, upptäckta verktyg per tjänst
+    eller None när tjänstens lista inte lästes).
+    """
     ateljen = start != 'bygge'
-    mcp_kravs = ateljen or bool(os.environ.get('NWP_MCP_CONFIG'))
     ut = []
+    try:
+        krav = mcp_krav_for_fas(vag)[1] if ateljen else {}
+    except Exception as e:  # noqa: BLE001 — okända obligatoriska krav får aldrig bli en tom kravlista
+        krav = {}
+        ut.append(post('åtkomst', 'obligatoriska MCP-krav i metodkartan', 'fel', nodvandig=True,
+                       tillstand='ej_observerat', detalj='åtkomstkraven kunde inte fastställas: %s' % type(e).__name__))
     saknas = vl.flaggor_saknas(vl.claude_bin())
     if saknas:
         ut.append(post('Claude Code', 'flödets flaggor', 'fel', nodvandig=True, detalj='claude --help saknar ' + ', '.join(saknas)))
@@ -180,31 +219,40 @@ def prova_formagan(k, version, start='ny'):
             s = servrar.get(n) or {}
             # claude mcp list läser maskinens konfiguration, också användarnivån som flödets sessioner inte laddar: raden
             # säger att anslutningen finns, inte att sessionerna når den (raden "<tjänst> i ateljéns session")
-            ut.append(post('MCP på maskinen', n, s.get('status') or 'fel', provad=mcp_tid, nodvandig=mcp_kravs,
+            ut.append(post('MCP på maskinen', n, s.get('status') or 'fel', provad=mcp_tid,
+                           nodvandig=bool(krav.get(n)) if ateljen else False,
                            tillstand='tillgangligt' if s.get('status') == 'ok' else 'blockerat',
                            detalj='%s (claude mcp list: maskinens konfiguration; vad flödets sessioner når står på raden "%s i ateljéns '
                                   'session")' % (s.get('besked') or 'saknas i konfigurationen', TJNAMN.get(n, n)) if ateljen else
-                           '%s (claude mcp list; helbygget laddar ingen MCP)' % (s.get('besked') or 'saknas i konfigurationen')))
-        ovriga = {n: s for n, s in servrar.items() if n not in NODVANDIGA_MCP}
+                           '%s (claude mcp list; maskinens konfiguration, inte ett prov med helbyggets egna argument)' % (
+                               s.get('besked') or 'saknas i konfigurationen')))
+        ovriga = {n: s for n, s in servrar.items()
+                  if n not in NODVANDIGA_MCP + DOKUMENTATIONS_MCP + KOMPONENT_MCP}
         ej = ['%s: %s' % (n, s['besked'] or s['status']) for n, s in ovriga.items() if s['status'] != 'ok']
         ut.append(post('MCP på maskinen', 'övriga anslutningar (ingen uppgift i skapandet)', 'ok', provad=mcp_tid, tillstand='tillgangligt',
                        detalj=('ansluter inte: ' + '; '.join(ej)) if ej else 'alla ansluter; flödets sessioner nekas varje anrop till dem'))
     p = vl.prova_refero(k, k.prov_dir)
-    ut.append(post('tjänst', 'Refero (direkt)', p.get('resultat'), provad=p.get('tid'), nodvandig=ateljen, tillstand=provtillstand(p.get('resultat')),
+    krav_refero = ateljen and bool(krav.get('refero'))
+    res_refero = 'okand' if p.get('resultat') == 'ok' and p.get('gammalt') else p.get('resultat')
+    ut.append(post('tjänst', 'Refero (direkt)', 'fel' if krav_refero and res_refero != 'ok' else res_refero,
+                   provad=p.get('tid'), nodvandig=krav_refero, tillstand=provtillstand(res_refero),
                    detalj=(p.get('detalj') or '') + (' (återanvänt prov)' if p.get('ateranvant') else '')))
     upptackta = {'refero': set(p['verktyg']) if p.get('verktyg') else None, 'mobbin': None, **{t: None for t in DOKUMENTATIONS_MCP + KOMPONENT_MCP}}
-    # det fullständiga provet görs i underhållet; ateljéns start gör om det bara när det fallit eller gått ut (M1), och
-    # helbygget, som inte laddar Mobbin, gör det aldrig
+    # Det fullständiga provet görs i underhållet; ateljéns start gör om det bara när det fallit eller gått ut (M1).
+    # Här läser helbygget bara det sparade tjänsteprovet, som inte bevisar dess egen sessionsåtkomst.
     ansluten = servrar is not None and (servrar.get('mobbin') or {}).get('status') == 'ok'
     m = vl.prova_mobbin(k if ateljen else vl.Kontext(nat=False, prova=False, katalog=k.katalog), ansluten=ansluten if servrar is not None else None,
                         frist=vl.MOBBIN_PROVFRIST)
     res = m.get('resultat')
     if res == 'ok' and m.get('gammalt'):
         res = 'okand'
-    ut.append(post('tjänst', 'Mobbin (sökning och bilder)', res, provad=m.get('tid'), nodvandig=ateljen and res == 'fel', tillstand=provtillstand(res),
+    krav_mobbin = ateljen and bool(krav.get('mobbin'))
+    ut.append(post('tjänst', 'Mobbin (sökning och bilder)', 'fel' if krav_mobbin and res != 'ok' else res,
+                   provad=m.get('tid'), nodvandig=krav_mobbin,
+                   tillstand=provtillstand(res),
                    detalj='%s%s' % (m.get('detalj') or '', '; anslutningen bekräftad nu' if ansluten else '')))
-    # vad ateljéns sessioner når: en kort session med flödets egna argument (ägarens uppdrag 2026-10-07, punkt 3);
-    # helbygget har inga ateljésessioner och laddar ingen MCP
+    # Vad ateljéns sessioner når: en kort session med dess egna argument (ägarens uppdrag 2026-10-07, punkt 3).
+    # Helbygget har en separat startväg; ett ateljéprov får aldrig räknas som dess sessionsprov.
     try:
         sess = vl.prova_sessionen(k) if ateljen else None
     except Exception as e:  # noqa: BLE001 — ett prov som inte kan göras blir "inte prövad" på raderna, aldrig ett avbrott
@@ -250,26 +298,45 @@ def mcp_atkomst(sess, tjanst):
     return 'blockerat', 'flödets verktyg %s syns inte i sessionen' % ', '.join(saknas)
 
 
-def atkomstrader(sess, ateljen):
+def atkomstrader(sess, ateljen, vag=None):
     """En rad per tilldelad tjänst om åtkomsten i ateljéns session: ok bara när en session med flödets egna argument når
     den; annars "tilldelad men åtkomst saknas" med konsekvens och åtgärd, aldrig ok (ägarens uppdrag 2026-10-07, punkt
-    3). Raden stoppar inte starten: researchens tjänstesessioner når tjänsterna på en egen väg (raderna Refero (direkt)
-    och Mobbin (sökning och bilder)), men kvittot blir begränsat."""
+    3). Metodkartans mcp-krav stoppar starten också när åtkomsten inte observerats. Bara tilldelade möjligheter
+    begränsar utan att stoppa. Ett lyckat direktprov ersätter inte rollens egna obligatoriska undersökning.
+    Kraven gäller de roller som återstår i den angivna fasen; research krävs inte på nytt vid förfining. Utan vag
+    inventeras hela ateljéns krav, som i tvåargumentsanropet. En okänd körväg ger inget bekräftat kravbesked."""
     if not ateljen:
         return []
     import kompetens
-    roller_k = kompetens.tolka()
+    try:
+        roller_k, krav = mcp_krav_for_fas(vag)
+    except Exception as e:  # noqa: BLE001 — startens nödvändiga kompetenskrav kunde inte prövas
+        return [post('åtkomst', 'obligatoriska MCP-krav i metodkartan', 'fel', nodvandig=True,
+                     tillstand='ej_observerat', detalj='åtkomstkraven kunde inte fastställas: %s' % type(e).__name__)]
     ut = []
     for t in NODVANDIGA_MCP + DOKUMENTATIONS_MCP + KOMPONENT_MCP:
         roller = sorted(x['id'] for x in roller_k.values() if t in x['mcp'])
         tilld = ('tilldelad rollerna %s i metodkartan' % ', '.join(roller)) if roller else 'ingen roll i metodkartan'
-        tillstand, orsak = mcp_atkomst(sess, t)
+        nodvandig = bool(krav.get(t))
+        if nodvandig:
+            tilld += '; obligatorisk undersökning i %s' % ', '.join(krav[t])
+        try:
+            tillstand, orsak = mcp_atkomst(sess, t)
+        except Exception as e:  # noqa: BLE001 — ett oläsbart nödvändigt prov blir ett synligt stopp, aldrig grönt
+            tillstand, orsak = 'ej_observerat', 'sessionsprovets åtkomstuppgifter kunde inte tolkas (%s)' % type(e).__name__
         namn = '%s i ateljéns session' % TJNAMN[t]
         if tillstand == 'provat':
-            ut.append(post('åtkomst', namn, 'ok', tillstand='provat', provad=sess.get('tid'),
+            ut.append(post('åtkomst', namn, 'ok', tillstand='provat', provad=sess.get('tid'), nodvandig=nodvandig,
                            detalj='%s; en session med ateljéns egna argument (%s) laddar %s, och flödets %d verktyg hos den syns%s' % (
                                tilld, ', '.join(sess.get('flaggor') or []), TJNAMN[t], len(kompetens.mcp_verktyg(t)),
                                ' (återanvänt prov)' if sess.get('ateranvant') else '')))
+        elif nodvandig:
+            ut.append(post('åtkomst', namn, 'fel', tillstand=tillstand, nodvandig=True,
+                           provad=sess.get('tid') if isinstance(sess, dict) else None,
+                           detalj='%s; %s: %s. Starten stoppas: rollens obligatoriska undersökning kan inte genomföras med '
+                                  'bekräftad åtkomst. Sparat referensmaterial eller direktprov ersätter inte den. Åtgärd: %s' % (
+                                      tilld, 'tilldelad men åtkomst saknas' if tillstand == 'blockerat' else 'åtkomsten är inte observerad',
+                                      orsak, ATGARD[t])))
         elif tillstand == 'blockerat' and t in DOKUMENTATIONS_MCP + KOMPONENT_MCP:
             # en dokumentations- eller komponenttjänst har ingen tjänstesession i researchen: rollen förlorar sökningen, inte materialet
             ut.append(post('åtkomst', namn, 'fel', tillstand='blockerat', provad=sess.get('tid'),
@@ -287,9 +354,10 @@ def atkomstrader(sess, ateljen):
                                       orsak, ', '.join(roller) or '–', TJNAMN[t],
                                       'Refero (direkt)' if t == 'refero' else 'Mobbin (sökning och bilder)', ATGARD[t])))
         else:
-            ut.append(post('åtkomst', namn, 'okand', tillstand='ej_observerat', provad=(sess or {}).get('tid'), detalj='%s; %s' % (tilld, orsak)))
+            ut.append(post('åtkomst', namn, 'okand', tillstand='ej_observerat',
+                           provad=sess.get('tid') if isinstance(sess, dict) else None, detalj='%s; %s' % (tilld, orsak)))
     ovriga = sorted('%s (%s)' % (n, s) for n, s in ((sess or {}).get('servrar') or {}).items() if n not in NODVANDIGA_MCP + DOKUMENTATIONS_MCP + KOMPONENT_MCP) \
-        if sess and sess.get('resultat') == 'ok' and isinstance(sess.get('servrar'), dict) else []
+        if isinstance(sess, dict) and sess.get('resultat') == 'ok' and isinstance(sess.get('servrar'), dict) else []
     if ovriga:  # till exempel claude.ai-kopplingarna: de laddas utan strikt läge, och dontAsk nekar varje anrop till dem
         ut.append(post('åtkomst', 'övriga MCP i ateljéns session', 'ingen_uppgift', tillstand='tillgangligt', provad=sess.get('tid'),
                        detalj='%s: ingen uppgift i skapandet (metodkartan, Ingen uppgift i flödet); kundvakten släpper dem inte, och '
@@ -1230,12 +1298,12 @@ def kor_kontroll(slug=None, start='ny', prova=True, vanta_intag=VANTA_INTAG):
     version = next((r.get('installerat') for r in rader if r.get('id') == 'npm-global:@anthropic-ai/claude-code'), None)
     try:  # körvägen och fasen före proven: allt nedan gäller dem
         vag = korvag(slug, start)
-    except Exception as e:  # noqa: BLE001 — en körväg som inte går att avgöra stoppar inte starten
+    except Exception as e:  # noqa: BLE001 — okänd fas redovisas och dess obligatoriska krav prövas nedan
         vag = {'id': 'okand', 'namn': 'körvägen kunde inte avgöras (%s: %s)' % (type(e).__name__, vl.sista(e, 120)), 'fas': None, 'fas_namn': None}
     ateljen = start != 'bygge'
-    formaga, servrar, sess, upptackta = prova_formagan(k, version, start)
+    formaga, servrar, sess, upptackta = prova_formagan(k, version, start, vag)
     rader += formaga
-    rader += skyddat('åtkomsten i ateljéns session', atkomstrader, sess, ateljen)
+    rader += skyddat('åtkomsten i ateljéns session', atkomstrader, sess, ateljen, vag)
     rader += skyddat('tjänsternas verktyg', tjanstverktyg_rader, upptackta)
     rader += kunskap(k)
     rader += regler(servrar, slug)

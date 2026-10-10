@@ -1932,11 +1932,13 @@ def flode(slug):
     # 6. helbygget. Bundet till körningen när kor.sh startade det efter ett godkännande som gäller nu: kor.sh bygger bara
     #    från ett giltigt, och vilket godkännande bygget utgick från sparas inte, så tiden är det som binder dem. Utan
     #    körning i skapandeflödet står bygget för sig. Kontrollerat bara när korslut skulle godkänna det bygge som ligger
-    #    i dist/ nu (korslut.vald_granskning och ar_godkant, slutkod 0; granskningen av r96, B1). Ett bygge från före
+    #    i dist/ nu, med slutkod 0 och kompetensbevis i slutposten. Äldre material utan slutpost blir inte kontrollerat.
+    #    Ett bygge från före
     #    körningen eller godkännandet är inaktuellt, och ett som inte går att knyta till godkännandet inte observerat (B2).
     prov = las_json(k / 'prov' / 'STATUS.json')
     dom_b = [d for d in ((las_json(k / 'DOM.json') or {}).get('domar') or []) if isinstance(d, dict)]
     s6, bygg_t, bygge_id, galler = 'inte påbörjat', '', '', []
+    byggidentitet_ok = False  # kompetensens evidens och domens koppling till en dist är olika frågor
     if not prov:
         steg.append(_steg(6, 'Helbygget', s6))
     else:
@@ -1966,14 +1968,16 @@ def flode(slug):
             try:
                 g_hel, nu_hash, _, gfel = korslut.vald_granskning(k, korning_id)
                 ok6, skal6 = korslut.ar_godkant(k, prov, stopp, None if gfel else g_hel, korning_id)
-                s6 = 'kontrollerat' if ok6 else 'skapat' if prov.get('ok') else 'underkänt'
+                # Äldre material utan slutpost saknar körningens kompetensbevis och slutkod.
+                s6 = 'inte observerat' if ok6 else 'skapat' if prov.get('ok') else 'underkänt'
                 bygge_id = str(nu_hash or '')[:12]
+                byggidentitet_ok = bool(bygge_id)
                 if not ok6:
                     brister.append('korslut godkänner inte bygget: %s' % (gfel or skal6))
             except Exception as e:  # noqa: BLE001 — ett bygge som inte går att pröva är inte observerat
                 s6 = 'inte observerat'
                 brister.append('bygget kunde inte prövas med korslut: %s' % str(e)[:200])
-            brister.append('korsluts slutkod sparas inte; statusen är korsluts prövning, gjord nu')
+            brister.append('slutpost med körningens slutkod och kompetensbevis saknas; helbygget är inte verifierat')
             brister.append(('bygget sparar inte vilket godkännande det utgick från: kor.sh prövade godkännandet när bygget startade (%s), '
                             'efter godkännandet %s' % (start_b, g['tid'])) if st else
                            'bygget sparar inte vilket godkännande det utgick från, och ingen körning i skapandeflödet finns att knyta det till')
@@ -1993,21 +1997,35 @@ def flode(slug):
         t = helpost.get('tillstand') or {}
         tekniskt = t.get('tekniskt_godkant') or {}
         design = t.get('designgranskaren_godkanner') or {}
-        # kontrollerat betyder att korslut godkänner: tekniskt och designgranskaren (som B1 ovan); ett tekniskt ja utan godkänd
-        # granskning är skapat med bristen, aldrig grönt (GR-20261008-r117-claude#C3)
+        # Samma slutgrind som korslut: tekniskt/design, körningens kompetensbevis och slutkod.
+        # En äldre post utan kompetensbevis är inte verifierad, även om teknik och design var gröna.
+        kb = (helpost.get('kontroller') or {}).get('kompetens')
+        kb = kb if isinstance(kb, dict) else {}
+        slutkod = helpost.get('slutkod')
         s6 = ('inaktuellt' if tekniskt.get('historik') is not None or design.get('historik') is not None
-              else 'kontrollerat' if tekniskt.get('varde') is True and design.get('varde') is True
               else 'underkänt' if tekniskt.get('varde') is False
-              else 'skapat' if tekniskt.get('varde') is True else 'inte observerat')
+              else 'stoppat' if kb.get('uppfyllt') is False
+              else 'inte observerat' if kb.get('uppfyllt') is not True or type(slutkod) is not int
+              else 'kontrollerat' if slutkod == 0 and tekniskt.get('varde') is True and design.get('varde') is True
+              else 'skapat' if tekniskt.get('varde') is True and design.get('varde') is not True
+              else 'stoppat' if slutkod != 0 else 'inte observerat')
+        kompetens_besked = ('observerade arbetskrav uppfyllda (ingen kvalitetsdom)' if kb.get('uppfyllt') is True else
+                            'kompetensbrist: arbetskraven är inte uppfyllda' if kb.get('uppfyllt') is False else
+                            'inte verifierat: körningens kompetensbevis saknas')
+        slutbrister = ([] if kb.get('uppfyllt') is True else [kompetens_besked])
+        if type(slutkod) is not int or slutkod != 0:
+            slutbrister.append('körningens slutkod är %s; godkänt avslut kräver 0' % (slutkod if type(slutkod) is int else 'inte observerad'))
         bygg_t = str(helpost.get('datum') or '')
         bygge_id = str((helpost.get('provad') or {}).get('dist_nu') or helpost.get('dist_sha256') or '')[:12]
+        byggidentitet_ok = bool(bygge_id) and s6 != 'inaktuellt' and tekniskt.get('varde') is not None
         galler = [d for d in dom_b if bygge_id and d.get('bygge_dist') == bygge_id]
         steg[5] = _steg(6, 'Helbygget', s6,
                          underlag=[{'text': 'körning %s · dist %s' % (helpost.get('korning'), bygge_id or 'saknas')}],
                          kontroller=[{'text': 'Tekniskt: ' + str(tekniskt.get('text') or 'ej bedömt')},
+                                     {'text': 'Helbyggets kompetens: ' + kompetens_besked},
                                      {'text': 'Designgranskaren: ' + (str(design.get('text') or 'ej bedömt') if galler else
                                                                       'domen visas efter din dom över det här bygget')}],
-                         brister=(['korslut godkänner inte: designgranskaren har inte godkänt bygget'] if s6 == 'skapat' else [])
+                         brister=slutbrister + (['korslut godkänner inte: designgranskaren har inte godkänt bygget'] if s6 == 'skapat' else [])
                                  + ([] if blind or not galler else list(helpost.get('brister') or [])),
                          utfall=[] if blind or not galler else [f for f in (_fil(k / 'prov/PROV.md'), _fil(k / 'RAPPORT.md')) if f])
 
@@ -2015,7 +2033,7 @@ def flode(slug):
     #    över ett annat bygge är inaktuell (granskningen av r96, B2)
     def domrader(ds):
         return [{'tid': d.get('tid'), 'text': '%s · bygget %s' % (str((d.get('svar') or {}).get('namn') or 'dom')[:160], d.get('bygge_dist') or '?')} for d in ds]
-    if s6 in ('inaktuellt', 'inte observerat'):
+    if s6 == 'inaktuellt' or (s6 == 'inte observerat' and not byggidentitet_ok):
         steg.append(_steg(7, 'Din dom över bygget', s6 if dom_b else 'inte påbörjat', beslut=domrader(dom_b[-3:]),
                           brister=['domen gäller ett bygge som inte hör till körningen'] if dom_b else []))
     elif galler:

@@ -6,7 +6,8 @@ nastlad.py, som aldrig gäller i drift.
 Servern tar emot det `claude -p` skickar och sparar varje förfrågan som en dump: modellen, ansträngningen, systemprompten,
 meddelandena och verktygen. Bilderna sparas som media_type, antal byte och sha256 av de avkodade byten, aldrig som
 base64. Nyckel- och tokenvärden sparas aldrig: bara vilken header som kom och om värdet var provets egen nyckel. Svaren är
-skriptade, utan modell: läs först varje bild som uppdraget nämner och de filer provet ber om (las_ocksa), svara sedan med
+skriptade, utan modell: aktivera rollens uttryckligt beställda skills och läs dess kärnfiler, läs sedan varje bild som
+uppdraget nämner och de filer provet ber om (las_ocksa), svara sedan med
 StructuredOutput när sessionen har ett schema (provets svar eller ett minsta giltigt svar ur schemat), annars med text.
 """
 import base64
@@ -117,11 +118,22 @@ def _text(innehall):
 class Server:
     """Med Server(ut, rot) som s: s.url och s.nyckel till provläget (NWP_FALSK_MODELL, NWP_FALSK_NYCKEL). svar: ett
     StructuredOutput-svar per sessionens schema-titel eller '*'; las_ocksa: filer (relativt rot) som modellen också
-    försöker läsa, för de negativa proven."""
+    försöker läsa, för de negativa proven. skills och las_fore är provets kompetensplan, inte ett färdigt kvitto:
+    servern skickar riktiga Skill/Read-anrop genom CLI:n, och driftens vanliga transkriptgrind bedömer resultaten."""
 
-    def __init__(self, ut, rot, svar=None, las_ocksa=()):
+    def __init__(self, ut, rot, svar=None, las_ocksa=(), skills=(), las_fore=()):
         self.ut, self.rot = Path(ut), Path(rot)
         self.svar, self.las_ocksa = dict(svar or {}), list(las_ocksa)
+        self.skills = list(dict.fromkeys(skills))
+        self.karnlasningar = []
+        for fil in dict.fromkeys(las_fore):
+            p = Path(fil) if Path(fil).is_absolute() else self.rot / fil
+            if not p.resolve().is_relative_to(self.rot.resolve()):
+                raise ValueError('provets kärnfil ligger utanför repokopian')
+            rader = len(p.read_text(encoding='utf-8').splitlines())
+            # Verkliga Read-svar, i begränsade delar så att CLI:ns token-/radgräns inte klipper en stor kärnfil.
+            self.karnlasningar += [{'file_path': str(p), 'offset': start, 'limit': 100}
+                                   for start in range(1, max(1, rader) + 1, 100)]
         self.nyckel = provnyckel()
         self.nr, self.las = 0, threading.Lock()
         self.ut.mkdir(parents=True, exist_ok=True)
@@ -187,21 +199,36 @@ class Server:
         h.wfile.write(b)
 
     def drag(self, body):
-        """Nästa skriptade drag: ('las', [vägar]), ('svar', {...}) eller ('text', '...')."""
+        """Nästa skriptade drag. Bara faktiska anrop i samtalet räknas; inga läs-/aktiveringskvitton fabriceras."""
         meddelanden = body.get('messages') or []
         verktyg = {t.get('name'): t for t in body.get('tools') or [] if isinstance(t, dict)}
         assistent = [m for m in meddelanden if m.get('role') == 'assistant']
         anrop = [b for m in assistent for b in (m.get('content') or []) if isinstance(b, dict) and b.get('type') == 'tool_use']
-        if not assistent and 'Read' in verktyg:
+        def saknas(namn, argument):
+            return not any(a.get('name') == namn and a.get('input') == argument for a in anrop)
+
+        def bestall(namn, argument):
+            if namn not in verktyg:
+                return 'text', 'PROV-FEL: uppdragets obligatoriska verktyg saknas: ' + namn
+            return 'anrop', [{'type': 'tool_use', 'id': 'toolu_prov_%s_%03d' % (namn.lower(), len(anrop) + i),
+                              'name': namn, 'input': a} for i, a in enumerate(argument)]
+
+        skills = [{'skill': s} for s in self.skills if saknas('Skill', {'skill': s})]
+        if skills:
+            return bestall('Skill', skills)
+        karna = [a for a in self.karnlasningar if saknas('Read', a)]
+        if karna:
+            return bestall('Read', karna)
+        if 'Read' in verktyg:
             forsta = next((_text(m.get('content')) for m in meddelanden if m.get('role') == 'user'), '')
             sagda = [m.group(1) for m in BILD.finditer(forsta)]
             vagar = []
             for v in sagda + self.las_ocksa:
                 p = Path(v) if v.startswith('/') else self.rot / v
-                if str(p) not in vagar:
+                if str(p) not in vagar and saknas('Read', {'file_path': str(p)}):
                     vagar.append(str(p))
             if vagar:
-                return 'las', vagar
+                return bestall('Read', [{'file_path': v} for v in vagar])
         if 'StructuredOutput' in verktyg and not any(a.get('name') == 'StructuredOutput' for a in anrop):
             schema = verktyg['StructuredOutput'].get('input_schema') or {}
             return 'svar', self.svar.get(schema.get('title') or '', self.svar.get('*')) or minsta(schema)
@@ -209,8 +236,8 @@ class Server:
 
     def svara(self, h, body):
         typ, varde = self.drag(body)
-        if typ == 'las':
-            block = [{'type': 'tool_use', 'id': 'toolu_prov_%02d' % i, 'name': 'Read', 'input': {'file_path': v}} for i, v in enumerate(varde)]
+        if typ == 'anrop':
+            block = varde
         elif typ == 'svar':
             block = [{'type': 'tool_use', 'id': 'toolu_prov_svar', 'name': 'StructuredOutput', 'input': varde}]
         else:

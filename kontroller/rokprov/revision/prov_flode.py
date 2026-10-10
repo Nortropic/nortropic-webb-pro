@@ -13,7 +13,8 @@ form. Varje fall fäller en brist som granskningen av r96 eller omgranskningen f
   i en ny körning som ännu inte arkiverat den, men en start som startkontrollen stoppade lämnar förra körningens läge
   som det senaste (steg 2 stoppat med skälet, ditt val efter stoppet syns); ett bygge från före godkännandet är
   inaktuellt, en dom över ett annat bygge väntar och en export före bygget är inaktuell;
-- helbygget är kontrollerat bara när korslut skulle godkänna det (B1): taket, avstängd granskning, underkänd granskning
+- ett äldre helbygge utan slutpost och kompetensbevis är aldrig kontrollerat; korsluts äldre tekniska/designprövning
+  redovisas fortfarande (B1): taket, avstängd granskning, underkänd granskning
   vid taket, stoppvaktens besked från en annan kor.sh-körning och en godkänd rotfil när omgången inte är klar räcker
   inte; godkännandet prövas som kor.sh prövar det, också i det äldre flödet (R1);
 - förfiningen (R2): utan ny version är den underkänd, också när den föll med ett undantag (med kandidatens skäl, annars
@@ -368,7 +369,7 @@ with fall('B2 korsvis'):
              ('B2: förra körningens bygge, dom och export visas som den här körningens', [x['status'] for x in f['steg']]))
     kontroll(f['blind'] and not lackor(f), ('R4: läcka före första valet', lackor(f)))
 
-# --- B1: helbygget är kontrollerat bara när korslut skulle godkänna det (utan körning i skapandeflödet) ---
+# --- B1: äldre helbygge utan slutpost/kompetensbevis blir aldrig kontrollerat ---
 for s, skal, g_ in (('b1-tak', 'släppt utan godkänd granskning: taket för granskningar i körningen är nått och ingen giltig granskning gäller det slutliga bygget', True),
                     ('b1-avstangd', 'kontrollerna gröna, RAPPORT.md finns och granskningen är avstängd', None),
                     ('b1-underkand', 'stoppvaktens tak nått: avslutet släpptes med granskning underkänd', False)):
@@ -384,7 +385,8 @@ h = bygge(s, '20261006T120000Z', '2026-10-06T12:30:00Z', info={'vinnare': 'förs
 granskad(s, '20261006T120000Z', h)
 with fall('B1 godkänt bygge'):
     st = stegen(s)
-    kontroll(st[6]['status'] == 'kontrollerat' and st[7]['status'] == 'väntar på ägaren', (st[6]['status'], st[6]['brister'], st[7]['status']))
+    kontroll(st[6]['status'] == 'inte observerat' and st[7]['status'] == 'väntar på ägaren', (st[6]['status'], st[6]['brister'], st[7]['status']))
+    kontroll(any('kompetensbevis saknas' in t for t in texter(st[6], 'brister')), ('B1: äldre material upphöjs till verifierat', st[6]['brister']))
     # provets pixeljämförelse mot vinnaren är ingen identitet för godkännandet (R1)
     kontroll(any('vilket godkännande' in t for t in texter(st[6], 'brister')), ('R1: provets jämförelse med vinnaren döljer att godkännandet inte är bundet', st[6]['brister']))
     kontroll(any('domen visas efter din dom' in t for t in texter(st[6], 'kontroller')), st[6]['kontroller'])
@@ -440,7 +442,7 @@ h = bygge(s, '20261006T130000Z', '2026-10-06T13:30:00Z')
 granskad(s, '20261006T130000Z', h)
 with fall('B2 bundet bygge'):
     st = stegen(s)
-    kontroll([st[n]['status'] for n in range(3, 8)] == ['beslutat', 'skapat', 'kontrollerat', 'kontrollerat', 'väntar på ägaren'],
+    kontroll([st[n]['status'] for n in range(3, 8)] == ['beslutat', 'skapat', 'kontrollerat', 'inte observerat', 'väntar på ägaren'],
              ('ett bygge från körningens godkännande', [st[n]['status'] for n in range(1, 10)], st[5]['kontroller'], st[6]['brister']))
 skriv(K / s / 'kundrepo' / 'package.json', '{}', tid='2026-10-06T12:30:00Z')  # efter körningens start, före byggets (B2-4)
 with fall('B2 export före bygget'):

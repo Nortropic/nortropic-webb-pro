@@ -22,6 +22,7 @@ import skapande
 import kundstart_kalla as kk
 import sandlada
 import processgrans
+from prov_kompetensflode import giltigt_kvitto
 
 
 class KundstartFlode(unittest.TestCase):
@@ -54,6 +55,7 @@ class KundstartFlode(unittest.TestCase):
         for n in fb.FILER:(p/n).write_text('Syntetiskt arbetsunderlag '+n)
         (p/'KUNDFORSTAELSE.md').write_text('\n\n'.join('## %s\n\n%s'%(r,'- Antaget: syntetiskt.' if r==fb.KUNDFORSTAELSE_RUBRIKER[-1] else 'Syntetiskt.')
                                                     for r in fb.KUNDFORSTAELSE_RUBRIKER)+'\n')  # förberedelsens sex rubriker (2026-10-09)
+        (p/'KOMPETENS.json').write_text(json.dumps(giltigt_kvitto('forbered')))
         return p
 
     def test_ny_kundrattelse_nekar_start_trots_oforandrade_snapshotfiler(self):
@@ -237,6 +239,21 @@ class KundstartFlode(unittest.TestCase):
         with patch.multiple(server,ROOT=self.root,KUNDER=self.root/'kunder',UNDERLAG=self.root/'underlag'):
             return next(x for x in server.flodesbesked(self.slug)['tillstand'] if x['id']=='agaren_godkanner')
 
+    def helbyggets_kompetensfixtur(self, korning):
+        """Explicit syntetiskt slutbevis när provet gäller kundändring efter ett klart bygge.
+
+        Kravtolkaren används oförändrad. Verkliga sessionsbevis prövas separat;
+        den här handskrivna slutposten ersätter inget modell- eller kvalitetsprov.
+        """
+        import kompetens
+        kv = giltigt_kvitto('helbygge')
+        sid = '11111111-1111-4111-8111-111111111111'
+        kv['per_session'][0]['session'] = sid
+        brister = kompetens.kravbrister(kv, 'helbygge')
+        self.assertEqual(brister, [], 'den positiva slutpostens syntetiska kompetensunderlag är ofullständigt')
+        return {'pass': 'helbygge', 'korning': korning, 'session_id': sid,
+                'kvitto': kv, 'brister': brister, 'uppfyllt': not brister}
+
     def test_aktuellt_agargodkannande_visas_utan_att_slutposten_skrivs_om(self):
         f=self.godkand_slutpost();b=f.read_bytes()
         besked=self.agarbesked()
@@ -297,7 +314,8 @@ class KundstartFlode(unittest.TestCase):
         dom=k/'DOM.json';dom.write_text(json.dumps({'domar':[{'tid':'2026-10-08T00:01:02Z',
             'bygge_dist':dh[:12],'svar':{'namn':korslut.AGAREN_JA}}]}))
         granskning=dict(metod,dist_sha256=dh,godkand=True,runda=1,korning=korning,kriterier={})
-        post=korslut.slutpost(k,'0',korning,status,stopp,granskning,dh,None,None,[],[],False,None,0,'Syntetiskt prov')
+        post=korslut.slutpost(k,'0',korning,status,stopp,granskning,dh,None,None,[],[],False,None,0,'Syntetiskt prov',
+                             kompetensbevis=self.helbyggets_kompetensfixtur(korning))
         f.write_text(json.dumps(post))
         self.assertEqual(post['metod']['granskning'],metod)
         self.assertTrue(korslut.aktuell(k)['tillstand']['klart_for_leverans']['varde'])
@@ -355,7 +373,8 @@ class KundstartFlode(unittest.TestCase):
         dom=k/'DOM.json';dom.write_text(json.dumps({'domar':[{'tid':'2026-10-08T00:01:02Z',
             'bygge_dist':dh[:12],'svar':{'namn':korslut.AGAREN_JA}}]}))
         granskning=dict(metod,dist_sha256=dh,godkand=True,runda=1,korning=korning,kriterier={})
-        post=korslut.slutpost(k,'0',korning,status,stopp,granskning,dh,None,None,[],[],False,None,0,'Syntetiskt prov')
+        post=korslut.slutpost(k,'0',korning,status,stopp,granskning,dh,None,None,[],[],False,None,0,'Syntetiskt prov',
+                             kompetensbevis=self.helbyggets_kompetensfixtur(korning))
         f.write_text(json.dumps(post))
         self.assertTrue(post['startsida']['giltig_nu']['varde'])
         self.assertTrue(korslut.aktuell(k)['tillstand']['klart_for_leverans']['varde'])

@@ -2,10 +2,10 @@
 """material.py — bild- och videomaterialsteget (ägarens uppdrag 2026-10-07, punkt 5, och 2026-10-08, 2D): visuellt uppdrag →
 generation eller redigering → versionshanterad tillgång → webboptimering → faktisk användning.
 
-Mekaniken byggs nu, kontona senare (ägarens beslut 2026-10-07): Higgsfield, Nano Banana (Gemini) och Seedance är
-leverantörsgränssnitt som kräver en nyckel i ~/.nortropic-hemligheter/webb-pro/<leverantör>.env; utan den står tillgången
-som saknar_konto, och inget anrop görs. Med nyckel står den som fel tills anropet införts och provats mot ett riktigt konto
-(status 'anrop ej infört'): ingen extern åtkomst låtsas. Attrappen (stubb) ger en tydligt märkt platshållare (SVG) för
+Beställning läser inga nycklar och gör inga anrop. Higgsfield, Nano Banana (Gemini) och Seedance får ett exakt,
+hashbundet uppdrag med status vantar_mandat_konto. Betrodd --generera verkställer det efter uttryckligt
+kostnadsmedgivande och rättighetsuppgift, via material_transport.py. API-konto och verkligt prov krävs fortfarande;
+ett webbprenumerationskonto är inte ett API-mandat. Attrappen (stubb) ger en tydligt märkt platshållare (SVG) för
 mekanikens prov och får aldrig användas i en sida. En tillgång som ägaren genererat i leverantörens egen tjänst importeras
 med --fil (källan och rättigheterna skrivs då in). Ett koncept ur canvas-design registreras som tillgång med --canvas.
 
@@ -23,6 +23,7 @@ med Egen nej och påstår verksamhet nej; atelje.egna_bilder tar aldrig med den.
     material.py <slug> --anvand <id> --kandidat k01 --plats hero [--poster <bild-id>]
     material.py <slug> --kandidat k01 --anvandning   # vad som är kopierat, importerat i källan och renderat i bygget
     material.py <slug> --visa
+    material.py <slug> --generera <id> --uppdrag-sha <sha256> --godkann-kostnad --rattigheter "<belägg>"
 
 Skaparens session når verktyget bara kandidatavgränsat (kompetens.VERKTYG['material'], R05 i
 GR-20261008-06af6ff-omgranskning-codex): kommandot börjar med `<slug> --kandidat <id>`, --kandidat får stå en gång, och en
@@ -35,19 +36,26 @@ en äldre rad utan kandidat räknas så). Med --kandidat ser --visa bara kandida
 posterbilden och en ny version (--igen) vägras för en annan kandidats tillgång, med samma besked som för en okänd; en ny
 version av gemensamt material görs bara av ägaren. Registret och tillgångarnas filer nekas skaparens Read
 (kandidater.andra_nekas): verktyget är vägen dit. Tre nivåer
-hålls isär: lokal import och beredning (registret), leverantörsanrop (inte infört; konto krävs) och en tillgång som
+hålls isär: lokal import och beredning (registret), leverantörsanrop (konto och avgränsat mandat krävs) och en tillgång som
 faktiskt används i renderingen (anvandning: kopierad, importerad i källan, med i bygget).
 Slutkod 0 när det begärda gjordes, 1 vid ett hinder (står i svaret), 2 vid ogiltigt anrop.
 """
 import argparse
+import contextlib
+import fcntl
+import functools
 import json
+import os
 import re
-import shutil
+import stat
 import sys
+import threading
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import atelje  # noqa: E402
+import material_transport as transport  # noqa: E402
 
 HEM = Path.home() / '.nortropic-hemligheter' / 'webb-pro'
 LEVERANTORER = {
@@ -62,14 +70,128 @@ TYPER = ('bild', 'video')
 BILDFORMAT = ('.png', '.jpg', '.jpeg', '.webp', '.avif', '.svg', '.pdf')
 VIDEOFORMAT = ('.mp4', '.webm', '.mov')
 nu = atelje.nu
+_LAS = threading.RLock()
 
 
 class Hinder(Exception):
     pass
 
 
+@contextlib.contextmanager
+def _katalog_fd(root, led=(), skapa=False):
+    """Bind varje katalogled; varken befintliga länkar eller senare katalogbyten följs."""
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for namn in led:
+            if not isinstance(namn, str) or namn in ('', '.', '..') or '/' in namn or '\\' in namn:
+                raise ValueError('ogiltigt materialled')
+            if skapa:
+                try:
+                    os.mkdir(namn, 0o700, dir_fd=fd)
+                except FileExistsError:
+                    pass
+            nxt = os.open(namn, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd); fd = nxt
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def _las_fd(fd, namn, valfri=False):
+    try:
+        f = os.open(namn, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+    except FileNotFoundError:
+        if valfri:
+            return None
+        raise
+    with os.fdopen(f, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > transport.MAX_FIL:
+            raise ValueError('materialfilen ska vara en vanlig fil utan hårdlänkar inom storleksgränsen')
+        data = stream.read(transport.MAX_FIL + 1)
+        if len(data) > transport.MAX_FIL:
+            raise ValueError('materialfilen är för stor')
+        return data
+
+
+def _las_inom(root, led):
+    with _katalog_fd(root, led[:-1]) as fd:
+        return _las_fd(fd, led[-1])
+
+
+def _skriv_fd(fd, namn, data, ersatt=False):
+    """Atomiskt byte av en egen vanlig fil, eller exklusiv publicering av en ny version."""
+    if '/' in namn or '\\' in namn or namn in ('', '.', '..'):
+        raise ValueError('ogiltigt materialfilnamn')
+    _las_fd(fd, namn, valfri=True)  # nekar även en befintlig hårdlänk; byte följer aldrig målfilen
+    tmp = '.' + namn + '-' + uuid.uuid4().hex + '.tmp'
+    f = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+    try:
+        with os.fdopen(f, 'wb') as out:
+            out.write(data); out.flush(); os.fsync(out.fileno())
+        if ersatt:
+            os.replace(tmp, namn, src_dir_fd=fd, dst_dir_fd=fd)
+        else:
+            os.link(tmp, namn, src_dir_fd=fd, dst_dir_fd=fd, follow_symlinks=False)
+    finally:
+        try:
+            os.unlink(tmp, dir_fd=fd)
+        except FileNotFoundError:
+            pass
+
+
+def _version_skriv(slug, tid, n, ext, data, aterhamtning=False):
+    f = version_fil(slug, tid, n, ext)
+    with _katalog_fd(atelje.UNDERLAG, (slug, 'material', tid['id'])) as fd:
+        old = _las_fd(fd, f.name, valfri=True)
+        if old is not None and aterhamtning and old == data:
+            return f
+        _skriv_fd(fd, f.name, data)
+    return f
+
+
+def _version_las(slug, tid, v):
+    if not re.fullmatch(r'm\d{3,}', tid or '') or type(v.get('version')) is not int:
+        raise ValueError('ogiltig materialversion')
+    p = Path(v.get('fil') or '')
+    if p.parts != ('material', tid, 'v%02d%s' % (v['version'], p.suffix)) or p.suffix not in BILDFORMAT + VIDEOFORMAT:
+        raise ValueError('materialfilen tillhör inte den bokförda versionen')
+    return _las_inom(atelje.UNDERLAG, (slug, *p.parts))
+
+
 def katalog(slug):
-    return atelje.UNDERLAG / slug / 'material'
+    if not isinstance(slug, str) or not atelje.SLUG.fullmatch(slug):
+        raise ValueError('ogiltig slug')
+    root = atelje.UNDERLAG
+    for p in (root, root / slug, root / slug / 'material'):
+        if p.is_symlink():
+            raise ValueError('materialets rot får inte vara en symbolisk länk')
+    return root / slug / 'material'
+
+
+@contextlib.contextmanager
+def registerlas(slug):
+    """Samma lås vid beställning, import, användning och betrodd generering."""
+    with _LAS:
+        katalog(slug)
+        with _katalog_fd(atelje.UNDERLAG, (slug, 'material'), skapa=True) as kd:
+            fd = os.open('.material.las', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600, dir_fd=kd)
+            try:
+                info = os.fstat(fd)
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                    raise ValueError('materiallåset ska vara en vanlig olänkad fil')
+                fcntl.flock(fd, fcntl.LOCK_EX)
+                yield
+            finally:
+                os.close(fd)
+
+
+def last(f):
+    @functools.wraps(f)
+    def inne(slug, *args, **kwargs):
+        with registerlas(slug):
+            return f(slug, *args, **kwargs)
+    return inne
 
 
 def registerfil(slug):
@@ -78,17 +200,24 @@ def registerfil(slug):
 
 def las(slug):
     p = registerfil(slug)
+    if not p.exists() and not p.is_symlink():
+        return {'schema': 1, 'slug': slug, 'tillgangar': {}}
     try:
-        d = json.loads(p.read_text(encoding='utf-8')) if p.is_file() and not p.is_symlink() else None
+        if p.is_symlink() or not p.is_file():
+            raise ValueError()
+        d = json.loads(_las_inom(atelje.UNDERLAG, (slug, 'material', 'MATERIAL.json')))
     except (OSError, ValueError):
-        d = None
-    return d if isinstance(d, dict) and isinstance(d.get('tillgangar'), dict) else {'schema': 1, 'slug': slug, 'tillgangar': {}}
+        raise ValueError('materialregistret kunde inte läsas; inget skrivs över') from None
+    if not isinstance(d, dict) or d.get('slug') != slug or not isinstance(d.get('tillgangar'), dict):
+        raise ValueError('ogiltigt materialregister; inget skrivs över')
+    return d
 
 
 def skriv(slug, d):
-    katalog(slug).mkdir(parents=True, exist_ok=True)
+    katalog(slug)
     d['uppdaterad'] = nu()
-    atelje.skriv_json_atomiskt(registerfil(slug), d)
+    with _katalog_fd(atelje.UNDERLAG, (slug, 'material'), skapa=True) as fd:
+        _skriv_fd(fd, 'MATERIAL.json', (json.dumps(d, ensure_ascii=False, indent=1) + '\n').encode(), ersatt=True)
 
 
 def tillhor(t, kandidat):
@@ -115,20 +244,36 @@ def nytt_id(d):
     return 'm%03d' % n
 
 
-def nyckel_finns(leverantor):
+def las_nyckel(leverantor):
+    """Bara den betrodda körvägen når denna läsning. Ingen nyckel återges i kvittot."""
     lev = LEVERANTORER[leverantor]
-    if not lev.get('env'):
-        return True
     p = HEM / lev['env']
     try:
-        return any(rad.startswith(lev['var'] + '=') and rad.split('=', 1)[1].strip() for rad in p.read_text(encoding='utf-8').splitlines())
-    except OSError:
-        return False
+        if p.is_symlink() or HEM.is_symlink() or not stat.S_ISREG(p.lstat().st_mode):
+            raise ValueError()
+        fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd) as f:
+            if os.fstat(f.fileno()).st_mode & 0o077:
+                raise ValueError()
+            text = f.read(65537)
+        if len(text) > 65536:
+            raise ValueError()
+        values = [r.split('=', 1)[1].strip().strip('"\'') for r in text.splitlines() if r.startswith(lev['var'] + '=')]
+        if len(values) != 1 or not values[0] or re.search(r'[\r\n]', values[0]):
+            raise ValueError()
+        return values[0]
+    except (OSError, UnicodeError, ValueError):
+        raise ValueError('leverantörens API-konto saknas eller nyckelfilen är inte privat och läsbar') from None
 
 
 def version_fil(slug, tid, n, ext):
+    if not re.fullmatch(r'm\d{3,}', tid.get('id', '')) or type(n) is not int or n < 1:
+        raise ValueError('ogiltig materialidentitet')
     d = katalog(slug) / tid['id']
-    d.mkdir(parents=True, exist_ok=True)
+    if d.is_symlink():
+        raise ValueError('tillgångens katalog får inte vara en länk')
+    with _katalog_fd(atelje.UNDERLAG, (slug, 'material', tid['id']), skapa=True):
+        pass
     return d / ('v%02d%s' % (n, ext))
 
 
@@ -152,7 +297,8 @@ def webb(typ, ext):
             'hinder': ['posterbild krävs före användning (--poster <bild-id>)', 'mobilvariant saknas: leverantörens eller egen']}
 
 
-def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', igen=None, prompt=None, kandidat=None):
+@last
+def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', igen=None, prompt=None, kandidat=None, modell=None, parametrar=None):
     """Ett visuellt uppdrag blir en tillgång (ny, eller en ny version av igen) hos leverantören. Ger tillgången. kandidat:
     kandidatens privata tillgång, och en ny version bara av kandidatens egen (N02); utan kandidat ägarens, gemensam."""
     if typ not in TYPER or roll not in ROLLER or leverantor not in LEVERANTORER:
@@ -171,14 +317,13 @@ def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', i
     n = len(t['versioner']) + 1
     v = {'version': n, 'tid': nu(), 'leverantor': leverantor}
     if leverantor == 'stubb':
-        f = version_fil(slug, t, n, '.svg' if typ == 'bild' else '.svg')
-        f.write_text(stubb_svg(uppdrag, typ), encoding='utf-8')
+        f = _version_skriv(slug, t, n, '.svg', stubb_svg(uppdrag, typ).encode())
         v.update(status='stubb', fil='material/%s/%s' % (t['id'], f.name), kalla='attrapp: kontroller/material.py (mekanikprov)', rattigheter='inget material')
-    elif not nyckel_finns(leverantor):
-        v.update(status='saknar_konto', fil=None, hinder='%s kräver nyckeln %s i %s; kontot är ägarens beslut (2026-10-07: mekanik nu, konto senare)' % (
-            LEVERANTORER[leverantor]['namn'], LEVERANTORER[leverantor]['var'], HEM / LEVERANTORER[leverantor]['env']))
     else:
-        v.update(status='fel', fil=None, hinder='%s: anropet är inte infört; det införs och provas när kontot finns (ingen extern åtkomst låtsas)' % LEVERANTORER[leverantor]['namn'])
+        job = transport.uppdrag(leverantor, typ, prompt or uppdrag, modell, parametrar)
+        job.update(slug=slug, kandidat=kandidat, id=t['id'], version=n, roll=roll)
+        v.update(status='vantar_mandat_konto', fil=None, bestallning=job, uppdrag_sha=transport.sha(job),
+                 hinder='beställningen är sparad; betrodd --generera kräver exakt uppdragshash, kostnadsmedgivande, rättigheter och API-konto; inget konto har lästs')
     t['versioner'].append(v)
     t['status'] = v['status']
     t['webb'] = webb(typ, Path(v['fil']).suffix if v.get('fil') else '')
@@ -187,12 +332,95 @@ def bestall(slug, uppdrag, typ='bild', leverantor='stubb', roll='illustrativ', i
     return t
 
 
+def kundgranser(slug, prompt):
+    """Samma identifieringsregler som kundvakten; bara generisk text får skickas, inga kundfiler."""
+    import skapande
+    import kundvakt
+    try:
+        forbjudna = skapande.forbjudna_termer(slug, atelje.UNDERLAG)
+        if not forbjudna.get('ord') and not forbjudna.get('siffror'):
+            raise ValueError()
+        uppgifter = kundvakt.underlagets_uppgifter(slug, atelje.UNDERLAG)
+        forbjudna['siffror'] |= uppgifter['siffror']
+        text = kundvakt.avkoda(prompt)
+        if (skapande.namner_kunden(text, forbjudna) or kundvakt.namner_person(text, uppgifter['personer'])
+                or kundvakt.namner_person(text, uppgifter['orter']) or skapande.SPARRAD_FORM.search(text)):
+            raise ValueError()
+    except Exception:
+        raise ValueError('kundvakten kunde inte godkänna den utgående materialprompten') from None
+
+
+def generera(slug, tid, uppdrag_sha, godkann_kostnad=False, rattigheter='', *, kandidat=None, http=None, timeout=180):
+    """Betrodd ägaringång, även användbar av en framtida mandatkontrollerad tjänst.
+
+    Kandidatens Bash-form når aldrig denna väg: inget --kandidat och inget NWP_SLUG.
+    Exakt uppdragshash + kostnadsmedgivande gäller en version, inte framtida generationer.
+    """
+    if kandidat is not None or os.environ.get('NWP_SLUG') or not godkann_kostnad or not isinstance(rattigheter, str) or not rattigheter.strip():
+        raise ValueError('generering kräver betrodd ägaringång utan kandidatbindning, uttryckligt kostnadsmedgivande och rättigheter')
+    if not isinstance(uppdrag_sha, str) or not re.fullmatch(r'[0-9a-f]{64}', uppdrag_sha):
+        raise ValueError('generering kräver den sparade beställningens exakta hash')
+    with registerlas(slug):
+        d = las(slug)
+        t = d['tillgangar'].get(tid)
+        if not isinstance(t, dict) or not t.get('versioner'):
+            raise ValueError('okänd tillgång')
+        v = t['versioner'][-1]
+        job = v.get('bestallning')
+        if (not isinstance(job, dict) or transport.sha(job) != uppdrag_sha or v.get('uppdrag_sha') != uppdrag_sha
+                or any(job.get(k) != value for k, value in {'slug': slug, 'id': tid, 'version': v.get('version'),
+                    'kandidat': t.get('kandidat'), 'roll': t.get('roll'), 'typ': t.get('typ'), 'leverantor': t.get('leverantor')}.items())):
+            raise ValueError('beställningen ändrades eller saknar verifierbar identitet')
+        if v.get('status') == 'genererad':
+            return t  # upprepat medgivande köper aldrig en ny generation
+        if v.get('status') not in ('vantar_mandat_konto', 'saknar_konto', 'vantar_resultat'):
+            raise ValueError('utfallet kan vara okänt; samma version skickas inte igen, kontrollera leverantörens jobb')
+        kundgranser(slug, job['prompt'])
+        try:
+            key = las_nyckel(job['leverantor'])
+        except ValueError as e:
+            v.update(status='saknar_konto', hinder=str(e))
+            t['status'] = v['status']; skriv(slug, d)
+            return t
+        v.update(status='vantar_resultat' if v.get('jobb') else 'skickar', mandat={'uppdrag_sha': uppdrag_sha, 'tid': nu(), 'kostnad_godkand': True},
+                 rattigheter=rattigheter[:300])
+        t['status'] = v['status']; skriv(slug, d)
+
+        def registrera(rid):
+            v.update(jobb=rid, status='vantar_resultat')
+            t['status'] = v['status']; skriv(slug, d)
+
+        try:
+            resultat = transport.kor(job, key, befintligt=v.get('jobb'), registrera=registrera, http=http, timeout=timeout)
+            f = _version_skriv(slug, t, v['version'], resultat['ext'], resultat['data'], aterhamtning=True)
+            v.update(status='genererad', fil='material/%s/%s' % (tid, f.name), sha256=resultat['sha256'], bytes=resultat['bytes'],
+                     mime=resultat['mime'], kalla='%s / %s (API)' % (job['leverantor'], job['modell']), genererad=nu())
+            v.pop('hinder', None)
+            t['webb'] = webb(t['typ'], resultat['ext'])
+        except (transport.TransportFel, OSError) as e:
+            # Ingen nyckel, prompt, leverantörstext eller signerad adress i felet.
+            terminal = isinstance(e, transport.TransportFel) and e.terminal
+            v.update(status='fel' if terminal else ('vantar_resultat' if v.get('jobb') else 'oklart'),
+                     hinder='leverantören avslutade jobbet utan material; samma version skickas inte igen' if terminal else
+                     'materialanropet slutfördes inte lokalt; sparat jobb-id kan följas upp utan nytt POST' if v.get('jobb') else
+                     'utfallet kan vara okänt; inget automatiskt nytt anrop, kontrollera leverantörens konto')
+        finally:
+            key = None
+        t['status'] = v['status']; skriv(slug, d)
+        return t
+
+
+@last
 def importera(slug, fil, leverantor, uppdrag, kalla, rattigheter, typ=None, roll='illustrativ', kandidat=None):
     """En färdig tillgång (genererad i leverantörens egen tjänst, eller ett koncept ur canvas-design) blir en versionerad
     tillgång med källa och rättigheter; filen kopieras, originalet rörs inte."""
     p = Path(fil)
-    if not p.is_file() or p.is_symlink():
-        raise ValueError('filen finns inte: %s' % fil)
+    if kandidat:
+        p = i_kandidaten(slug, kandidat, fil)
+        data = _las_inom(atelje.UNDERLAG, p.relative_to(atelje.UNDERLAG).parts)
+    else:
+        with _katalog_fd(p.absolute().parent) as fd:
+            data = _las_fd(fd, p.name)
     ext = p.suffix.lower()
     typ = typ or ('video' if ext in VIDEOFORMAT else 'bild')
     if (typ == 'bild' and ext not in BILDFORMAT) or (typ == 'video' and ext not in VIDEOFORMAT):
@@ -204,8 +432,7 @@ def importera(slug, fil, leverantor, uppdrag, kalla, rattigheter, typ=None, roll
     d = las(slug)
     t = {'id': nytt_id(d), 'skapad': nu(), 'versioner': [], 'uppdrag': str(uppdrag)[:1000], 'typ': typ, 'roll': roll, 'leverantor': leverantor,
          'prompt': None, 'pastar_verksamhet': False, 'kandidat': kandidat, 'gemensam': not kandidat}
-    f = version_fil(slug, t, 1, ext)
-    shutil.copyfile(p, f)
+    f = _version_skriv(slug, t, 1, ext, data)
     v = {'version': 1, 'tid': nu(), 'leverantor': leverantor, 'status': 'genererad', 'fil': 'material/%s/%s' % (t['id'], f.name),
          'kalla': str(kalla)[:300], 'rattigheter': str(rattigheter)[:300], 'importerad_fran': p.name}
     t['versioner'].append(v)
@@ -229,6 +456,7 @@ def canvas(slug, fil, kandidat, uppdrag):
                      typ='bild', roll='koncept', kandidat=kandidat)
 
 
+@last
 def anvand(slug, tid, kandidat, plats, poster=None):
     """Den faktiska användningen: tillgångens senaste version in i kandidatens projekt (src/assets/material/) och en rad i
     kandidatens material/MATERIAL.md med Egen nej och påstår verksamhet nej. En stubb, en tillgång utan konto och en video
@@ -253,26 +481,31 @@ def anvand(slug, tid, kandidat, plats, poster=None):
             return {'ok': False, 'hinder': 'en video kräver en genererad posterbild (--poster <bild-id>); den visas också vid reducerad rörelse'}
         t['webb']['poster'] = poster
         posterrad = ' · poster %s' % poster
-    kalla = katalog(slug) / Path(v['fil']).relative_to('material')
+    data = _version_las(slug, tid, v)
     sajt = kandidater.ksajt(slug, kandidat)
     if not (sajt / 'src').is_dir():
         return {'ok': False, 'hinder': 'kandidatens projekt saknar src/: %s' % sajt}
-    mal = sajt / 'src' / 'assets' / 'material'
-    mal.mkdir(parents=True, exist_ok=True)
     namn = '%s__%s-v%02d%s' % (plats, tid, v['version'], Path(v['fil']).suffix)
-    shutil.copyfile(kalla, mal / namn)
+    bilder = [(namn, data)]
     if t['typ'] == 'video' and poster:
         pv = d['tillgangar'][poster]['versioner'][-1]
-        shutil.copyfile(katalog(slug) / Path(pv['fil']).relative_to('material'), mal / ('%s__%s-poster%s' % (plats, tid, Path(pv['fil']).suffix)))
+        bilder.append(('%s__%s-poster%s' % (plats, tid, Path(pv['fil']).suffix), _version_las(slug, poster, pv)))
     md = kandidater.kdir(slug, kandidat) / 'material' / 'MATERIAL.md'
-    md.parent.mkdir(parents=True, exist_ok=True)
-    if not md.is_file():
-        md.write_text('# Material i kandidaten (materialsteget, kontroller/material.py)\n\nIllustrativt material och koncept: aldrig bilder som påstår sig visa verksamheten (kunskap/bild.md).\n\n'
-                      '| fil | roll | typ | leverantör | version | källa | rättigheter | plats | Egen | påstår verksamhet | reducerad rörelse |\n|---|---|---|---|---|---|---|---|---|---|---|\n', encoding='utf-8')
-    with open(md, 'a', encoding='utf-8') as fh:
-        fh.write('| %s | %s | %s | %s | v%02d | %s | %s | %s | nej | nej | %s |\n' % (
+    with _katalog_fd(atelje.KUNDER, (slug, 'kandidater', kandidat, 'sajt', 'src', 'assets', 'material'), skapa=True) as bildfd, \
+            _katalog_fd(atelje.UNDERLAG, (slug, 'atelje', 'kandidater', kandidat, 'material'), skapa=True) as mdfd:
+        # Pröva alla befintliga skrivmål före första filändringen.
+        for bnamn, _ in bilder:
+            _las_fd(bildfd, bnamn, valfri=True)
+        text = _las_fd(mdfd, 'MATERIAL.md', valfri=True)
+        if text is None:
+            text = ('# Material i kandidaten (materialsteget, kontroller/material.py)\n\nIllustrativt material och koncept: aldrig bilder som påstår sig visa verksamheten (kunskap/bild.md).\n\n'
+                    '| fil | roll | typ | leverantör | version | källa | rättigheter | plats | Egen | påstår verksamhet | reducerad rörelse |\n|---|---|---|---|---|---|---|---|---|---|---|\n').encode()
+        rad = '| %s | %s | %s | %s | v%02d | %s | %s | %s | nej | nej | %s |\n' % (
             namn, t['roll'], t['typ'], LEVERANTORER[t['leverantor']]['namn'], v['version'], v.get('kalla', ''), v.get('rattigheter', ''), plats,
-            ('posterbilden visas; ingen autouppspelning' + posterrad) if t['typ'] == 'video' else 'gäller inte'))
+            ('posterbilden visas; ingen autouppspelning' + posterrad) if t['typ'] == 'video' else 'gäller inte')
+        for bnamn, bdata in bilder:
+            _skriv_fd(bildfd, bnamn, bdata, ersatt=True)
+        _skriv_fd(mdfd, 'MATERIAL.md', text + rad.encode(), ersatt=True)
     t.setdefault('anvand', []).append({'kandidat': kandidat, 'plats': plats, 'fil': 'src/assets/material/' + namn, 'version': v['version'], 'tid': nu()})
     skriv(slug, d)
     return {'ok': True, 'fil': 'src/assets/material/' + namn, 'md': str(md)}
@@ -282,12 +515,19 @@ def i_kandidaten(slug, kid, fil):
     """Filen ligger i kandidatens egen katalog under ateljén (aldrig en länk, aldrig utanför): skaparens import är
     kandidatavgränsad. Ger den upplösta vägen eller ValueError."""
     import kandidater
-    rot = kandidater.kdir(slug, kid).resolve()
+    if not re.fullmatch(r'k\d\d', kid or ''):
+        raise ValueError('ogiltig kandidat')
+    rot = kandidater.kdir(slug, kid)
     p = Path(fil)
     p = (atelje.ROOT / p) if not p.is_absolute() else p
-    if p.is_symlink() or not p.resolve().is_relative_to(rot):
-        raise ValueError('filen ligger utanför kandidatens katalog (%s): skaparen importerar bara sitt eget material' % kandidater.rel(rot))
-    return p.resolve()
+    try:
+        led = p.relative_to(rot).parts
+        if not led or any(x in ('', '.', '..') for x in led):
+            raise ValueError()
+        _las_inom(atelje.UNDERLAG, (slug, 'atelje', 'kandidater', kid, *led))
+    except (OSError, ValueError):
+        raise ValueError('filen ska ligga i kandidatens förankrade katalog och vara utan symboliska länkar eller hårdlänkar') from None
+    return p
 
 
 def anvandning(slug, kid):
@@ -332,6 +572,11 @@ def main(argv=None):
     p.add_argument('--roll', choices=ROLLER, default='illustrativ')
     p.add_argument('--leverantor', choices=sorted(LEVERANTORER), default='stubb')
     p.add_argument('--igen', help='ny version av en befintlig tillgång')
+    p.add_argument('--modell', help='exakt införd leverantörsmodell; förvalet sparas i beställningen')
+    p.add_argument('--parametrar', help='JSON med dokumenterade format-/videoegenskaper, inga adresser eller filer')
+    p.add_argument('--generera', help='betrodd ägaringång: verkställ den sparade beställningens id')
+    p.add_argument('--uppdrag-sha', help='sha256 från beställningens senaste version')
+    p.add_argument('--godkann-kostnad', action='store_true', help='kostnadsmedgivande för just denna uppdragshash')
     p.add_argument('--fil', help='importera en färdig tillgång')
     p.add_argument('--kalla', default='')
     p.add_argument('--rattigheter', default='')
@@ -355,7 +600,11 @@ def main(argv=None):
     try:
         if a.kandidat is not None and not re.fullmatch(r'k\d\d', a.kandidat):
             raise ValueError('kandidaten anges som kNN')
-        if a.visa:
+        if a.generera:
+            if any((a.bestall, a.typ, a.igen, a.fil, a.canvas, a.anvand, a.visa, a.anvandning, a.modell, a.parametrar)):
+                raise ValueError('--generera verkställer bara befintlig beställning; andra åtgärder får inte kombineras')
+            ut = generera(a.slug, a.generera, a.uppdrag_sha, a.godkann_kostnad, a.rattigheter, kandidat=a.kandidat)
+        elif a.visa:
             ut = synliga(las(a.slug), a.kandidat)
         elif a.anvandning:
             if not a.kandidat:
@@ -373,15 +622,20 @@ def main(argv=None):
         elif a.anvand:
             ut = anvand(a.slug, a.anvand, a.kandidat, a.plats, a.poster)
         elif a.bestall:
-            ut = bestall(a.slug, a.bestall, a.typ or 'bild', a.leverantor, a.roll, a.igen, kandidat=a.kandidat)
+            try:
+                parametrar = json.loads(a.parametrar) if a.parametrar else None
+            except ValueError:
+                raise ValueError('--parametrar måste vara giltig JSON') from None
+            ut = bestall(a.slug, a.bestall, a.typ or 'bild', a.leverantor, a.roll, a.igen, kandidat=a.kandidat, modell=a.modell, parametrar=parametrar)
         else:
             p.print_usage()
             return 2
-    except ValueError as e:
-        print(json.dumps({'ok': False, 'hinder': str(e)}, ensure_ascii=False))
+    except (ValueError, OSError) as e:
+        text = str(e) if isinstance(e, ValueError) else 'materialets filer kunde inte läsas eller skrivas'
+        print(json.dumps({'ok': False, 'hinder': text}, ensure_ascii=False))
         return 1
     print(json.dumps(ut, ensure_ascii=False, indent=1))
-    return 0 if ut.get('ok', True) and ut.get('status') not in ('saknar_konto', 'fel') else 1
+    return 0 if ut.get('ok', True) and ut.get('status') not in ('vantar_mandat_konto', 'saknar_konto', 'skickar', 'vantar_resultat', 'oklart', 'fel') else 1
 
 
 if __name__ == '__main__':

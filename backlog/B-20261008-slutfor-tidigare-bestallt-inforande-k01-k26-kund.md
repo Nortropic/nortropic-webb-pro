@@ -199,3 +199,31 @@ Samordna med det redan köade arbetet för ren 2.0-start och samlad startkontrol
 (ingen autoplay med ljud). Det hör till materialsteget (del D) och bevakas av frågan bild-video-ljud
 (kunskap/spaning-kallor.md), som Codex prövar månadsvis. Extern förutsättning: ett konto eller en licensierad källa för
 ljud och video, som ägaren beslutar (ägarens svar 2026-10-07: mekanik nu, konto senare).
+
+
+**Codex avstämning 2026-10-09, separat arbetsgren:** Granskningen av samtliga lokala skills och MCP mot
+509bf05 visar ytterligare glapp i tidig komponentresearch, helbyggets MCP-anslutning, per-sessionsaktivering,
+kompetenskvitton och deras återanvändning. Riktade rättelser ligger i
+`codex/kompetens-hela-flodet-20261009`; de är inte aktiverade i drift genom denna anteckning. Privat rapport:
+`underlag/granskningar/GR-20261009-kompetens-hela-flodet.md`, med fullständiga tabeller och provens omfattning.
+
+Kvar inom denna posts befintliga ansvar: materialleverantörernas faktiska adapter är inte implementerad
+(`material.py` ger fortfarande att anropet inte är infört även om en nyckel finns); automatisk beställning
+av DevTools-profilering saknas, och delar av skillsens medföljande skript har ingen avgränsad körväg. De
+kräver alltså kod och kontraktsprov, inte bara konto eller ägardom. Betald åtkomst, verklig sessionsanvändning
+och visad kvalitetsvinst är skilda bevis och återstår separat. Ingen ny parallell backlogpost skapad, och
+denna post är fortfarande pågår.
+
+
+**Codex införande 2026-10-10, separat arbetsgren:** Föregående avstämnings tre lokala kodluckor är införda i
+`codex/kompetens-inforande-20261010`, tillsammans med rättelserna från den tidigare kompetensgrenen.
+Valda referenssidor får automatisk, versionsbunden DevTools-beställning före skapandet. Skillsens medföljande
+brand-, token- och stylingprogram samt statisk canvasrendering har en kandidatbunden körväg. Materialsteget har
+REST-adaptrar för text till bild/video hos Gemini, Higgsfield och BytePlus LAS, med separata steg för beställning
+och betrodd verkställighet; uppdragshash, rättigheter, konto och kostnadsmandat prövas före nätanrop.
+
+Prov och exakt avgränsning: `underlag/granskningar/GR-20261010-kompetens-inforande.md`. Ingenting är aktiverat i
+drift av denna anteckning. Externa kontoresultat, verklig modell-/MCP-användning och designnytta återstår.
+Automatisk materialkö, bildredigering och bild-till-video med uppladdade kundbilder ingår inte i den nya transporten.
+Task-underagenternas egna kvitton och fullständig observation av godtyckliga Bash-skrivningar är fortsatt luckor.
+Posten står kvar som pågår; detta är inte ett påstående om att hela uppdraget är verifierat.
