@@ -117,6 +117,30 @@ class Plan(unittest.TestCase):
         pl = ik.planera(val('k11-stripe-betallank', lage='grund'))
         self.assertEqual(pl['omfattning'], []); self.assertTrue(any('ingår inte i grundleveransen' in h for h in pl['hinder']))
 
+    def test_kombinationerna_ur_etapp_6(self):
+        # uppdraget 2026-10-09, etapp 6: kombinationerna planeras med sina beroenden; en kombination som vilar på en
+        # utredningsväg är aldrig klar för bygge, och dess hinder namnger utredningen
+        grund = ['k02-cloudflare-workers', 'k03-formular-worker', 'k04-cloudflare-epost']
+        klara = {'bokning + betalning + påminnelse': ['k09-bokningslank', 'k11-stripe-betallank', 'k15-bokningstjanstens-paminnelser'],
+                 'offert + kundregister': ['k10-pipedrive-lead'],
+                 'redigering + förhandsvisning': ['k08-nortropic-forvaltning'],
+                 'nyhetsbrev + mätning': ['k14-brevo-dubbel', 'k07-konverteringar-d1']}
+        for namn, paket in klara.items():
+            with self.subTest(namn=namn):
+                pl = ik.planera(val(*grund, lage='grund') + val(*paket))
+                self.assertTrue(pl['klar_for_bygge'], (namn, pl['hinder'], pl['saknade_beroenden'], pl['konflikter']))
+                self.assertEqual(pl['saknade_beroenden'], [])
+        pl = ik.planera(val(*grund, lage='grund') + val('k15-bokningstjanstens-paminnelser'))
+        self.assertEqual(pl['saknade_beroenden'], [{'paket': 'k15-bokningstjanstens-paminnelser', 'kraver': 'bokning'}], 'påminnelser utan bokning')
+        blockerade = {'butik + ekonomi': ['k12-handel-utreds', 'k13-ekonomi-utreds'], 'medlemskap + betalning': ['k17-portal-utreds', 'k11-stripe-betallank'],
+                      'nyhetsbrev + annonser': ['k14-brevo-dubbel', 'k16-annonser-utreds']}
+        for namn, paket in blockerade.items():
+            with self.subTest(namn=namn):
+                pl = ik.planera(val(*grund, lage='grund') + val(*paket))
+                self.assertFalse(pl['klar_for_bygge'], namn)
+                utreds = [p for p in paket if p.endswith('-utreds')]
+                self.assertTrue(all(any(u in h and 'utredningsväg' in h for h in pl['hinder']) for u in utreds), (namn, pl['hinder']))
+
     def test_ett_inaktuellt_paket_ingar_aldrig_i_planen(self):
         # ägarens beslut 2026-10-10: Cloudflares e-post är K04:s huvudväg; Resend står kvar som historik
         for lage in ('kundval', 'grund', 'onskemal'):
