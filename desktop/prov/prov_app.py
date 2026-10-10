@@ -89,6 +89,7 @@ def main():
     ap.add_argument('--port', type=int, required=True)
     ap.add_argument('--rot', default=str(ad.ROT))
     ap.add_argument('--ut', required=True)
+    ap.add_argument('--korregister', help='provinstansens NWP_KORREGISTER (för D16: pågående arbete med en identifierad testprocess)')
     a_ = ap.parse_args()
     if a_.port == 4771:
         raise SystemExit('provet körs mot en provinstans, aldrig mot huvudutcheckningens :4771')
@@ -251,6 +252,66 @@ def main():
         finally:
             b.avsluta()
     fall('en sparad fönsterplats utanför skärmarna används inte', 'D12', d12)
+
+    if a_.korregister:
+        sys.path.insert(0, str(rot / 'kontroller'))
+        import korregister
+        reg = Path(a_.korregister)
+        reg.mkdir(parents=True, exist_ok=True)
+        arbete = subprocess.Popen(['/bin/sleep', '900'])  # står för ett godkänt arbete i motorn; provet äger processen
+        post = reg / ('%d.json' % arbete.pid)
+        time.sleep(0.3)
+        post.write_text(json.dumps({'pid': arbete.pid, 'vad': 'arbetare', 'utcheckning': str(rot), 'slug': 'testdata-provverkstaden',
+                                    'start': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'pstart': korregister.startad(arbete.pid), 'kommando': 'prov: atelje.py (attrapp)'}))
+        try:
+            def d16_behall():
+                c = ad.App(rot, a_.port)
+                c.registrera(VERKTYG)
+                inst = json.loads((c.data / 'installningar.json').read_text())
+                inst['avslut'] = 'behall'
+                (c.data / 'installningar.json').write_text(json.dumps(inst))
+                c.starta()
+                try:
+                    c.vanta(lambda: c.js("document.querySelector('[data-vy=last]') && !document.querySelector('[data-vy=last]').hidden"), text='låsvyn')
+                    pag = json.loads(subprocess.run(['/usr/bin/curl', '-s', 'http://127.0.0.1:%d/api/desktop/pagaende' % a_.port], capture_output=True, text=True).stdout)['pagaende']
+                    assert pag, 'provinstansen ser inget pågående arbete'
+                    c.meny('avsluta')
+                    c.proc.wait(10)
+                    assert arbete.poll() is None, 'arbetet dog med appen'
+                    return {'pågående': pag, 'appens_slutkod': c.proc.returncode, 'arbetet_lever': True, 'inställning': 'behall'}
+                finally:
+                    c.avsluta()
+            fall('Cmd-Q med "behåll" under pågående arbete: appen avslutas, arbetet lever', 'D16 U28', d16_behall)
+
+            def d16_fraga():
+                c = ad.App(rot, a_.port)
+                c.registrera(VERKTYG)
+                c.starta()
+                try:
+                    c.vanta(lambda: c.js("document.querySelector('[data-vy=last]') && !document.querySelector('[data-vy=last]').hidden"), text='låsvyn')
+                    fore = c.lage()['fonsternummer']
+                    c.meny('avsluta')
+                    time.sleep(2.5)
+                    assert c.proc.poll() is None, 'appen avslutades utan att fråga'
+                    lista = subprocess.run([str(Path(__file__).resolve().parent / 'fonster')] if (Path(__file__).resolve().parent / 'fonster').exists() else ['/usr/bin/true'],
+                                           capture_output=True, text=True).stdout
+                    n = None
+                    for rad in lista.splitlines():
+                        f = rad.split('\t')
+                        if len(f) > 3 and f[1] == str(c.proc.pid) and f[3] == 'synlig' and f[0] != str(fore):
+                            n = f[0]
+                    bildnamn = None
+                    if n:
+                        bildnamn = 'd16-fraga.png'
+                        subprocess.run(['/usr/sbin/screencapture', '-x', '-o', '-l', n, str(ut / bildnamn)], check=False)
+                    assert arbete.poll() is None
+                    return {'frågan_visas': True, 'appen_lever_tills_svar': True, 'dialogens_fönster': n, 'bild': bildnamn, 'arbetet_lever': True}
+                finally:
+                    c.avsluta()
+            fall('Cmd-Q under pågående arbete frågar först; inget avslutas utan svar', 'D16', d16_fraga)
+        finally:
+            post.unlink(missing_ok=True)
+            arbete.terminate()
 
     sammanfattning = {'tid': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'motor': motor, 'macos': platform.mac_ver()[0], 'arkitektur': platform.machine(),
                       'app': str(ad.PROVAPP), 'godkända': sum(r['utfall'] == 'godkänt' for r in RESULTAT), 'underkända': sum(r['utfall'] != 'godkänt' for r in RESULTAT),

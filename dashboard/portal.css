@@ -170,3 +170,7 @@ html.pt-ram .ay-rakning:not(:empty) { color: #fff; }
 .pt-engang { margin-bottom: 16px; display: grid; gap: 6px; font-size: 14px; }
 .pt-engang input { font: 13px ui-monospace, "SF Mono", Menlo, monospace; padding: 7px 9px; border: 1px solid var(--pt-linje); border-radius: 8px; }
 @media (max-width: 1080px) { .pt-intervju { grid-template-columns: 1fr; } .pt-msgs { max-height: none; } }
+.pt-besked { margin-bottom: 16px; border-left: 4px solid var(--pt-varn); }
+.pt-besked.ok { border-left-color: var(--pt-ok); }
+.pt-besked h2 { margin-bottom: 6px; }
+.pt-lista-steg { list-style: none; margin: 0 0 10px; padding: 0; }

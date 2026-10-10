@@ -369,6 +369,21 @@ class Desktop(unittest.TestCase):
         self.assertEqual(s, 200)
         self.assertEqual([p['slug'] for p in j['pagaende']], ['kund-a'])
 
+    def test_leveransen_sager_inte_publicerad_utan_observerad_trafik(self):
+        u = self.root / 'underlag' / 'testdata-lev'
+        u.mkdir(parents=True)
+        (u / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Leveransprovet (testdata)', 'fiktiv': True}), encoding='utf-8')
+        lev = self.root / 'kunder' / 'testdata-lev' / 'leverans'
+        lev.mkdir(parents=True)
+        (lev / 'PREVIEW-1.json').write_text(json.dumps({'status': 'klar', 'tid': '2026-10-10T10:00:00Z', 'version_id': 'v1'}), encoding='utf-8')
+        s, _, d = self.anropa('GET', '/api/desktop/leverans/testdata-lev')
+        self.assertEqual(s, 200, d)
+        self.assertTrue(d['test'])
+        self.assertFalse(d['publicerad'], 'en förhandsvisning är ingen publicering')
+        self.assertEqual(d['forvaltning']['analys']['lage'], 'ej_ansluten')
+        self.assertEqual([k['slag'] for k in d['kvitton']], ['PREVIEW'])
+        self.assertEqual(self.anropa('GET', '/api/desktop/leverans/x--forhandsvisning')[0], 400)
+
     def test_utgavan_serveras_bara_nar_den_finns(self):
         self.assertEqual(self.anropa('GET', '/desktop/uppdatering/utgava')[0], 404)
         kat = self.root / 'desktop' / 'utgava'

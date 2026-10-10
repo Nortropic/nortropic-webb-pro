@@ -3093,6 +3093,9 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, desktop.uppmarksamhet(sys.modules[__name__]))
             if vag == '/api/desktop/pagaende':
                 return self.skicka(200, {'pagaende': desktop.pagaende(ROOT)})
+            m = re.fullmatch(r'/api/desktop/leverans/([a-z0-9-]{2,60})', vag)
+            if m:
+                return self.skicka(200, desktop.leverans(sys.modules[__name__], m.group(1)))
             if vag == '/api/desktop/lage':
                 sid = desktop.kaka_sid(self.headers.get('Cookie'), self.port())
                 return self.skicka(200, {'kontrakt': desktop.KONTRAKT, 'session': desktop.giltig(sid, rora=False)})

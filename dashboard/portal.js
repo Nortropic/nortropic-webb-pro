@@ -6,7 +6,7 @@
 (() => {
   'use strict';
   const e_ = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const EGNA = ['start', 'kunder', 'testkunder', 'ny-kund', 'ny-testkund', 'kund', 'intervju'];
+  const EGNA = ['start', 'kunder', 'testkunder', 'ny-kund', 'ny-testkund', 'kund', 'intervju', 'leverans-kund'];
   const P = { data: null, lastes: 0, desktop: null, filter: 'alla', sok: '', gen: 0 };
   const IKON = {
     hem: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -68,8 +68,8 @@
       ['forfining', 'Förfining', p, 'markera, jämför och ge uppdrag', null],
       ['bygge', 'Bygge', p && p + '/flode', 'helbygget och sessionerna', null],
       ['granskning', 'Granskning', p && p + '/kod', 'förhandsvisning, kod och kontroller', null],
-      ['leverans', 'Leverans', ks || p ? '#/leverans' : null, 'Cloudflare-vägen, versionsbunden', null],
-      ['forvaltning', 'Förvaltning', ks || p ? '#/leverans' : null, 'drift, ändringar och tillval', null],
+      ['leverans', 'Leverans', '#/leverans-kund/' + s, 'publicering genom Cloudflare-vägen och leveransbeskedet', 'publicering'],
+      ['forvaltning', 'Förvaltning', '#/leverans-kund/' + s, 'drift, ändringar och tillval', 'forvaltning'],
     ];
   }
   function aktivtOmrade(h) {
@@ -80,11 +80,12 @@
     if (/^arbetsyta\/[^/]+\/kod/.test(h)) return 'granskning';
     if (/^arbetsyta\/[^/]+/.test(h)) return 'forfining';
     if (h === 'leverans') return 'leverans';
+    if (h.startsWith('leverans-kund/')) { try { return sessionStorage.getItem('nwp-portal:omrade') === 'forvaltning' ? 'forvaltning' : 'leverans'; } catch { return 'leverans'; } }
     return null;
   }
   function kundFor(h, d) {
     if (!d) return null;
-    let m = h.match(/^(?:arbetsyta|kund|bygge)\/([^/]+)/);
+    let m = h.match(/^(?:arbetsyta|kund|bygge|leverans-kund)\/([^/]+)/);
     if (m) return d.kunder.find((k) => k.slug === decodeURIComponent(m[1])) || null;
     m = h.match(/^(?:kundstart|intervju)\/([a-f0-9]{32})/);
     if (m) return d.kunder.find((k) => (k.arenden || []).some((a) => a.id === m[1])) || null;
@@ -425,6 +426,38 @@
     if (['ko', 'pagar'].includes(mstat) && a.fiktiv) intervjuPuls = setTimeout(folj, 4000);
   }
 
+  // --- leverans och förvaltning (P10–P12): läsvyer över de levererade kontrakten; publicering går genom Byggflödets
+  // versionsbundna handling med ägarens klick som mandat, aldrig härifrån ---
+  const STEGSTATUS = { ja: 'uppfyllt', nej: 'inte uppfyllt', inte_tillampligt: 'inte tillämpligt' };
+  async function leveransvy(slug) {
+    let d; try { d = await hamta('/api/desktop/leverans/' + encodeURIComponent(slug)); } catch (e) { return fel(e); }
+    const m = d.migrering || {}, akt = d.aktivering || {};
+    const steg = (m.steg || []).map((x) => `<li class="pt-post"><span class="pt-post-kunskap ${x.status === 'ja' ? 'k-kunden_uppger' : x.status === 'nej' ? 'k-tolkning' : ''}">${e_(STEGSTATUS[x.status] || x.status)}</span><b>${e_(x.namn)}</b><span class="pt-post-text pt-under">${e_(x.belagg)}</span></li>`).join('');
+    const aktSteg = (akt.steg || []).slice(0, 14).map((x) => `<li class="pt-post"><span class="pt-post-kunskap">${e_(x.status)}</span><span class="pt-post-text">${e_(x.text)}${x.varfor ? ' · ' + e_(x.varfor) : ''}</span></li>`).join('');
+    const besked = d.publicerad
+      ? `<div class="pt-panel pt-besked ok"><h2>Webbplatsen är publicerad</h2><p>${e_(m.besked)}</p><p class="pt-under">Produktionens Worker ${e_(d.worker.produktion)}, version ${e_(m.worker?.produktion_version || 'okänd')}. Kvarstående ansvar och kundens handlingar står i aktiveringen nedan.</p></div>`
+      : `<div class="pt-panel pt-besked"><h2>Inte publicerad än</h2><p>${e_(m.besked || m.fel || 'Migreringsläget kunde inte läsas.')}</p><p class="pt-under">Leveransbeskedet visas först när en klar release finns och kundens egen adress har observerats svara från Workern. En förhandsvisning eller ett grönt prov är ingen publicering.</p></div>`;
+    yta(`<div class="pt-rubrikrad"><h1>Leverans och förvaltning · ${e_(d.namn || slug)}</h1>${d.test ? '<span class="pt-test">Testkund: ingen skarp release, aktiveringen bara som torrkörning</span>' : ''}</div>
+      ${besked}
+      <div class="pt-tva">
+        <section class="pt-panel" id="publicering" aria-labelledby="pt-pub"><h2 id="pt-pub">Publicering genom Cloudflare</h2>
+          <p class="pt-under">Förhandsvisning: Worker ${e_(d.worker.forhandsvisning)}${m.worker?.forhandsvisning_version ? ', version ' + e_(m.worker.forhandsvisning_version) : ''}. Produktion: Worker ${e_(d.worker.produktion)}. Kundrepo: ${d.kundrepo ? 'finns' : 'inte skapat'}.</p>
+          <ul class="pt-lista-steg">${steg || '<li class="pt-tomt">Inget migreringsläge.</li>'}</ul>
+          <p class="pt-under">Releasen är versionsbunden (exportens commit) och kräver ditt klick i Byggflöde, som är dess mandat. Domänen, DNS och kundens konton ändras inte härifrån.</p>
+          <a class="pt-knapp" href="#/arbetsyta/${encodeURIComponent(slug)}/flode">Till Byggflöde och releasen</a></section>
+        <section class="pt-panel" aria-labelledby="pt-akt"><h2 id="pt-akt">Aktivering och kundens handlingar</h2>
+          ${akt.fel ? `<p class="pt-fel">${e_(akt.fel)}</p>` : `<p class="pt-under">Torrkörning utan sidoeffekter: ${akt.kan_koras ? 'kan köras med ditt mandat' : 'kan inte köras än'}.</p><ul class="pt-lista-steg">${aktSteg || '<li class="pt-tomt">Inga steg.</li>'}</ul>`}</section>
+      </div>
+      <section class="pt-panel" id="forvaltning" aria-labelledby="pt-forv"><h2 id="pt-forv">Förvaltning</h2>
+        <p><b>Besök och förfrågningar:</b> ${e_(d.forvaltning.analys.text)}</p>
+        <h3>Versioner och kvitton</h3>${d.kvitton.length ? `<ul class="pt-lista">${d.kvitton.slice().reverse().map((k) => `<li>${e_(k.slag)} <span>${e_(k.status || '')} · ${e_(tid(k.tid))}${k.version ? ' · version ' + e_(k.version) : ''}${k.adress ? ' · ' + e_(k.adress) : ''}</span></li>`).join('')}</ul>` : '<p class="pt-tomt">Inga leveranskvitton än.</p>'}
+        <h3>Ändringar och tillval</h3><p class="pt-under">En innehållsändring eller ett nytt tillval för samma kund börjar i kundens ärende (Funktioner) eller som ett uppdrag i arbetsytan (Rätta, Omarbeta designen, Bygg ut); ingen ny kund skapas.</p>
+        <div class="pt-knapprad"><a class="pt-knapp" href="#/kund/${encodeURIComponent(slug)}">Kundens sida</a><a class="pt-knapp" href="#/arbetsyta/${encodeURIComponent(slug)}">Ge ett uppdrag i arbetsytan</a></div></section>
+      <p class="pt-under pt-fot">Läst ${e_(tid(d.tid))} ur migreringsläget, aktiveringens torrkörning och leveranskvittona.</p>`);
+    let del = ''; try { del = sessionStorage.getItem('nwp-portal:del') || ''; sessionStorage.removeItem('nwp-portal:del'); } catch { /* */ }
+    if (del === 'forvaltning') document.getElementById('forvaltning')?.scrollIntoView(); else fokus();
+  }
+
   function fel(e) {
     yta(`<h1>Kunderna kunde inte läsas</h1><p class="pt-fel" role="alert">${e_(e.message)}</p><p class="pt-under">Motorn svarade inte som väntat. Inget har ändrats. <a href="#/start">Försök igen</a></p>`);
     fokus();
@@ -438,6 +471,7 @@
     if (v === 'ny-testkund') return nykundvy(true);
     if (v === 'kund' && rest) return kundvy(decodeURIComponent(rest));
     if (v === 'intervju' && /^[a-f0-9]{32}$/.test(rest || '')) return intervjuvy(rest);
+    if (v === 'leverans-kund' && rest) return leveransvy(decodeURIComponent(rest));
     return startvy();
   };
   window.portalEgna = EGNA;

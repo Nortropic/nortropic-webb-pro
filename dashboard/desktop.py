@@ -341,3 +341,36 @@ def utgava(rot):
         return None
     return {'artefakt': artefakt, 'beskrivning': {'version': str(b.get('version') or ''), 'kontrakt': str(b.get('kontrakt') or ''), 'noter': str(b.get('noter') or '')[:2000],
                                                   'storlek': artefakt.stat().st_size, 'signatur': sig, 'byggd': b.get('byggd'), 'commit': b.get('commit')}}
+
+
+def leverans(dash, slug):
+    """P10–P12 för en kund, bara lästa ur de levererade kontrakten: migreringsläget med sina fem belägg
+    (kontroller/migreringslage.py), aktiveringens torrkörning (kontroller/aktivera.py, inga sidoeffekter, inget nät),
+    leveranskvittona och Worker-namnen. Ingen status hittas på: saknad data, ej ansluten och inte observerad står som det."""
+    import kundrepo
+    i = kundrepo.identitet(slug)  # ogiltig slug: ValueError
+    ut = {'slug': slug, 'tid': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'worker': {'produktion': i['worker'], 'forhandsvisning': i['worker_forhandsvisning']},
+          'kundrepo': bool(kundrepo.las_kvitto(slug))}
+    v = dash.las_json(dash.UNDERLAG / slug / 'VERKSAMHET.json') or {}
+    ut['namn'] = v.get('namn') if isinstance(v, dict) else None
+    ut['test'] = bool(isinstance(v, dict) and v.get('fiktiv'))
+    for nyckel, f in (('migrering', lambda: __import__('migreringslage').lage(slug)), ('aktivering', lambda: __import__('aktivera').torr(slug))):
+        try:
+            ut[nyckel] = f()
+        except Exception as e:  # noqa: BLE001 — en del som inte går att läsa står som fel, inte som klar
+            ut[nyckel] = {'fel': '%s: %s' % (type(e).__name__, str(e)[:240])}
+    kvitton = []
+    lev = Path(dash.KUNDER) / slug / 'leverans'
+    for p in sorted(lev.glob('*.json'))[-40:] if lev.is_dir() else []:
+        try:
+            j = json.loads(p.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            j = {}
+        kvitton.append({'fil': p.name, 'slag': p.name.split('-')[0].split('.')[0], 'status': j.get('status'), 'tid': j.get('tid'),
+                        'version': j.get('version_id'), 'adress': j.get('adress') or j.get('url')})
+    ut['kvitton'] = kvitton
+    m = ut['migrering'] if isinstance(ut.get('migrering'), dict) else {}
+    ut['publicerad'] = bool(m.get('i_drift'))  # bara en observerad trafikflytt efter en klar release räknas
+    ut['forvaltning'] = {'analys': {'lage': 'ej_ansluten', 'text': 'Ingen besöks- eller förfrågningsstatistik är ansluten i motorn för kunden. '
+                                                                   'Ingen siffra visas förrän en källa är ansluten och har mätt en hel period.'}}
+    return ut
