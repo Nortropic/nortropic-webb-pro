@@ -2454,7 +2454,7 @@ def skisskritik(slug, kid):
         forhand_bilder = gdir
     else:
         vd = d / 'varv' / 'start' / ('varv-%02d' % v[-1])
-        v_varv, v_nu = forhandsvisa.varvets_version(vd), prova.kallidentitet(ksajt(slug, kid), prova.byggkommando(ksajt(slug, kid)))
+        v_varv, v_nu = forhandsvisa.varvets_version(vd), prova.byggidentitet(ksajt(slug, kid))
         bilder = [p for p in (vd / ('vy-%s-%s.png' % (b_, s_)) for b_ in forhandsvisa.BREDDER for s_ in ('forsta', 'hela'))
                   if forhandsvisa.giltig_bild(p)] if v_varv and v_nu and v_varv == v_nu else []  # okänd version intygar ingenting
         forhand_bilder = None

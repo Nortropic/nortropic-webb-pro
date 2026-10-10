@@ -522,7 +522,7 @@ class Kritiken(Grund):
             (vd / n_).write_bytes(referensfixtur.PNG)
         kd.satt_status(SLUG, kid, 'under_arbete', 'skiss')
         with patch.object(forhandsvisa, 'forhandsvisa', side_effect=OSError('försvann under läsningen')), \
-                patch.object(prova, 'kallidentitet', return_value=None), \
+                patch.object(prova, 'byggidentitet', return_value=None), \
                 patch.object(atelje, 'session', side_effect=AssertionError('ingen kritik på bilder av okänd version')):
             self.assertIsNone(kd.skisskritik(SLUG, kid))
         self.assertEqual(kd.las_status(SLUG, kid)['status'], 'under_arbete')

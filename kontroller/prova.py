@@ -137,6 +137,16 @@ def byggkommando(sajt):
     return kmd
 
 
+def byggidentitet(sajt):
+    """kallidentitet med byggets eget kommando (förhandsvarvens KALLA.json och kritikerns reservväg); None när projektet
+    bär en länk eller en fil som inte går att läsa."""
+    try:
+        kmd = byggkommando(sajt)
+    except ValueError:  # utanför kunder/ (ett provprojekt): bara kommandot utan processgräns binds
+        kmd = ['npm', 'run', 'build', '--prefix', str(sajt)]
+    return kallidentitet(sajt, kmd)
+
+
 BYGGVERKTYG = ('prova.py', 'processgrans.py')
 _NODE_VERSION = []
 

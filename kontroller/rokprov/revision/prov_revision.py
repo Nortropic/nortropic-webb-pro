@@ -5326,6 +5326,8 @@ try:
             for b_ in ('390', '1280', '1440'):  # ett helt varv: första vyn och hela sidan (forhandsvisa.LAS), som hela PNG-huvuden
                 for v_ in ('forsta', 'hela'):
                     (vd_ / ('vy-%s-%s.png' % (b_, v_))).write_bytes(b'\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR' + int(b_).to_bytes(4, 'big') + (844).to_bytes(4, 'big'))
+            # varvet bär versionen det fotograferades av, som forhandsvisa.py skriver den (KALLA.json; förenklingen 2026-10-10, E)
+            (vd_ / 'KALLA.json').write_text(json.dumps({'kalla': prova.byggidentitet(kd.ksajt(sl_sk, 'k02'))}))
             if GK.get('begar') and 'Researchen du begärde' not in prompt:
                 (kd.kdir(sl_sk, 'k02') / sk.KOMPLETTERING).write_text(json.dumps({'varfor': 'saknar kök i närbild'}))
             if GK.get('skapare_tidsgrans') and 'Förra sessionen nådde sin tidsgräns' not in prompt:
@@ -6719,7 +6721,10 @@ print(' | '.join(ut))
     finally:
         srv_pg.shutdown()
     import inspect as inspect_pg  # noqa: E402
-    assert '--utan-nat' in inspect_pg.getsource(prova.bygg_inom_grans) and "'--skrivbar', str(sajt)" in inspect_pg.getsource(prova.bygg_inom_grans), 'skaparens byggen går utan nät och skriver bara i projektet de bygger'
+    # kommandot prövas som det byggs (prova.byggkommando, som bygg_inom_grans kör sedan förenklingen 2026-10-10)
+    kmd_pg = prova.byggkommando(rot_pg / 'kunder' / sl_pg / 'kandidater' / 'k01' / 'sajt')
+    assert '--utan-nat' in kmd_pg and kmd_pg[kmd_pg.index('--skrivbar') + 1] == str(rot_pg / 'kunder' / sl_pg / 'kandidater' / 'k01' / 'sajt') \
+        and 'byggkommando(sajt)' in inspect_pg.getsource(prova.bygg_inom_grans), 'skaparens byggen går utan nät och skriver bara i projektet de bygger'
     # --bara-sajt: skrivning bara i sajten och tempkatalogen, aldrig i underlag/<slug> (domloggen, VINNARE.json) eller
     # kunder/<slug> utanför sajten (granskning 6)
     (rot_pg / 'kunder' / sl_pg / 'sajt').mkdir(parents=True, exist_ok=True)
@@ -7632,8 +7637,10 @@ def uppdragsmaterialet():
                 return '# Provstil\n'
         sammanf_ = kd_.uppdragsmaterial(slug_, klient=Klient_())
         # svaret som inte ekar frasen ordagrant knyts ändå (ordöverlapp), en stil som faller stoppar inte de andra (fynd 12)
-        assert sammanf_ == {'k01': {'stil': True, 'mobbin': 2}, 'k02': {'stil': False, 'mobbin': 2}, 'k03': {'stil': False, 'mobbin': 0},
-                            'k04': {'stil': False, 'mobbin': 0}}, sammanf_
+        # komplett (förenklingen 2026-10-10, C): ett ogiltigt stil-id är ett bestående planfel, en stil som inte gick att hämta
+        # hämtas igen vid nästa start
+        assert sammanf_ == {'k01': {'stil': True, 'mobbin': 2, 'komplett': True}, 'k02': {'stil': False, 'mobbin': 2, 'komplett': True},
+                            'k03': {'stil': False, 'mobbin': 0, 'komplett': True}, 'k04': {'stil': False, 'mobbin': 0, 'komplett': False}}, sammanf_
         assert len(anrop_) == 1 and anrop_[0][2] == 'uppdrag' and [f_['fraga'] for f_ in anrop_[0][1]['fragor']] == ['Quote request form'], anrop_
         assert 'Ett' not in json.dumps(anrop_) and all(f_['syfte'] == 'uppdragens uppgifter' for f_ in anrop_[0][1]['fragor']), 'bara frasen går till Mobbin'
         mat_ = json.loads((r_ / kd_.UPPDRAGSMATERIAL).read_text())['kandidater']
@@ -7651,7 +7658,10 @@ def uppdragsmaterialet():
         assert any('kunde inte hämtas' in x_ for x_ in rad2_) and rad3_ == [], (rad2_, rad3_)
         assert {'refero_stil', 'mobbin_fraga'} <= set(kd_.PLAN_SCHEMA['properties']['kandidater']['items']['required'])
         assert 'uppdragsmaterial_rader(slug, kid)' in inspect.getsource(kd_.skiss_prompt) and 'uppdragsmaterial_rader(slug, kid)' in inspect.getsource(kd_.skapar_prompt)
-        assert "'refero_stil', 'mobbin_fraga')" in inspect.getsource(kd_.planprovning), 'stilen och den sökta frasen är låsta'
+        # stilen hör till huvudreferensen och är låst; Mobbins sökfras får ändras, eftersom materialet hämtas efter prövningen
+        # (förenklingen 2026-10-10, C) och bara för de uppdrag vars indata ändrats (kd_.material_behov)
+        assert "'huvudreferens', 'refero_stil')" in inspect.getsource(kd_.planprovning), 'stilen är låst i prövningen'
+        assert kd_.material_indata({'refero_stil': 'x', 'mobbin_fraga': 'a  b'}) != kd_.material_indata({'refero_stil': 'x', 'mobbin_fraga': 'a c'})
         assert kd_.stilid('STIL-' + SID.upper()) == SID and kd_.stilid('abc') is None
     finally:
         at_.UNDERLAG, at_.KUNDER, rt2_.samla, rm2_.ladda_bild = spara_
