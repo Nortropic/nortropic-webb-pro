@@ -7,7 +7,7 @@
   'use strict';
   const e_ = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const EGNA = ['start', 'kunder', 'testkunder', 'ny-kund', 'ny-testkund', 'kund', 'intervju', 'leverans-kund', 'granska'];
-  const P = { data: null, lastes: 0, desktop: null, filter: 'alla', sok: '', gen: 0 };
+  const P = { data: null, lastes: 0, desktop: null, filter: 'alla', sok: '', gen: 0, vgen: 0 };
   const IKON = {
     hem: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     kunder: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.8.1 4.9 1.8 5.5 4.9"/>',
@@ -327,9 +327,9 @@
   let intervjuPuls = null;
   async function intervjuvy(eid) {
     clearTimeout(intervjuPuls);
-    const hash = location.hash;
+    const hash = location.hash, gen = ++P.vgen;
     let d; try { d = await hamta('/api/kundstart/' + encodeURIComponent(eid)); } catch (e) { return fel(e); }
-    if (location.hash !== hash) return;
+    if (location.hash !== hash || gen !== P.vgen) return;
     const a = d.arende, namn = (a.anteckningar || []).find((x) => x.slag === 'foretag')?.text || a.slug;
     const utkastNyckel = 'nwp-portal:intervju:' + eid;
     let utkast = ''; try { utkast = localStorage.getItem(utkastNyckel) || ''; } catch { /* */ }
@@ -459,7 +459,9 @@
   // versionsbundna handling med ägarens klick som mandat, aldrig härifrån ---
   const STEGSTATUS = { ja: 'uppfyllt', nej: 'inte uppfyllt', inte_tillampligt: 'inte tillämpligt' };
   async function leveransvy(slug) {
+    const hash = location.hash, gen = ++P.vgen;
     let d; try { d = await hamta('/api/desktop/leverans/' + encodeURIComponent(slug)); } catch (e) { return fel(e); }
+    if (location.hash !== hash || gen !== P.vgen) return;
     const m = d.migrering || {}, akt = d.aktivering || {};
     const steg = (m.steg || []).map((x) => `<li class="pt-post"><span class="pt-post-kunskap ${x.status === 'ja' ? 'k-kunden_uppger' : x.status === 'nej' ? 'k-tolkning' : ''}">${e_(STEGSTATUS[x.status] || x.status)}</span><b>${e_(x.namn)}</b><span class="pt-post-text pt-under">${e_(x.belagg)}</span></li>`).join('');
     const aktSteg = (akt.steg || []).slice(0, 14).map((x) => `<li class="pt-post"><span class="pt-post-kunskap">${e_(x.status)}</span><span class="pt-post-text">${e_(x.text)}${x.varfor ? ' · ' + e_(x.varfor) : ''}</span></li>`).join('');
@@ -497,9 +499,9 @@
     return h.slice(0, 40);
   }
   async function granskavy(slug) {
-    const hash = location.hash;
+    const hash = location.hash, gen = ++P.vgen;
     let d; try { d = await hamta('/api/desktop/kommentarer/' + encodeURIComponent(slug)); } catch (e) { return fel(e); }
-    if (location.hash !== hash) return;
+    if (location.hash !== hash || gen !== P.vgen) return;  // bara den senaste läsningen ritar (inget ifyllt fält skrivs över)
     const ks = d.kandidater.filter((k) => Object.keys(k.bilder).length);
     if (!ks.find((k) => k.id === G.kandidat)) G.kandidat = ks[0]?.id || null;
     const k = ks.find((x) => x.id === G.kandidat);
@@ -547,14 +549,23 @@
     document.getElementById('pk-kandidat').onchange = (e) => { G.kandidat = e.target.value; G.punkt = null; G.hela = false; rita(); };
     document.querySelectorAll('[data-bredd]').forEach((b) => { b.onclick = () => { G.bredd = b.dataset.bredd; G.punkt = null; rita(); }; });
     document.querySelectorAll('[data-lage]').forEach((b) => { b.onclick = () => { G.lage = b.dataset.lage; G.punkt = null; rita(); }; });
-    document.getElementById('pk-hela').onclick = () => { G.punkt = null; G.hela = true; rita(); setTimeout(() => document.getElementById('pk-text')?.focus(), 0); };
+    // punkten eller hela sidan väljs på plats, utan omläsning: det som skrivs i formuläret står kvar
+    const visaForm = () => {
+      const f = document.getElementById('pk-ny'), ram = document.getElementById('pk-ram');
+      f.hidden = !(G.punkt || G.hela);
+      f.querySelector('label').textContent = G.punkt ? 'Kommentar på punkten' : 'Kommentar på hela sidan';
+      ram.querySelector('.pt-nal.ny')?.remove();
+      if (G.punkt) ram.insertAdjacentHTML('beforeend', `<span class="pt-nal ny" style="left:${(G.punkt.x * 100).toFixed(2)}%;top:${(G.punkt.y * 100).toFixed(2)}%" aria-hidden="true">+</span>`);
+      if (!f.hidden) document.getElementById('pk-text').focus();
+    };
+    document.getElementById('pk-hela').onclick = () => { G.punkt = null; G.hela = true; visaForm(); };
     document.getElementById('pk-bild').onclick = (e) => {
       if (G.lage !== 'kommentera') return;
       const r = e.target.getBoundingClientRect();
       G.punkt = { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; G.hela = false;
-      rita(); setTimeout(() => document.getElementById('pk-text')?.focus(), 0);
+      visaForm();
     };
-    document.getElementById('pk-avbryt')?.addEventListener('click', () => { G.punkt = null; G.hela = false; rita(); });
+    document.getElementById('pk-avbryt')?.addEventListener('click', () => { G.punkt = null; G.hela = false; document.getElementById('pk-text').value = ''; visaForm(); });
     document.getElementById('pk-ny')?.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const t = document.getElementById('pk-text').value.trim(); if (!t) return;

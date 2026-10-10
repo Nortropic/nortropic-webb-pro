@@ -9,6 +9,7 @@
   --pt-radie: 12px; --pt-bredd: 232px;
 }
 html.pt-ram body { padding-left: var(--pt-bredd); background: var(--pt-yta); color: var(--pt-text); }
+html.pt-ram [hidden], .pt-yta [hidden] { display: none !important; }  /* klasser med display får aldrig visa ett dolt element */
 .pt-dold-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* navigeringen */
