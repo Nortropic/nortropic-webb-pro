@@ -2800,7 +2800,10 @@ assert json.loads((pt_u / 'atelje' / 'VINNARE.json').read_text())['godkand']['av
 assert pt.lage('pt-prov')[0] == 'godkand', pt.lage('pt-prov')
 with contextlib.redirect_stdout(io.StringIO()):
     assert pt.main(['pt-prov']) == 0, 'godkänd och giltig: inget att köra, bygget tar vid'
-# research på begäran: begäran till referenssteget (nytt paket ärver det förra), tjänsternas förra rapport sparas
+# research på begäran: begäran till referenssteget (nytt paket ärver det förra), tjänsternas förra rapport sparas. Ett
+# fångat paket har alltid PAKET.json (referens.py skriver den efter varje färdig sajt); ett utan går inte att ärva.
+(pt_u / 'referenser' / 'paket-v01' / 'PAKET.json').write_text(json.dumps({'schema': 2, 'version': 'paket-v01', 'kandidater': [
+    {'namn': 'x', 'adress': 'https://xref.se/', 'roll': 'bransch', 'ok': True, 'sidor': [{'sida': '/', 'katalog': 'x/01-start', 'ok': True}]}]}))
 anrop_pt = []
 
 
