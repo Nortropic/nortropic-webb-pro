@@ -25,6 +25,10 @@ const LOKAL: Record<string, string> = { sv: 'sv_SE', en: 'en_GB', fi: 'fi_FI', n
 const SKIPLANK: Record<string, string> = { sv: 'Hoppa till innehållet', en: 'Skip to content', fi: 'Siirry sisältöön', nb: 'Gå til innholdet', da: 'Gå til indholdet', de: 'Zum Inhalt springen' };
 const grund = sprak.split('-')[0];
 const versioner = noindex ? [] : alternativ.map((a) => ({ sprak: a.sprak, href: new URL(a.href, Astro.site).href }));
+// Sökkonsolens verifiering (katalogens k05-search-console): exporten skriver src/verifiering.json ur verksamhetens
+// VERKSAMHET.json (webb.sokkonsol_verifiering); taggen ska ligga kvar så länge egenskapen finns. Utan filen ingen tagg.
+const verifiering = Object.values(import.meta.glob('../verifiering.json', { eager: true, import: 'default' }))[0] as { google?: unknown } | undefined;
+const google = verifiering && typeof verifiering.google === 'string' && /^[A-Za-z0-9_-]{20,100}$/.test(verifiering.google) ? verifiering.google : null;
 ---
 <!doctype html>
 <html lang={sprak}>
@@ -37,6 +41,7 @@ const versioner = noindex ? [] : alternativ.map((a) => ({ sprak: a.sprak, href: 
     {versioner.map((v) => <link rel="alternate" hreflang={v.sprak} href={v.href} />)}
     {versioner.length > 0 && <link rel="alternate" hreflang="x-default" href={versioner[0].href} />}
     <meta name="theme-color" content={tema} />
+    {google && <meta name="google-site-verification" content={google} />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />

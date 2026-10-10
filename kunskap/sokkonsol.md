@@ -7,7 +7,9 @@ har åtkomst till verksamhetens konto. En fiktiv verksamhet får ingen egenskap.
 ## Ägarskap och åtkomst
 
 - Egenskapen är verksamhetens tillgång. Verifiering med META-taggen i `<head>` på den kanoniska produktionsdomänen;
-  taggen ligger kvar för alltid (tas den bort tappas verifieringen tyst). DNS-verifiering (domänegenskap) bara när
+  taggen ligger kvar för alltid (tas den bort tappas verifieringen tyst). Värdet i taggens `content` skrivs i
+  `underlag/<slug>/VERKSAMHET.json` som `webb.sokkonsol_verifiering`; exporten lägger det i `src/verifiering.json`, och
+  mallens Bas renderar taggen på varje sida (prövat i `prov_sokkonsol.py`). En fiktiv verksamhet får ingen tagg. DNS-verifiering (domänegenskap) bara när
   verksamheten själv förvaltar zonen och vill det; ingen session ändrar DNS.
 - Verksamheten är ägare. Vi läggs till som användare medan vi hjälper till och tas bort vid avslut; vem som äger vad
   står på kundens sida Så ändrar du på sajten.

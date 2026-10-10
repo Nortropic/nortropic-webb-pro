@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.11",
+  "version": "2026-10-10.12",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -172,7 +172,7 @@
       "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": null, "externt": null}, "manniska": ["spara posterna före bytet"]
     },
     {
-      "id": "k05-search-console", "version": "1.0.0", "omrade": "K05", "niva": "forvaltning", "grund": false,
+      "id": "k05-search-console", "version": "1.1.0", "omrade": "K05", "niva": "forvaltning", "grund": false,
       "funktion": "Search Console för domänen: verifiering, sitemap och uppföljning av indexering. Inget löfte om placering.",
       "passar": "Varje lanserad webbplats.", "passar_inte": "En förhandsvisning.",
       "kunduppgifter": ["vem som äger egenskapen"], "bevara": ["befintlig egenskap och dess ägare"],
@@ -182,9 +182,10 @@
       "rattigheter": {"tillampa": "verifiering och sitemap (människa)"}, "dataflode": "Sökdata hos Google.", "lagring": "Google.",
       "kostnad": {"modell": "Search Console utan avgift", "belopp": 0, "valuta": "SEK", "kalla": "https://developers.google.com/search/docs/monitor-debug/search-console-start", "datum": "2026-09-30"},
       "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": "seo_kontroll.main", "avveckla": null},
-      "fardighet": "dokumenterat", "fardighet_omfattning": "Rutinen i kunskap/sokkonsol.md; seo_kontroll prövar sajten, inte kontot. Digitalas sokkonsol-verktyg finns inte här.",
-      "prov": [], "driftkontroll": "kunskap/sokkonsol.md", "begransningar": [], "paverkar": {"brief": null, "design": null, "kod": "verifieringstaggen", "externt": "egenskapen"},
-      "manniska": ["verifiera och lämna sitemap"]
+      "komponent": "mall/astro/src/layouts/Bas.astro",
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Verifieringstaggen: exporten skriver värdet ur VERKSAMHET.json (webb.sokkonsol_verifiering) för en verklig verksamhet och mallens Bas renderar META-taggen, byggd med mallens Astro. Egenskapen, sitemapen och uppföljningen görs av en människa i Search Console (kunskap/sokkonsol.md); kontot är inte anslutet.",
+      "prov": ["kontroller/rokprov/revision/prov_sokkonsol.py"], "driftkontroll": "kunskap/sokkonsol.md", "begransningar": ["Ingen API-koppling till kontot: den kräver OAuth, alltså en publik app och eget mandat."], "paverkar": {"brief": null, "design": null, "kod": "verifieringstaggen", "externt": "egenskapen"},
+      "manniska": ["värdet ur Search Consoles META-tagg skrivs i VERKSAMHET.json (webb.sokkonsol_verifiering)", "verifiera egenskapen och lämna sitemap efter lanseringen"]
     },
     {
       "id": "k06-hitta-hit", "version": "1.0.0", "omrade": "K06", "niva": "inbyggd", "grund": false,

@@ -109,6 +109,24 @@ def publika_brister(dist):
     return sorted(str(p.relative_to(dist)) for p in Path(dist).rglob('*') if p.is_file() and INTE_PUBLIKT.search(p.relative_to(dist).as_posix()))
 
 
+def verifieringsfil(slug, mal):
+    """Sökkonsolens verifiering (K05): skriver src/verifiering.json ur VERKSAMHET.json (webb.sokkonsol_verifiering, den
+    del av META-taggen som Search Console ger) för en verklig verksamhet; mallens Bas renderar taggen. Ger värdet eller
+    None. Värdet är publikt (det står i sidans head); ett värde med fel form stoppar exporten."""
+    try:
+        v = json.loads((UNDERLAG / slug / 'VERKSAMHET.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    varde = (v.get('webb') or {}).get('sokkonsol_verifiering') if isinstance(v, dict) and isinstance(v.get('webb'), dict) else None
+    if not varde or v.get('fiktiv') is True:  # en fiktiv verksamhet får ingen egenskap (sokkonsol.md)
+        return None
+    if not re.fullmatch(r'[A-Za-z0-9_-]{20,100}', str(varde)):
+        raise ValueError('webb.sokkonsol_verifiering ska vara innehållet i Search Consoles META-tagg (20–100 tecken A–Z, 0–9, _ och -)')
+    (mal / 'src').mkdir(parents=True, exist_ok=True)
+    (mal / 'src' / 'verifiering.json').write_text(json.dumps({'google': varde}) + '\n', encoding='utf-8')
+    return varde
+
+
 def funktionssidor(mal):
     """Workerns 303-mål i exporten: felsidan och mottagen-sidan i varje export (formuläret, D1), och nyhetsbrevets två
     svarssidor när sajten importerar Nyhetsbrev (K14). En sida sajten redan har skrivs aldrig över. Ger de tillagda."""
@@ -277,6 +295,7 @@ def skapa_export(slug, kandidat, mal, git, bygg, export_id=None):
         if (sajt / k).is_dir() and not (sajt / k).is_symlink():
             kopiera(sajt / k, mal / k)
     funktionssidor(mal)
+    verifieringsfil(slug, mal)
     # Cloudflare Worker: formulärets mottagning, D1-schemat, konfigurationen och de statiska filernas huvuden; sajten
     # förblir förrenderad (ingen adapter i astro.config.mjs)
     kopiera(LEVERANS / 'worker', mal / 'worker')
