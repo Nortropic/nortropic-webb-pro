@@ -216,13 +216,17 @@ borttagningen i ägarens hem görs inte av ett prov, eftersom den skulle ta bort
 | `kontroller/rokprov/revision/prov_desktop.py` | motorns sida: identiteten, engångskoden, sessionens skrivningar och återkallelse, strömmen, Ny kund, översikten, det pågående arbetet, portalens filer | i rökprovet |
 | `desktop/prov/prov_app.py` | den riktiga appen (provbygget) i riktig WKWebView mot en provinstans: lås och upplåsning, kakan osynlig, invoke från motorns sida nekas, Hem, listorna, Ny testkund med dubbelklick, Kundstart i ramen, stäng och öppna, lås och spärrad navigering, menyn, bilder av fönstret | för hand på en Mac; startar ingen modell |
 | `desktop/prov/prov_release.py` | användarbygget: ingen provsträng (`nwp-provstyrning`) i binären och ingen provport; arkitekturen arm64 | för hand efter `npm run bygg` |
+| `desktop/prov/prov_mac.py` | Mac-livet i den riktiga appen: krasch med SIGKILL (motorn lever, utkastet står kvar), vila (SIGSTOP/SIGCONT kortare och längre än låstiden; väggklockan går som under en riktig vila), helskärm, kopiera och klistra in genom Redigera-menyns åtgärder (urklippet återställs), en motor som slutar svara och kommer tillbaka, en fientlig förhandsvisning (`desktop/prov/fientlig_sida.html`) och resurserna i upplåst läge | för hand; startar ingen modell |
+| `desktop/prov/prov_redigering_app.py` | direktredigering i den levande förhandsvisningen med riktigt ombygge och riktig fotografering, och med `--partner`/`--genomfor` partnerns ström och Genomför i utkastet med en riktig modell (provinstansens `NWP_PARTNER_MODELL`) | för hand; `--partner` och `--genomfor` kostar modellanrop |
 
 **Provinstansen:** en dashboard ur en worktree på en egen port (`NWP_KORREGISTER=<egen katalog>
 NWP_DASHBOARD_NYCKEL=<nyckel> .venv/bin/python -B dashboard/server.py --port 4791 --utan-lan`), med
 `arbetsyta_fixtur.py` för en fiktiv kund. Provbygget startas av `desktop/prov/appdrivare.py` med en egen datakatalog
 (`NWP_DESKTOP_DATA`) och upplåsningens attrapp (`NWP_DESKTOP_PROV_UPPLAS=1`); provstyrningen lyssnar på en slumpad
 loopbackport med token och kör JavaScript i den riktiga WKWebView:n. Bilderna tas med `screencapture -l` av bara
-appens fönster. Inget av detta finns i användarbygget (cargo-funktionen `prov`).
+appens fönster. Inget av detta finns i användarbygget (cargo-funktionen `prov`). Provbygget har ett eget paket-id
+(`se.nortropic.desktop.prov`, `desktop/src-tauri/tauri.prov.conf.json`): det krockar aldrig med en installerad app
+(enkelinstansen skulle annars lämna över till den) och delar inte dess webbvylagring.
 
 ## Beroenden
 

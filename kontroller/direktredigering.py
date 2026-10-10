@@ -132,7 +132,7 @@ def _kontext(sokvag, innehall, start, slut):
         return None
     if forsta[0] <= len(efter) and forsta[1] not in '<{':
         return None
-    if re.search(r'<(script|style)\b[^>]*>(?:(?!</\1\s*>).)*$', fore, re.S | re.I):
+    if re.search(r'<(script|style)\b[^>]*(?<!/)>(?:(?!</\1\s*>).)*$', fore, re.S | re.I):  # en självstängande <script … /> öppnar inget
         return None
     if fm and start < fm[0]:
         return None

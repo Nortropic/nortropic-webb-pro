@@ -941,7 +941,7 @@ class Arbetsyta(unittest.TestCase):
 const tjanster = [{ titel: 'Service på plats', text: "Vi kommer till dig." }];
 const rubrik = 'Bilverkstad i Testby';
 ---
-<html><head><title>{rubrik}</title><style>h1 { color: red }</style></head>
+<html><head><title>{rubrik}</title><style>h1 { color: red }</style><script type="application/ld+json" set:html={JSON.stringify(tjanster)} /></head>
 <body>
 <h1>Verkstaden &amp; däcken</h1>
 <p class="ingress">Vi lagar bilen samma dag.</p>
