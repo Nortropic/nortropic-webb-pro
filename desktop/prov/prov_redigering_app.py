@@ -120,6 +120,8 @@ def main():
         a.js("document.getElementById('las-upp').click(), true")
         a.vanta(lambda: a.js("!!document.querySelector('.pt-primara')"), text='Hem')
         a.js("location.hash = '#/arbetsyta/%s', true" % slug)
+        a.vanta(lambda: a.js("!!document.querySelector('[data-material=forhandsvisning]')"), tid=30, text='materialets knappar')
+        a.js("document.querySelector('[data-material=forhandsvisning]').click(), true")  # en väntande körning visar först den bevarade bilden
         a.vanta(lambda: a.js("!!(window.__arbetsyta && window.__arbetsyta.forhandsUrsprung)"), tid=40, text='bryggan i förhandsvisningen (redo)')
         ursprung = a.js("window.__arbetsyta.forhandsUrsprung")
 

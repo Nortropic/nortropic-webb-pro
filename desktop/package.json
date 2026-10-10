@@ -6,7 +6,7 @@
   "scripts": {
     "tauri": "tauri",
     "bygg": "tauri build --bundles app,dmg",
-    "bygg:prov": "tauri build --debug --bundles app --features prov"
+    "bygg:prov": "tauri build --debug --bundles app --features prov --config src-tauri/tauri.prov.conf.json"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.12.1"

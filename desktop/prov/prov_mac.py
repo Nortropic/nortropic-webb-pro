@@ -165,6 +165,8 @@ def main():
 
         if 'klistra' in bara:
             def klistra():
+                # ägarens urklipp (text) sparas före provet och läggs tillbaka efter, också när provet faller
+                sparat = subprocess.run(['/usr/bin/pbpaste'], capture_output=True, env={'LANG': 'en_US.UTF-8'}).stdout
                 a = ny_app()
                 try:
                     lasupp(a)
@@ -182,9 +184,11 @@ def main():
                     assert v == 'Klistrat från urklipp AB', v
                     assert urklipp == 'Kopierat ur appen', urklipp
                     return {'paste_skickad': s.get('skickad'), 'inklistrat': v, 'kopierat_till_urklipp': urklipp,
-                            'vag': 'Redigera-menyns åtgärder paste: och copy: genom svarskedjan; tangenttrycket själv kräver tillgänglighetsbehörighet'}
+                            'vag': 'Redigera-menyns åtgärder paste: och copy: till fönstrets första svarare (webvyn); tangenttrycket själv kräver tillgänglighetsbehörighet',
+                            'agarens_urklipp': 'återställt'}
                 finally:
                     a.avsluta()
+                    subprocess.run(['/usr/bin/pbcopy'], input=sparat, env={'LANG': 'en_US.UTF-8'})
             fall('kopiera och klistra in genom Redigera-menyns åtgärder i webvyn', 'D19 U37', klistra)
 
         if 'motor' in bara and a_.motorpid:
@@ -219,6 +223,8 @@ def main():
                     lasupp(a)
                     a.js("window.__fientlig=null;window.addEventListener('message',function(e){if(e.data&&e.data.fientlig)window.__fientlig=e.data.fientlig});true")
                     a.js("location.hash = '#/arbetsyta/%s', true" % a_.fientlig)
+                    a.vanta(lambda: a.js("!!document.querySelector('[data-material=forhandsvisning]')"), tid=30, text='materialets knappar')
+                    a.js("document.querySelector('[data-material=forhandsvisning]').click(), true")  # en väntande körning visar först den bevarade bilden
                     r = a.vanta(lambda: a.js("window.__fientlig && window.__fientlig.klar ? window.__fientlig : null"), tid=40, text='den fientliga sidans rapport')
                     time.sleep(2)
                     l = a.lage()

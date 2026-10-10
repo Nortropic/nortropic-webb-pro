@@ -115,12 +115,20 @@ fn utfor(app: &AppHandle, metod: &str, vag: &str, kropp: &str) -> (u16, serde_js
                 return (400, serde_json::json!({ "fel": "kopiera, klistra, klipp eller markera" }));
             }
             let (tx, rx) = std::sync::mpsc::channel();
+            let fonster = w.ns_window().map(|p| p as usize).unwrap_or(0);
             let _ = app.run_on_main_thread(move || unsafe {
                 use objc2::runtime::{AnyClass, AnyObject, Sel};
-                let nsapp: *mut AnyObject = objc2::msg_send![AnyClass::get(c"NSApplication").expect("NSApplication"), sharedApplication];
                 let sel = Sel::register(&std::ffi::CString::new(atgard).unwrap());
                 let ingen: *mut AnyObject = std::ptr::null_mut();
-                let ok: bool = objc2::msg_send![nsapp, sendAction: sel, to: ingen, from: ingen];
+                // fönstrets första svarare (webvyn med fokus) får åtgärden som menyn skickar den när fönstret är nyckelfönster;
+                // provet kör med terminalen främst, så svarskedjan börjar i appens eget fönster i stället för i nyckelfönstret
+                let ok: bool = if fonster != 0 {
+                    let svarare: *mut AnyObject = objc2::msg_send![fonster as *mut AnyObject, firstResponder];
+                    !svarare.is_null() && objc2::msg_send![svarare, tryToPerform: sel, with: ingen]
+                } else {
+                    let nsapp: *mut AnyObject = objc2::msg_send![AnyClass::get(c"NSApplication").expect("NSApplication"), sharedApplication];
+                    objc2::msg_send![nsapp, sendAction: sel, to: ingen, from: ingen]
+                };
                 let _ = tx.send(ok);
             });
             match rx.recv_timeout(Duration::from_secs(5)) {
