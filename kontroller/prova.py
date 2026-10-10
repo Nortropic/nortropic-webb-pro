@@ -440,10 +440,15 @@ class TystServer(ThreadingHTTPServer):
         super().handle_error(request, client_address)
 
 
-class Server:
-    """Statisk server för dist/ på 127.0.0.1 (eller en given adress). Saknad sida ger 404.html med status 404."""
+BRYGGVAG = '/__nortropic/forhandsbrygga.js'
 
-    def __init__(self, dist, vard='127.0.0.1'):
+
+class Server:
+    """Statisk server för dist/ på 127.0.0.1 (eller en given adress). Saknad sida ger 404.html med status 404.
+    brygga (bara dashboardens förhandsvisning, server.visa_kandidat): bryggans skript (bytes) serveras på BRYGGVAG och läggs
+    in i varje HTML-sida som serveras, aldrig i dist/ på disken; prov, fotografering och export använder servern utan."""
+
+    def __init__(self, dist, vard='127.0.0.1', brygga=None):
         dist = str(dist)
 
         rot = os.path.realpath(dist)
@@ -465,7 +470,10 @@ class Server:
                 och visningen i telefonen lyssnar på nätverket (revisionen 2026-10-03, F4). Den fil som faktiskt skulle
                 öppnas (också en katalogs index.html) prövas mot den upplösta roten; annat får ett riktigt 404-svar före
                 öppningen, aldrig en ersättningssökväg."""
+                if brygga is not None and urlsplit(self.path).path == BRYGGVAG:
+                    return self._minne(brygga, 'text/javascript; charset=utf-8')
                 p = self.translate_path(self.path)
+                katalog_utan_snedstreck = os.path.isdir(p) and not urlsplit(self.path).path.endswith('/')
                 if os.path.isdir(p):
                     for index in ('index.html', 'index.htm'):
                         if os.path.isfile(os.path.join(p, index)):
@@ -475,7 +483,22 @@ class Server:
                 if verklig != rot and not verklig.startswith(rot + os.sep):
                     self.send_error(404)
                     return None
+                if brygga is not None and not katalog_utan_snedstreck and verklig.endswith(('.html', '.htm')) and os.path.isfile(verklig):
+                    with open(verklig, 'rb') as f:
+                        body = f.read()
+                    tagg = b'<script src="' + BRYGGVAG.encode() + b'" defer></script>'
+                    i = body.lower().rfind(b'</body>')
+                    return self._minne(body[:i] + tagg + body[i:] if i >= 0 else body + tagg, 'text/html; charset=utf-8')
                 return super().send_head()
+
+            def _minne(self, body, typ):
+                import io
+                self.send_response(200)
+                self.send_header('Content-Type', typ)
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+                return io.BytesIO(body)
 
             def do_POST(self):
                 """Demomottagare för förfrågningsformuläret (kunskap/forfragan.md): läser fälten, kontrollerar dem och

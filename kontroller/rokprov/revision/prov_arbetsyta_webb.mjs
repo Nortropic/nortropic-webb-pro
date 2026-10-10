@@ -78,7 +78,7 @@ function kandidater() {
   return [
     { id: 'k01', etikett: 'Förslag A', status: S.k01, statustext: { klar: 'klar, väntar på ditt val', vald: 'vald', under_arbete: 'byggs om' }[S.k01] || S.k01,
       version: S.k01v.slice(0, 12), version_hel: S.k01v, fotograferad: S.k01v,
-      preview: { url: `/visa/${SLUG}/k01`, finns: true, byggd: T(20) },
+      preview: { url: `/visa/${SLUG}/k01`, finns: true, byggd: S.k01Byggd || T(20) },
       snapshot: { 390: `kunder/${SLUG}/kandidater/k01/bilder/390-forsta.png`, 1440: `kunder/${SLUG}/kandidater/k01/bilder/1440-forsta.png`, version: S.k01v.slice(0, 12), tid: T(21),
         sha: { 390: '9'.repeat(64), 1440: BILDSHA } },
       versioner: synligaVersioner() },
@@ -149,7 +149,7 @@ function lage() {
     besked: { version: 'syntetisk-version', tid: T(0), filer: [], tillstand: ['Sessionen avslutades normalt', 'Tekniska kontroller', 'Designgranskning', 'Ägarens godkännande',
       'Leverans inom angiven omfattning'].map((namn) => ({ namn, status: 'ej bedömt', varde: null, text: 'Syntetiskt besked för provet.' })) },
     moment: { nr: moment.nr, namn: moment.namn, status: moment.status }, korning: S.korning, kandidater: kand, helbygge: [], partner: p, sessioner: sess,
-    startjournal: S.startjournal, roller: roller(sess, S.korning, p.lage), overlamningar: [], preview: preview(kand),
+    startjournal: S.startjournal, roller: roller(sess, S.korning, p.lage), overlamningar: [], preview: preview(kand), redigeringar: S.redigeringar || [],
     observation: { senast_last: new Date().toISOString(), ofullstandig: [] }, version: String(++versionsnr).padStart(16, '0'),
     samverkan: { antal: S.medd.length, oppna: S.medd.filter((m) => m.agent && !m.beslut).length, nyckel: S.medd.map((m) => m.id + m.lage + (m.beslut ? 'b' : '')).join(), projektpaus: S.projektpaus, mandat: 0 } };
 }
@@ -233,6 +233,7 @@ const srv = createServer(async (req, res) => {
       return json(meddelandeVy());
     }
     if (vag === `/api/arbetsyta/${SLUG}/beslut`) return json({ ok: true, dom: { tid: new Date().toISOString(), beslut: body.beslut } });
+    if (vag === `/api/arbetsyta/${SLUG}/redigera`) return json({ id: body.redigering_id, status: 'koad', fil: 'src/pages/index.astro', gammal: body.gammal, ny: body.ny, upprepat: false });
     if (vag === `/api/arbetsyta/${SLUG}/andring`) {
       if (++andringAnrop === 1) return json({ fel: `kandidaten har en ny version sedan du skrev ändringen (din ${String(body.version).slice(0, 12)}, nu 0a1b2c3d4e5f); stäm av mot den aktuella.`, slag: 'Inaktuell' }, 409);
       const upprepat = andringar.has(body.andring_id); andringar.add(body.andring_id);  // samma id ger samma rad (skicka_andring)
@@ -254,6 +255,19 @@ const srv = createServer(async (req, res) => {
     res.write(`event: lage\ndata: ${JSON.stringify(lage())}\n\n`);
     strommar.add(res); res.on('close', () => strommar.delete(res));
     return;
+  }
+  if (vag === `/api/arbetsyta/${SLUG}/partner/strom`) {  // partnerns ström (partner.delvis): provet skriver delhändelserna och slutet
+    const id = url.searchParams.get('id');
+    res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.write('retry: 500\n\n');
+    res.write(`event: borjan\ndata: ${JSON.stringify({ id })}\n\n`);
+    partnerStrommar.set(id, res); res.on('close', () => { if (partnerStrommar.get(id) === res) partnerStrommar.delete(id); });
+    return;
+  }
+  if (vag === `/api/arbetsyta/${SLUG}/redigera/karta`) {  // direktredigering.karta: en text som står på två ställen kan inte ändras direkt
+    const t = url.searchParams.get('text');
+    return json(t === 'Boka tid' ? { ok: false, skal: 'texten står på 2 ställen (src/pages/index.astro); välj en mer avgränsad text eller gör ett uppdrag', alternativ: 'uppdrag' }
+      : { ok: true, fil: 'src/pages/index.astro', kontext: 'mall', text: t });
   }
   if (vag === `/api/arbetsyta/${SLUG}/partner`) return json(partnerLage(true));
   if (vag === `/api/arbetsyta/${SLUG}/meddelanden`) return json(meddelandeVy());
@@ -282,6 +296,7 @@ const srv = createServer(async (req, res) => {
     dag: { besked: '1 nya fynd', handlingsbart: [{ fraga: 'matinstrumenten', typ: 'beroende_avvisad', text: 'axe-core: avvisad 4.13.0 → 4.14.0', belagg: 'underlag/startkontroll/UNDERHALL.md' }],
       kontroller_som_inte_lyckades: [{ id: 'modeller', utfall: 'misslyckad', problem: ['Claude platform release notes: senaste hämtningen föll'] }] } });
   if (vag.startsWith('/api/')) return json({});
+  if (vag === `/visa/${SLUG}/k01` && S.bryggaPreview) { res.writeHead(302, { Location: forhandOrigin + '/' }); return res.end(); }  // kandidatens egen lokala adress, som visa_kandidat
   if (vag === `/visa/${SLUG}/k01`) {
     forhandsvisningar++;
     res.writeHead(200, { 'Content-Type': TYP.html });
@@ -292,6 +307,18 @@ const srv = createServer(async (req, res) => {
 });
 await new Promise((r) => srv.listen(0, '127.0.0.1', r));
 const origin = `http://127.0.0.1:${srv.address().port}`;
+// kandidatens förhandsvisning på ett eget ursprung, med arbetsytans brygga inlagd som prova.Server(brygga=…) lägger in den
+const partnerStrommar = new Map();
+const bryggkod = (await readFile(resolve(root, 'dashboard/forhandsbrygga.js'), 'utf8')).replace("'__NWP_URSPRUNG__'", JSON.stringify(origin));
+const forhand = createServer((req, res) => {
+  if (new URL(req.url, 'http://f').pathname === '/__nortropic/forhandsbrygga.js') { res.writeHead(200, { 'Content-Type': TYP.js }); return res.end(bryggkod); }
+  res.writeHead(200, { 'Content-Type': TYP.html });
+  res.end('<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Förslag A</title></head><body><h1>Surdeg som får ta tid</h1><p id="ingress">Vi bakar varje natt.</p>'
+    + '<a href="/boka/">Boka tid</a> <a href="/kontakt/">Boka tid</a><section><h2>Bröd</h2><p>Surdeg <em>och</em> råg</p></section>'
+    + '<script src="/__nortropic/forhandsbrygga.js" defer></script></body></html>');
+});
+await new Promise((r) => forhand.listen(0, '127.0.0.1', r));
+const forhandOrigin = `http://127.0.0.1:${forhand.address().port}`;
 assert(![4771, 4781].includes(srv.address().port), 'provet får inte använda dashboardens portar');
 function skickaLage() {
   assert(strommar.size >= 1, 'en öppen ström behövs för att skicka ett nytt läge');
@@ -1034,6 +1061,103 @@ try {
   S.utanPrototyp = false;
   sammanfattning.forslagen = { adressen_leder_dit: true, val_med_delar: true, kundens_belagg: true, godkannande_med_bildernas_hash: true };
 
+  // 15. Nortropic.app (2026-10-10): partnerns ström, Genomför i utkastet och den levande förhandsvisningens brygga
+  await page.setViewportSize({ width: 1440, height: 900 });
+  S.blind = false; S.k01 = 'klar'; S.korning = korning('valda', START2, T(40), 'klar_for_bedomning', false);
+  S.handlingar = [{ id: 'valda', text: 'Starta uppdraget: Rätta Förslag A' }];
+  await flikar.filter({ hasText: 'Arbetsyta' }).click();
+  await page.locator('#ay-skriv').waitFor(); skickaLage();
+  if (await page.locator('[data-vflik="partner"]').count()) await page.locator('[data-vflik="partner"]').click();
+  await page.locator('#ay-skriv [data-avsikt="fraga"]').click();
+  await kanSkicka(page);
+  await skickaFraga(page, 'Hur gör vi rubriken kortare?');
+  await vantaPa(() => partnerStrommar.size === 1, 'vyn öppnar partnerns ström för turen som pågår');
+  const [mid, ps] = [...partnerStrommar.entries()][0];
+  const strommaDel = (str, h) => str.write(`event: del\ndata: ${JSON.stringify({ handelser: h })}\n\n`);
+  strommaDel(ps, [{ typ: 'resonerar' }, { typ: 'verktyg', namn: 'Read', fil: 'kunskap/arbetsyta.md' }, { typ: 'verktygssvar', fel: false }, { typ: 'stycke' }, { typ: 'text', text: 'Jag föreslår ' }]);
+  strommaDel(ps, [{ typ: 'text', text: 'en rubrik på fyra ord.' }]);
+  const deltext = page.locator('#ay-samtal .ay-deltext');
+  await deltext.filter({ hasText: 'Jag föreslår en rubrik på fyra ord.' }).waitFor();
+  assert.match(await deltext.innerText(), /Delsvar som strömmas: inte färdigt/, 'delsvaret är märkt som ofärdigt, skilt från svaret');
+  assert.match(await page.locator('#ay-samtal .ay-aktivitet').innerText(), /resonerar \(innehållet visas inte\)[\s\S]*läser kunskap\/arbetsyta\.md/, 'den observerade aktiviteten');
+  assert.equal(await deltext.evaluate((e) => e.closest('[aria-live]')?.getAttribute('aria-live') || null), null, 'tokenströmmen läses inte upp (U37)');
+  const m1 = S.partner.find((x) => x.id === mid);
+  const o = { kandidat: 'k01', version: S.k01v.slice(0, 12), sida: '/', del: 'rubriken', mal: 'En rubrik på fyra ord', avgransning: 'bilden och färgerna', forvantat: 'rubriken ryms på en rad i mobilen' };
+  besvara(m1, 'Jag föreslår en rubrik på fyra ord.\n```overlamning\n' + JSON.stringify(o) + '\n```'); m1.overlamning = o;
+  ps.write(`event: slut\ndata: ${JSON.stringify({ lage: 'svarat', fel: null })}\n\n`); skickaLage();
+  await page.locator('#ay-samtal .ay-overlamning').waitFor();
+  await meddelat('Partnern har svarat.');
+  assert.equal(await page.locator('#ay-samtal .ay-deltext').count(), 0, 'efter slutet står svaret, inte delsvaret');
+  // en tur som avbryts: det som hann strömmas visas som just det, aldrig som ett svar
+  await kanSkicka(page);
+  await skickaFraga(page, 'Och färgerna?');
+  await vantaPa(() => [...partnerStrommar.keys()].some((k) => k !== mid), 'en egen ström för nästa tur');
+  const [mid2, ps2] = [...partnerStrommar.entries()].find(([k]) => k !== mid);
+  strommaDel(ps2, [{ typ: 'stycke' }, { typ: 'text', text: 'Färgerna kan bli ' }]);
+  await deltext.filter({ hasText: 'Färgerna kan bli' }).waitFor();
+  Object.assign(S.partner.find((x) => x.id === mid2), { lage: 'avbrutet', fel: 'fristen (600 s) tog slut; turen stoppades', slut: new Date().toISOString() });
+  ps2.write(`event: slut\ndata: ${JSON.stringify({ lage: 'avbrutet', fel: 'fristen tog slut' })}\n\n`); skickaLage();
+  await deltext.filter({ hasText: 'Det som hann strömmas: inget färdigt svar' }).waitFor();
+  assert.match(await page.locator('#ay-samtal').innerText(), /fristen \(600 s\) tog slut/);
+  // Genomför i utkastet: förslaget justeras och blir ett uppdrag som startas med samma operations-id, med ett klick
+  await page.getByRole('button', { name: 'Genomför i utkastet…', exact: true }).click();
+  assert.deepEqual([await page.locator('[data-g="resultat"]').inputValue(), await page.locator('[data-g="omfattning"]').inputValue(), await page.locator('[data-g="bevara"]').inputValue()],
+    ['En rubrik på fyra ord', '/: rubriken', 'bilden och färgerna'], 'förslagets fält står i formuläret');
+  await page.locator('[data-g="bevara"]').fill('bilden och färgerna\nknappens text');
+  const foreA = andringPosts().length, foreS = startPosts().length;
+  await page.getByRole('button', { name: 'Genomför i utkastet', exact: true }).click();
+  await vantaPa(() => startPosts().length > foreS, 'genomförandet startas genom flödets ordinarie start');
+  const ga = andringPosts().slice(foreA), gs = startPosts().slice(foreS);
+  assert.equal(ga.length, 1, 'ett uppdrag'); assert.equal(gs.length, 1, 'en start');
+  assert.match(ga[0].andring_id, /^g[0-9a-f]{40}$/);
+  assert.deepEqual(ga[0].kalla, { typ: 'partnerforslag', meddelande_id: mid }, 'källan är partnerns förslag; beslutet är ditt klick');
+  assert.deepEqual([ga[0].uppdrag.typ, ga[0].uppdrag.resultat, ga[0].uppdrag.bevara, ga[0].kandidat, ga[0].version], ['ratta', 'En rubrik på fyra ord', ['bilden och färgerna', 'knappens text'], 'k01', S.k01v]);
+  assert.deepEqual([gs[0].handling, gs[0].start_id], ['valda', ga[0].andring_id], 'samma operations-id för uppdraget och starten');
+  await page.locator('#ay-samtal').getByText(/Begäran är registrerad\. Operations-id g/).waitFor();
+  // förhandsvisningens brygga: kandidatens sida på ett eget ursprung, lägena Besök, Markera och Redigera text
+  await page.route((u) => u.origin === forhandOrigin, (r) => r.continue());
+  S.bryggaPreview = true; S.k01Byggd = T(41); skickaLage();
+  const scen = page.frameLocator('#ay-material iframe');
+  await scen.locator('h1').waitFor();
+  await page.waitForFunction((x) => window.__arbetsyta.forhandsUrsprung === x, forhandOrigin);
+  const ramen = page.frames().find((f) => f.url().startsWith(forhandOrigin));
+  await ramen.evaluate(() => parent.postMessage({ nwp: 'forhandsbrygga/1', typ: 'markerat', tagg: 'h1', text: 'Förfalskad', selektor: 'h1', sida: '/' }, '*'));
+  await sov(150);
+  assert(!/Förfalskad/.test(await page.evaluate(() => window.__arbetsyta.mark?.del || '')), 'i Besök tas ingen markering emot, inte heller en förfalskad');
+  await page.locator('[data-forhandslage="markera"]').click();
+  await scen.locator('h1').click();
+  await page.waitForFunction(() => /Surdeg som får ta tid/.test(window.__arbetsyta.mark?.del || ''));
+  const mk = await page.evaluate(() => window.__arbetsyta.mark);
+  assert.deepEqual([mk.kandidat, mk.sida, mk.version_hel], ['k01', '/', S.k01v], 'markeringen bär kandidaten, sidan och den hela versionen');
+  await meddelat('Markerat i förhandsvisningen');
+  await page.locator('[data-forhandslage="redigera"]').click();
+  await scen.locator('#ingress').click();
+  await page.locator('#ay-redigering').filter({ hasText: 'Redigera i förhandsvisningen' }).waitFor();
+  await scen.locator('#ingress[contenteditable]').waitFor();
+  await page.keyboard.type('Vi bakar varje natt, även söndagar.');
+  await page.keyboard.press('Enter');
+  await page.locator('#ay-redigering').filter({ hasText: 'Ändra i källan?' }).waitFor();
+  const redigeraPosts = () => posts.filter((x) => x.vag === `/api/arbetsyta/${SLUG}/redigera`).map((x) => x.body);
+  assert.equal(redigeraPosts().length, 0, 'inget sparas före ditt klick');
+  await page.getByRole('button', { name: 'Spara i källan och bygg om', exact: true }).click();
+  await vantaPa(() => redigeraPosts().length === 1, 'redigeringen begärs');
+  const rp = redigeraPosts()[0];
+  assert.deepEqual([rp.kandidat, rp.version, rp.korning, rp.gammal, rp.ny, rp.sida], ['k01', S.k01v, S.korning.startad, 'Vi bakar varje natt.', 'Vi bakar varje natt, även söndagar.', '/']);
+  assert.match(rp.redigering_id, /^r[0-9a-f]{40}$/);
+  S.redigeringar = [{ id: rp.redigering_id, status: 'klar', kandidat: 'k01', fil: 'src/pages/index.astro', gammal: rp.gammal, ny: rp.ny, till_version: V3,
+    skal: 'texten står i källan (src/pages/index.astro), sajten är ombyggd och fotograferad' }]; skickaLage();
+  await page.locator('#ay-redigering').filter({ hasText: 'Direktredigering klar' }).waitFor();
+  await page.locator('#ay-redigering').getByRole('button', { name: 'Stäng', exact: true }).click();
+  await scen.locator('a').first().click();
+  await page.locator('#ay-redigering').filter({ hasText: 'står på 2 ställen' }).waitFor();
+  assert.equal(page.frames().find((f) => f.url().startsWith(forhandOrigin)).url(), forhandOrigin + '/', 'ett klick i Redigera text navigerar inte på sajten');
+  await page.getByRole('button', { name: 'Gör ett uppdrag i stället', exact: true }).click();
+  assert.match(await page.locator('#ay-text').inputValue(), /^Byt texten «Boka tid»/, 'den ärliga vägen: ett uppdrag med texten');
+  await page.locator('[data-forhandslage="besok"]').click();
+  await axeKor('Arbetsyta med strömmen, genomförandet och redigeringen');
+  sammanfattning.nortropic_app = { strom_delsvar_skilt_fran_svar: true, avbrott_utan_pahittat_svar: true, genomfor_samma_operations_id: true,
+    brygga_markering: true, direktredigering_efter_klick: true, ej_mappbar_blir_uppdrag: true, forfalskad_markering_nekad: true };
+
   // 13. Inga sidfel; konsolfelen är bara de nätfel provet självt framkallar
   const avsiktliga = [/\/api\/prototyp\/prov-kund$/, /\/api\/flode\/prov-kund\/start$/, /\/api\/arbetsyta\/prov-kund\/andring$/, /\/api\/arbetsyta\/prov-kund\/strom$/, /\/api\/arbetsyta\/prov-kund\/kod$/];
   const forvantat = (x) => (/^Failed to load resource/.test(x.text) && avsiktliga.some((r) => r.test(x.url.split('?')[0])))
@@ -1052,5 +1176,7 @@ try {
 } finally {
   await browser?.close();
   srv.closeAllConnections?.();
+  forhand.closeAllConnections?.();
   await new Promise((r) => srv.close(r));
+  await new Promise((r) => forhand.close(r));
 }

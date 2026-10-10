@@ -120,8 +120,12 @@ Införd 2026-10-10 (ägarens uppdrag ~16:58Z, Tauri 2 som första väg). Rust in
 
 Karenstiden gäller också här: varje version var publicerad minst tre dygn före införandet. En ny version prövas med
 `cargo build`, `npm run bygg`, `desktop/prov/prov_release.py` och `desktop/prov/prov_app.py` mot en provinstans, och
-`prov_desktop.py` i rökprovet för motorns sida. Ingen sårbarhetsdatabas för Rust (cargo-audit) är installerad; det står
-som en lucka tills underhållet tar in den.
+`prov_desktop.py` i rökprovet för motorns sida. Ingen sårbarhetsdatabas för Rust (cargo-audit) är installerad. I stället
+prövades `Cargo.lock` 2026-10-10 mot OSV (api.osv.dev, querybatch, ekosystemet crates.io; bara paketnamn och versioner
+skickades): 477 paket, tre träffar, alla i Tauris Linux-graf och ingen i macOS-appen (`cargo tree --target
+aarch64-apple-darwin -i <paket>` är tom): glib 0.18.5 (RUSTSEC-2024-0429, GHSA-wrw7-89jp-8q8g, osundhet i
+`VariantStrIter`) och proc-macro-error 1.0.4 (RUSTSEC-2024-0370, ej underhållen), båda ur gtk-rs. Prövningen görs om
+vid varje beroendebyte tills underhållet tar in en sårbarhetsdatabas för Rust.
 
 ## Chrome DevTools MCP (låst verktyg för inspektionssessionen)
 

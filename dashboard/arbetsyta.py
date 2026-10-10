@@ -610,6 +610,13 @@ def lage(dash, slug):
     except Exception as e:  # noqa: BLE001
         ut['startjournal'] = []
         ut['ofullstandig'].append('startjournalen: %s: %s' % (type(e).__name__, str(e)[:160]))
+    try:  # ägarens direktredigeringar i körningen (kontroller/direktredigering.py): begärd, pågår, klar, återställd, konflikt
+        _kontroller()
+        import direktredigering
+        ut['redigeringar'] = direktredigering.lista(slug, korning=korning.get('startad')) if korning else []
+    except Exception as e:  # noqa: BLE001
+        ut['redigeringar'] = []
+        ut['ofullstandig'].append('direktredigeringarna: %s: %s' % (type(e).__name__, str(e)[:160]))
     try:
         konf = konfigurerade(dash)
     except Exception as e:  # noqa: BLE001
@@ -669,7 +676,10 @@ def signatur(dash, slug):
         except OSError:
             delar.append('%s:-' % p)
     for p in (u / 'atelje' / 'STATUS.json', u / 'DESIGNDOMAR.jsonl', u / 'atelje' / 'sessioner', u / 'ateljestarter', k / 'korningar',
-              k / 'sajt' / 'dist' / 'index.html', u / 'arbetsyta' / 'PARTNER.json', u / 'atelje' / 'KANDIDATPLAN.json', k / 'DOM.json'):
+              k / 'sajt' / 'dist' / 'index.html', u / 'arbetsyta' / 'PARTNER.json', u / 'atelje' / 'KANDIDATPLAN.json', k / 'DOM.json',
+              u / 'arbetsyta' / 'redigeringar'):
+        lagg(p)
+    for p in sorted((u / 'arbetsyta' / 'redigeringar').glob('*.json'), key=lambda x: x.name)[-6:]:
         lagg(p)
     for p in sorted((u / 'atelje' / 'kandidater').glob('k[0-9][0-9]/STATUS.json')):
         lagg(p)
@@ -933,6 +943,7 @@ def skicka_andring(dash, slug, data):
     if not KID.fullmatch(kid) or kid not in kandidater.lista(slug):
         raise ValueError('välj kandidaten ändringen gäller')
     markering = {k: str(data.get(k))[:200] for k in ('vy', 'sida', 'del', 'fil') if data.get(k)}
+    kalla = _forslagskalla(dash, slug, data.get('kalla')) if data.get('kalla') is not None else None
     with _ANDRING_LAS:
         for d in skapande.domar(slug, dash.UNDERLAG):
             a = d.get('arbetsyta') if isinstance(d.get('arbetsyta'), dict) else {}
@@ -955,8 +966,23 @@ def skicka_andring(dash, slug, data):
         res = dash.spara_kandidatbeslut(slug, st, {'beslut': beslut, 'kandidater': [{'id': kid, 'version': version}], 'text': text,
                                                    'uppdrag': dict(uppdrag, omrade=markering) if markering else uppdrag,
                                                    **({'avsandare': 'kunden', 'belagg': data.get('belagg')} if data.get('avsandare') == 'kunden' else {})},
-                                        arbetsyta=dict(markering, andring_id=aid, kandidat=kid, version=version[:12], korning=korning))
+                                        arbetsyta=dict(markering, andring_id=aid, kandidat=kid, version=version[:12], korning=korning,
+                                                       **({'kalla': kalla} if kalla else {})))
     return dict(res, upprepat=False)
+
+
+def _forslagskalla(dash, slug, kalla):
+    """Genomför i utkastet: uppdragets källa är en överlämning som partnern faktiskt skrev i den gällande sessionen (ett
+    svar med ett läsbart överlämningsblock). Bara källan bokförs; beslutet är ägarens klick, aldrig partnerns text."""
+    import partner
+    if not isinstance(kalla, dict) or kalla.get('typ') != 'partnerforslag' or not partner.ID.fullmatch(str(kalla.get('meddelande_id') or '')):
+        raise ValueError('okänd källa för uppdraget')
+    mid = str(kalla['meddelande_id'])
+    l = partner.lage(dash, slug, samtal=True)
+    m = next((x for x in l.get('meddelanden') or [] if x.get('id') == mid), None)
+    if not m or m.get('lage') != 'svarat' or not isinstance(m.get('overlamning'), dict) or m['overlamning'].get('oläsligt'):
+        raise Inaktuell('partnerns förslag finns inte som ett färdigt svar med en överlämning i den gällande partnersessionen')
+    return {'typ': 'partnerforslag', 'meddelande_id': mid, 'partnersession': l.get('session_id')}
 
 
 class Inaktuell(ValueError):

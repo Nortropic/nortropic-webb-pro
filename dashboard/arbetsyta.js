@@ -6,7 +6,7 @@
   const A = { slug: null, vy: '', lage: null, projekt: [], strom: null, anslutning: 'ansluter', senastLast: null, avbrott: null,
     valdKandidat: null, material: null, enhet: 'dator', folj: null, partner: null, partnerNyckel: null, avsikt: 'fraga',
     kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null }, logg: null, loggNyckel: null,
-    bekrafta: null, svar: '', metod: null, generation: 0, inaktuellTimer: null, pollTimer: null };
+    bekrafta: null, svar: '', metod: null, generation: 0, inaktuellTimer: null, pollTimer: null, delsvar: {}, genomfor: {}, genomforSvar: {}, genomforOppen: null, forhandslage: 'besok', forhandsUrsprung: null, redigering: null };
   const LAGESNAMN = { ny: 'ny utforskning', om: 'ny körning', valda: 'uppdrag', putsa: 'putsning', forbered: 'förberedelse', fortsatt: 'återupptagen' };
   const LAGEN = { vantar: 'väntar på start', startar: 'start pågår', aktiv: 'arbetar', verktyg: 'väntar på verktyg', beslut: 'väntar på ditt beslut',
     avslutad: 'avslutad', avbruten: 'avbruten', okant: 'okänt läge' };
@@ -320,7 +320,7 @@
     if (!A.lage) { if (h && !h.contains(document.activeElement)) h.innerHTML = huvud(); return; }
     if (h && !h.contains(document.activeElement)) h.innerHTML = huvud();
     else ritaAnslutning();
-    if (A.vy === '') { ritaMaterial(); behallFokus(document.getElementById('ay-remsa'), () => { document.getElementById('ay-remsa').innerHTML = remsa(); });
+    if (A.vy === '') { ritaMaterial(); ritaRedigering(); behallFokus(document.getElementById('ay-remsa'), () => { document.getElementById('ay-remsa').innerHTML = remsa(); });
       behallFokus(document.getElementById('ay-roller'), () => { document.getElementById('ay-roller').innerHTML = roller(); }); ritaVanster(); }
     if (A.vy === 'flode') {
       if (!A.bevakningLast || Date.now() - A.bevakningLast > 300000) laddaBevakning();  // en gång och sedan var femte minut
@@ -403,17 +403,19 @@
       ${A.vy === 'kod' ? '' : `<div class="ay-segment" role="group" aria-label="Vad som visas">${[['forhandsvisning', 'Förhandsvisning'], ['snapshot', 'Ögonblicksbild'], ['jamfor', 'Jämför'], ['kandidater', 'Kandidater'], ['underlag', 'Underlag']].map(([k, n]) =>
         `<button type="button" data-material="${k}" data-fokus="m-${k}" aria-pressed="${val === k}">${n}</button>`).join('')}</div>`}
       <div class="ay-segment" role="group" aria-label="Skärmbredd"><button type="button" data-enhet="dator" data-fokus="e-dator" aria-pressed="${A.enhet === 'dator'}">Dator</button><button type="button" data-enhet="mobil" data-fokus="e-mobil" aria-pressed="${A.enhet === 'mobil'}">Mobil</button></div>
+      ${val === 'forhandsvisning' && pv?.kandidat ? `<div class="ay-segment" role="group" aria-label="Klick i förhandsvisningen">${[['besok', 'Besök'], ['markera', 'Markera'], ['redigera', 'Redigera text']].map(([k, n]) =>
+        `<button type="button" data-forhandslage="${k}" data-fokus="fl-${k}" aria-pressed="${A.forhandslage === k}">${n}</button>`).join('')}</div>` : ''}
       ${pv ? `<a class="ay-ikon" href="${e_(pv.url)}" target="_blank" rel="noopener" aria-label="Öppna förhandsvisningen i en ny flik">${SVG.lank}</a><button class="ay-ikon" type="button" data-ladda-om aria-label="Ladda om förhandsvisningen">${SVG.ladda}</button>` : ''}</div>`;
     if (el.dataset.nyckel === nyckel) {  // samma innehåll: bara huvudet och bredden, så att ramen inte laddas om
       el.querySelector('.ay-panelhuvud').outerHTML = huvud_;
       el.querySelector('.ay-scen')?.setAttribute('data-enhet', A.enhet);
-      ritaBeslutsrad();
+      ritaBeslutsrad(); ritaRedigering();
       return;
     }
     el.dataset.nyckel = nyckel;
     el.innerHTML = huvud_ + (['snapshot', 'jamfor'].includes(val) && A.lage.korning?.vantar_pa_agaren ? '<div class="ay-beslutsrad" id="ay-beslutsrad"></div>' : '') + materialKropp(val, pv);
     el.querySelector('.ay-scen')?.setAttribute('tabindex', '0');  // scenen rullar (ramen, en hel skärmbild): den ska nås med tangentbordet
-    ritaBeslutsrad();
+    ritaBeslutsrad(); ritaRedigering();
   }
   function ritaBeslutsrad() { const r = document.getElementById('ay-beslutsrad'); if (r) behallFokus(r, () => { r.innerHTML = beslutsruta(); }); }
   function previewFor() {
@@ -452,7 +454,95 @@
     const exp = (l.preview || []).find((x) => x.typ === 'export');
     const text = `${pv.kandidat ? etikett(pv.kandidat) : 'Helbygget'}, byggd ${kort(pv.byggd)}. ${pv.osaker ? 'Kandidaten byggs om eller senaste bygget föll, så den kan vara äldre än arbetet.' : 'Kan ändras medan arbetet pågår.'} Den bevarade versionen visas under Ögonblicksbild.${exp ? ' ' + exp.etikett + '.' : ''}`;
     return `<div class="ay-adress"><span class="etikett" title="${e_(text)}"><b>${pv.osaker ? 'Arbetsversion, kan vara äldre' : 'Arbetsversion'}</b>: ${e_(text)}</span></div>
-      <div class="ay-scen" data-enhet="${e_(A.enhet)}"><iframe title="Förhandsvisning: ${e_(pv.etikett)}" src="${e_(pv.url)}" sandbox="allow-scripts allow-forms allow-same-origin" referrerpolicy="no-referrer" loading="lazy"></iframe></div>`;
+      <div class="ay-scen" data-enhet="${e_(A.enhet)}"><iframe title="Förhandsvisning: ${e_(pv.etikett)}" src="${e_(pv.url)}" sandbox="allow-scripts allow-forms allow-same-origin" referrerpolicy="no-referrer" loading="lazy"></iframe></div>
+      ${pv.kandidat ? '<div class="ay-redigering" id="ay-redigering" role="status" aria-live="polite"></div>' : ''}`;
+  }
+  // --- den levande förhandsvisningen: markering och direktredigering (E6/U23, 2026-10-10) ---
+  // Förhandsvisningen är kandidatens kod på en egen lokal adress; bryggan där (forhandsbrygga.js, bara i dashboardens
+  // förhandsvisning) skickar markeringar och textval hit och tar bara emot lägen härifrån. Det den skickar är data, aldrig
+  // ett beslut: en markering fyller samtalets kontext, och en redigering sparas först när du klickar Spara i källan.
+  const BRYGGA = 'forhandsbrygga/1';
+  function brygga(m) {
+    const f = document.querySelector('#ay-material iframe');
+    if (f?.contentWindow && A.forhandsUrsprung) f.contentWindow.postMessage(Object.assign({ nwp: BRYGGA }, m), A.forhandsUrsprung);
+  }
+  const delText = (d) => `${d.tagg} "${String(d.text || '').slice(0, 60)}"${d.rubrik ? ' under "' + d.rubrik + '"' : ''}`;
+  function bryggmeddelande(ev) {
+    const f = document.querySelector('#ay-material iframe');
+    if (!f || ev.source !== f.contentWindow) return;  // bara förhandsvisningens egen ram, aldrig ett annat fönster
+    if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(ev.origin) || ev.origin === location.origin) return;
+    const d = ev.data; if (!d || d.nwp !== BRYGGA || typeof d.typ !== 'string') return;
+    const pv = previewFor(); if (!pv?.kandidat) return;
+    A.forhandsUrsprung = ev.origin;
+    if (d.typ === 'redo') { brygga({ typ: 'lage', lage: A.forhandslage }); if (A.markSelektor && A.mark?.kandidat === pv.kandidat) brygga({ typ: 'visa-markering', selektor: A.markSelektor }); return; }
+    if (d.typ === 'markerat' && A.forhandslage === 'markera') {
+      markera({ kandidat: pv.kandidat, sida: String(d.sida || '').slice(0, 200), del: delText(d) }); A.markSelektor = String(d.selektor || '');
+      ritaGaller(); const f_ = document.getElementById('ay-skriv'); if (f_) { f_.dataset.ritad = ''; ritaSkriv(); }
+      meddela('Markerat i förhandsvisningen: ' + delText(d) + ' på ' + (d.sida || '/') + '. Det står på raden Gäller i samtalet.');
+      return;
+    }
+    if (A.forhandslage !== 'redigera') return;
+    if (d.typ === 'ej-text') { A.redigering = { steg: 'ej', kid: pv.kandidat, gammal: String(d.text || '').slice(0, 200), sida: d.sida, del: delText(d), skal: 'det du klickade på är ingen egen text (det innehåller fler element); klicka på en rubrik, en mening eller en knapptext' }; ritaRedigering(); return; }
+    if (d.typ === 'redigera-val') { kontrolleraText(pv, d); return; }
+    if (d.typ === 'redigerat' && A.redigering?.steg === 'redigerar' && A.redigering.selektor === d.selektor) {
+      Object.assign(A.redigering, { steg: 'bekrafta', ny: String(d.ny || '').slice(0, 500) }); ritaRedigering();
+      document.querySelector('[data-fokus="red-spara"]')?.focus(); return;
+    }
+    if (d.typ === 'redigera-avbrutet' && A.redigering?.steg === 'redigerar') { A.redigering = null; ritaRedigering(); }
+  }
+  async function kontrolleraText(pv, d) {
+    const kand = (A.lage.kandidater || []).find((k) => k.id === pv.kandidat), slug = A.slug;
+    const r = { steg: 'kontroll', kid: pv.kandidat, version_hel: kand?.version_hel, version: kand?.version, korning: A.lage.korning?.startad || null,
+      gammal: String(d.text || ''), selektor: String(d.selektor || ''), sida: String(d.sida || '/'), del: delText(d) };
+    A.redigering = r; ritaRedigering();
+    try {
+      const k = await hamta('/api/arbetsyta/' + encodeURIComponent(slug) + '/redigera/karta?kandidat=' + encodeURIComponent(r.kid) + '&text=' + encodeURIComponent(r.gammal));
+      if (A.redigering !== r || A.slug !== slug) return;
+      if (!k.ok) { Object.assign(r, { steg: 'ej', skal: k.skal }); ritaRedigering(); return; }
+      Object.assign(r, { steg: 'redigerar', fil: k.fil }); ritaRedigering();
+      brygga({ typ: 'redigera-start', selektor: r.selektor, text: r.gammal });
+    } catch (err) { if (A.redigering === r) { Object.assign(r, { steg: 'ej', skal: 'kontrollen gick inte att göra: ' + err.message }); ritaRedigering(); } }
+  }
+  async function sparaRedigering() {
+    const r = A.redigering; if (!r || r.steg !== 'bekrafta' || A.pagar) return;
+    const slug = A.slug;
+    const rid = await innehallsId('r', [slug, r.kid, r.version_hel, r.korning, r.gammal, r.ny, r.selektor]);
+    Object.assign(r, { steg: 'skickar', rid }); ritaRedigering(); A.pagar = 'redigera';
+    try {
+      const svar = await postJson('/api/arbetsyta/' + encodeURIComponent(slug) + '/redigera', { redigering_id: rid, kandidat: r.kid, version: r.version_hel, korning: r.korning, sida: r.sida, del: r.del, gammal: r.gammal, ny: r.ny });
+      if (A.redigering !== r) return;
+      Object.assign(r, { steg: 'foljer', status: svar.status });
+      meddela('Ändringen är begärd: texten skrivs i kandidatens källa, och kandidaten byggs om och fotograferas.');
+      try { const d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); if (A.slug === slug) tillampa(d); } catch { /* läget kommer med strömmen */ }
+    } catch (err) {
+      if (A.redigering !== r) return;
+      brygga({ typ: 'aterstall', selektor: r.selektor, text: r.gammal });
+      Object.assign(r, { steg: 'ej', skal: (err.status === 409 ? 'inaktuell: ' : err.status === 422 ? '' : 'svaret gick inte att bekräfta: ') + err.message + (err.status && err.status < 500 ? '' : '. Försök igen: samma ändring ger samma id, så den görs inte två gånger') });
+    } finally { A.pagar = null; ritaRedigering(); }
+  }
+  const REDSTATUS = { koad: 'begärd: väntar på att starta', pagar: 'skrivs i källan; kandidaten byggs om och fotograferas', klar: 'klar', aterstalld: 'återställd',
+    konflikt: 'inte gjord (konflikt)', fel: 'misslyckades', stoppad: 'stoppad', nekad: 'nekad' };
+  function ritaRedigering() {
+    const el = document.getElementById('ay-redigering'); if (!el) return;
+    const r = A.redigering, l = A.lage || {}, citat = (t) => '«' + e_(String(t || '').slice(0, 160)) + '»';
+    let h = '';
+    if (r?.steg === 'kontroll') h = `<p>Prövar om ${citat(r.gammal)} kan ändras i kandidatens källa…</p>`;
+    else if (r?.steg === 'redigerar') h = `<p><b>Redigera i förhandsvisningen:</b> ${citat(r.gammal)} står i <code>${e_(r.fil)}</code>. Skriv den nya texten där; Enter visar ändringen här, Esc avbryter.</p>`;
+    else if (r?.steg === 'bekrafta') h = `<p><b>Ändra i källan?</b> ${citat(r.gammal)} → ${citat(r.ny)} i <code>${e_(r.fil)}</code>, ${e_(etikett(r.kid))} version ${e_(r.version)}. Kandidaten byggs om och fotograferas, och resultatet blir dess nästa version (en stund). Ingen AI skriver i kandidaten under tiden.</p>
+      <div class="ay-knapprad"><button class="ay-knapp primar liten" type="button" data-red-spara data-fokus="red-spara">Spara i källan och bygg om</button><button class="ay-knapp liten" type="button" data-red-angra data-fokus="red-angra">Ångra</button></div>`;
+    else if (r?.steg === 'skickar') h = '<p>Begär ändringen…</p>';
+    else if (r?.steg === 'foljer') {
+      const x = (l.redigeringar || []).find((y) => y.id === r.rid) || { status: r.status || 'koad' };
+      h = `<p><b>Direktredigering ${e_(REDSTATUS[x.status] || x.status)}</b>: ${citat(r.gammal)} → ${citat(r.ny)}${x.skal ? '. ' + e_(x.skal) : ''}${x.status === 'klar' && x.till_version ? `. Förhandsvisningen visar den ombyggda sidan.` : ''}</p>
+        ${['klar', 'aterstalld', 'konflikt', 'fel', 'stoppad', 'nekad'].includes(x.status) ? '<div class="ay-knapprad"><button class="ay-knapp liten" type="button" data-red-stang data-fokus="red-stang">Stäng</button></div>' : ''}`;
+    } else if (r?.steg === 'ej') h = `<p><b>Texten ändras inte direkt:</b> ${e_(r.skal || 'okänt skäl')}.</p><p class="svag">Den ärliga vägen är ett uppdrag: du skriver vad som ska stå, och utförandet gör det i rätt källa.</p>
+      <div class="ay-knapprad"><button class="ay-knapp liten" type="button" data-red-uppdrag data-fokus="red-uppdrag">Gör ett uppdrag i stället</button><button class="ay-knapp liten" type="button" data-red-stang data-fokus="red-stang">Stäng</button></div>`;
+    else if (A.forhandslage === 'redigera') h = '<p class="svag">Redigera text: klicka på en rubrik, en mening eller en knapptext i förhandsvisningen. Bara en text som står exakt en gång i kandidatens källa ändras direkt; annat blir ett uppdrag.</p>';
+    else if (A.forhandslage === 'markera') h = '<p class="svag">Markera: klicka på ett element i förhandsvisningen. Det blir ändringens sida och del på raden Gäller i samtalet; sajten navigerar inte.</p>';
+    if (el.dataset.html === h) return;
+    el.dataset.html = h;
+    behallFokus(el, () => { el.innerHTML = h; });
+    el.hidden = !h;
   }
   function remsa() {
     const l = A.lage, hs = (l.handlingar || []);
@@ -548,6 +638,8 @@
   }
   function ritaPartner() {
     const el = document.getElementById('ay-samtal'); if (!el || A.vflik === 'meddelanden') return;
+    foljDelsvar();
+    if (el.querySelector('.ay-genomfor')?.contains(document.activeElement)) return;  // det du skriver i förslaget töms inte; ritas vid nästa läge
     const p = A.partner, chip = document.getElementById('ay-partnerchip');
     if (chip) chip.innerHTML = p && p.lage && p.lage !== 'vantar' ? lagechip(p.lage, p.lage_text) : '';
     const med = p?.meddelanden || [];
@@ -562,19 +654,129 @@
     const svar = m.svar;
     const anv = svar?.anvandning;
     return `<div class="ay-msg agaren"><div class="ay-kontextrad">${e_({ fraga: 'Fråga', plan: 'Planförslag', andring: 'Ändring' }[m.avsikt] || m.avsikt)}${kt ? ' · ' + e_(kt) : ''}</div>${formatera(m.text)}<div class="meta"><span>Du</span><time>${e_(klocka(m.tid).slice(0, 5))}</time></div></div>
-      ${m.lage === 'arbetar' ? `<div class="ay-msg partnern">${lagechip('aktiv', 'partnern svarar')} <span class="svag">Partnern svarar…</span></div>`
-        : m.lage === 'skickat' ? `<div class="ay-msg partnern">${lagechip('startar', '')}</div>`
-        : svar ? `<div class="ay-msg partnern">${svar.fel ? `<div class="ay-notis fel">Turen slutade med fel (${e_(svar.subtyp || 'okänt')}).</div>` : ''}${formatera(svar.text)}
+      ${m.lage === 'arbetar' ? `<div class="ay-msg partnern">${lagechip('aktiv', 'partnern svarar')} <span class="svag">Partnern svarar…</span>${delsvarHtml(m.id, false)}</div>`
+        : m.lage === 'skickat' ? `<div class="ay-msg partnern">${lagechip('startar', '')}${delsvarHtml(m.id, false)}</div>`
+        : svar ? `<div class="ay-msg partnern">${svar.fel ? `<div class="ay-notis fel">Turen slutade med fel (${e_(svar.subtyp || 'okänt')}).</div>${A.delsvar[m.id]?.text ? delsvarHtml(m.id, true) : ''}` : ''}${formatera(svar.text)}
             ${m.overlamning ? overlamningskort(m) : ''}
             <div class="meta"><span>Partnern${anv ? ` · rapporterad användning: ${e_(anv.in ?? '?')} in, ${e_(anv.cache_las ?? '?')} ur cache, ${e_(anv.cache_skriv ?? '?')} till cache, ${e_(anv.ut ?? '?')} ut tokens${anv.listpris_usd != null ? `; listpris enligt Claude Code ${e_(Number(anv.listpris_usd).toFixed(2))} USD, inte fakturerat (prenumerationen räknar kvot)` : ''}` : ''}</span><time>${e_(klocka(m.slut).slice(0, 5))}</time></div></div>`
-        : `<div class="ay-msg partnern"><div class="ay-notis fel">${e_(m.fel || 'Inget svar: processen lever inte och ingen svarsfil finns.')}</div></div>`}`;
+        : `<div class="ay-msg partnern"><div class="ay-notis fel">${e_(m.fel || 'Inget svar: processen lever inte och ingen svarsfil finns.')}</div>${A.delsvar[m.id]?.text ? delsvarHtml(m.id, true) : ''}</div>`}`;
+  }
+  // --- partnerns ström: verkliga delhändelser ur Claude Codes stream-json medan turen pågår (U26). Delsvaret står för sig
+  // och märks som ofärdigt; svaret är bara turens slutpost, som läses ur partnerläget när strömmen säger slut. En tur som
+  // avbryts visar det som hann strömmas som just det, aldrig som ett svar. Skärmläsaren får slutet, inte varje token (U37).
+  function foljDelsvar() {
+    const slug = A.slug, pagar = (A.partner?.meddelanden || []).filter((m) => m.lage === 'arbetar' || m.lage === 'skickat').map((m) => m.id);
+    for (const [id, d] of Object.entries(A.delsvar)) if (d.es && (d.slug !== slug || !pagar.includes(id))) { d.es.close(); d.es = null; }
+    if (!window.EventSource) return;  // utan EventSource: svaret visas när turen är klar, som förut
+    for (const id of pagar) {
+      const d = A.delsvar[id] || (A.delsvar[id] = { slug, text: '', aktivitet: [], avbrott: null });
+      if (d.es || d.klar) continue;
+      const es = new EventSource('/api/arbetsyta/' + encodeURIComponent(slug) + '/partner/strom?id=' + encodeURIComponent(id));
+      d.es = es;
+      es.addEventListener('borjan', () => { d.text = ''; d.aktivitet = []; d.avbrott = null; ritaDelsvar(id); });  // varje anslutning börjar om från turens början
+      es.addEventListener('del', (ev) => {
+        let x; try { x = JSON.parse(ev.data); } catch { return; }
+        for (const h of x.handelser || []) {
+          if (h.typ === 'text') d.text += h.text || '';
+          else if (h.typ === 'stycke') { if (d.text && !d.text.endsWith('\n\n')) d.text += '\n\n'; }
+          else if (h.typ === 'resonerar') { if (d.aktivitet.at(-1)?.typ !== 'resonerar') d.aktivitet.push({ typ: 'resonerar' }); }
+          else if (h.typ === 'verktyg') d.aktivitet.push({ typ: 'verktyg', namn: h.namn, fil: h.fil });
+          else if (h.typ === 'verktygssvar') { const v = [...d.aktivitet].reverse().find((a) => a.typ === 'verktyg' && a.fel === undefined); if (v) v.fel = Boolean(h.fel); }
+          else if (h.typ === 'resultat') d.resultat = h;
+        }
+        d.avbrott = null; ritaDelsvar(id);
+      });
+      es.addEventListener('slut', (ev) => {
+        es.close(); d.es = null; d.klar = true;
+        let x = {}; try { x = JSON.parse(ev.data); } catch { /* läget läses ur partnerläget */ }
+        if (A.slug !== slug) return;
+        meddela(x.lage === 'svarat' ? 'Partnern har svarat.' : 'Partnerns tur slutade utan ett färdigt svar' + (x.fel ? ': ' + x.fel : '.'));
+        laddaPartner();
+      });
+      es.addEventListener('fel', (ev) => { let x = {}; try { x = JSON.parse(ev.data); } catch { /* */ } es.close(); d.es = null; d.avbrott = 'Strömmen stängdes: ' + (x.fel || 'okänt skäl') + '.'; ritaDelsvar(id); });
+      es.onerror = () => {
+        if (es.readyState === EventSource.CLOSED) {  // ett felsvar (404, 409, 503): webbläsaren försöker inte igen; partnerläget visar turen när den är klar
+          d.es = null; d.avbrott = 'Strömmen kunde inte öppnas; svaret visas när turen är klar.'; ritaDelsvar(id);
+        } else { d.avbrott = 'Strömmen återansluter; det som strömmats läses om från turens början.'; ritaDelsvar(id); }
+      };
+    }
+  }
+  function delsvarHtml(id, avslutad) {
+    const d = A.delsvar[id] || { text: '', aktivitet: [] };
+    const akt = d.aktivitet.slice(-6).map((a) => a.typ === 'resonerar' ? 'resonerar (innehållet visas inte)' : `${a.namn === 'Read' ? 'läser' : 'verktyg ' + a.namn}${a.fil ? ' ' + a.fil : ''}${a.fel ? ' (nekades eller misslyckades)' : ''}`);
+    const text = d.text.replace(/```overlamning[\s\S]*$/, '').trim() + (/```overlamning/.test(d.text) && !avslutad ? '\n\n[överlämningen formuleras]' : '');
+    return `<div class="ay-delsvar" data-delsvar="${e_(id)}">${akt.length ? `<div class="ay-aktivitet">${akt.map((t) => `<span>${e_(t)}</span>`).join('')}</div>` : ''}${text ? `<div class="ay-deltext"><div class="ay-kontextrad">${avslutad ? 'Det som hann strömmas: inget färdigt svar' : 'Delsvar som strömmas: inte färdigt'}</div>${formatera(text)}</div>` : ''}${d.avbrott ? `<div class="svag">${e_(d.avbrott)}</div>` : ''}</div>`;
+  }
+  function ritaDelsvar(id) {
+    const el = document.querySelector(`[data-delsvar="${CSS.escape(id)}"]`); if (!el) return;  // inte ritat just nu: ritas med samtalet
+    const samtal = document.getElementById('ay-samtal'), nere = samtal && samtal.scrollHeight - samtal.scrollTop - samtal.clientHeight < 60;
+    el.outerHTML = delsvarHtml(id, false);
+    if (samtal && nere) samtal.scrollTop = samtal.scrollHeight;
   }
   function overlamningskort(m) {
     const o = m.overlamning;
     if (o['oläsligt']) return '<div class="ay-overlamning svag">Partnern föreslog en överlämning, men blocket gick inte att läsa.</div>';
     const rad = (n, v) => v ? `<dt>${n}</dt><dd>${e_(v)}</dd>` : '';
+    const h = genomforHinder(m), f = A.genomfor[m.id] || standardGenomfor(m), oppen = A.genomforOppen === m.id, sv = A.genomforSvar[m.id] || '';
     return `<div class="ay-overlamning"><strong>Förslag till överlämning</strong><dl>${rad('Kandidat', o.kandidat ? etikett(o.kandidat) : null)}${rad('Version', o.version)}${rad('Sida', o.sida)}${rad('Del', o.del)}${rad('Mål', o.mal)}${rad('Avgränsning', o.avgransning)}${rad('Förväntat', o.forvantat)}</dl>
-      <button class="ay-knapp liten" type="button" data-anvand-forslag="${e_(m.id)}">Använd som min ändring</button><span class="svag"> Du läser, ändrar och skickar själv.</span></div>`;
+      ${oppen ? `<div class="ay-genomfor" data-genomfor-ruta="${e_(m.id)}"><p class="svag" style="margin:0 0 6px">Förslaget blir ditt uppdrag${h.kand ? `, bundet till <b>${e_(etikett(h.kand.id))}</b> version ${e_(h.kand.version)}` : ''}, och startas direkt genom flödets vanliga start (samma som Starta uppdraget under Kontroller). Ändra fälten först om något inte stämmer.</p>
+        <label class="svag">Uppdrag <select class="ay-knapp liten" data-g="typ" data-fokus="g-typ-${e_(m.id)}">${UPPDRAGSTYPER.map(([v, n]) => `<option value="${v}"${f.typ === v ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="svag" for="ay-g-res-${e_(m.id)}">Önskat resultat</label><input class="ay-knapp" id="ay-g-res-${e_(m.id)}" data-g="resultat" data-fokus="g-res-${e_(m.id)}" value="${e_(f.resultat)}">
+        <label class="svag" for="ay-g-omf-${e_(m.id)}">Omfattning: en rad per brist, område eller del</label><textarea id="ay-g-omf-${e_(m.id)}" rows="2" data-g="omfattning" data-fokus="g-omf-${e_(m.id)}">${e_(f.omfattning)}</textarea>
+        <label class="svag" for="ay-g-bev-${e_(m.id)}">Bevara: en rad per sak som ska stå kvar</label><textarea id="ay-g-bev-${e_(m.id)}" rows="2" data-g="bevara" data-fokus="g-bev-${e_(m.id)}">${e_(f.bevara)}</textarea>
+        ${A.lage?.blind ? '<p class="ay-notis varn" style="margin:4px 0">Att genomföra är ditt val av kandidaten i körningen. Bedömningarna visas efter det.</p>' : ''}
+        <div class="ay-knapprad"><button class="ay-knapp primar liten" type="button" data-genomfor="${e_(m.id)}" data-fokus="g-kor-${e_(m.id)}"${h.text ? ' aria-disabled="true"' : ''}>Genomför i utkastet</button><button class="ay-knapp liten" type="button" data-genomfor-avbryt data-fokus="g-avbryt-${e_(m.id)}">Avbryt</button></div>
+        <p class="svag" role="status" style="margin:4px 0 0" data-genomfor-svar="${e_(m.id)}">${e_(sv || (h.text ? 'Inte nu: ' + h.text + '.' : ''))}</p></div>`
+      : `<div class="ay-knapprad"><button class="ay-knapp liten primar" type="button" data-genomfor-oppna="${e_(m.id)}" data-fokus="g-oppna-${e_(m.id)}">Genomför i utkastet…</button><button class="ay-knapp liten" type="button" data-anvand-forslag="${e_(m.id)}">Använd som min ändring</button></div>${sv ? `<p class="svag" role="status" style="margin:4px 0 0">${e_(sv)}</p>` : ''}`}</div>`;
+  }
+  // Genomför i utkastet (U16/E5): partnerns överlämning, som du läst och kan justera, sparas som ditt uppdrag genom arbetsytans
+  // ändringsväg och startas genom flödets ordinarie start, med samma operations-id i båda (ett omförsök sparar och startar
+  // inget nytt). Servern prövar förslagets källa, körningen, versionen och nästa steg; partnerns text är aldrig beslutet.
+  function standardGenomfor(m) {
+    const o = m.overlamning || {};
+    return { typ: 'ratta', resultat: o.mal || '', omfattning: [o.sida, o.del].filter(Boolean).join(': '), bevara: o.avgransning || '' };
+  }
+  function genomforHinder(m) {
+    const o = m.overlamning || {}, l = A.lage || {}, k = l.korning || {}, ks = l.kandidater || [];
+    const kid = o.kandidat && ks.some((x) => x.id === o.kandidat) ? o.kandidat : (m.kontext?.kandidat && ks.some((x) => x.id === m.kontext.kandidat) ? m.kontext.kandidat : null);
+    const kand = ks.find((x) => x.id === kid);
+    if (!kand || !kand.version_hel) return { text: 'förslaget pekar inte ut en kandidat med en version; använd det som din ändring och markera kandidaten' };
+    const sagd = String(o.version || m.kontext?.version || '').replace(/^v/, '').trim();
+    if (sagd && sagd !== 'null' && kand.version !== sagd && !kand.version_hel.startsWith(sagd)) return { text: `förslaget gällde version ${sagd}, kandidaten har nu ${kand.version}: stäm av innan något genomförs`, kand };
+    if (m.kontext?.korning && k.startad && m.kontext.korning !== k.startad) return { text: 'körningen har bytts sedan förslaget skrevs', kand };
+    if (!['klar_for_bedomning', 'fel'].includes(k.steg)) return { text: 'körningen väntar inte på ditt beslut', kand };
+    return { text: null, kand };
+  }
+  async function genomfor(mid) {
+    if (A.pagar) return;
+    const m = (A.partner?.meddelanden || []).find((x) => x.id === mid); if (!m || !m.overlamning) return;
+    const slug = A.slug, h = genomforHinder(m);
+    const s = (t) => { A.genomforSvar[mid] = t; const el = document.querySelector(`[data-genomfor-svar="${CSS.escape(mid)}"]`); if (el) el.textContent = t; };
+    if (h.text) { s('Inte nu: ' + h.text + '.'); return; }
+    const f = A.genomfor[mid] || standardGenomfor(m), o = m.overlamning;
+    const rader = (t) => String(t || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    const uppdrag = { typ: f.typ, resultat: String(f.resultat || '').trim(), omfattning: rader(f.omfattning), bevara: rader(f.bevara) };
+    const saknas = !uppdrag.resultat ? 'det önskade resultatet' : !uppdrag.omfattning.length ? 'omfattningen' : !uppdrag.bevara.length ? 'vad som ska bevaras' : null;
+    if (saknas) { s('Uppdraget saknar ' + saknas + ': fyll i det, så är det tydligt vad som genomförs.'); return; }
+    const text = [uppdrag.resultat, o.avgransning ? 'Rör inte: ' + o.avgransning : null, o.forvantat ? 'Klart när: ' + o.forvantat : null].filter(Boolean).join('\n');
+    const body = { text, beslut: 'uppdrag', uppdrag, kandidat: h.kand.id, version: h.kand.version_hel, korning: A.lage.korning?.startad || null,
+      vy: VYNAMN[A.vy], sida: o.sida || null, del: o.del || null, kalla: { typ: 'partnerforslag', meddelande_id: mid } };
+    const opid = await innehallsId('g', [slug, mid, body.text, body.kandidat, body.version, body.korning, uppdrag]);  // samma operations-id för uppdraget och starten
+    A.pagar = 'genomfor'; s('Sparar uppdraget…');
+    let sparat = false;
+    try {
+      const r1 = await postJson('/api/arbetsyta/' + encodeURIComponent(slug) + '/andring', Object.assign({ andring_id: opid }, body));
+      sparat = true; s('Uppdraget är sparat' + (r1.upprepat ? ' (det var redan sparat)' : '') + '. Startar det…');
+      const r2 = await postJson('/api/flode/' + encodeURIComponent(slug) + '/start', { handling: 'valda', start_id: opid });
+      s((r2.besked || 'Starten är registrerad.') + ` Operations-id ${opid.slice(0, 9)}.`);
+      meddela('Uppdraget är sparat och startat genom flödets vanliga start.');
+      A.genomforOppen = null;
+      try { const d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); if (A.slug === slug) tillampa(d); } catch { /* läget kommer med strömmen */ }
+    } catch (err) {
+      s(!sparat ? (err.status === 409 ? 'Inte sparat: ' + err.message : 'Svaret gick inte att bekräfta: ' + err.message + '. Försök igen: samma förslag ger samma operations-id, så inget sparas två gånger.')
+        : 'Uppdraget är sparat, men starten ' + (err.status === 409 ? 'nekades: ' : 'gick inte att bekräfta: ') + err.message + '. Försök igen (samma operations-id) eller starta det under Kontroller.');
+    } finally { A.pagar = null; }
+    if (A.genomforOppen !== mid) { document.activeElement?.blur(); ritaPartner(); document.querySelector(`[data-fokus="g-oppna-${CSS.escape(mid)}"]`)?.focus(); }
   }
   const VYNAMN = { '': 'Arbetsyta', flode: 'Byggflöde', kod: 'Kod och preview' };
   function levande(kid) {
@@ -612,7 +814,7 @@
     const mk = markering(), kand = mk.kandidat ? etikett(mk.kandidat) : null;
     const form = JSON.stringify([A.avsikt, A.lage.blind, mk.kandidat, mk.version, mk.vy, mk.fil, A.lage.projekt?.namn, inaktuellMark(), Boolean(A.mark)]);  // fryst eller levande syns på raden Gäller
     if (f.dataset.ritad === form || (f.contains(document.activeElement) && f.dataset.ritad)) { uppdateraSkrivstatus(); return; }
-    const utkast = f.querySelector('textarea')?.value ?? (sessionStorageLas('nwp-arbetsyta-utkast:' + A.slug) || '');
+    const utkast = f.querySelector('textarea')?.value ?? utkastLas(A.slug);
     const behall = { sida: f.querySelector('[data-falt="sida"]')?.value || mk.sida || '', del: f.querySelector('[data-falt="del"]')?.value || mk.del || '', svar: f.querySelector('#ay-skrivsvar')?.textContent || '' };
     const falt = {}; f.querySelectorAll('[data-uppdrag]').forEach((x) => { falt[x.dataset.uppdrag] = x.value; });  // uppdragets fält står kvar när formuläret ritas om
     f.dataset.ritad = form;
@@ -652,6 +854,10 @@
     f?.querySelectorAll('[data-kundbelagg]').forEach((x) => { x.hidden = !kund; });
   }
   function sessionStorageLas(k) { try { return sessionStorage.getItem(k); } catch { return null; } }
+  // samtalets utkast: fliken först (två flikar kan ha var sitt), och en kopia i den lokala lagringen så att ett utkast
+  // överlever att appen kraschar eller avslutas (Nortropic.app, 2026-10-10); ett skickat meddelande tar bort båda
+  function utkastLas(slug) { const k = 'nwp-arbetsyta-utkast:' + slug; let v = sessionStorageLas(k); if (v == null) { try { v = localStorage.getItem(k); } catch { v = null; } } return v || ''; }
+  function utkastSpara(slug, v) { const k = 'nwp-arbetsyta-utkast:' + slug; for (const l of [() => sessionStorage, () => localStorage]) { try { v ? l().setItem(k, v) : l().removeItem(k); } catch { /* bara en bekvämlighet */ } } }
   function uppdateraSkrivstatus() {
     const p = A.partner, upptagen = (p?.meddelanden || []).some((m) => m.lage === 'arbetar') || (p?.andra_processer || []).length;
     const knapp = document.querySelector('#ay-skriv [data-skicka="partner"]');
@@ -684,7 +890,7 @@
     svar.textContent = 'Skickar…';
     try {
       const r = await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/partner', { meddelande_id: id, text, avsikt: A.avsikt, kontext });
-      t.value = ''; try { sessionStorage.removeItem('nwp-arbetsyta-utkast:' + A.slug); } catch { /* */ }
+      t.value = ''; utkastSpara(A.slug, '');
       svar.textContent = r.upprepat ? 'Samma meddelande har redan skickats; svaret står i samtalet. Ändra texten för en ny fråga.' : 'Skickat. Partnern svarar i samma session.';
       await laddaPartner();
     } catch (err) { svar.textContent = (err.status === 409 ? '' : 'Svaret gick inte att bekräfta: ') + err.message + (err.status === 409 ? '' : '. Försök igen: samma text ger samma meddelande-id, så inget skickas två gånger.'); }
@@ -706,7 +912,7 @@
     svar.textContent = 'Sparar uppdraget…';
     try {
       await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/andring', Object.assign({ andring_id: id }, body));
-      t.value = ''; sparaMark(null); ritaGaller(); try { sessionStorage.removeItem('nwp-arbetsyta-utkast:' + A.slug); } catch { /* */ }  // som skickaPartner: en skickad ändring kommer inte tillbaka som utkast
+      t.value = ''; sparaMark(null); ritaGaller(); utkastSpara(A.slug, '');  // som skickaPartner: en skickad ändring kommer inte tillbaka som utkast
       const f_ = document.getElementById('ay-skriv'); if (f_) { f_.dataset.ritad = ''; ritaSkriv(); }
       const nasta = (A.lage.handlingar || []).find((h) => h.id === 'valda');
       (document.getElementById('ay-skrivsvar') || svar).textContent = 'Uppdraget är sparat i domloggen' + (body.avsandare === 'kunden' ? ' som kundens beslut' : '') + ', bundet till kandidat och version. Inget arbete har startat: starta det under Kontroller' + (nasta ? ' (' + nasta.text + ').' : '. Läs om läget om knappen inte syns.');
@@ -1274,8 +1480,25 @@
     if (d.falla) { const ytan = document.getElementById('ay-ytan'); ytan.toggleAttribute(d.falla === 'vanster' ? 'data-vanster-dold' : 'data-hoger-dold', true); sparaLayout({ [d.falla === 'vanster' ? 'vansterDold' : 'hogerDold']: true }); document.querySelector(`[data-visa="${d.falla}"]`)?.focus(); return; }
     if (d.visa) { const ytan = document.getElementById('ay-ytan'); ytan.removeAttribute(d.visa === 'vanster' ? 'data-vanster-dold' : 'data-hoger-dold'); sparaLayout({ [d.visa === 'vanster' ? 'vansterDold' : 'hogerDold']: false }); return; }
     if (d.omrade) { const ytan = document.getElementById('ay-ytan'); ytan.dataset.omrade = d.omrade; sparaLayout({ omrade: d.omrade }); ay.querySelectorAll('[data-omrade]').forEach((b) => b.tagName === 'BUTTON' && b.setAttribute('aria-pressed', String(b.dataset.omrade === d.omrade))); return; }
-    if (d.avsikt) { A.avsikt = d.avsikt; if (d.avsikt === 'andring' && !A.mark && markering().kandidat) markera(); const f = document.getElementById('ay-skriv'); try { sessionStorage.setItem('nwp-arbetsyta-utkast:' + A.slug, f.querySelector('textarea').value); } catch { /* */ } f.dataset.ritad = ''; ritaSkriv(); document.querySelector(`[data-fokus="a-${d.avsikt}"]`)?.focus(); return; }
+    if (d.avsikt) { A.avsikt = d.avsikt; if (d.avsikt === 'andring' && !A.mark && markering().kandidat) markera(); const f = document.getElementById('ay-skriv'); utkastSpara(A.slug, f.querySelector('textarea').value); f.dataset.ritad = ''; ritaSkriv(); document.querySelector(`[data-fokus="a-${d.avsikt}"]`)?.focus(); return; }
     if (d.skicka === 'andring') { ev.preventDefault(); skickaAndring(); return; }
+    if (d.forhandslage) { A.forhandslage = d.forhandslage; if (A.redigering && ['kontroll', 'redigerar'].includes(A.redigering.steg)) A.redigering = null; brygga({ typ: 'lage', lage: A.forhandslage }); ritaMaterial(); ritaRedigering(); document.querySelector(`[data-fokus="fl-${d.forhandslage}"]`)?.focus(); return; }
+    if (d.redSpara !== undefined) { sparaRedigering(); return; }
+    if (d.redAngra !== undefined) { const r = A.redigering; if (r) brygga({ typ: 'aterstall', selektor: r.selektor, text: r.gammal }); A.redigering = null; ritaRedigering(); document.querySelector('[data-fokus="fl-redigera"]')?.focus(); return; }
+    if (d.redStang !== undefined) { const r = A.redigering; if (r && r.steg !== 'foljer') brygga({ typ: 'aterstall', selektor: r.selektor, text: r.gammal }); A.redigering = null; ritaRedigering(); document.querySelector(`[data-fokus="fl-${A.forhandslage}"]`)?.focus(); return; }
+    if (d.redUppdrag !== undefined) {  // den ärliga vägen: ett uppdrag med texten, i samtalets ändringsform
+      const r = A.redigering || {}; A.redigering = null; ritaRedigering();
+      markera({ kandidat: r.kid || A.valdKandidat, sida: r.sida || undefined, del: r.del || undefined });
+      A.avsikt = 'andring'; A.vflik = 'partner'; const ytan = document.getElementById('ay-ytan'); if (ytan) { ytan.dataset.omrade = 'samtal'; ytan.removeAttribute('data-vanster-dold'); }
+      ritaVanster(); const f = document.getElementById('ay-skriv'); if (f) { f.dataset.ritad = ''; ritaSkriv(); }
+      const t = document.getElementById('ay-text'); if (t) { t.value = `Byt texten «${r.gammal || ''}»${r.ny ? ' mot «' + r.ny + '»' : ' mot: '}`; t.focus(); }
+      const res = document.querySelector('#ay-skriv [data-uppdrag="resultat"]'); if (res && r.ny) res.value = `texten «${r.ny}» där det nu står «${r.gammal}»`;
+      const omf = document.querySelector('#ay-skriv [data-uppdrag="omfattning"]'); if (omf) omf.value = `${r.del || 'texten'} på ${r.sida || '/'}`;
+      return;
+    }
+    if (d.genomforOppna) { A.genomforOppen = d.genomforOppna; ritaPartner(); document.querySelector(`[data-fokus="g-res-${CSS.escape(d.genomforOppna)}"]`)?.focus(); return; }
+    if (d.genomforAvbryt !== undefined) { const id = A.genomforOppen; A.genomforOppen = null; document.activeElement?.blur(); ritaPartner(); document.querySelector(`[data-fokus="g-oppna-${CSS.escape(id || '')}"]`)?.focus(); return; }
+    if (d.genomfor) { genomfor(d.genomfor); return; }
     if (d.anvandForslag) { const m = (A.partner?.meddelanden || []).find((x) => x.id === d.anvandForslag), o = m?.overlamning || {};
       if (o.kandidat && (A.lage.kandidater || []).some((k) => k.id === o.kandidat)) A.valdKandidat = o.kandidat;
       markera({ kandidat: A.valdKandidat, sida: o.sida || undefined, del: o.del || undefined });  // bunden till versionen du ser nu, inte förslagets
@@ -1338,7 +1561,8 @@
     if (ev.target.id === 'ay-jamformed') { A.jamforMed = ev.target.value; ritaMaterial(); document.getElementById('ay-jamformed')?.focus(); }
   });
   document.addEventListener('input', (ev) => { if (ev.target.id === 'ay-text' && A.avsikt === 'andring' && !A.mark && levande().kandidat) { markera(); ritaGaller(); uppdateraSkrivstatus(); }
-    if (ev.target.dataset?.falt && A.mark) { A.mark[ev.target.dataset.falt] = ev.target.value; sparaMark(A.mark); } if (ev.target.id === 'ay-text') { try { sessionStorage.setItem('nwp-arbetsyta-utkast:' + A.slug, ev.target.value); } catch { /* */ } } });
+    if (ev.target.dataset?.g) { const r = ev.target.closest('[data-genomfor-ruta]'), id = r?.dataset.genomforRuta, m = (A.partner?.meddelanden || []).find((x) => x.id === id); if (m) { A.genomfor[id] = Object.assign(A.genomfor[id] || standardGenomfor(m), { [ev.target.dataset.g]: ev.target.value }); A.genomforSvar[id] = ''; } }
+    if (ev.target.dataset?.falt && A.mark) { A.mark[ev.target.dataset.falt] = ev.target.value; sparaMark(A.mark); } if (ev.target.id === 'ay-text') utkastSpara(A.slug, ev.target.value); });
   document.addEventListener('keydown', (ev) => { if (ev.target.id === 'ay-text' && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); A.avsikt === 'andring' ? skickaAndring() : skickaPartner(); } });
   // delarnas menyer: en öppen åt gången; ett klick utanför eller Escape stänger, och fokus går tillbaka till knappen
   document.addEventListener('toggle', (ev) => { if (ev.target.classList?.contains('ay-meny') && ev.target.open) document.querySelectorAll('.ay-meny[open]').forEach((m) => { if (m !== ev.target) m.open = false; }); }, true);
@@ -1348,5 +1572,6 @@
   });
   document.addEventListener('focusout', (ev) => { const m = ev.target.closest?.('.ay-meny[open]'); if (m && ev.relatedTarget && !m.contains(ev.relatedTarget)) m.open = false; });
   document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; const m = document.querySelector('.ay-meny[open]'); if (m) { const inne = m.contains(document.activeElement); m.open = false; if (inne) m.querySelector('summary')?.focus(); } });
+  window.addEventListener('message', bryggmeddelande);
   window.__arbetsyta = A;  // för proven: läget i vyn, aldrig något att skriva i
 })();

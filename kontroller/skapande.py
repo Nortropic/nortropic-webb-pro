@@ -550,8 +550,9 @@ def kritikrader(slug, antal=3, underlag=None, aktuella=False):
         utelamnade, aldre = len(linje) - len(egna), aldre_domar(slug, underlag)
     else:
         egna = [d for d in domar(slug, underlag) if ar_agarens(d)][-antal:]
+    redigerat = direktredigeringar(slug, underlag)
     if not egna:
-        return []
+        return redigerat
     rader = ['Ägarens %s domar över designen (underlag/%s/%s), nyast först. De väger tyngst av allt du läser; en senare' % (
                  'aktuella' if aktuella else 'senaste', slug, DOMLOGG),
              'dom går före en tidigare, och före äldre lärdomar och tidigare designval. En dom gäller det den uttryckligen',
@@ -582,6 +583,25 @@ def kritikrader(slug, antal=3, underlag=None, aktuella=False):
             len(aldre), aldre[0].get('tid', '?')[:10], aldre[-1].get('tid', '?')[:10], slug, DOMLOGG))
         rader.append('uttryckligt beslut i dem om annat än designen (till exempel kontaktvägen eller vad som inte ska nämnas) gäller tills en')
         rader.append('senare dom återöppnar det. Slå upp dem när en sådan fråga uppstår.')
+    return rader + redigerat
+
+
+def direktredigeringar(slug, underlag=None, antal=10):
+    """Ägarens genomförda direktredigeringar av text (kontroller/direktredigering.py; underlag/<slug>/arbetsyta/
+    redigeringar/), för kommande uppdrag: den nya texten ska stå kvar om inte ett senare beslut uttryckligen ändrar den."""
+    d = Path(underlag or UNDERLAG) / slug / 'arbetsyta' / 'redigeringar'
+    if not d.is_dir() or d.is_symlink():
+        return []
+    poster = sorted((p for p in (las_json(f) for f in d.glob('*.json') if not f.is_symlink())
+                     if isinstance(p, dict) and p.get('schema') == 'redigering/1' and p.get('status') == 'klar'), key=lambda p: str(p.get('slut') or ''))[-antal:]
+    if not poster:
+        return []
+    rader = ['Ägarens direktredigeringar av text i arbetsytan (underlag/%s/arbetsyta/redigeringar/): texten är ändrad i kandidatens' % slug,
+             'källa och ska stå kvar som den är, om inte ett senare beslut uttryckligen ändrar just den:']
+    for p in poster:
+        rader.append('- %s, %s i %s: "%s" → "%s" (version %s → %s)' % (
+            p.get('slut') or '?', p.get('kandidat'), (p.get('karta') or {}).get('fil'), re.sub(r'\s+', ' ', str(p.get('gammal')))[:200],
+            re.sub(r'\s+', ' ', str(p.get('ny')))[:200], str(p.get('fran_version') or '?')[:12], str(p.get('till_version') or '?')[:12]))
     return rader
 
 

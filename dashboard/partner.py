@@ -12,8 +12,10 @@ läsväg som vyn (arbetsyta.lage, blindat på servervägen) och ägarens markeri
 vy, sida och del. Ändringar går ägarens väg: knappen Skicka ändring (arbetsyta.skicka_andring), aldrig partnerns svar.
 
 Lagring (privat): underlag/<slug>/arbetsyta/PARTNER.json bär kopplingen (sessions-id, modell) och meddelandenas id,
-avsikt, markering, ägarens text och processens identitet; svaret står i Claude Codes egen svarsfil
-underlag/<slug>/arbetsyta/partner/svar-<id>.json och transkriptet där Claude Code sparar det. Ingen annan status.
+avsikt, markering, ägarens text och processens identitet; turen strömmas som Claude Codes egna händelser
+(`--output-format stream-json --include-partial-messages`) till underlag/<slug>/arbetsyta/partner/strom-<id>.jsonl, och
+dess slutpost står som svarsfil i svar-<id>.json (samma fält som `--output-format json`). Delhändelserna (textdeltan,
+verktygsanrop) visas i vyn medan turen pågår, åtskilda från svaret; svaret är bara slutposten. Ingen annan status.
 """
 import calendar
 import fcntl
@@ -173,13 +175,37 @@ def andra_processer(sid, utom=()):
     return ut
 
 
+def _resultat(f):
+    """Slutposten (type result) ur en strömfil, eller None. Den står sist; en tur som avbröts har ingen."""
+    try:
+        with open(f, 'rb') as fh:
+            fh.seek(0, os.SEEK_END)
+            storlek = fh.tell()
+            fh.seek(max(0, storlek - (1 << 20)))
+            rader = fh.read().split(b'\n')
+    except OSError:
+        return None
+    for rad in reversed(rader):
+        if b'"result"' not in rad:
+            continue
+        try:
+            d = json.loads(rad)
+        except ValueError:
+            continue
+        if isinstance(d, dict) and d.get('type') == 'result':
+            return d
+    return None
+
+
 def _svar(dash, slug, m):
-    """Svaret ur Claude Codes svarsfil: text, fel, användning och modell; None innan filen är skriven."""
-    f = _katalog(dash, slug) / 'partner' / Path(str(m.get('svarsfil') or 'saknas')).name
+    """Svaret ur Claude Codes svarsfil (eller strömmens slutpost, om dashboarden startades om innan svarsfilen skrevs):
+    text, fel, användning och modell; None innan turen har en slutpost."""
+    katalog = _katalog(dash, slug) / 'partner'
+    f = katalog / Path(str(m.get('svarsfil') or 'saknas')).name
     try:
         d = json.loads(f.read_text(encoding='utf-8'))
     except (OSError, ValueError):
-        return None
+        d = _resultat(katalog / Path(str(m['stromfil'])).name) if m.get('stromfil') else None
     if not isinstance(d, dict):
         return None
     u = d.get('usage') if isinstance(d.get('usage'), dict) else {}
@@ -329,7 +355,9 @@ def _rensa_kontext(k):
 def args(dash, slug, sid, ny, p):
     _kontroller_in()
     import atelje
-    return [atelje.claude(), '-p', '--session-id' if ny else '--resume', sid, '--output-format', 'json', '--model', p['modell'],
+    # stream-json med delmeddelanden: verkliga svarsdeltan medan turen pågår (Claude Code 2.1.290, prövat 2026-10-10)
+    return [atelje.claude(), '-p', '--session-id' if ny else '--resume', sid, '--output-format', 'stream-json', '--verbose',
+            '--include-partial-messages', '--model', p['modell'],
             '--effort', p['effort'], '--max-turns', str(p['max_turer']), '--permission-mode', 'dontAsk', '--setting-sources', 'project,local',
             '--strict-mcp-config', '--tools', 'Read', '--allowedTools', *tillatet(dash, slug), '--append-system-prompt', SYSTEM]
 
@@ -404,7 +432,7 @@ def skicka(dash, slug, data, starta=True):
         except Exception as e:  # noqa: BLE001 — utan läge vet partnern det, och säger det
             ktext = '[Arbetsytans läge kunde inte läsas: %s]' % type(e).__name__
         m = {'id': mid, 'tid': _nu(), 'avsikt': avsikt, 'kontext': kontext, 'text': text[:MAX_TEXT], 'svarsfil': 'svar-%s.json' % mid,
-             'pid': None, 'modell': p['modell']}
+             'stromfil': 'strom-%s.jsonl' % mid, 'pid': None, 'modell': p['modell']}
         d['meddelanden'] = (d.get('meddelanden') or []) + [m]
         _skriv(dash, slug, d)
         if not starta:
@@ -412,7 +440,7 @@ def skicka(dash, slug, data, starta=True):
         prompt = '%s\n\nÄgarens avsikt: %s\n\n%s' % (ktext, AVSIKTER[avsikt], text)
         ut = _katalog(dash, slug) / 'partner'
         try:
-            fu = open(ut / m['svarsfil'], 'wb')
+            fu = open(ut / m['stromfil'], 'wb')
             fe = open(ut / ('svar-%s.err' % mid), 'wb')
             proc = subprocess.Popen(args(dash, slug, d['session_id'], ny, p), stdin=subprocess.PIPE, stdout=fu, stderr=fe,
                                     cwd=str(rum), env=nastlad.miljo(), start_new_session=True)
@@ -442,6 +470,15 @@ def _vakta(dash, slug, mid, proc, prompt, fu, fe, frist):
     finally:
         fu.close()
         fe.close()
+    try:  # slutposten blir svarsfilen; utan slutpost (avbruten tur) skrivs ingen, och läget säger fel eller avbrutet
+        katalog = _katalog(dash, slug) / 'partner'
+        r = _resultat(katalog / ('strom-%s.jsonl' % mid))
+        if r:
+            tmp = katalog / ('.svar-%s.json.tmp' % mid)
+            tmp.write_text(json.dumps(r, ensure_ascii=False), encoding='utf-8')
+            os.replace(tmp, katalog / ('svar-%s.json' % mid))
+    except OSError:
+        pass
     try:
         with _lasat(dash, slug):
             d = _las(dash, slug)
@@ -454,6 +491,87 @@ def _vakta(dash, slug, mid, proc, prompt, fu, fe, frist):
             _skriv(dash, slug, d)
     except OSError:
         pass
+
+
+def _kort_vag(dash, v):
+    """En fil som partnern läser, relativt repot; utanför repot bara filnamnet."""
+    v = str(v or '')
+    for rot in {str(Path(dash.ROOT).resolve()), str(Path(dash.ROOT))}:
+        if v.startswith(rot + '/'):
+            return v[len(rot) + 1:][:200]
+    return os.path.basename(v)[:200]
+
+
+def _handelser(dash, rad):
+    """En rad ur turens strömmade utdata som vyns delhändelser: textdeltan, ett nytt textstycke, att modellen resonerar
+    (innehållet visas inte), verktygsanrop med fil, verktygssvarens utfall (inte innehållet) och slutposten. Init, kvotläge
+    och allt annat visas inte."""
+    try:
+        d = json.loads(rad)
+    except ValueError:
+        return []
+    if not isinstance(d, dict):
+        return []
+    t = d.get('type')
+    if t == 'stream_event' and isinstance(d.get('event'), dict):
+        e = d['event']
+        if e.get('type') == 'content_block_start':
+            typ = (e.get('content_block') or {}).get('type') if isinstance(e.get('content_block'), dict) else None
+            return [{'typ': 'stycke'}] if typ == 'text' else [{'typ': 'resonerar'}] if typ in ('thinking', 'redacted_thinking') else []
+        delta = e.get('delta') if isinstance(e.get('delta'), dict) else {}
+        if e.get('type') == 'content_block_delta' and delta.get('type') == 'text_delta':
+            return [{'typ': 'text', 'text': str(delta.get('text') or '')}]
+        return []
+    innehall = (d.get('message') or {}).get('content') if isinstance(d.get('message'), dict) else None
+    if t == 'assistant' and isinstance(innehall, list):
+        return [{'typ': 'verktyg', 'namn': str(c.get('name') or '?')[:40],
+                 'fil': _kort_vag(dash, (c.get('input') or {}).get('file_path')) if isinstance(c.get('input'), dict) and (c.get('input') or {}).get('file_path') else None}
+                for c in innehall if isinstance(c, dict) and c.get('type') == 'tool_use']
+    if t == 'user' and isinstance(innehall, list):
+        return [{'typ': 'verktygssvar', 'fel': bool(c.get('is_error'))} for c in innehall if isinstance(c, dict) and c.get('type') == 'tool_result']
+    if t == 'result':
+        return [{'typ': 'resultat', 'fel': bool(d.get('is_error')), 'subtyp': str(d.get('subtype') or '')[:40]}]
+    return []
+
+
+def delvis(dash, slug, mid, fran=0, max_byte=8 << 20):
+    """Delhändelserna i ett meddelandes tur från byteposition fran (bara hela rader), den nya positionen och, när turen
+    är slut och allt är läst, meddelandets läge. Bara den gällande sessionens meddelanden, och aldrig i en blind
+    jämförelse. Läsningen ändrar ingenting."""
+    if not ID.fullmatch(str(mid or '')):
+        raise ValueError('ett meddelande-id behövs')
+    b = bindning(dash, slug)
+    if b['ab_dold']:
+        raise Dold('kunden är en arm i en blind jämförelse som du inte valt i än')
+    d = _las(dash, slug)
+    med = d.get('meddelanden') if d.get('session_id') and _galler(d, b) else []
+    m = next((x for x in med or [] if isinstance(x, dict) and x.get('id') == mid), None)
+    if not m:
+        raise ValueError('meddelandet finns inte i den gällande partnersessionen')
+    handelser, pos, storlek = [], max(0, int(fran or 0)), 0
+    if m.get('stromfil'):
+        f = _katalog(dash, slug) / 'partner' / Path(str(m['stromfil'])).name
+        try:
+            with open(f, 'rb') as fh:
+                storlek = os.fstat(fh.fileno()).st_size
+                fh.seek(pos)
+                bit = fh.read(max_byte)
+        except OSError:
+            bit = b''
+        slut = bit.rfind(b'\n')
+        if slut >= 0:
+            for rad in bit[:slut].split(b'\n'):
+                handelser += _handelser(dash, rad.decode('utf-8', 'replace'))
+            pos += slut + 1
+        elif len(bit) >= max_byte:  # en rad längre än max_byte (ett stort verktygssvar) hoppas över; resten av den tolkas inte
+            pos += len(bit)
+    klar = bool(m.get('slut')) or (bool(m.get('pid')) and not _lever(m['pid'])) or (not m.get('pid') and bool(m.get('fel')))
+    ut = {'handelser': handelser, 'pos': pos, 'klar': klar and pos >= storlek}
+    if ut['klar']:
+        ml = _meddelandelage(dash, slug, m, d.get('session_id'))
+        ut['lage'] = ml['lage']
+        ut['fel'] = ml.get('fel') or ('turen slutade med fel (%s)' % (ml['svar'] or {}).get('subtyp') if (ml['svar'] or {}).get('fel') else None)
+    return ut
 
 
 def _nu():

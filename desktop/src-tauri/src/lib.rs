@@ -222,20 +222,24 @@ async fn diagnos(app: AppHandle) -> Result<serde_json::Value, String> {
 }
 
 static NATET: Mutex<Option<(u64, serde_json::Value)>> = Mutex::new(None);
+static NATET_PROVAS: AtomicBool = AtomicBool::new(false);
 
-/// Internet prövas för sig (en TCP-anslutning till modellernas tjänst), skilt från den lokala motorn; högst var 30:e sekund.
+/// Internet prövas för sig (en TCP-anslutning till modellernas tjänst), skilt från den lokala motorn; högst var 30:e sekund
+/// och i en egen tråd: namnuppslaget har ingen tidsgräns, och diagnosen (skalets start) väntar aldrig på nätet. Innan
+/// första prövningen är klar är svaret okänt (nar: null), aldrig nås eller nås inte.
 fn natet() -> serde_json::Value {
     use std::net::{TcpStream, ToSocketAddrs};
-    if let Some((t, v)) = NATET.lock().unwrap().as_ref() {
-        if nu().saturating_sub(*t) < 30 {
-            return v.clone();
-        }
+    let senast = NATET.lock().unwrap().clone();
+    let farsk = senast.as_ref().is_some_and(|(t, _)| nu().saturating_sub(*t) < 30);
+    if !farsk && !NATET_PROVAS.swap(true, Ordering::SeqCst) {
+        std::thread::spawn(|| {
+            let start = std::time::Instant::now();
+            let ok = ("api.anthropic.com", 443).to_socket_addrs().ok().and_then(|mut a| a.next()).map(|a| TcpStream::connect_timeout(&a, Duration::from_millis(1500)).is_ok()).unwrap_or(false);
+            *NATET.lock().unwrap() = Some((nu(), json!({ "nar": ok, "ms": start.elapsed().as_millis() as u64 })));
+            NATET_PROVAS.store(false, Ordering::SeqCst);
+        });
     }
-    let start = std::time::Instant::now();
-    let ok = ("api.anthropic.com", 443).to_socket_addrs().ok().and_then(|mut a| a.next()).map(|a| TcpStream::connect_timeout(&a, Duration::from_millis(1500)).is_ok()).unwrap_or(false);
-    let v = json!({ "nar": ok, "ms": start.elapsed().as_millis() as u64 });
-    *NATET.lock().unwrap() = Some((nu(), v.clone()));
-    v
+    senast.map(|(_, v)| v).unwrap_or_else(|| json!({ "nar": null, "provas": true }))
 }
 
 #[tauri::command]
@@ -588,13 +592,26 @@ fn aterkalla_sessioner(inst: &Installningar) {
 
 /// Låset efter tid utan fokus, i en egen tråd som aldrig väntar på motorn eller ett verktyg.
 fn lastimer(app: AppHandle) {
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_secs(15));
-        let l = lage(&app);
-        let min = l.inst().las_efter_min;
-        let sedan = l.ofokuserad_sedan.load(Ordering::SeqCst);
-        if l.upplast.load(Ordering::SeqCst) && min > 0 && sedan > 0 && nu().saturating_sub(sedan) > min as u64 * 60 {
-            las_appen(&app, "tidsgrans");
+    std::thread::spawn(move || {
+        let mut forra = nu();
+        loop {
+            std::thread::sleep(Duration::from_secs(15));
+            let l = lage(&app);
+            let min = l.inst().las_efter_min;
+            // tid då processen inte körde (datorn sov, eller processen var stoppad) räknas mot låstiden också när fönstret
+            // hade fokus: väggklockan går under vilan, tråden gör det inte
+            let t = nu();
+            let vilade = t.saturating_sub(forra).saturating_sub(15);
+            forra = t;
+            if !l.upplast.load(Ordering::SeqCst) || min == 0 {
+                continue;
+            }
+            let sedan = l.ofokuserad_sedan.load(Ordering::SeqCst);
+            if sedan > 0 && t.saturating_sub(sedan) > min as u64 * 60 {
+                las_appen(&app, "tidsgrans");
+            } else if vilade > min as u64 * 60 {
+                las_appen(&app, "vila");
+            }
         }
     });
 }

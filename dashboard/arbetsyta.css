@@ -207,6 +207,16 @@ body.ay-aktiv input[type=file]::file-selector-button { font: inherit; color: var
 .ay-overlamning dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 6px 0 8px; font-size: 12.5px; }
 .ay-overlamning dt { color: var(--ay-svag); }
 .ay-overlamning dd { margin: 0; }
+.ay-genomfor { display: grid; gap: 4px; margin-top: 6px; }
+.ay-genomfor textarea, .ay-genomfor input { width: 100%; box-sizing: border-box; font: inherit; }
+.ay-delsvar:empty { display: none; }
+.ay-redigering { margin: 8px 0 0; padding: 8px 10px; border: 1px solid #2c4672; border-radius: 8px; font-size: 13px; }
+.ay-redigering p { margin: 0 0 6px; }
+.ay-redigering code { overflow-wrap: anywhere; }
+.ay-delsvar { margin-top: 6px; display: grid; gap: 6px; }
+.ay-aktivitet { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--ay-svag); }
+.ay-aktivitet span::before { content: "• "; }
+.ay-deltext { border-left: 2px dashed var(--ay-svag); padding: 2px 0 2px 9px; }
 .ay-skriv { border-top: 1px solid var(--ay-linje); padding: 12px 14px; display: grid; gap: 8px; }
 .ay-skriv textarea { width: 100%; min-height: 76px; resize: vertical; background: var(--ay-bg); color: var(--ay-text); border: 1px solid var(--ay-linje2); border-radius: 8px; padding: 9px 10px; font: inherit; font-size: 13.5px; }
 .ay-skriv textarea::placeholder { color: var(--ay-svag); }

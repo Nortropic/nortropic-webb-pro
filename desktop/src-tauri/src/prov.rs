@@ -107,6 +107,27 @@ fn utfor(app: &AppHandle, metod: &str, vag: &str, kropp: &str) -> (u16, serde_js
             let _ = app.run_on_main_thread(move || menyval(&a, &id));
             (200, serde_json::json!({ "ok": true }))
         }
+        ("POST", "/redigera") => {
+            // Redigera-menyns åtgärd (copy:, paste:, cut:, selectAll:) skickad som menyn skickar den, genom svarskedjan till
+            // den webvy som har fokus; provet styr inget tangentbord (det kräver tillgänglighetsbehörighet)
+            let atgard = match kropp.trim() { "kopiera" => "copy:", "klistra" => "paste:", "klipp" => "cut:", "markera" => "selectAll:", _ => "" };
+            if atgard.is_empty() {
+                return (400, serde_json::json!({ "fel": "kopiera, klistra, klipp eller markera" }));
+            }
+            let (tx, rx) = std::sync::mpsc::channel();
+            let _ = app.run_on_main_thread(move || unsafe {
+                use objc2::runtime::{AnyClass, AnyObject, Sel};
+                let nsapp: *mut AnyObject = objc2::msg_send![AnyClass::get(c"NSApplication").expect("NSApplication"), sharedApplication];
+                let sel = Sel::register(&std::ffi::CString::new(atgard).unwrap());
+                let ingen: *mut AnyObject = std::ptr::null_mut();
+                let ok: bool = objc2::msg_send![nsapp, sendAction: sel, to: ingen, from: ingen];
+                let _ = tx.send(ok);
+            });
+            match rx.recv_timeout(Duration::from_secs(5)) {
+                Ok(ok) => (200, serde_json::json!({ "skickad": ok })),
+                Err(_) => (504, serde_json::json!({ "fel": "huvudtråden svarade inte" })),
+            }
+        }
         ("POST", "/stang") => {
             // som röda knappen: CloseRequested går genom appens egen hantering
             let _ = w.close();
@@ -124,6 +145,9 @@ fn utfor(app: &AppHandle, metod: &str, vag: &str, kropp: &str) -> (u16, serde_js
             }
             if let (Some(b), Some(h)) = (g("bredd"), g("hojd")) {
                 let _ = w.set_size(tauri::LogicalSize::new(b, h));
+            }
+            if let Some(h) = j.get("helskarm").and_then(|v| v.as_bool()) {
+                let _ = w.set_fullscreen(h);  // samma som menyns Helskärm (NSWindow toggleFullScreen)
             }
             (200, serde_json::json!({ "ok": true }))
         }

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8"><title>Fientlig förhandsvisning (prov)</title></head>
+<body>
+<!-- prov_mac.py: en kandidats byggda sida som försöker ta sig ur förhandsvisningen. Den rapporterar vad som gick till
+     ramens förälder, och provet prövar i appen att inget av det nådde appen, motorn eller sessionen. Provet byter
+     __MOTORPORT__ mot provinstansens port när sidan läggs i kandidatens dist/. -->
+<h1>Fientlig förhandsvisning</h1>
+<p id="status">Prövar…</p>
+<script>
+(async () => {
+  const r = { klar: false };
+  const port = '__MOTORPORT__', mal = 'http://127.0.0.1:' + port;
+  try { r.kakor = document.cookie; } catch (e) { r.kakor = 'fel: ' + e; }
+  try { r.foralder = typeof parent.document.body; } catch (e) { r.foralder = 'nekad: ' + e.name; }
+  r.tauri = typeof window.__TAURI_INTERNALS__ === 'undefined' && typeof window.__TAURI__ === 'undefined' ? 'saknas' : 'finns';
+  if (r.tauri === 'finns') { try { await window.__TAURI_INTERNALS__.invoke('las_upp'); r.invoke = 'TILLÅTET'; } catch (e) { r.invoke = 'nekat: ' + String(e).slice(0, 120); } }
+  try { const w = window.open('https://example.com/'); r.popup = w ? 'öppnad' : 'null'; } catch (e) { r.popup = 'blockerad'; }
+  // en kaka med sessionens namn (kakor skiljer inte på portar): motorn prövar varje värde, så sessionen ska gälla ändå
+  try { document.cookie = 'nwp_session_' + port + '=fientlig; path=/api'; r.skuggkaka = 'satt'; } catch (e) { r.skuggkaka = 'fel: ' + e; }
+  try { await fetch(mal + '/api/desktop/utloggning', { method: 'POST', credentials: 'include', body: '{}' }); r.utloggning = 'svaret lästes (fel)'; } catch (e) { r.utloggning = 'svaret nekat av webbläsaren: ' + e.name; }
+  try { await fetch(mal + '/api/desktop/las', { method: 'POST', credentials: 'include', mode: 'no-cors', body: '{}' }); r.las = 'skickad, svaret oläsligt'; } catch (e) { r.las = 'nekad: ' + e.name; }
+  try { const s = await fetch(mal + '/api/arbetsyta', { credentials: 'include' }); r.lasning = 'svaret lästes (fel) ' + s.status; } catch (e) { r.lasning = 'svaret nekat av webbläsaren: ' + e.name; }
+  // förfalskade meddelanden i bryggans form: arbetsytan tar inte emot dem utanför sitt läge
+  parent.postMessage({ nwp: 'forhandsbrygga/1', typ: 'redigerat', selektor: 'h1', gammal: 'Fientlig förhandsvisning', ny: 'Kapad' }, '*');
+  parent.postMessage({ nwp: 'forhandsbrygga/1', typ: 'markerat', tagg: 'h1', text: 'Kapad', selektor: 'h1', sida: '/' }, '*');
+  try { top.location.href = 'https://example.com/'; r.toppnavigering = 'försökt utan undantag'; } catch (e) { r.toppnavigering = 'nekad: ' + e.name; }
+  await new Promise((ok) => setTimeout(ok, 1500));
+  r.adress_efter = location.href;
+  r.klar = true;
+  document.getElementById('status').textContent = JSON.stringify(r);
+  for (let i = 0; i < 40; i++) { parent.postMessage({ fientlig: r }, '*'); await new Promise((ok) => setTimeout(ok, 500)); }
+})();
+</script>
+</body></html>

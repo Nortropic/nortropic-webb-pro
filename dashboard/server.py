@@ -984,18 +984,23 @@ def kandidatvy(slug, st):
             'godkand_kandidat': vinnare.get('kandidat') if vinnare.get('godkand') else None}
 
 
-def visa_kandidat(slug, kid):
+def visa_kandidat(slug, kid, ursprung=None):
     """Kandidatens hela prototyp, klickbar, på en egen lokal adress (samma statiska server som provet, med formulärets
-    lokala demonstration: /api/forfragan → /tack/)."""
+    lokala demonstration: /api/forfragan → /tack/). Med ursprung (dashboardens egen adress) lägger servern in arbetsytans
+    brygga (dashboard/forhandsbrygga.js) i sidorna den serverar: markering och direktredigering i den levande
+    förhandsvisningen, bara mot det ursprunget. Det byggda (dist/) ändras aldrig."""
     import kandidater
     if not kandidater.ID.fullmatch(kid) or kid not in kandidater.lista(slug):
         return None
     dist = kandidater.ksajt(slug, kid) / 'dist'
     if not (dist / 'index.html').is_file():
         return None
-    nyckel = '%s/%s' % (slug, kid)
+    nyckel = '%s/%s%s' % (slug, kid, ('@' + ursprung) if ursprung else '')
     if nyckel not in VISNING:
-        srv = Server(dist)
+        brygga = None
+        if ursprung:
+            brygga = (Path(__file__).parent / 'forhandsbrygga.js').read_text(encoding='utf-8').replace("'__NWP_URSPRUNG__'", json.dumps(ursprung)).encode()
+        srv = Server(dist, brygga=brygga)
         srv.__enter__()
         VISNING[nyckel] = srv
     return VISNING[nyckel].url + '/'
@@ -3024,7 +3029,7 @@ class H(BaseHTTPRequestHandler):
         dash = sys.modules[__name__]
         if vag == '/api/arbetsyta':
             return self.skicka(200, {'tid': nu(), 'projekt': arbetsyta.projekt(dash), 'lagen': arbetsyta.LAGEN})
-        m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})(?:/(strom|partner|kod|logg|meddelanden|grenar|historik/[0-9a-f-]{36}))?', vag)
+        m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})(?:/(strom|partner|partner/strom|redigera/karta|kod|logg|meddelanden|grenar|historik/[0-9a-f-]{36}))?', vag)
         if not m or m.group(1) not in {p['slug'] for p in arbetsyta.projekt(dash)}:
             return self.skicka(404, {'fel': 'ingen kund som arbetsytan känner till'})
         slug, del_ = m.groups()
@@ -3045,6 +3050,14 @@ class H(BaseHTTPRequestHandler):
             return self.strom(slug)
         if del_ == 'partner':
             return self.skicka(200, partner.lage(dash, slug, samtal=True))
+        if del_ == 'partner/strom':
+            return self.partner_strom(slug, q.get('id'))
+        if del_ == 'redigera/karta':  # kan texten ändras direkt i kandidatens källa? (direktredigering.py; ändrar ingenting)
+            import direktredigering
+            try:
+                return self.skicka(200, direktredigering.karta(dash, slug, q.get('kandidat'), q.get('text')))
+            except ValueError as e:
+                return self.skicka(404, {'fel': str(e)})
         if del_ == 'kod':
             try:
                 return self.skicka(200, arbetsyta.kod(dash, slug, q.get('kandidat'), q.get('fil'), q.get('mot')))
@@ -3211,17 +3224,84 @@ class H(BaseHTTPRequestHandler):
             return self.skicka(200, {'utloggad': True}, extra={'Set-Cookie': desktop.kaka('', self.port(), ta_bort=True)})
         return self.skicka(404, {'fel': 'finns inte'})
 
+    def strom_ursprung_ok(self):
+        """Bara dashboardens egen sida får prenumerera på en ström: Sec-Fetch-Site och Origin (en saknad Origin är en
+        navigering eller ett verktyg i samma maskin)."""
+        sfs = (self.headers.get('Sec-Fetch-Site') or '').lower()
+        ursprung = urlsplit(self.headers.get('Origin') or '')
+        orig = (self.headers.get('Origin') or '').strip()
+        return not ((sfs and sfs not in ('same-origin', 'none')) or orig.lower() == 'null'
+                    or (orig and ursprung.netloc.lower() != (self.headers.get('Host') or '').strip().lower()))
+
+    def partner_strom(self, slug, mid):
+        """Partnerns pågående tur som en ström (text/event-stream, partner.delvis): textdeltan, att modellen resonerar,
+        verktygsanrop och slutposten, ur Claude Codes egna strömmade händelser. Varje anslutning börjar från turens början
+        (händelsen borjan), så en återanslutning lämnar ingen lucka. Händelsen slut bär meddelandets läge; svaret läses ur
+        partnerläget, aldrig ur deltan. Samma ursprungsregler, tak och sessionsbindning som arbetsytans ström; en stängd
+        ström påverkar aldrig turen."""
+        import partner
+        if not self.strom_ursprung_ok():
+            return self.skicka(403, {'fel': 'fel ursprung för strömmen'})
+        dash = sys.modules[__name__]
+        try:
+            r = partner.delvis(dash, slug, mid, 0)
+        except partner.Dold as e:
+            return self.skicka(409, {'fel': str(e), 'slag': 'Dold'})
+        except ValueError as e:
+            return self.skicka(404, {'fel': str(e)})
+        with STROM_LAS:
+            if STROMMAR['antal'] >= STROMMAR['max']:
+                return self.skicka(503, {'fel': 'för många öppna strömmar; stäng en flik'}, extra={'Retry-After': '10'})
+            STROMMAR['antal'] += 1
+
+        def handelse(namn, data):
+            self.wfile.write(('event: %s\ndata: %s\n\n' % (namn, json.dumps(data, ensure_ascii=False, default=str))).encode())
+        try:
+            self.send_response(200)
+            for k, v in (('Content-Type', 'text/event-stream; charset=utf-8'), ('Cache-Control', 'no-store'), ('X-Content-Type-Options', 'nosniff'),
+                         ('X-Accel-Buffering', 'no')):
+                self.send_header(k, v)
+            self.end_headers()
+            self.connection.settimeout(20)
+            self.wfile.write(b'retry: 2000\n\n')
+            handelse('borjan', {'id': mid, 'tid': nu()})
+            start = senast = time.time()
+            sid = desktop.kaka_sid(self.headers.get('Cookie'), self.port())
+            med_session = bool(sid)
+            while True:
+                if r['handelser']:
+                    handelse('del', {'handelser': r['handelser']})
+                    senast = time.time()
+                if r['klar']:
+                    handelse('slut', {'lage': r.get('lage'), 'fel': r.get('fel'), 'tid': nu()})
+                    break
+                if time.time() - start > STROMMAR['livslangd'] or (med_session and not desktop.giltig(sid, rora=False)):
+                    break
+                if time.time() - senast >= 10:
+                    handelse('puls', {'tid': nu()})
+                    senast = time.time()
+                self.wfile.flush()
+                time.sleep(0.2)
+                try:
+                    r = partner.delvis(dash, slug, mid, r['pos'])
+                except ValueError as e:  # sessionen arkiverades eller kunden blev en blind arm medan strömmen var öppen
+                    handelse('fel', {'fel': str(e), 'tid': nu()})
+                    break
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            with STROM_LAS:
+                STROMMAR['antal'] -= 1
+        self.close_connection = True
+
     def strom(self, slug):
         """Läget som en ström (text/event-stream): ett nytt läge när signaturen över källorna ändrats, en puls med tiden var
         tionde sekund och ett fel som en egen händelse. Återanslutningen är webbläsarens (retry 3 s); varje ny anslutning får
         hela läget först, så en tappad anslutning lämnar ingen lucka i läget, bara i tiden, som vyn visar. Bara dashboardens
         egen sida får prenumerera (Sec-Fetch-Site och Origin); en stängd flik avslutar bara strömmen, aldrig arbetet."""
         import arbetsyta
-        sfs = (self.headers.get('Sec-Fetch-Site') or '').lower()
-        ursprung = urlsplit(self.headers.get('Origin') or '')
-        orig = (self.headers.get('Origin') or '').strip()
-        if (sfs and sfs not in ('same-origin', 'none')) or orig.lower() == 'null' \
-                or (orig and ursprung.netloc.lower() != (self.headers.get('Host') or '').strip().lower()):
+        if not self.strom_ursprung_ok():
             return self.skicka(403, {'fel': 'fel ursprung för strömmen'})
         with STROM_LAS:
             if STROMMAR['antal'] >= STROMMAR['max']:
@@ -3393,7 +3473,8 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(200, lan_lage(m.group(1)))
             m = re.match(r'^/visa/([a-z0-9-]{2,60})/(k\d{2})$', vag)
             if m:  # en kandidats hela prototyp i kandidatflödet, eller en av dess undersidor (?sida=/väg/)
-                url = visa_kandidat(m.group(1), m.group(2))
+                # bryggan bara mot dashboardens egen adress (värden är prövad av vard_ok, schemat är alltid http på loopback)
+                url = visa_kandidat(m.group(1), m.group(2), ursprung='http://' + (self.headers.get('Host') or '').strip())
                 if url:
                     import kandidater
                     sida = dict(parse_qsl(urlsplit(self.path).query)).get('sida') or ''
@@ -3527,7 +3608,7 @@ class H(BaseHTTPRequestHandler):
                     return self.skicka(404, {'fel': 'finns inte'})
                 return self.skicka(200, {'meddelande': samverkan.skicka, 'mandat': samverkan.mandat, 'paus': samverkan.paus,
                                          'foljdfraga': samverkan.foljdfraga, 'beslut': samverkan.beslut}[del_](dash, slug, data))
-            m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(partner|andring|oppna)', vag)
+            m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(partner|andring|oppna|redigera)', vag)
             if m:  # arbetsytans skrivningar: ett meddelande till partnern, ägarens ändring och öppning i editorn (dashboard/arbetsyta.py)
                 import arbetsyta
                 import partner
@@ -3538,6 +3619,12 @@ class H(BaseHTTPRequestHandler):
                     return self.skicka(200, partner.skicka(dash, m.group(1), data))
                 if m.group(2) == 'andring':
                     return self.skicka(200, arbetsyta.skicka_andring(dash, m.group(1), data))
+                if m.group(2) == 'redigera':  # ägarens direktredigering: flödeshandlingen redigera (kontroller/direktredigering.py)
+                    import direktredigering
+                    try:
+                        return self.skicka(200, direktredigering.begar(dash, m.group(1), data))
+                    except direktredigering.EjMappbar as e:
+                        return self.skicka(422, {'fel': str(e), 'slag': 'EjMappbar', 'alternativ': 'uppdrag'})
                 return self.skicka(200, arbetsyta.oppna_i_editor(dash, m.group(1), data))
             m = re.fullmatch(r'/api/kirurg/forbattringar/([a-z]+)', vag)
             if m:

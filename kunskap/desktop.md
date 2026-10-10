@@ -109,7 +109,11 @@ Fönstrets plats sparas och används bara när den hamnar på en skärm som finn
   utan native-rättigheter; motorns sidor öppnar externa länkar i nya fönster, och förhandsvisningens sandlåda saknar
   allow-top-navigation. Nya fönster (target=_blank, window.open) öppnas aldrig i appen: https och http, också
   förhandsvisningen i en ny flik, går till systemets webbläsare (det uttryckliga undantaget); andra scheman nekas.
-- Förhandsvisningen körs som förut på en egen port i en sandlådad iframe och får inga native-rättigheter.
+- Förhandsvisningen körs som förut på en egen port i en sandlådad iframe och får inga native-rättigheter. Dashboardens
+  förhandsvisningsserver lägger in arbetsytans brygga (`dashboard/forhandsbrygga.js`) för Markera och Redigera text; den
+  pratar bara med motorns eget ursprung genom postMessage och kan inte nå appen, nyckeln eller sessionen. Det den skickar
+  är data: en markering fyller samtalets kontext, och en direktredigering sparas först med ditt klick i arbetsytan
+  (`kunskap/arbetsyta.md`, Den levande förhandsvisningen och direktredigering).
 - Hotmodellen: skydden gäller webbangrepp (en förhandsvisad sajt, en annan webbsida, DNS-ombindning). Kod som redan kör
   som samma macOS-användare kan läsa nyckelfilen och motorns lästa vägar; appen skyddar inte mot ett komprometterat konto.
   Motorns läsvägar är som förut öppna för samma användares processer (`kunskap/arbetsyta.md`, Säkerhet).
@@ -194,6 +198,17 @@ arbetsytans variabler portalens ljusa värden (målbildens ljusa yta och mörka 
   `kunder/`. Appen har ingen egen nyckel i Keychain: den enda långlivade hemligheten är motorns dashboardnyckel, som
   stannar i sin befintliga fil.
 
+## Avinstallera
+
+`desktop/avinstallera.sh` listar utan flagga det som skulle tas bort: appen (`~/Applications/Nortropic.app` eller
+`/Applications/Nortropic.app`, prövad på paketets id) och appens egna data (`~/Library/Application Support/`,
+`~/Library/WebKit/` och `~/Library/Caches/` för `se.nortropic.desktop`, och om de finns HTTPStorages, sparat
+fönsterläge, Preferences och Logs). `--app` tar bort appen och behåller inställningarna; `--allt` tar bort appen och dess
+data, också föregående version efter en uppdatering. Kör appen vägrar skriptet (slutkod 3) och tar inte bort något.
+Motorn rörs aldrig: repot, `underlag/`, `kunder/`, dashboardens nyckel och arbetet i motorn står kvar. Prövat
+2026-10-10 i ett eget provhem (torrt, vägran medan appen kör, borttagning efter) och torrt mot ägarens hem; den riktiga
+borttagningen i ägarens hem görs inte av ett prov, eftersom den skulle ta bort den installerade appens data.
+
 ## Prov
 
 | Prov | Vad | Hur |
@@ -219,8 +234,8 @@ införandet (karenstiden i `kunskap/beroenden.md`). Rust installeras med rustup 
 ## Inte gjort eller inte prövat (2026-10-10)
 
 Täckningsmatrisen U01–U40, D01–D28 och J01–J12 med bevisnivå per prov står i den privata rapporten
-`underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md`. I korthet inte gjort: direktredigering av text i
-förhandsvisningen och elementmarkering i den levande förhandsvisningen (E6; kommentarerna gäller den bevarade bilden),
-strömmande partnersvar (partnern svarar som förut i hela turer), ett handlingskort "Genomför i utkastet" ur partnern,
-Developer ID och notarisering, en publik uppdateringskanal, VoiceOver-prov och ett
+`underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md`. Byggt sedan: partnerns strömmande svar, Genomför i
+utkastet ur partnerns överlämning, och markering och direktredigering av text i den levande förhandsvisningen
+(`kunskap/arbetsyta.md`). I korthet inte gjort: direktredigering av annat än en entydig text (bilder, länkar, attribut,
+text som byggs av ett uttryck), Developer ID och notarisering, en publik uppdateringskanal, VoiceOver-prov och ett
 mänskligt användbarhetsprov med ägaren. Upplåsningen med Touch ID eller lösenord kan bara en människa pröva.

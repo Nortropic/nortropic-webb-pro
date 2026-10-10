@@ -300,9 +300,59 @@ finns under Kod och preview.
   `CLAUDE.md`, `BESLUT.md`, `kunskap/`, `kritik/`, `backlog/` och kundens underlag); dontAsk nekar inte läsningar inom
   arbetskatalogen, därför är den tom. Inga MCP:er, inget Bash, inget Write.
 - **Läget i varje meddelande:** arbetsytans läge ur samma läsväg som vyn, blindat, och din markering.
-- **Överlämning:** ett `overlamning`-block blir ett förslag i vyn; du skickar själv. Partnerns svar blir aldrig ett beslut.
-- **Lagring (privat):** `underlag/<kund>/arbetsyta/PARTNER.json` och svarsfilerna i `partner/`. Frist per tur
-  `NWP_PARTNER_FRIST` (600 s).
+- **Strömningen (2026-10-10):** turen körs med `--output-format stream-json --verbose --include-partial-messages`
+  (Claude Code 2.1.290, prövat med ett riktigt anrop) till `partner/strom-<id>.jsonl`, och turens slutpost skrivs som
+  svarsfilen `partner/svar-<id>.json` (samma fält som `--output-format json`; startades dashboarden om mitt i turen läses
+  slutposten ur strömmen). `GET /api/arbetsyta/<kund>/partner/strom?id=<id>` är en ström (text/event-stream) med
+  händelserna `borjan`, `del`, `puls`, `slut` och `fel`; delhändelserna är textdeltan och nya stycken, att modellen
+  resonerar (innehållet visas inte), verktygsanrop med fil (relativt repot) och verktygssvarens utfall (aldrig deras
+  innehåll), och slutposten. Samma ursprungsregler, tak och sessionsbindning som arbetsytans ström; bara den gällande
+  sessionens meddelanden, aldrig i en blind jämförelse. Vyn visar delsvaret märkt "inte färdigt", skilt från svaret, som
+  är turens slutpost; en tur som avbryts visar det som hann strömmas som just det, aldrig som ett svar. Skärmläsaren får
+  slutet, inte varje token. Varje anslutning börjar om från turens början, så en återanslutning lämnar ingen lucka.
+- **Överlämning:** ett `overlamning`-block blir ett förslag i vyn. Partnerns svar blir aldrig ett beslut. Du kan använda
+  det som din ändring (formuläret fylls, du skickar själv) eller **Genomför i utkastet**: förslagets fält (uppdragets
+  typ, önskat resultat, omfattning och det som ska bevaras) står i ett formulär som du justerar, och ett klick sparar
+  uppdraget genom ändringsvägen (`/andring` med `kalla: {typ: partnerforslag, meddelande_id}`) och startar det genom
+  flödets ordinarie start (`/api/flode/<kund>/start`, handlingen `valda`) med samma operations-id i båda, så ett
+  omförsök varken sparar eller startar något nytt. Servern prövar att källan är ett färdigt svar med en läsbar överlämning
+  i den gällande partnersessionen, och domens rad bär källan (`arbetsyta.kalla`, med partnersessionen); avsändaren är du.
+  Körningen, versionen och steget prövas som för varje ändring, och hindret står vid knappen (en annan version än
+  förslaget gällde, en bytt körning, en körning som inte väntar på dig).
+- **Lagring (privat):** `underlag/<kund>/arbetsyta/PARTNER.json` och strömmarna och svarsfilerna i `partner/`. Frist per
+  tur `NWP_PARTNER_FRIST` (600 s).
+
+## Den levande förhandsvisningen och direktredigering
+
+En kandidats förhandsvisning (`/visa/<kund>/<kandidat>`) körs på en egen lokal port. När dashboarden leder dit lägger
+förhandsvisningens server (`prova.Server` med `brygga`) in `dashboard/forhandsbrygga.js` i sidorna den serverar; det
+byggda (`dist/`), ögonblicksbilderna, proven och exporten får den aldrig. Bryggan tar bara emot meddelanden från
+dashboardens eget ursprung och skickar bara data dit (text, väg och en beskrivning av elementet); vyn tar bara emot från
+förhandsvisningens egen ram. Det bryggan skickar är aldrig ett beslut. Lägena står ovanför förhandsvisningen:
+
+- **Besök:** sajten som vanligt.
+- **Markera:** ett klick markerar elementet åt samtalet (sidan och delen på raden Gäller, med kandidaten och den hela
+  versionen); sajten navigerar inte.
+- **Redigera text:** ett klick på en text frågar motorn om den kan ändras i källan
+  (`GET /api/arbetsyta/<kund>/redigera/karta`, ändrar ingenting). Kan den det blir texten redigerbar i förhandsvisningen;
+  Enter visar ändringen i arbetsytan, och först **Spara i källan och bygg om** sparar
+  (`POST /api/arbetsyta/<kund>/redigera`). Kan den inte det säger arbetsytan varför och erbjuder ett uppdrag med texten.
+
+Direktredigeringen (`kontroller/direktredigering.py`) stöder en sammanhängande text på en rad, 2–500 tecken, som står
+exakt en gång i kandidatens källa: som egen text mellan taggar i en `.astro`- eller `.html`-mall (inte i ett attribut,
+ett uttryck, `<script>` eller `<style>`), som en hel strängliteral i frontmatter, som ett helt strängvärde i en
+`.json`-fil eller i brödtexten i en `.md`-fil. Annat ändras aldrig direkt. Begäran är bunden till körningen och
+kandidatens hela version, och körningen ska vänta på dig utan att en arbetare lever; i ett blint läge görs ditt första val
+först. Den sparas i `underlag/<kund>/arbetsyta/redigeringar/<id>.json` och startas som flödeshandlingen `redigera`
+genom `kontroller/flodesstart.py`, som håller kundens startlås under hela arbetet (ingen AI skriver samtidigt; Byggflöde
+visar det som pågående och kan stoppa det). Arbetaren prövar allt igen under låset, bevarar grundversionen, skriver texten
+i kandidatens projekt (`kunder/<kund>/kandidater/<kandidat>/sajt/src`) med rätt escape för platsen, och bygger och
+fotograferar om med kandidatens ordinarie fotografering: den nya koden blir kandidatens nästa version, bevarad som varje
+annan, och det är den som godkänns, installeras i helbygget och exporteras. Föll bygget, eller syns inte den nya texten i
+den byggda sajten, läggs den ursprungliga texten tillbaka och kandidaten fotograferas om (`aterstalld`); en källa som
+ändrats sedan begäran ger `konflikt` utan ändring. Läget står i arbetsytans läge (`redigeringar`: köad, pågår, klar,
+återställd, konflikt, fel, stoppad, nekad), och ägarens genomförda direktredigeringar följer med i kommande uppdrag
+(`skapande.kritikrader`), så att en senare plan inte skriver tillbaka den gamla texten utan att ett beslut säger det.
 
 ## Modellprofilen och kompetensen
 
@@ -357,9 +407,9 @@ till exempel i Ghostty) är ingen interaktiv webbläsare och behövs inte: arbet
 
 | Prov | Vad | Hur |
 |---|---|---|
-| `kontroller/rokprov/revision/prov_arbetsyta.py` | läsvägen, sessionernas lägen, blindningen (också partnerns A/B-spärr och sessionsbindning), koden, ändringarna, partnern, bussens HTTP-vägar, den externa granskaren och dess kommandoradsverktyg, mandatet, pausen, historiken och följdfrågan, beslutet bundet till bilden | i rökprovet |
+| `kontroller/rokprov/revision/prov_arbetsyta.py` | läsvägen, sessionernas lägen, blindningen (också partnerns A/B-spärr och sessionsbindning), koden, ändringarna, partnern och dess ström, Genomför i utkastet, direktredigeringen (kartan, escapen, villkoren, arbetaren, återställningen, konflikten), förhandsvisningens brygga, bussens HTTP-vägar, den externa granskaren och dess kommandoradsverktyg, mandatet, pausen, historiken och följdfrågan, beslutet bundet till bilden | i rökprovet |
 | `kontroller/rokprov/revision/prov_meddelanden.py` | bussen och löparen med en falsk strömmande claude: leveranslägena, origin, avsändaren, mandatet, paus och återupptagning, projektets paus, blinda sessioner, inaktuella versioner, okänt, turtaket; klassen Granskning prövar fynden i GR-20261009-arbetsplats-oberoende (svarsfilen, kanalerna, pausens spärr och kvitton, förfalskade rubriker, mandatet, kvittot för besvarat, versionen vid leveransen, omsändning, bussens katalog, sena avbrottskvitton) | i rökprovet |
-| `kontroller/rokprov/revision/prov_arbetsyta_webb.mjs` | vyerna med syntetiska svar: bredder, axe, tangentbord, start-id, stopp, återanslutning, menyn | i rökprovet |
+| `kontroller/rokprov/revision/prov_arbetsyta_webb.mjs` | vyerna med syntetiska svar: bredder, axe, tangentbord, start-id, stopp, återanslutning, menyn; partnerns delsvar och avbrott, Genomför i utkastet, och bryggan i en förhandsvisning på ett eget ursprung (Markera, Redigera text, en förfalskad markering) | i rökprovet |
 | `mod/nortropic-arbetsyta/tests/` | modden | `claude plugin test mod/nortropic-arbetsyta` |
 | `kontroller/rokprov/revision/prov_arbetsplats_verklig.mjs` | användarresan med verkliga sessioner i en provinstans med fiktivt material (se nedan) | för hand; kostar modellanrop |
 

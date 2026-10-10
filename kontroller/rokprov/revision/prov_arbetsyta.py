@@ -57,6 +57,9 @@ import nastlad  # noqa: E402
 import observation  # noqa: E402
 import skapande  # noqa: E402
 import arbetsyta_fixtur  # noqa: E402
+import direktredigering  # noqa: E402
+import flodesstart  # noqa: E402
+import prova  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[3]
 MALLSAJT = ROOT / 'kunder' / 'rokprov-mall' / 'sajt'  # rökprovets byggda mallsajt
@@ -142,7 +145,8 @@ class FalskProcess:
 
 class FalskClaude:
     """claude -p i partnerns ställe: pid:en är en riktig kortlivad process som bär sessionens id i sina argument (som en
-    tur gör; partnern prövar det), och svaret skrivs till stdout-filen som Claude Code skriver sin svarsfil. Ingen modell
+    tur gör; partnern prövar det), och turen skrivs till stdout-filen i Claude Codes stream-json-form (inspelad mot
+    Claude Code 2.1.290 2026-10-10): init, ett textstycke med två deltan och, när svara är sant, slutposten. Ingen modell
     anropas, och något annat än claude startas aldrig här."""
 
     def __init__(self):
@@ -156,10 +160,18 @@ class FalskClaude:
         sid = args[args.index('--session-id' if '--session-id' in args else '--resume') + 1]
         p = ORIG_POPEN([sys.executable, '-c', 'import sys, time; time.sleep(float(sys.argv[1]))', self.sov, '--resume', sid],
                        stdin=subprocess.DEVNULL)
+        rader = [{'type': 'system', 'subtype': 'init', 'session_id': sid},
+                 {'type': 'stream_event', 'event': {'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'thinking', 'thinking': ''}}},
+                 {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Read', 'input': {'file_path': str(Path(dash.ROOT) / 'kunskap' / 'arbetsyta.md')}}]}},
+                 {'type': 'user', 'message': {'content': [{'type': 'tool_result', 'content': 'kunskapens text (visas aldrig)', 'is_error': False}]}},
+                 {'type': 'stream_event', 'event': {'type': 'content_block_start', 'index': 1, 'content_block': {'type': 'text', 'text': ''}}},
+                 {'type': 'stream_event', 'event': {'type': 'content_block_delta', 'index': 1, 'delta': {'type': 'text_delta', 'text': 'Svar '}}},
+                 {'type': 'stream_event', 'event': {'type': 'content_block_delta', 'index': 1, 'delta': {'type': 'text_delta', 'text': '(testdata).'}}}]
         if self.svara:
-            kw['stdout'].write(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': 'Svar (testdata).',
-                                           'session_id': sid, 'num_turns': 1, 'usage': {'input_tokens': 12, 'output_tokens': 3}}).encode())
-            kw['stdout'].flush()
+            rader.append({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': 'Svar (testdata).',
+                          'session_id': sid, 'num_turns': 1, 'usage': {'input_tokens': 12, 'output_tokens': 3}})
+        kw['stdout'].write(''.join(json.dumps(r, ensure_ascii=False) + '\n' for r in rader).encode())
+        kw['stdout'].flush()
         fp = FalskProcess(p)
         self.processer.append(fp)
         return fp
@@ -780,6 +792,297 @@ class Arbetsyta(unittest.TestCase):
             self.assertEqual(args[args.index(par[0]) + 1], par[1], args)
         self.assertIn('--strict-mcp-config', args)
         self.assertEqual(args[args.index('--allowedTools') + 1:args.index('--append-system-prompt')], regler)
+
+    # --- partnerns ström (U26, 2026-10-10) ---
+
+    def test_partnerns_strom_visar_delhandelser_och_inget_pahittat_svar(self):
+        falsk, _ps = self.falsk_partner()
+        args = partner.args(dash, SLUG, str(uuid.uuid4()), True, partner.profil())
+        self.assertEqual(args[args.index('--output-format') + 1], 'stream-json')
+        self.assertIn('--include-partial-messages', args)
+        self.assertIn('--verbose', args, 'stream-json i -p kräver --verbose')
+        # en tur som svarar: slutposten blir svarsfilen, och svaret är bara slutposten
+        m1 = partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-strom-01', 'text': 'Var står vi?'})
+        self.assertEqual(m1['lage'], 'svarat')
+        vanta_pa_vakter()
+        katalog = self.u / 'arbetsyta' / 'partner'
+        self.assertEqual(self.las(katalog / 'svar-meddelande-strom-01.json')['result'], 'Svar (testdata).')
+        r = partner.delvis(dash, SLUG, 'meddelande-strom-01', 0)
+        self.assertTrue(r['klar'])
+        self.assertEqual(r['lage'], 'svarat')
+        self.assertEqual([h['typ'] for h in r['handelser']], ['resonerar', 'verktyg', 'verktygssvar', 'stycke', 'text', 'text', 'resultat'])
+        self.assertEqual(r['handelser'][1], {'typ': 'verktyg', 'namn': 'Read', 'fil': 'kunskap/arbetsyta.md'})
+        self.assertNotIn('kunskapens text', json.dumps(r, ensure_ascii=False), 'verktygens innehåll visas inte')
+        self.assertEqual(partner.delvis(dash, SLUG, 'meddelande-strom-01', r['pos'])['handelser'], [], 'positionen fortsätter där läsningen slutade')
+        # dashboarden startades om innan svarsfilen skrevs: svaret läses ur strömmens slutpost
+        (katalog / 'svar-meddelande-strom-01.json').unlink()
+        self.assertEqual(partner.lage(dash, SLUG, samtal=True)['meddelanden'][0]['svar']['text'], 'Svar (testdata).')
+        # en tur som pågår: delhändelserna syns, turen är inte klar och inget svar finns
+        falsk.svara, falsk.sov = False, '60'
+        m2 = partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-strom-02', 'text': 'Och nu?'})
+        self.assertEqual(m2['lage'], 'arbetar')
+        r = partner.delvis(dash, SLUG, 'meddelande-strom-02', 0)
+        self.assertFalse(r['klar'])
+        self.assertEqual(''.join(h.get('text', '') for h in r['handelser']), 'Svar (testdata).')
+        port, host, anropa = self.server()
+        vag = '/api/arbetsyta/%s/partner/strom?id=meddelande-strom-02' % SLUG
+        for huvud in ({'Sec-Fetch-Site': 'cross-site'}, {'Origin': 'http://annan.example'}, {'Origin': 'null'}):
+            self.assertEqual(anropa('GET', vag, huvud=huvud)[0], 403, huvud)
+        self.assertEqual(anropa('GET', '/api/arbetsyta/%s/partner/strom?id=meddelande-finns-inte' % SLUG)[0], 404)
+        self.assertEqual(anropa('GET', '/api/arbetsyta/%s/partner/strom?id=../x' % SLUG)[0], 404)
+        fore = dash.STROMMAR['antal']
+        c = http.client.HTTPConnection('127.0.0.1', port, timeout=20)
+        try:
+            c.request('GET', vag, headers={'Sec-Fetch-Site': 'same-origin'})
+            svar = c.getresponse()
+            self.assertEqual(svar.status, 200)
+            self.assertTrue(svar.getheader('Content-Type').startswith('text/event-stream'))
+
+            def handelse():
+                namn, data = None, None
+                while True:
+                    rad = svar.readline().decode().rstrip('\n')
+                    if rad.startswith('event: '):
+                        namn = rad[7:]
+                    elif rad.startswith('data: '):
+                        data = json.loads(rad[6:])
+                    elif rad == '' and namn:
+                        return namn, data
+            self.assertEqual(handelse()[0], 'borjan')
+            namn, data = handelse()
+            self.assertEqual(namn, 'del')
+            self.assertEqual(''.join(h.get('text', '') for h in data['handelser']), 'Svar (testdata).')
+            stoppa(falsk.processer[-1].p)  # turen avbryts mitt i strömmen
+            vanta_pa_vakter()
+            namn, data = handelse()
+            while namn == 'puls':
+                namn, data = handelse()
+        finally:
+            c.close()
+        self.assertEqual(namn, 'slut')
+        self.assertEqual(data['lage'], 'avbrutet', data)
+        m = partner.lage(dash, SLUG, samtal=True)['meddelanden'][-1]
+        self.assertIsNone(m['svar'], 'det som hann strömmas blir inget svar')
+        self.assertFalse((katalog / 'svar-meddelande-strom-02.json').exists())
+        self.vanta_pa_strommar(fore)
+
+    # --- Genomför i utkastet (U16/E5, 2026-10-10) ---
+
+    def test_genomfor_i_utkastet_kraver_partnerns_forslag_i_den_gallande_sessionen(self):
+        self.k02_fotograferad()
+        sid = str(uuid.uuid4())
+        svar = 'Jag föreslår en större rubrik.\n```overlamning\n' + json.dumps(
+            {'kandidat': 'k02', 'version': V_NU[:12], 'sida': '/', 'del': 'rubriken', 'mal': 'en större rubrik', 'avgransning': 'kompositionen',
+             'forvantat': 'rubriken syns först'}, ensure_ascii=False) + '\n```'
+        self.skriv(self.u / 'arbetsyta' / 'PARTNER.json', {
+            'schema': 'partner/1', 'slug': SLUG, 'session_id': sid, 'skapad': '2026-10-10T05:00:00Z', 'korning': self.status['startad'], 'blind_vid_start': True,
+            'meddelanden': [{'id': 'meddelande-forslag-01', 'tid': '2026-10-10T05:01:00Z', 'avsikt': 'andring', 'text': 'Rubriken ska synas mer.',
+                             'svarsfil': 'svar-meddelande-forslag-01.json', 'pid': None},
+                            {'id': 'meddelande-fraga-01', 'tid': '2026-10-10T05:02:00Z', 'avsikt': 'fraga', 'text': 'Vad tycker du?',
+                             'svarsfil': 'svar-meddelande-fraga-01.json', 'pid': None}]})
+        self.skriv(self.u / 'arbetsyta' / 'partner' / 'svar-meddelande-forslag-01.json', {'type': 'result', 'is_error': False, 'result': svar, 'session_id': sid})
+        self.skriv(self.u / 'arbetsyta' / 'partner' / 'svar-meddelande-fraga-01.json', {'type': 'result', 'is_error': False, 'result': 'Den är bra.', 'session_id': sid})
+        bas = self.andring(andring_id='g' + '1' * 40)
+        with patch.object(partner, '_ps', return_value=''):
+            for kalla, fel in (({'typ': 'partnerforslag', 'meddelande_id': 'meddelande-fraga-01'}, arbetsyta.Inaktuell),  # en fråga är ingen överlämning
+                               ({'typ': 'partnerforslag', 'meddelande_id': 'meddelande-finns-inte'}, arbetsyta.Inaktuell),
+                               ({'typ': 'modellens-egen', 'meddelande_id': 'meddelande-forslag-01'}, ValueError), ('partnern', ValueError)):
+                with self.assertRaises(fel, msg=kalla):
+                    arbetsyta.skicka_andring(dash, SLUG, dict(bas, kalla=kalla))
+            self.assertEqual(self.domrader(), [], 'inget nekat skrevs i domloggen')
+            r = arbetsyta.skicka_andring(dash, SLUG, dict(bas, kalla={'typ': 'partnerforslag', 'meddelande_id': 'meddelande-forslag-01'}))
+        self.assertFalse(r['upprepat'])
+        d = self.domrader()[-1]
+        self.assertEqual(d['kalla'], 'ägaren', 'beslutet är ägarens klick, inte partnerns text')
+        self.assertEqual(d['arbetsyta']['kalla'], {'typ': 'partnerforslag', 'meddelande_id': 'meddelande-forslag-01', 'partnersession': sid})
+        self.assertEqual(d['arbetsyta']['andring_id'], 'g' + '1' * 40)
+        self.assertIn('valda', [h['id'] for h in self.lage()['handlingar']], 'uppdraget startas genom flödets ordinarie start')
+
+    # --- direktredigering (E6/U23, 2026-10-10) ---
+
+    INDEX = """---
+const tjanster = [{ titel: 'Service på plats', text: "Vi kommer till dig." }];
+const rubrik = 'Bilverkstad i Testby';
+---
+<html><head><title>{rubrik}</title><style>h1 { color: red }</style></head>
+<body>
+<h1>Verkstaden &amp; däcken</h1>
+<p class="ingress">Vi lagar bilen samma dag.</p>
+<img src="x.jpg" alt="Vi lagar bilen samma dag och fler">
+<a href="/kontakt/">Boka tid</a>
+<a href="/om/">Boka tid</a>
+{tjanster.map((t) => <h2>{t.titel}</h2>)}
+<script>const etikett = 'Dold i skriptet';</script>
+<p>Ring <em>oss</em> idag</p>
+</body></html>
+"""
+
+    def redigerbar_k02(self):
+        """k02 med ett eget litet projekt (kunder/<slug>/kandidater/k02/sajt/src), fotograferat: koden i kod/, och versionen i
+        statusen är projektets (kandidater.projektets_version)."""
+        sajt = kandidater.ksajt(SLUG, 'k02')
+        (sajt / 'src' / 'pages').mkdir(parents=True, exist_ok=True)
+        (sajt / 'src' / 'pages' / 'index.astro').write_text(self.INDEX, encoding='utf-8')
+        (sajt / 'src' / 'data').mkdir(parents=True, exist_ok=True)
+        (sajt / 'src' / 'data' / 'texter.json').write_text('{"knapp": "Skicka förfrågan", "lista": ["Däckbyte"]}\n', encoding='utf-8')
+        d = kandidater.kdir(SLUG, 'k02')
+        arbetsyta_fixtur._kopiera_kod(sajt, d, kandidater)
+        v = kandidater.version(SLUG, 'k02')
+        self.assertEqual(kandidater.projektets_version(SLUG, 'k02'), v, 'projektet och den fotograferade koden är samma version')
+        f = d / 'STATUS.json'
+        self.skriv(f, dict(self.las(f), version=v, status='klar'))
+        return v
+
+    def falsk_fotografering(self, falla=()):
+        """kandidater.fotografera utan bygge och webbläsare: koden till kod/ (som fotograferingen), en dist/ med sidans text
+        och versionen i statusen; för varje anrop i falla faller bygget i stället."""
+        anrop = []
+
+        def foto(slug, kid, skiss=None):
+            anrop.append(kid)
+            sajt, d = kandidater.ksajt(slug, kid), kandidater.kdir(slug, kid)
+            shutil.rmtree(d / 'kod', ignore_errors=True)
+            shutil.rmtree(d / kandidater.KODSRC, ignore_errors=True)
+            arbetsyta_fixtur._kopiera_kod(sajt, d, kandidater)
+            v = kandidater.version(slug, kid)
+            if len(anrop) in falla:
+                return kandidater.satt_status(slug, kid, 'ofullstandig', 'bygget föll: provets attrapp', version=v)
+            mall = (sajt / 'src' / 'pages' / 'index.astro').read_text(encoding='utf-8').split('---', 2)[-1]
+            data = (sajt / 'src' / 'data' / 'texter.json').read_text(encoding='utf-8')
+            (sajt / 'dist').mkdir(exist_ok=True)
+            (sajt / 'dist' / 'index.html').write_text(mall + '<footer>' + data + '</footer>', encoding='utf-8')
+            kandidater.bevara_version(slug, kid, v, bilder=False)
+            return kandidater.satt_status(slug, kid, 'klar', 'fotograferad (attrapp)', version=v)
+        self.stack.enter_context(patch.object(kandidater, 'fotografera', side_effect=foto))
+        return anrop
+
+    def test_direktredigeringens_karta_tar_bara_en_entydig_egen_text(self):
+        self.redigerbar_k02()
+        k = direktredigering.kartlagg(SLUG, 'k02', 'Vi lagar bilen  samma dag.')
+        self.assertEqual((k['fil'], k['kontext'], k['kallans_text']), ('src/pages/index.astro', 'mall', 'Vi lagar bilen samma dag.'),
+                         'texten i alt-attributet är ingen träff som egen text, och blanktecken jämförs fritt')
+        self.assertEqual(direktredigering.kartlagg(SLUG, 'k02', 'Verkstaden & däcken')['kallans_text'], 'Verkstaden &amp; däcken')
+        self.assertEqual(direktredigering.kartlagg(SLUG, 'k02', 'Bilverkstad i Testby')[('kontext')], 'js')
+        self.assertEqual(direktredigering.kartlagg(SLUG, 'k02', 'Vi kommer till dig.')['citat'], '"')
+        self.assertEqual(direktredigering.kartlagg(SLUG, 'k02', 'Skicka förfrågan')['fil'], 'src/data/texter.json')
+        for text, skal in (('Boka tid', 'på 2 ställen'), ('Dold i skriptet', 'bara i kod'), ('Ring oss idag', 'finns inte ordagrant'),
+                           ('Finns inte alls', 'finns inte ordagrant'), ('x', '2–500 tecken'), ('<h1>', 'tecken som hör till koden')):
+            with self.assertRaises(direktredigering.EjMappbar, msg=text) as e:
+                direktredigering.kartlagg(SLUG, 'k02', text)
+            self.assertIn(skal, str(e.exception), text)
+        # den nya texten skrivs för sin plats: en entitet i mallen, en escape i JSON, och ett citattecken nekas i en sträng
+        self.assertEqual(direktredigering.ersattning({'kontext': 'mall'}, 'A & B {x} <b>'), 'A &amp; B &#123;x&#125; &lt;b&gt;')
+        self.assertEqual(direktredigering.ersattning({'kontext': 'json'}, 'Säg "hej"'), 'Säg \\"hej\\"')
+        with self.assertRaises(ValueError):
+            direktredigering.ersattning({'kontext': 'js', 'citat': "'"}, "Bilverkstad i Testby's")
+        with self.assertRaises(ValueError):
+            direktredigering.ersattning({'kontext': 'mall'}, 'två\nrader')
+        # förhandsfrågan: blindläget nekar, utan att något ändras
+        self.assertFalse(direktredigering.karta(dash, SLUG, 'k02', 'Vi lagar bilen samma dag.')['ok'], 'före ditt första val')
+        self.agarens_val()
+        self.assertTrue(direktredigering.karta(dash, SLUG, 'k02', 'Vi lagar bilen samma dag.')['ok'])
+        self.assertFalse(direktredigering.karta(dash, SLUG, 'k02', 'Boka tid')['ok'])
+
+    def test_direktredigeringen_skriver_kallan_bygger_om_och_bevarar_versionen(self):
+        v = self.redigerbar_k02()
+        self.agarens_val()
+        self.skriv_status(steg='klar_for_bedomning')
+        starter = []
+        self.stack.enter_context(patch.object(flodesstart, 'starta', side_effect=lambda slug, h, sid: starter.append((slug, h, sid)) or 5))
+        bas = {'redigering_id': 'r' + '1' * 40, 'kandidat': 'k02', 'version': v, 'korning': self.status['startad'], 'sida': '/',
+               'del': 'p "Vi lagar bilen samma dag."', 'gammal': 'Vi lagar bilen samma dag.', 'ny': 'Vi lagar bilen & däcken samma dag.'}
+        for fel, typ in ((dict(bas, version='0' * 64), direktredigering.Inaktuell), (dict(bas, korning='2026-10-01T00:00:00Z'), direktredigering.Inaktuell),
+                         (dict(bas, gammal='Boka tid'), direktredigering.EjMappbar), (dict(bas, ny='Vi lagar bilen samma dag.'), ValueError),
+                         (dict(bas, kandidat='k99'), ValueError), (dict(bas, redigering_id='x'), ValueError)):
+            with self.assertRaises(typ, msg=fel):
+                direktredigering.begar(dash, SLUG, fel)
+        self.assertEqual(starter, [], 'inget nekat startades')
+        r = direktredigering.begar(dash, SLUG, bas)
+        self.assertEqual((r['status'], r['fil'], r['upprepat']), ('koad', 'src/pages/index.astro', False))
+        self.assertEqual(starter, [(SLUG, 'redigera', bas['redigering_id'])], 'flödets ordinarie start med redigeringens id')
+        self.assertTrue(direktredigering.begar(dash, SLUG, bas)['upprepat'], 'samma id ger samma begäran')
+        self.assertEqual(len(starter), 1)
+        self.assertEqual(self.lage()['redigeringar'][0]['id'], bas['redigering_id'])
+        # arbetaren (som flodesstart kör den under startlåset): källan, ombygget och den nya versionen
+        foto = self.falsk_fotografering()
+        self.assertEqual(direktredigering.main([SLUG, '--kor', bas['redigering_id']]), 2, 'bara flodesstart kör arbetaren')
+        self.assertEqual(direktredigering.kor(SLUG, bas['redigering_id']), 0)
+        post = self.las(direktredigering.katalog(SLUG) / ('%s.json' % bas['redigering_id']))
+        self.assertEqual(post['status'], 'klar', post.get('skal'))
+        kalla = (kandidater.ksajt(SLUG, 'k02') / 'src' / 'pages' / 'index.astro').read_text(encoding='utf-8')
+        self.assertIn('<p class="ingress">Vi lagar bilen &amp; däcken samma dag.</p>', kalla)
+        self.assertIn('alt="Vi lagar bilen samma dag och fler"', kalla, 'attributet med liknande text rördes inte')
+        ny_v = kandidater.las_status(SLUG, 'k02')['version']
+        self.assertNotEqual(ny_v, v)
+        self.assertEqual(post['till_version'], ny_v)
+        self.assertEqual(foto, ['k02'])
+        self.assertIn('Vi lagar bilen &amp; däcken samma dag.', (kandidater.kdir(SLUG, 'k02') / 'kod' / 'index.astro').read_text(encoding='utf-8'),
+                      'den fotograferade koden (det som godkänns och installeras i helbygget) bär ändringen')
+        self.assertTrue(kandidater.bevarad(SLUG, 'k02', v), 'grundversionen är bevarad: vägen tillbaka')
+        self.assertTrue(kandidater.bevarad(SLUG, 'k02', ny_v))
+        rader = skapande.kritikrader(SLUG, underlag=self.root / 'underlag')
+        self.assertTrue(any('"Vi lagar bilen samma dag." → "Vi lagar bilen & däcken samma dag."' in r for r in rader), rader)
+        self.assertEqual(self.lage()['redigeringar'][-1]['status'], 'klar')
+        # samma begäran igen gör ingenting, och en begäran mot den gamla versionen är inaktuell
+        self.assertEqual(direktredigering.kor(SLUG, bas['redigering_id']), 2)
+        with self.assertRaises(direktredigering.Inaktuell):
+            direktredigering.begar(dash, SLUG, dict(bas, redigering_id='r' + '2' * 40, gammal='Skicka förfrågan', ny='Skicka'))
+        # en arbetare som skriver i kandidaterna nekar, och ett bygge som faller lägger tillbaka den gamla texten
+        st = self.skriv_status(pid=self.levande(), steg='kandidater')
+        with self.assertRaises(direktredigering.Inaktuell):
+            direktredigering.begar(dash, SLUG, dict(bas, redigering_id='r' + '3' * 40, version=ny_v, gammal='Skicka förfrågan', ny='Skicka'))
+        self.skriv_status(pid=None, steg='klar_for_bedomning')
+        r = direktredigering.begar(dash, SLUG, dict(bas, redigering_id='r' + '4' * 40, version=ny_v, gammal='Skicka förfrågan', ny='Skicka "nu"'))
+        self.assertEqual(r['fil'], 'src/data/texter.json')
+        foto = self.falsk_fotografering(falla=(1,))
+        self.assertEqual(direktredigering.kor(SLUG, 'r' + '4' * 40), 3)
+        post = self.las(direktredigering.katalog(SLUG) / ('%s.json' % ('r' + '4' * 40)))
+        self.assertEqual(post['status'], 'aterstalld', post)
+        self.assertIn('bygget föll', post['skal'])
+        self.assertIn('"knapp": "Skicka förfrågan"', (kandidater.ksajt(SLUG, 'k02') / 'src' / 'data' / 'texter.json').read_text(encoding='utf-8'))
+        self.assertEqual(kandidater.las_status(SLUG, 'k02')['version'], ny_v, 'tillbaka i versionen före')
+        # en källa som ändrats efter begäran: konflikt, inget skrivs
+        self.skriv(direktredigering.katalog(SLUG) / ('%s.json' % ('r' + '5' * 40)), dict(post, id='r' + '5' * 40, status='begard', fran_version=ny_v,
+                                                                                        karta=dict(post['karta'], kallsha='0' * 64)))
+        self.assertEqual(direktredigering.kor(SLUG, 'r' + '5' * 40), 3)
+        self.assertEqual(self.las(direktredigering.katalog(SLUG) / ('%s.json' % ('r' + '5' * 40)))['status'], 'konflikt')
+
+    def test_direktredigeringen_ar_en_flodeshandling(self):
+        self.assertIn('redigera', flodesstart.HANDLINGAR)
+        flodesstart.krav(SLUG, 'redigera')  # ateljén väntar på ägaren: inget hinder i startens krav
+        self.skriv_status(pid=self.levande(), steg='kandidater')
+        with self.assertRaises(ValueError):
+            flodesstart.krav(SLUG, 'redigera')
+
+    def test_forhandsvisningens_brygga_bara_i_dashboardens_server(self):
+        d = self.root / 'dist'
+        (d / 'om').mkdir(parents=True)
+        (d / 'index.html').write_text('<html><body><h1>Hej</h1></body></html>', encoding='utf-8')
+        (d / 'om' / 'index.html').write_text('<html><body><p>Om</p></body></html>', encoding='utf-8')
+
+        def hamta(url):
+            from urllib.parse import urlsplit
+            u = urlsplit(url)
+            c = http.client.HTTPConnection(u.hostname, u.port, timeout=10)
+            try:
+                c.request('GET', u.path or '/')
+                r = c.getresponse()
+                return r.status, r.read(), r.getheader('Location')
+            finally:
+                c.close()
+        with prova.Server(d) as utan, prova.Server(d, brygga=b'/*brygga*/') as med:
+            self.assertNotIn(b'forhandsbrygga', hamta(utan.url + '/')[1], 'utan brygga: sidan som den är byggd')
+            self.assertEqual(hamta(utan.url + prova.BRYGGVAG)[0], 404)
+            s, kropp, _ = hamta(med.url + '/')
+            self.assertEqual(s, 200)
+            self.assertIn(b'<script src="/__nortropic/forhandsbrygga.js" defer></script></body>', kropp)
+            self.assertEqual(hamta(med.url + prova.BRYGGVAG)[:2], (200, b'/*brygga*/'))
+            self.assertEqual(hamta(med.url + '/om')[0], 301, 'en katalog utan snedstreck leds om som förut')
+            self.assertIn(b'forhandsbrygga', hamta(med.url + '/om/')[1])
+        self.assertEqual((d / 'index.html').read_text(encoding='utf-8'), '<html><body><h1>Hej</h1></body></html>', 'dist/ ändras aldrig')
+        skript = (Path(dash.__file__).parent / 'forhandsbrygga.js').read_text(encoding='utf-8')
+        self.assertIn("ev.source !== window.parent || ev.origin !== URSPRUNG", skript, 'bryggan tar bara emot från arbetsytans ursprung')
+        self.assertEqual(skript.count("'__NWP_URSPRUNG__'"), 1, 'ursprunget byts in på en plats')
 
     # --- partnerns blindning (ägarens kontrollpunkter 2026-10-09: server.py:2950 och partner.py:296 på b20ae3a) ---
 

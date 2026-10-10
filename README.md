@@ -91,7 +91,8 @@ omfattning. Saknat, historiskt, dolt och underkänt är skilda lägen. Ingen gr�
 Ateljéns besked använder helbyggstartens giltighetskontroll; helbyggets besked prövar också aktuell Kundstart-källa.
 Läsningen ändrar varken den ursprungliga domen eller den sparade slutposten.
 
-Helbygge och export använder samma startjournal genom `kontroller/flodesstart.py`. Kundens flock-lås följer
+Helbygge, export och ägarens direktredigering av en text i en kandidat (`kontroller/direktredigering.py`;
+`kunskap/arbetsyta.md`, Den levande förhandsvisningen) använder samma startjournal genom `kontroller/flodesstart.py`. Kundens flock-lås följer
 arbetaren och helbyggets vakt; direkta CLI-starter prövar samma lås. Stopp begärs med `--stoppa-overgang` och sparas
 också före processstart. Arbetaren läser den sparade stoppbegäran under körningen, så stoppet beror inte på att
 signalen når den, och stoppet går till arbetets egen process (kor.sh eller exportera.py) också när arbetaren själv

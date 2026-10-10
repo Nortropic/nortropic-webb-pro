@@ -18,6 +18,7 @@ const ORSAK = {
   last: 'Nortropic är låst. Lås upp för att fortsätta arbetet.',
   utloggad: 'Du har loggat ut. Lås upp för att fortsätta.',
   tidsgrans: 'Nortropic låstes efter en stund utan aktivitet. Arbetet i motorn fortsätter som förut.',
+  vila: 'Nortropic låstes efter vila: datorn sov längre än låstiden. Arbetet i motorn fortsätter som förut.',
 };
 
 function visaVy(namn) {
@@ -30,7 +31,7 @@ function prick(klass, text) { return `<span><i class="prick ${klass}" aria-hidde
 function statusrad(d) {
   const m = d.motor || {}; const ok = m.lage === 'verifierad';
   return prick(ok ? 'ok' : m.lage === 'stoppad' ? 'av' : 'fel', MOTORTEXT[m.lage] || 'Motorns läge okänt')
-    + prick(d.natet?.nar ? 'ok' : 'fel', d.natet?.nar ? 'Internet nås' : 'Internet nås inte (motorn kan ändå visa sparat arbete)')
+    + (d.natet?.nar == null ? prick('av', 'Internet prövas') : prick(d.natet.nar ? 'ok' : 'fel', d.natet.nar ? 'Internet nås' : 'Internet nås inte (motorn kan ändå visa sparat arbete)'))
     + prick(d.upplast ? 'ok' : 'av', d.upplast ? 'Upplåst' : 'Låst');
 }
 
