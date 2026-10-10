@@ -262,6 +262,10 @@ const srv = createServer(async (req, res) => {
     { steg: 'Prototypen', vem: 'Ateljén skapar kandidater med neutrala etiketter; granskarna dömer var för sig.' }] } });
   if (vag === `/api/prototyp/${SLUG}`) return S.utanPrototyp ? json({ fel: 'ingen prototyp för bygget' }, 404) : json(prototypData());
   if (vag === '/api/oversikt') return json({ byggen: [], backlog_vilande: 3, intag_pagar: 1, prospekt_vantar: 0 });
+  if (vag === '/api/leverans') return json({ schema: 1, besked: '1 kunder; 1 äldre Vercel-projekt kvar', bestandsfel: null,  // formen ur migreringslage.oversikt()
+    kunder: [{ slug: SLUG, besked: 'förberedd; nästa: måltestad', migrerad: false, i_drift: false,
+               steg: { forberedd: 'ja', maltestad: 'nej', trafik_flyttad: 'nej', data_avstamd: 'inte_tillampligt', legacy_avvecklad: 'inte_tillampligt' } }],
+    legacy_utan_kund: [{ projekt: 'gammal-provsajt', adress: 'gammal-provsajt.vercel.app', status: 'kvar', data: null }] });
   if (vag === '/api/underhall') return json({ senast: { start: T(90), slut: T(80), antal: { uppdaterad: 2, avvisad: 0, behallen: 1 } }, andringar: [], intervall_dagar: 1, pagar: null, md: '' });
   if (vag === '/api/bevakning') return json({ senast: { start: T(30), slut: T(29), automatisk: true, utfall: 'delvis', sen_timmar: 0.2 }, nasta: T(-600), tidszon: 'Europe/Stockholm',
     klockslag: '07:00', aktiv: true, forbattringar: { bevakade: 3, bedomda: 1, provade: 0, inforda: 0, verifierade: 0 },
@@ -500,6 +504,9 @@ try {
   await page.locator('#leverans h2').filter({ hasText: 'Äldre sajter på Vercel' }).waitFor();
   assert.equal(await page.locator('#leverans .meddelande.fel').count(), 0, 'migreringsläget ska gå att läsa');
   assert.equal(await page.locator('#leverans').getByText('migrerad:', { exact: false }).count(), 0, 'ingen provkund står som migrerad');
+  assert.deepEqual(await page.locator('#leverans tbody tr').first().locator('td').allTextContents(),
+    ['ja', 'nej', 'nej', 'inte tillämpligt', 'inte tillämpligt', 'förberedd; nästa: måltestad'], 'fem skilda besked och läget');
+  assert.equal(await page.locator('#leverans tbody tr').last().locator('td').last().textContent(), 'kvar på Vercel');
   await page.evaluate(() => { location.hash = '#/underhall'; });
   await page.locator('#vy h1').filter({ hasText: 'Underhåll och verktygslådan' }).waitFor();
   await page.locator('#verktygslada .chip').filter({ hasText: '2 uppdaterade' }).waitFor();

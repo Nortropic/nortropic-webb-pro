@@ -283,11 +283,11 @@ async function leveransvy() {
   $('#vy').innerHTML = `<h1>Leverans och förvaltning</h1><p class="under">Kundernas läge på Cloudflare, steg för steg, och de äldre sajterna på Vercel. Läget räknas ur kvitton och observationer. Att leveransvägen bytts gör ingen kund migrerad.</p><div id="leverans"><p class="under">Laddar …</p></div>`;
   const d = await api('/api/leverans').catch((e) => ({ fel: e.message }));
   const el = $('#leverans'); if (!el || location.hash !== '#/leverans') return;
-  if (d.fel) { el.innerHTML = `<div class="meddelande fel">${esc(d.fel)}</div>`; return; }
+  if (d.fel || !Array.isArray(d.kunder) || !Array.isArray(d.legacy_utan_kund)) { el.innerHTML = `<div class="meddelande fel">${esc(d.fel || 'Migreringsläget kom i en oväntad form.')}</div>`; return; }
   const ord = { ja: 'ja', nej: 'nej', inte_tillampligt: 'inte tillämpligt' };
   const steg = [['forberedd', 'Förberedd'], ['maltestad', 'Måltestad'], ['trafik_flyttad', 'Trafik flyttad'], ['data_avstamd', 'Data avstämd'], ['legacy_avvecklad', 'Legacy avvecklad']];
   el.innerHTML = `${d.kunder.length ? `<div class="kort tabell"><table><caption>Kunderna (${d.kunder.length})</caption><thead><tr><th scope="col">Kund</th>${steg.map(([, n]) => `<th scope="col">${n}</th>`).join('')}<th scope="col">Läget</th></tr></thead>
-      <tbody>${d.kunder.map((k) => `<tr><th scope="row"><a href="#/arbetsyta/${encodeURIComponent(k.slug)}/flode">${esc(k.slug)}</a></th>${steg.map(([id]) => `<td>${esc(ord[k.steg[id]] || k.steg[id])}</td>`).join('')}<td>${esc(k.besked)}</td></tr>`).join('')}</tbody></table></div>`
+      <tbody>${d.kunder.map((k) => `<tr><th scope="row"><a href="#/arbetsyta/${encodeURIComponent(k.slug)}/flode">${esc(k.slug)}</a></th>${steg.map(([id]) => `<td>${esc(ord[(k.steg || {})[id]] || (k.steg || {})[id] || 'inte observerat')}</td>`).join('')}<td>${esc(k.besked)}</td></tr>`).join('')}</tbody></table></div>`
       : '<div class="tom">Ingen kund har ett kundrepo än.</div>'}
     <p class="under">Beläggen för varje steg står i kundens Byggflöde under Leveransen. Trafiken räknas som flyttad först när kundens egen adress har observerats svara från Workern efter releasen (<code>migreringslage.py &lt;slug&gt; --observera https://&lt;domän&gt;</code>).</p>
     <h2>Äldre sajter på Vercel</h2>
@@ -693,6 +693,9 @@ async function designprovvy(slug) {
 // bredvid huvudreferensen, och ägarens dom till domloggen: godkänd, putsa vidare eller ny riktning. Panelens val och slutdom
 // visas först när ägaren dömt, så att domen är oberoende.
 const BESLUT = { godkand: 'Godkänd: bygget tar vid från den här startsidan', putsa: 'Putsa vidare: samma riktning, med min kritik', ny_riktning: 'Ny riktning: designbesluten raderas (inget arkiv) och utforskningen börjar om' };
+// Omritningen efter en skrivning väntas inte in: ett läsfel där (till exempel att körningen hunnit försvinna) visas av nästa
+// läsning, aldrig som ett ohanterat fel i sidans skript.
+const omritningsfel = () => {};
 async function prototypvy(slug) {
   aktivNav('prototyp');
   if (!slug) {
@@ -740,7 +743,7 @@ async function prototypvy(slug) {
     if (!b) { alert('Välj godkänd, putsa vidare eller ny riktning.'); return; }
     if (b !== 'godkand' && !text.trim()) { alert('Skriv vad som ska ändras: din text är nästa körnings kritik.'); return; }
     knapp.disabled = true;
-    try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, niva: n || null, text, startad }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
+    try { await post('/api/prototyp/' + encodeURIComponent(slug), { beslut: b, niva: n || null, text, startad }); prototypvy(slug).catch(omritningsfel); } catch (e) { alert(e.message); knapp.disabled = false; }
   };
 }
 
@@ -961,7 +964,7 @@ async function kandidatvy(slug, d) {
     }
     knapp.disabled = true;
     try { await post('/api/arbetsyta/' + encodeURIComponent(slug) + '/beslut', { beslut: b, kandidater: kand, delar, text, startad, ...(uppdrag ? { uppdrag } : {}),
-      ...(sedd.length ? { sedd } : {}), ...(kunden ? { avsandare: 'kunden', belagg: $('#k-u-belagg').value.trim() } : {}) }); prototypvy(slug); } catch (e) { alert(e.message); knapp.disabled = false; }
+      ...(sedd.length ? { sedd } : {}), ...(kunden ? { avsandare: 'kunden', belagg: $('#k-u-belagg').value.trim() } : {}) }); prototypvy(slug).catch(omritningsfel); } catch (e) { alert(e.message); knapp.disabled = false; }
   };
 }
 
