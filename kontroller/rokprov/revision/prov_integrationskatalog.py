@@ -57,22 +57,26 @@ class Katalog(unittest.TestCase):
         self.brist(lambda k: p(k, 'k12-handel-utreds').update(grund=True), 'kan inte vara grundleverans')
         self.brist(lambda k: p(k, 'k06-hitta-hit').update(grund='ja'), 'grund ska vara true eller false')
         self.brist(lambda k: p(k, 'k06-hitta-hit').update(komponent='mall/astro/src/components/FinnsInte.astro'), 'finns inte i mallen')
+        self.brist(lambda k: p(k, 'k04-resend-transaktion').update(grund=True), 'inaktuellt paket är historik')
+        self.brist(lambda k: p(k, 'k04-resend-transaktion')['funktioner'].update(prova='workersprov.prova'), 'inaktuellt paket är historik')
         self.brist(lambda k: p(k, 'k06-hitta-hit').pop('komponent'), 'utan körväg')
 
 
 class Plan(unittest.TestCase):
     def test_grundvagen_ar_klar_for_bygge_i_beroendeordning(self):
-        pl = ik.planera(val('k02-cloudflare-workers', 'k03-formular-worker', 'k04-resend-transaktion'), arende={'id': 'A', 'revision': 3})
+        pl = ik.planera(val('k02-cloudflare-workers', 'k03-formular-worker', 'k04-cloudflare-epost'), arende={'id': 'A', 'revision': 3})
         self.assertTrue(pl['klar_for_bygge'], pl['hinder'])
         self.assertLess(pl['ordning'].index('k02-cloudflare-workers'), pl['ordning'].index('k03-formular-worker'))
         self.assertEqual(pl['arende'], {'id': 'A', 'revision': 3})
-        self.assertIn('k04-resend-transaktion', pl['okand_kostnad'], 'okänd kostnad visas som okänd, aldrig som noll')
+        self.assertNotIn('k04-cloudflare-epost', pl['okand_kostnad'])
+        self.assertEqual([(x['belopp'], x['valuta']) for x in pl['kostnader'] if x['paket'] == 'k04-cloudflare-epost'], [(0, 'USD')], 'känd nollkostnad med källa')
+        self.assertIn('k09-bokningslank', ik.planera(val('k09-bokningslank'))['okand_kostnad'], 'okänd kostnad visas som okänd, aldrig som noll')
         self.assertNotIn('k02-cloudflare-workers', pl['okand_kostnad'])
         self.assertTrue(any(m['handling'].startswith('ansluta kontot') for m in pl['manniska']))
         self.assertTrue(all(a['funktion'] is None and a['besked'] for a in pl['avveckling']), 'avvecklingen är uttryckligen mänsklig')
 
     def test_planen_ar_deterministisk_och_bunden_till_val_och_arende(self):
-        v = val('k02-cloudflare-workers', 'k03-formular-worker', 'k04-resend-transaktion')
+        v = val('k02-cloudflare-workers', 'k03-formular-worker', 'k04-cloudflare-epost')
         a, b = ik.planera(v), ik.planera(list(reversed(v)))
         self.assertEqual(a['plan_sha256'], b['plan_sha256'], 'ordningen i valet ändrar inte planen')
         self.assertNotEqual(a['plan_sha256'], ik.planera(v, arende={'id': 'A', 'revision': 4})['plan_sha256'])
@@ -106,11 +110,19 @@ class Plan(unittest.TestCase):
         self.assertTrue(any('okänt läge' in h for h in pl['hinder']))
 
     def test_grundleveransen_ingar_utan_kundens_kryss_men_bara_for_grundpaket(self):
-        pl = ik.planera(val('k02-cloudflare-workers', 'k03-formular-worker', 'k04-resend-transaktion', lage='grund'))
+        pl = ik.planera(val('k02-cloudflare-workers', 'k03-formular-worker', 'k04-cloudflare-epost', lage='grund'))
         self.assertTrue(pl['klar_for_bygge'], pl['hinder']); self.assertEqual(len(pl['omfattning']), 3)
-        self.assertEqual(sorted(p['id'] for p in KAT['paket'] if p['grund']), ['k02-cloudflare-workers', 'k03-formular-worker', 'k04-resend-transaktion'])
+        self.assertEqual(sorted(p['id'] for p in KAT['paket'] if p['grund']), ['k02-cloudflare-workers', 'k03-formular-worker', 'k04-cloudflare-epost'])
         pl = ik.planera(val('k11-stripe-betallank', lage='grund'))
         self.assertEqual(pl['omfattning'], []); self.assertTrue(any('ingår inte i grundleveransen' in h for h in pl['hinder']))
+
+    def test_ett_inaktuellt_paket_ingar_aldrig_i_planen(self):
+        # ägarens beslut 2026-10-10: Cloudflares e-post är K04:s huvudväg; Resend står kvar som historik
+        for lage in ('kundval', 'grund', 'onskemal'):
+            pl = ik.planera(val('k02-cloudflare-workers', 'k03-formular-worker') + val('k04-resend-transaktion', lage=lage))
+            self.assertNotIn('k04-resend-transaktion', [x['paket'] for x in pl['omfattning'] + pl['ovriga']])
+            self.assertTrue(any('inaktuellt' in h and 'k04-cloudflare-epost' in h for h in pl['hinder']), pl['hinder'])
+            self.assertFalse(pl['klar_for_bygge'])
 
     def test_flera_instanser_kraver_egen_identitet(self):
         two = [{'omrade': 'K09', 'paket': 'k09-bokningslank', 'lage': 'kundval', 'instans': 'filial-a'},

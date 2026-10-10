@@ -133,7 +133,8 @@ Spaningen letar därför efter metoder och ändringar inom våra områden, inte 
 | rss | Cloudflare Workers changelog | https://developers.cloudflare.com/changelog/rss/workers.xml | leveransvägen: Workers, Static Assets, workers.dev och förhandsadresser | 1.0 | lansering |
 | rss | Cloudflare D1 changelog | https://developers.cloudflare.com/changelog/rss/d1.xml | formulärets ärendelager: gränser, jurisdiktion | 0.8 | lansering |
 | rss | Wrangler releases | https://github.com/cloudflare/workers-sdk/releases.atom | låst i mall/leverans; underhållet tar in | 0.8 | lansering |
-| rss | Resend changelog | https://resend.com/changelog/rss.xml | formulärets mejl: API, idempotens, avsändarkrav | 0.6 | lansering |
+| rss | Cloudflare Email Service changelog | https://developers.cloudflare.com/changelog/rss/email-service.xml | formulärets mejl (K04): send_email, verifierade mottagare, gränser | 0.8 | lansering |
+| rss | Resend changelog | https://resend.com/changelog/rss.xml | prospektens utskick: API, idempotens, avsändarkrav (formulärets mejl går genom Cloudflare sedan 2026-10-10) | 0.4 | lansering |
 
 ## Bevakningsfrågor
 
@@ -497,7 +498,7 @@ ansvar: underhållet (beroendena) och helbygget (mallen)
 ```
 
 ```bevakning personuppgifter-i-kundsajter
-fråga: Hanterar kundsajterna personuppgifter enligt GDPR och IMY:s aktuella vägledning: kontaktformulär och lagrade förfrågningar (D1 och R2 hos Cloudflare, mejl genom Resend), överföring till tredjeland och externa typsnitt, skript eller kartor?
+fråga: Hanterar kundsajterna personuppgifter enligt GDPR och IMY:s aktuella vägledning: kontaktformulär och lagrade förfrågningar (D1, R2 och mejlet hos Cloudflare), överföring till tredjeland och externa typsnitt, skript eller kartor?
 område: juridik
 steg: helbygge
 kompetens: leverans
@@ -537,7 +538,7 @@ ansvar: prospektflödet; ägaren för utskicken
 ```
 
 ```bevakning formular-och-epost
-fråga: Når kundsajternas formulär och e-post fram och skyddas de mot spam enligt aktuell praxis: avsändarkraven hos Google och Microsoft (SPF, DKIM, DMARC), Resend och formulärskydd utan spårning?
+fråga: Når kundsajternas formulär och e-post fram och skyddas de mot spam enligt aktuell praxis: avsändarkraven hos Google och Microsoft (SPF, DKIM, DMARC), Cloudflares e-post och formulärskydd utan spårning?
 område: leverans
 steg: leverans
 kompetens: leverans

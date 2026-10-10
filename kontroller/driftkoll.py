@@ -14,7 +14,7 @@ Båda: säkerhetshuvudena (kundrepots _headers för statiska svar, Workerns egna
 /api/forfragan/: honeypot (303 till
 /tack/), ofullständigt (422 med bevarad text), en bild över 4 MB och en begäran över 4,4 MB (413 med
 bildens besked, X-Forfragan for-stor), annan Origin (403), och i förhandsvisningen ett giltigt inskick
-(303 till /tack/ med X-Forfragan demo: Resends variabler gäller bara produktionen, och ett riktigt mejl ur en
+(303 till /tack/ med X-Forfragan demo: mejlbindningen finns bara i produktionen, och ett riktigt mejl ur en
 förhandsvisning vore ett fel). Ett giltigt inskick skickas aldrig till en produktion: det vore ett riktigt mejl.
 Slutkod 0 när allt håller, 1 annars, 2 vid fel i anropet.
 """

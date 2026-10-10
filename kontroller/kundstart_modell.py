@@ -105,7 +105,7 @@ def kontext(dokument):
     try:
         import integrationskatalog
         v['integrationskatalog']=[{n:p[n] for n in ('id','omrade','niva','funktion','passar')}
-                                  for p in integrationskatalog.las()['paket'] if not p['grund']]
+                                  for p in integrationskatalog.las()['paket'] if not p['grund'] and p['fardighet'] != 'inaktuellt']
     except (OSError,ValueError,KeyError):
         v['integrationskatalog']=[]  # utan katalog kan modellen bara skriva utreds
     data=kundstart.jsontext(v)

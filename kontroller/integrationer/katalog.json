@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "2026-10-10.3",
+  "version": "2026-10-10.4",
   "kontrollerad": "2026-10-10",
   "omraden": [
     {"id": "K01", "namn": "Domän och webbadress"},
@@ -123,7 +123,25 @@
       "begransningar": ["Samtyckesfrågan för tredjepartsskript prövas före."], "paverkar": {"brief": null, "design": "widgeten i formuläret", "kod": "Forfragan.astro, worker/index.js", "externt": "Turnstile"}, "manniska": []
     },
     {
-      "id": "k04-resend-transaktion", "version": "1.0.0", "omrade": "K04", "niva": "api", "grund": true,
+      "id": "k04-cloudflare-epost", "version": "1.0.0", "omrade": "K04", "niva": "inbyggd", "grund": true,
+      "funktion": "Webbplatsens egna mejl (aviseringen om en förfrågan) genom Cloudflares e-post från Workern, till verksamhetens verifierade brevlåda.",
+      "passar": "Formuläret ska avisera verksamheten.", "passar_inte": "Nyhetsbrev och utskick (K14 har annat ändamål och behörighet); mejl till godtyckliga mottagare.",
+      "kunduppgifter": ["mottagare: verksamhetens brevlåda"], "bevara": ["verksamhetens befintliga brevlådor och MX"],
+      "kallor": [{"url": "https://developers.cloudflare.com/email-service/api/send-emails/workers-api/", "last": "2026-10-10"}, {"url": "https://developers.cloudflare.com/email-service/configuration/send-bindings/", "last": "2026-10-10"}, {"url": "https://developers.cloudflare.com/email-service/configuration/email-routing-addresses/", "last": "2026-10-10"}, {"url": "https://developers.cloudflare.com/email-service/platform/limits/", "last": "2026-10-10"}, {"url": "https://developers.cloudflare.com/email-service/platform/pricing/", "last": "2026-10-10"}],
+      "formagor": ["transaktionsmejl"], "kraver": ["k02-cloudflare-workers"], "utesluter": [],
+      "konto": {"agare": "nortropic", "typ": "Nortropics Cloudflare-konto med Email Routing på routing-domänen notis.nortropic.se", "plan": "Workers Free räcker för verifierade mottagare", "region": "anges inte i källorna"},
+      "rattigheter": {"tillampa": "send_email-bindningen låst till kundens verifierade mottagare och avsändaren på routing-domänen; ingen nyckel i Workern"},
+      "dataflode": "Förfrågans text och bild genom Cloudflares e-post (samma leverantör som Workern, D1 och R2) till verksamhetens brevlåda. Var innehållet behandlas anges inte i källorna.", "lagring": "Cloudflares e-postloggar; lagringstiden för innehållet anges inte i källorna.",
+      "kostnad": {"modell": "mejl till verifierade mottagare är gratis på alla planer och räknas inte mot kvoten", "belopp": 0, "valuta": "USD", "kalla": "https://developers.cloudflare.com/email-service/platform/pricing/", "datum": "2026-10-10"},
+      "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": "workersprov.prova", "avveckla": null},
+      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Workerns anrop, kvitto och felvägar mot en attrapp av bindningen (prov_formularfel) och genom Wranglers lokala simulering av send_email (prov_workers); inget mejl genom Cloudflare i detta repo.",
+      "prov": ["kontroller/rokprov/revision/prov_formularfel.py", "kontroller/rokprov/revision/prov_workers.py"], "driftkontroll": "kunskap/lansering.md: mottagaren verifierad, Email Routing på routing-domänen",
+      "begransningar": ["Avsändaren ligger på Nortropics routing-domän (notis.nortropic.se), inte på verksamhetens domän.", "Mottagaren verifieras i Nortropics konto; högst 200 verifierade adresser per konto, delade av alla kunder.", "Ingen idempotensnyckel: ett okänt utfall står som skickar i utkorgen och stäms av där.", "Mejl till godtyckliga mottagare (Email Sending) kräver Workers Paid och ingår inte.", "Meddelandet högst 25 MiB."],
+      "paverkar": {"brief": "mottagare", "design": null, "kod": "worker/index.js, wrangler.jsonc (send_email)", "externt": "verifierad mottagare i Nortropics Cloudflare-konto"},
+      "manniska": ["mottagaren läggs till som verifierad adress i Nortropics konto (Email Routing)", "verksamheten klickar på Cloudflares verifieringslänk"]
+    },
+    {
+      "id": "k04-resend-transaktion", "version": "1.1.0", "omrade": "K04", "niva": "api", "grund": false,
       "funktion": "Webbplatsens egna mejl (aviseringen om en förfrågan) från verksamhetens domän.",
       "passar": "Formuläret ska avisera verksamheten.", "passar_inte": "Nyhetsbrev och utskick (K14 har annat ändamål och behörighet).",
       "kunduppgifter": ["avsändaradress på domänen", "mottagare"], "bevara": ["verksamhetens befintliga brevlådor och MX"],
@@ -133,9 +151,9 @@
       "rattigheter": {"tillampa": "skicka från verifierad domän (API-nyckel som Worker-hemlighet)"},
       "dataflode": "Förfrågans text och bild till Resend (data lagras i USA; standardavtalsklausuler och EU–US Data Privacy Framework) och vidare till verksamhetens brevlåda.", "lagring": "Resends loggar.",
       "kostnad": {"modell": "okänd i katalogen: Resends plan prövas vid aktiveringen", "belopp": null, "valuta": null, "kalla": null, "datum": null},
-      "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": "workersprov.prova", "avveckla": null},
-      "fardighet": "kontraktsprovat", "fardighet_omfattning": "Workerns anrop, kvitto, idempotensnyckel och felvägar mot en attrapp; inget mejl genom Resend i detta repo.",
-      "prov": ["kontroller/rokprov/revision/prov_formularfel.py"], "driftkontroll": "kunskap/lansering.md: SPF, DKIM, DMARC",
+      "funktioner": {"inspektera": null, "planera": null, "tillampa": null, "aterlas": null, "prova": null, "avveckla": null},
+      "fardighet": "inaktuellt", "fardighet_omfattning": "Ersatt av k04-cloudflare-epost (ägarens beslut 2026-10-10); Workerns Resend-anrop är borttaget och paketet står kvar som historik.",
+      "prov": [], "driftkontroll": "kunskap/lansering.md: SPF, DKIM, DMARC",
       "begransningar": ["Integritetstexten ska nämna överföringen till USA."], "paverkar": {"brief": "avsändare och mottagare", "design": null, "kod": "worker/index.js", "externt": "Resend-domän och DNS-poster"},
       "manniska": ["domänverifiering hos Resend (DNS)", "biträdesavtalet accepterat"]
     },

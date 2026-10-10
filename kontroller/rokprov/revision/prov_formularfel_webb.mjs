@@ -14,13 +14,13 @@ const { default: worker } = await import(pathToFileURL(kopian + '/worker.mjs'));
 const events = [];
 let mode = 'ok';
 const DB = d1(kopian + '/migrations', async (vad) => { if (vad === 'd1.batch' && mode === 'lagerfel') throw new Error('syntetiskt lagringsfel'); });
-// Workern skickar aldrig till Resend från localhost; provets mejltjänst är en lokal adress (attrappen nedan svarar)
-const MEJL = 'http://127.0.0.1:9/emails';
-globalThis.fetch = async (url) => {
-  assert.equal(url,MEJL);
+// Cloudflares send_email-bindning som attrapp; ett nekat utskick (E_RECIPIENT_NOT_ALLOWED) ger fel i utkorgen
+const EMAIL = { async send() {
   events.push(['mejl']);
-  return new Response('{"id":"00000000-0000-4000-8000-000000000001"}',{status:mode === 'mejlfel' ? 422 : 200});  // nekat: fel i utkorgen
-};
+  if (mode === 'mejlfel') throw Object.assign(new Error('nekad'), { code: 'E_RECIPIENT_NOT_ALLOWED' });
+  return { messageId: '<00000000-0000-4000-8000-000000000001@notis.nortropic.se>' };
+} };
+globalThis.fetch = async () => { throw new Error('Förbjudet nät i provet'); };
 const start = '<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Syntetiskt formulärprov</title></head><body><main><h1>Provformulär</h1><form action="/api/forfragan/" method="post" enctype="multipart/form-data"><label for="namn">Namn</label><input id="namn" name="namn" required><label for="telefon">Telefon</label><input id="telefon" name="telefon" type="tel" required><label for="meddelande">Meddelande</label><textarea id="meddelande" name="meddelande" required></textarea><label for="bild">Bild (valfritt)</label><input id="bild" name="bild" type="file"><button>Skicka förfrågan</button></form></main></body></html>';
 const sockets = new Set();
 const server = http.createServer(async (req,res) => {
@@ -29,7 +29,7 @@ const server = http.createServer(async (req,res) => {
     const sidor = { '/': start, '/tack/': '<!doctype html><html lang="sv"><title>Tack</title><main><h1>Provets tacksida</h1></main></html>',
       '/mottagen/': '<!doctype html><html lang="sv"><title>Mottagen</title><main><h1>Provets mottagen-sida</h1></main></html>' };
     const ASSETS = { fetch: async (q) => { const s = sidor[new URL(q.url).pathname]; return new Response(s || 'saknas', { status: s ? 200 : 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }); } };
-    const env = { ASSETS, DB, BILAGOR: r2(), MILJO: 'produktion', RESEND_API_KEY: 'syntetiskt', RESEND_API_URL: MEJL, FORFRAGAN_TILL: 'test@example.invalid', FORFRAGAN_FRAN: 'test@example.invalid' };
+    const env = { ASSETS, DB, BILAGOR: r2(), MILJO: 'produktion', EMAIL, FORFRAGAN_TILL: 'test@example.invalid', FORFRAGAN_FRAN: 'formular@notis.example.invalid' };
     const q = new Request(origin+req.url,{method:req.method,headers:req.headers,body:req.method === 'POST' ? req : undefined,duplex:'half'});
     const r = await worker.fetch(q, env);
     res.writeHead(r.status,Object.fromEntries(r.headers));res.end(Buffer.from(await r.arrayBuffer()));

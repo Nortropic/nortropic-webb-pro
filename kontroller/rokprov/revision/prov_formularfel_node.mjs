@@ -29,24 +29,27 @@ const krok = async (vad, detalj, args) => {
 const DB = d1(migreringar, krok);
 const BILAGOR = r2(krok);
 const ASSETS = assets({ '/': '<!doctype html><h1>Start</h1>' });
-const env = { ASSETS, MILJO: 'produktion', DB, BILAGOR, RESEND_API_KEY: 'syntetisk', FORFRAGAN_TILL: 'test@example.invalid', FORFRAGAN_FRAN: 'test@example.invalid', GALLRING_DAGAR: '30' };
+// Cloudflares send_email-bindning som attrapp: felkoderna som i Workers API (E_…), en kastad fel utan kod, ett
+// kvitto utan meddelande-id och ett långsamt svar
+const felkod = (kod, text) => Object.assign(new Error(text), { code: kod });
+const EMAIL = { async send(m) {
+  events.push(['mejl', { to: m.to, from: m.from, subject: m.subject, bilagor: (m.attachments || []).map((b) => b.filename),
+                         bilagetyp: (m.attachments || []).map((b) => typeof b.content), text: typeof m.text }]);
+  if (mode === 'langsam-mejl') { await vanta(80); return { messageId: 'sen-1' }; }
+  if (mode === 'mejlkast') throw new Error('SYNTETISKT-HEMLIGT transportfel');
+  if (mode === 'mejlfel') throw felkod('E_INTERNAL_SERVER_ERROR', 'SYNTETISKT-HEMLIGT internt fel');
+  if (mode === 'mejlnekad') throw felkod('E_RECIPIENT_NOT_ALLOWED', 'SYNTETISKT-HEMLIGT mottagaren är inte tillåten');
+  if (mode === 'tomtmejlkvitto') return {};
+  if (mode === 'felmejlkvitto') return { messageId: '' };
+  if (mode === 'htmlmejlkvitto') return '<html>ok</html>';
+  return { messageId: '<00000000-0000-4000-8000-000000000001@notis.nortropic.se>' };
+} };
+const env = { ASSETS, MILJO: 'produktion', DB, BILAGOR, EMAIL, FORFRAGAN_TILL: 'test@example.invalid', FORFRAGAN_FRAN: 'formular@notis.example.invalid', GALLRING_DAGAR: '30' };
 if (mode === 'ingetlager') delete env.DB;
-if (mode === 'ingenmottagare') delete env.RESEND_API_KEY;
+if (mode === 'ingenmottagare') delete env.EMAIL;
 if (mode === 'demo') env.MILJO = 'forhandsvisning';  // också med nycklar och lager: ingenting sparas eller skickas
 
-globalThis.fetch = async (url, opts) => {
-  if (url !== 'https://api.resend.com/emails') throw new Error('Förbjudet nät i provet');
-  const kropp = JSON.parse(opts.body);
-  events.push(['mejl', { to: kropp.to, subject: kropp.subject, bilagor: (kropp.attachments || []).map((b) => b.filename), idempotens: opts.headers['Idempotency-Key'] }]);
-  if (mode === 'langsam-mejl' || mode === 'langsam-json') {
-    opts.signal?.addEventListener('abort', () => events.push(['avbrutet', 'mejl']));
-    if (mode === 'langsam-mejl') { await vanta(80); opts.signal?.throwIfAborted(); }
-    return { ok: true, status: 200, json: async () => { await vanta(80); opts.signal?.throwIfAborted(); return { id: 'prov-id' }; } };
-  }
-  if (mode === 'mejlkast') throw new Error('SYNTETISKT-HEMLIGT transportfel');
-  const body = mode === 'tomtmejlkvitto' ? '{}' : mode === 'felmejlkvitto' ? '{"error":"fel"}' : mode === 'htmlmejlkvitto' ? '<html>ok</html>' : '{"id":"00000000-0000-4000-8000-000000000001"}';
-  return new Response(body, { status: mode === 'mejlfel' ? 500 : mode === 'mejlnekad' ? 422 : 200 });
-};
+globalThis.fetch = async () => { throw new Error('Förbjudet nät i provet: Workern mejlar genom bindningen'); };
 
 const values = { namn: 'Syntetisk <text> & "citat"', telefon: '0700000000', meddelande: 'Rad ett\n</textarea><script>globalThis.xss=true</script>', fylltid: '9000', inskick: 'prov-inskick-0000000000000001' };
 if (mode === 'validering') values.telefon = '';
@@ -67,7 +70,7 @@ const begaran = (falt = values) => {
   if (mode === 'bildstor') fd.append('bild', new Blob([new Uint8Array(4000001)], { type: 'image/jpeg' }), 'syntetisk.jpg');
   if (['giltig-bild', 'r2fel', 'r2kvitto', 'r2tomt', 'langsam-r2', 'langsam-batch', 'sparad-men-fel'].includes(mode) || mode.startsWith('jsonfel')) fd.append('bild', new Blob(['syntetisk bild'], { type: 'image/jpeg' }), 'syntetisk.jpg');
   if (mode === 'filnamn') fd.append('bild', new Blob(['syntetisk bild'], { type: 'image/png' }), '../../forfragningar/annan/bilaga');
-  const vard = mode === 'lokal-resend' ? 'http://localhost:8787' : bas;
+  const vard = bas;
   return new Request(vard + '/api/forfragan/', { method: 'POST', body: fd, headers: { origin: mode === 'origin' ? 'https://angripare.example.invalid' : vard } });
 };
 let req = begaran();

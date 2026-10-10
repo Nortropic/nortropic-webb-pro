@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """workersprov.py — kundrepots Worker i Cloudflares riktiga runtime (workerd), lokalt: Wrangler startar Workern med de
 byggda sidorna, en lokal D1 med kundrepots schema och en lokal R2, och provet skickar riktiga HTTP-begäranden.
-Mejltjänsten är en attrapp på 127.0.0.1 (märkt som sådan), aldrig Resend. Inget konto, ingen nyckel och inget nät utåt.
+Mejlet går genom Cloudflares send_email-bindning, som wrangler dev simulerar lokalt (inget skickas; mejlet sparas
+i simuleringens mejllager i provets katalog), låst till provets adresser. Inget konto, ingen nyckel och inget nät utåt.
 
 Prövar (uppdraget 2026-10-09: M02, M04 lokalt, M05, M13, M15, T14, T15, T16):
 - statiska sidor, säkerhetshuvudena ur _headers och 404-sidan;
@@ -46,42 +47,12 @@ def ledig_port():
     return p
 
 
-class Mejlattrapp:
-    """Resend-attrapp på 127.0.0.1: tar emot e-postanropet och svarar med ett kvitto, eller nekar (422) när fel=True."""
-    def __init__(self):
-        self.anrop, self.fel = [], False
-        attrapp = self
-
-        class H(BaseHTTPRequestHandler):
-            def log_message(self, *a):
-                pass
-
-            def do_POST(self):
-                kropp = self.rfile.read(int(self.headers.get('content-length') or 0))
-                attrapp.anrop.append({'auth': self.headers.get('authorization'), 'kropp': json.loads(kropp or b'{}')})
-                if attrapp.fel:
-                    self.send_response(422)  # nekat av mejltjänsten: utkorgen visar fel (ett serverfel vore okänt utfall)
-                    self.end_headers()
-                    return
-                ut = json.dumps({'id': 'attrapp-%d' % len(attrapp.anrop)}).encode()
-                self.send_response(200)
-                self.send_header('content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(ut)
-        self.srv = ThreadingHTTPServer(('127.0.0.1', 0), H)
-        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
-        self.url = 'http://127.0.0.1:%d/emails' % self.srv.server_port
-
-    def stang(self):
-        self.srv.shutdown()
-        self.srv.server_close()
-
-
 def miljo(tmp):
     """Wrangler utan ägarens inloggning, konto, nycklar eller mätdata: konfiguration och logg i provets katalog."""
-    m = {k: os.environ[k] for k in ('PATH', 'HOME', 'USER', 'LANG', 'TMPDIR') if k in os.environ}
+    m = {k: os.environ[k] for k in ('PATH', 'HOME', 'USER', 'LANG') if k in os.environ}
+    (tmp / 'mf').mkdir(exist_ok=True)  # miniflares temp: den simulerade send_email-bindningen sparar mejlen här
     m.update(WRANGLER_SEND_METRICS='false', XDG_CONFIG_HOME=str(tmp / 'xdg'), WRANGLER_LOG_PATH=str(tmp / 'wrangler-logg'),
-             CI='1', NO_COLOR='1')  # loggnivån lämnas: d1 execute --json skriver svaret på loggens vanliga nivå
+             CI='1', NO_COLOR='1', TMPDIR=str(tmp / 'mf'))  # loggnivån lämnas: d1 execute --json skriver svaret på loggens vanliga nivå
     return m
 
 
@@ -187,14 +158,41 @@ def prova(kundrepo):
         rc, logg = processgrans.kor_i_katalog(repo, [repo / 'node_modules' / '.bin' / 'astro', 'build'])
         if rc or not (repo / 'dist' / 'index.html').is_file():
             raise RuntimeError('astro build föll (%d): %s' % (rc, logg[-500:]))
-    attrapp = Mejlattrapp()
+    # bindningen låses till provets adresser, som exporten gör med kundens (exportera.wrangler_namn)
+    konfig = (repo / 'wrangler.jsonc').read_text(encoding='utf-8')
+    konfig = konfig.replace('"allowed_destination_addresses": ["inte-aktiverad@invalid.invalid"]', '"allowed_destination_addresses": ["mottagare@example.invalid"]')
+    konfig = konfig.replace('"allowed_sender_addresses": ["inte-aktiverad@invalid.invalid"]', '"allowed_sender_addresses": ["webbplats@notis.example.invalid"]')
+    (repo / 'wrangler.jsonc').write_text(konfig, encoding='utf-8')
+    def skickade_mejl():
+        # simuleringen sparar varje skickat mejl som en rad (kind 'sent', JSON i data) i tabellen emails i sin Durable
+        # Objects SQLite-fil (email-store/miniflare-email-store/<id>.sqlite; metadata.sqlite är namnrymdens). De senaste
+        # skrivningarna ligger i WAL-filen, så en kopia med WAL läses, aldrig simuleringens egna filer.
+        import sqlite3
+        import tempfile
+        rader = []
+        for db in (tmp / 'mf').rglob('*.sqlite'):
+            if 'email-store' not in db.as_posix() or db.name == 'metadata.sqlite':
+                continue
+            with tempfile.TemporaryDirectory(dir=tmp) as kopia:
+                for x in db.parent.glob(db.name + '*'):
+                    shutil.copyfile(x, Path(kopia) / x.name)
+                c = sqlite3.connect(str(Path(kopia) / db.name))
+                try:
+                    if c.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'emails'").fetchone():
+                        rader += [d for (d,) in c.execute("SELECT data FROM emails WHERE kind = 'sent' ORDER BY seq")]
+                finally:
+                    c.close()
+        return rader
+
+    def mejl_antal():
+        return len(skickade_mejl())
+
     workers = []
     try:
         rc, logg = wrangler(repo, ['d1', 'migrations', 'apply', 'DB', '--local', '--persist-to', str(tmp / 'tillstand')], tmp)
         fall('D1-schemat tillämpat lokalt', rc == 0, logg[-200:] if rc else 'migrations/0001_forfragningar.sql')
         w = Worker(repo, tmp, vars_={'MILJO': 'produktion', 'FORFRAGAN_TILL': 'mottagare@example.invalid',
-                                     'FORFRAGAN_FRAN': 'webbplats@example.invalid', 'RESEND_API_KEY': 'attrappnyckel',
-                                     'RESEND_API_URL': attrapp.url})
+                                     'FORFRAGAN_FRAN': 'webbplats@notis.example.invalid'})
         workers.append(w)
         s, h, b = begar(w.bas + '/')
         fall('startsidan som statisk fil', s == 200 and 'text/html' in h.get('Content-Type', ''), s)
@@ -230,10 +228,11 @@ def prova(kundrepo):
         s, h, b = begar(w.bas + '/api/forfragan/', 'POST', data, rub)
         rader = d1(repo, tmp, "SELECT f.id, f.bilaga, f.bilaga_typ, u.status, u.mejl_id, u.forsok FROM forfragningar f JOIN utkorg u ON u.forfragan = f.id")
         fall('förfrågan sparas i D1 och aviseras: 303 /tack/', s == 303 and h.get('Location') == '/tack/' and h.get('X-Forfragan') == 'skickad'
-             and len(rader) == 1 and rader[0]['status'] == 'accepterad' and rader[0]['mejl_id'] == 'attrapp-1', (s, h.get('X-Forfragan'), rader))
-        mejl = attrapp.anrop[0]['kropp'] if attrapp.anrop else {}
-        fall('mejlet bär bilagan och mottagaren, och nyckeln går i Authorization', mejl.get('to') == ['mottagare@example.invalid']
-             and mejl.get('attachments') and attrapp.anrop[0]['auth'] == 'Bearer attrappnyckel', sorted(mejl))
+             and len(rader) == 1 and rader[0]['status'] == 'accepterad' and bool(rader[0]['mejl_id']), (s, h.get('X-Forfragan'), rader))
+        mejl = skickade_mejl()
+        sparade, text = len(mejl), ' '.join(mejl)
+        fall('mejlet (Wranglers simulering av send_email) bär förfrågan', sparade == 1 and 'Prov Provsson' in text and 'Syntetisk förfrågan' in text
+             and 'mottagare@example.invalid' in text and 'webbplats@notis.example.invalid' in text, sparade)
         if rader and rader[0]['bilaga']:
             bucket = re.search(r'"bucket_name":\s*"([^"]+)"', (repo / 'wrangler.jsonc').read_text(encoding='utf-8')).group(1)
             rc, objlogg = wrangler(repo, ['r2', 'object', 'get', '%s/%s' % (bucket, rader[0]['bilaga']), '--local', '--persist-to', str(tmp / 'tillstand'),
@@ -244,22 +243,29 @@ def prova(kundrepo):
         s, h, b = begar(w.bas + '/api/forfragan/', 'POST', data, rub)
         antal = d1(repo, tmp, 'SELECT count(*) AS n FROM forfragningar')[0]['n']
         fall('samma inskick igen blir ett ärende och inget nytt mejl', s == 303 and h.get('X-Forfragan') == 'dubblett' and antal == 1
-             and len(attrapp.anrop) == 1, (h.get('X-Forfragan'), antal, len(attrapp.anrop)))
-        attrapp.fel = True
-        data, rub = multipart({**giltig, 'meddelande': 'Andra förfrågan; mejltjänsten svarar fel.'})
+             and mejl_antal() == sparade, (h.get('X-Forfragan'), antal, mejl_antal()))
+        # en mottagare utanför bindningens låsta lista: mejlet nekas, förfrågan är sparad och utkorgen visar felet
+        w.stang()
+        workers.pop()
+        w = Worker(repo, tmp, vars_={'MILJO': 'produktion', 'FORFRAGAN_TILL': 'annan@example.invalid', 'FORFRAGAN_FRAN': 'webbplats@notis.example.invalid'})
+        workers.append(w)
+        sparade = mejl_antal()  # varje start av wrangler dev har ett eget mejllager
+        data, rub = multipart({**giltig, 'meddelande': 'Andra förfrågan; mottagaren står inte i bindningens lista.'})
         s, h, b = begar(w.bas + '/api/forfragan/', 'POST', data, rub)
         fel = d1(repo, tmp, "SELECT u.status, u.forsok, u.fel FROM utkorg u JOIN forfragningar f ON f.id = u.forfragan WHERE f.meddelande LIKE 'Andra%'")
-        fall('fallet mejl: sparad, 303 /mottagen/, och utkorgen visar felet för uppföljning', s == 303 and h.get('Location') == '/mottagen/'
-             and fel and fel[0]['status'] == 'fel' and fel[0]['forsok'] == 1, (s, h.get('Location'), fel))
-        attrapp.fel = False
+        # simuleringen nekar med "email to … not allowed" utan felkod: utfallet bokförs som okänt (skickar); hos Cloudflare
+        # ger E_RECIPIENT_NOT_ALLOWED fel (prövat med attrappen i prov_formularfel)
+        fall('bindningen nekar en mottagare utanför sin lista: sparad, 303 /mottagen/, inget mejl, utkorgen inte aviserad',
+             s == 303 and h.get('Location') == '/mottagen/' and fel and fel[0]['status'] == 'skickar' and fel[0]['forsok'] == 1
+             and mejl_antal() == sparade, (s, h.get('Location'), fel, mejl_antal()))
         # driftens verktyg (kontroller/forfragningar.py) mot samma lokala D1 och R2 genom Wrangler: läget utan
         # personuppgifter, torrkörd gallring, och gallring när gallringsdatumet har passerat
         import forfragningar
         kor, ta_bort = forfragningar.wrangler_kor(repo, tmp / 'tillstand')
         lage = forfragningar.lage(kor)
         offentligt = json.dumps({k: v for k, v in lage.items() if not k.startswith('_')}, ensure_ascii=False)
-        fall('driftens läge: per status och fallna aviseringar, utan personuppgifter', lage['status'] == {'accepterad': 1, 'fel': 1}
-             and len(lage['fel']) == 1 and not lage['utgangna'] and 'Provsson' not in offentligt and 'Syntetisk förfrågan' not in offentligt, lage['status'])
+        fall('driftens läge: per status, utan personuppgifter', lage['status'] == {'accepterad': 1, 'skickar': 1}
+             and not lage['utgangna'] and 'Provsson' not in offentligt and 'Syntetisk förfrågan' not in offentligt, lage['status'])
         framtid = datetime.now(timezone.utc) + timedelta(days=400)
         torr = forfragningar.gallra(kor, ta_bort, nu=framtid)
         fall('gallringen är en torrkörning utan --utfor', torr == dict(torr, antal=2, bilagor=1, utfort=False)
@@ -273,14 +279,16 @@ def prova(kundrepo):
         w.stang()
         workers.pop()
         fore = d1(repo, tmp, 'SELECT count(*) AS n FROM forfragningar')[0]['n']
-        anrop_fore = len(attrapp.anrop)
-        f = Worker(repo, tmp, env='forhandsvisning', vars_={'RESEND_API_URL': attrapp.url})
+        f = Worker(repo, tmp, env='forhandsvisning')
         workers.append(f)
+        mejl_fore = mejl_antal()
         data, rub = multipart({**giltig, 'meddelande': 'Förfrågan i förhandsvisningen.'})
         s, h, b = begar(f.bas + '/api/forfragan/', 'POST', data, rub)
         efter = d1(repo, tmp, 'SELECT count(*) AS n FROM forfragningar')[0]['n']
+        bindningar = Path(f.logg.name).read_text(encoding='utf-8', errors='replace')
         fall('förhandsvisningen sparar och skickar inget (demo)', s == 303 and h.get('X-Forfragan') == 'demo' and efter == fore
-             and len(attrapp.anrop) == anrop_fore, (h.get('X-Forfragan'), efter, len(attrapp.anrop)))
+             and mejl_antal() == mejl_fore and 'env.ASSETS' in bindningar and 'Send Email' not in bindningar and 'D1 Database' not in bindningar,
+             (h.get('X-Forfragan'), efter, mejl_antal(), 'Send Email' in bindningar))
         s, h, b = begar(f.bas + '/')
         fall('förhandsvisningens sidor är märkta noindex', s == 200 and 'noindex' in (h.get('X-Robots-Tag') or ''), (s, h.get('X-Robots-Tag')))
         s, h, b = begar(f.bas + '/wrangler.jsonc')
@@ -288,7 +296,6 @@ def prova(kundrepo):
     finally:
         for w in workers:
             w.stang()
-        attrapp.stang()
         shutil.rmtree(tmp, ignore_errors=True)
     return ut
 

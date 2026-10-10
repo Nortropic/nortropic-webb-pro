@@ -20,7 +20,7 @@ import kundstart_agare as ka  # noqa: E402
 import kundstart_integration as ki  # noqa: E402
 import server as dash  # noqa: E402
 
-GRUND = [('K02', 'k02-cloudflare-workers'), ('K03', 'k03-formular-worker'), ('K04', 'k04-resend-transaktion')]
+GRUND = [('K02', 'k02-cloudflare-workers'), ('K03', 'k03-formular-worker'), ('K04', 'k04-cloudflare-epost')]
 
 
 class Funktioner(unittest.TestCase):
@@ -81,13 +81,27 @@ class Funktioner(unittest.TestCase):
 
     def test_okant_paket_fel_omrade_och_okant_behov_nekas_utan_andring(self):
         rev = self.db.internt(self.e)['revision']
-        for vid, o, p, b in (('x', 'K10', 'k10-hubspot-api', None), ('x', 'K04', 'k03-formular-worker', None), ('x', 'K09', 'k09-bokningslank', 'finns-inte')):
+        for vid, o, p, b in (('x', 'K10', 'k10-hubspot-api', None), ('x', 'K04', 'k03-formular-worker', None), ('x', 'K09', 'k09-bokningslank', 'finns-inte'),
+                             ('x', 'K04', 'k04-resend-transaktion', None)):
             with self.assertRaises(ks.Vagrad):
                 self.valj(vid, o, p, behov=b)
         with self.assertRaises(ks.Konflikt):
             ki.valj(self.db, self.e, rev - 1, {'id': 'y', 'omrade': 'K09', 'paket': 'k09-bokningslank', 'motivering': 'Gammal revision.'})
         self.assertEqual(self.db.internt(self.e)['revision'], rev)
         self.assertNotIn('integrationsval', self.db.internt(self.e))
+
+    def test_ett_val_som_blivit_inaktuellt_i_katalogen_star_utanfor_planen(self):
+        # ett val gjort före ägarens beslut 2026-10-10 (Resend ersatt av Cloudflares e-post) bygger aldrig
+        katalog = json.loads(json.dumps(ki.ik.las()))
+        resend = next(p for p in katalog['paket'] if p['id'] == 'k04-resend-transaktion')
+        resend.update(fardighet='kontraktsprovat', grund=True)
+        for i, (o, p) in enumerate(GRUND[:2] + [('K04', 'k04-resend-transaktion')]):
+            d = self.db.internt(self.e)
+            ki.valj(self.db, self.e, d['revision'], {'id': 'g-%d' % i, 'omrade': o, 'paket': p, 'motivering': 'Före beslutet.'}, katalog)
+        pl = ki.plan(self.db.internt(self.e))
+        self.assertEqual([x['paket'] for x in pl['inaktuella_val']], ['k04-resend-transaktion'])
+        self.assertIn('k04-cloudflare-epost', pl['inaktuella_val'][0]['skal'])
+        self.assertNotIn('k04-resend-transaktion', [x['paket'] for x in pl['omfattning']]); self.assertFalse(pl['klar_for_bygge'])
 
     def test_samma_val_igen_ar_ingen_ny_revision_och_avmarkering_bevarar_historiken(self):
         self.valj('a', 'K06', 'k06-hitta-hit'); rev = self.db.internt(self.e)['revision']
@@ -138,13 +152,14 @@ class AiForslag(unittest.TestCase):
         f = lambda i, o, p: dict(self.bas, id=i, omrade=o, paket=p, kallor=[self.mid])  # noqa: E731
         self.assertTrue(self.db.modellsvar(self.jobb, self.svar(f('bok', 'K09', 'k09-bokningslank'), f('crm', 'K10', 'k10-hubspot-api'),
                                                                f('hosting', 'K02', 'k02-cloudflare-workers'), f('fel-omrade', 'K11', 'k09-bokningslank'),
-                                                               f('oklart', 'K18', 'utreds'))))
+                                                               f('oklart', 'K18', 'utreds'), f('gammal', 'K04', 'k04-resend-transaktion'))))
         d = self.db.internt(self.e)
         x = {p['id']: p for p in d['integrationsforslag']['forslag']}
         self.assertEqual((x['bok']['paket'], x['bok']['utreds'], x['bok']['paketversion']), ('k09-bokningslank', False, '1.0.0'))
         self.assertEqual((x['crm']['paket'], x['crm']['utreds'], x['crm']['avvisat_paket']), (None, True, 'k10-hubspot-api'))
         self.assertTrue(x['hosting']['utreds'] and x['fel-omrade']['utreds'] and x['oklart']['utreds'])
         self.assertIsNone(x['oklart']['avvisat_paket'])
+        self.assertEqual((x['gammal']['utreds'], x['gammal']['avvisat_paket']), (True, 'k04-resend-transaktion'), 'ett inaktuellt paket föreslås aldrig')
         self.assertEqual(d['integrationsforslag']['avsandare'], 'modell')
         self.assertNotIn('integrationsval', d, 'ett förslag blir aldrig ett val')
         self.assertEqual(ki.plan(d)['omfattning'], [])
@@ -168,6 +183,7 @@ class AiForslag(unittest.TestCase):
         v = json.loads(km.kontext(self.db.internt(self.e)))
         ids = {p['id'] for p in v['integrationskatalog']}
         self.assertIn('k09-bokningslank', ids); self.assertNotIn('k02-cloudflare-workers', ids)
+        self.assertNotIn('k04-resend-transaktion', ids, 'inaktuella paket står inte i modellens katalog')
         self.assertIn('integrationsforslag', km.SVARSSCHEMA['properties'])
         self.assertNotIn('integrationsforslag', km.SVARSSCHEMA['required'])
         self.assertIn('Hitta aldrig på ett paket', km.SYSTEM)

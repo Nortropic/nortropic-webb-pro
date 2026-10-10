@@ -6,8 +6,10 @@
 // - en förfrågan sparas beständigt i D1, och en bilaga privat i R2, före varje avisering; inget sparat ger 503 med texten kvar;
 // - aviseringen är en utkorg i D1 (vantar → skickar → accepterad | fel): sparad men inte aviserad svarar 303 till den
 //   förrenderade /mottagen/, och raden står kvar för uppföljning; "skickar" utan slut är ett osäkert utfall som stäms av
-//   mot mejltjänsten före ett nytt försök, aldrig ett nytt mejl i blindo; mejlet bär ärendets id som idempotensnyckel, så ett
-//   nytt försök inom ett dygn blir aldrig ett andra mejl;
+//   mot mejltjänsten före ett nytt försök, aldrig ett nytt mejl i blindo;
+// - mejlet går genom Cloudflares send_email-bindning (EMAIL) till verksamhetens verifierade adress, med avsändaren på
+//   Nortropics routningsdomän; bindningen är låst till just de adresserna i wrangler.jsonc (ägarens beslut 2026-10-10:
+//   Cloudflares e-post är K04:s huvudväg);
 // - varje lagringssteg har en frist: utan bekräftelse inom den svarar Workern i stället för att vänta;
 // - samma inskick två gånger (formulärets inskicks-id, annars innehållet inom tio minuter) blir ett ärende, inte två;
 // - utanför produktionen (MILJO annat än produktion) sparas och skickas ingenting.
@@ -18,7 +20,6 @@ const MAX_BILD = 4_000_000;
 const BILDTYPER = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif', 'image/avif'];
 const TOMT = { namn: '', telefon: '', meddelande: '' };
 const RUBRIKER = { namn: 'Namn', telefon: 'Telefon', meddelande: 'Meddelande', bild: 'Bild' };
-const RESEND = 'https://api.resend.com/emails';
 const FRIST_LAGRING = 10000;
 const FRIST_MEJL = 8000;
 // Referrer-Policy same-origin: felvyns formulär skickar då sitt Origin (no-referrer ger "Origin: null" på en POST och
@@ -74,6 +75,7 @@ const OBEKRAFTAD = 'Vi kunde inte bekräfta att förfrågan sparades. Texten fin
 // Loggen och utkorgen får bara Workerns egna orsaker, aldrig en leverantörs feltext (den kan bära innehåll eller nycklar).
 const egen = (text, extra = {}) => Object.assign(new Error(text), { egen: true }, extra);
 const orsak = (e) => e && e.egen ? e.message.slice(0, 200)
+  : e && typeof e.code === 'string' && /^E_[A-Z_]{2,60}$/.test(e.code) ? 'mejltjänsten: ' + e.code
   : e && (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'avbrutet vid fristen'
   : 'fel hos leverantören (' + String((e && e.name) || 'okänt').slice(0, 40) + ')';
 
@@ -86,15 +88,16 @@ function frist(lofte, ms, vad) {
 }
 
 function konfigurerad(env) {
-  return Boolean(env.RESEND_API_KEY && String(env.FORFRAGAN_TILL || '').split(',').some((x) => x.trim()) && env.FORFRAGAN_FRAN);
+  return Boolean(env.EMAIL && typeof env.EMAIL.send === 'function' && String(env.FORFRAGAN_TILL || '').split(',').some((x) => x.trim())
+    && env.FORFRAGAN_FRAN);
 }
 
-// Mejltjänstens adress: Resend i drift; en lokal provmottagare bara på 127.0.0.1 eller localhost (provet), aldrig en
-// godtycklig adress ur konfigurationen.
-function mejladress(env) {
-  const prov = String(env.RESEND_API_URL || '');
-  return /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(prov) ? prov : RESEND;
-}
+// Bindningens felkoder (Cloudflare Email Service, Workers API): de här betyder att mejlet inte skickades; allt annat
+// (E_INTERNAL_SERVER_ERROR, ett fel utan kod, en frist) är ett okänt utfall.
+const NEKADE = new Set(['E_VALIDATION_ERROR', 'E_FIELD_MISSING', 'E_TOO_MANY_RECIPIENTS', 'E_TOO_MANY_ATTACHMENTS', 'E_SENDER_NOT_VERIFIED',
+  'E_RECIPIENT_NOT_ALLOWED', 'E_RECIPIENT_SUPPRESSED', 'E_SENDER_DOMAIN_NOT_AVAILABLE', 'E_CONTENT_TOO_LARGE', 'E_DELIVERY_FAILED',
+  'E_RATE_LIMIT_EXCEEDED', 'E_DAILY_LIMIT_EXCEEDED', 'E_HEADER_NOT_ALLOWED', 'E_HEADER_USE_API_FIELD', 'E_HEADER_VALUE_INVALID',
+  'E_HEADER_VALUE_TOO_LONG', 'E_HEADER_NAME_INVALID', 'E_HEADERS_TOO_LARGE', 'E_HEADERS_TOO_MANY']);
 
 async function lasForm(request) {
   // Mät också strömmen; frånvarande eller felaktig Content-Length får inte kringgå taket.
@@ -185,21 +188,23 @@ async function spara(env, id, idem, falt, bild, nu) {
   return { id, bilaga };
 }
 
-async function mejla(env, id, falt, bild, signal) {
+async function mejla(env, falt, bild) {
   const text = [`Namn: ${falt.namn}`, `Telefon: ${falt.telefon}`, '', falt.meddelande, '', bild ? `Bild: ${filnamn(bild)}` : 'Ingen bild'].join('\n');
-  const kropp = {
+  const meddelande = {
     from: env.FORFRAGAN_FRAN, to: String(env.FORFRAGAN_TILL).split(',').map((x) => x.trim()).filter(Boolean),
     subject: `Förfrågan från webbplatsen: ${falt.namn.slice(0, 60)}`, text,
   };
-  if (bild) kropp.attachments = [{ filename: filnamn(bild), content: base64(new Uint8Array(await bild.arrayBuffer())) }];
-  const r = await fetch(mejladress(env), {
-    method: 'POST', signal, headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `forfragan-${id}` }, body: JSON.stringify(kropp),
-  });
-  // 4xx: mejltjänsten tog inte emot mejlet (fel); ett serverfel, en tidsgräns eller ett oläsbart kvitto är ett okänt utfall
-  if (!r.ok) throw egen('Mejltjänsten svarade ' + r.status, { nekad: r.status >= 400 && r.status < 500 });
-  const kvitto = await r.json();
-  if (!kvitto || Array.isArray(kvitto) || typeof kvitto.id !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(kvitto.id) || kvitto.error) throw egen('Mejltjänstens kvitto stämmer inte');
-  return kvitto.id;
+  // bilagan som base64-sträng (den lokala simuleringen kan inte serialisera ArrayBuffer)
+  if (bild) meddelande.attachments = [{ content: base64(new Uint8Array(await bild.arrayBuffer())), filename: filnamn(bild), type: bild.type, disposition: 'attachment' }];
+  let svar;
+  try {
+    svar = await frist(env.EMAIL.send(meddelande), FRIST_MEJL, 'mejlet');
+  } catch (e) {
+    if (e && typeof e.code === 'string' && NEKADE.has(e.code)) e.nekad = true;
+    throw e;
+  }
+  if (!svar || typeof svar.messageId !== 'string' || !/^[^\s]{1,512}$/.test(svar.messageId)) throw egen('Mejltjänstens kvitto saknar meddelande-id');
+  return svar.messageId;
 }
 
 async function utkorg(env, id, status, falt = {}) {
@@ -256,21 +261,16 @@ async function forfragan(request, env) {
   if (!sparad) return felvy(raw, {}, 503, 'fel', OBEKRAFTAD, !!bild, t('inskick'));
   if (sparad.dubblett) return svar(sparad.dubblett.status === 'accepterad' ? '/tack/' : '/mottagen/', 'dubblett');
   if (!konfigurerad(env)) { console.error('forfragan: mejlmottagaren är inte konfigurerad'); return mottagen(); }
-  // Lokalt (wrangler dev på localhost) går inget mejl till Resend, också om en nyckel ligger i .dev.vars; bara till en
-  // lokal provmottagare (RESEND_API_URL på 127.0.0.1 eller localhost).
-  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname) && mejladress(env) === RESEND) {
-    console.error('forfragan: lokal körning, inget mejl till Resend'); return mottagen();
-  }
   // Avsikten före nätanropet: "skickar" utan slutläge efter ett avbrott är ett osäkert utfall, inte ett skäl att skicka igen.
   try { await utkorg(env, id, 'skickar'); } catch { return mottagen(); }
   try {
-    const mejlId = await mejla(env, id, falt, bild, AbortSignal.timeout(FRIST_MEJL));
+    const mejlId = await mejla(env, falt, bild);
     try { await utkorg(env, id, 'accepterad', { forsok: 1, mejl_id: mejlId }); }
     catch { console.error('forfragan: mejlet accepterades men utkorgen kunde inte uppdateras; stäm av mot mejltjänsten'); }
     return svar('/tack/', 'skickad');
   } catch (e) {
-    // Nekat mejl är fel; allt annat (tidsgräns, nätfel, serverfel, oläsbart kvitto) står kvar som skickar: utfallet är
-    // okänt och stäms av mot mejltjänsten (samma idempotensnyckel gör ett nytt försök inom ett dygn säkert).
+    // Nekat mejl är fel; allt annat (frist, internt fel, oläsbart kvitto) står kvar som skickar: utfallet är okänt och
+    // stäms av mot mejltjänstens logg (Email sending metrics och logs) före ett nytt försök.
     try { await utkorg(env, id, e && e.nekad ? 'fel' : 'skickar', { forsok: 1, fel: orsak(e) }); }
     catch { console.error('forfragan: aviseringen föll och utkorgen kunde inte uppdateras'); }
     return mottagen();

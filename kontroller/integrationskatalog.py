@@ -142,6 +142,8 @@ def brister(k, rot=ROOT, importera=True):
         for f in p['prov']:
             if not (rot / f).is_file():
                 ut.append('%s: provet %s finns inte' % (pid, f))
+        if p['fardighet'] == 'inaktuellt' and (p['grund'] is True or any(p['funktioner'].get(st) for st in ('tillampa', 'prova')) or p['prov']):
+            ut.append('%s: ett inaktuellt paket är historik: inte grundleverans, ingen körväg och inga prov' % pid)
         if p['niva'] == 'utreds' and nivaordning > 0:
             ut.append('%s: ett paket under utredning kan inte vara mer än dokumenterat' % pid)
     for o in OMRADEN:
@@ -201,6 +203,9 @@ def planera(val, katalog=None, arende=None):
             continue
         if p['omrade'] != v.get('omrade'):
             ut['hinder'].append('%s hör till %s, inte %s' % (p['id'], p['omrade'], v.get('omrade')))
+            continue
+        if p['fardighet'] == 'inaktuellt':
+            ut['hinder'].append('%s är inaktuellt: %s' % (p['id'], p['fardighet_omfattning']))
             continue
         if v['lage'] == 'grund' and not p['grund']:
             ut['hinder'].append('%s ingår inte i grundleveransen: kunden väljer det' % p['id'])

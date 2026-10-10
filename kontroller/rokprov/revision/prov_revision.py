@@ -5716,7 +5716,13 @@ wr_ex = json.loads(re_ex.sub(r'(?m)^\s*//.*$', '', (ROOT / 'mall' / 'leverans' /
 assert re_ex.fullmatch(r'\d{4}-\d{2}-\d{2}', wr_ex['compatibility_date']) and wr_ex['workers_dev'] is False and wr_ex['preview_urls'] is False, wr_ex
 assert wr_ex['assets']['run_worker_first'] == ['/api', '/api/*'] and wr_ex['r2_buckets'][0].get('jurisdiction') == 'eu' and wr_ex['assets']['directory'] == './dist' and wr_ex['vars']['MILJO'] == 'produktion'
 fh_ex = wr_ex['env']['forhandsvisning']
-assert fh_ex['vars'] == {'MILJO': 'forhandsvisning'} and not {'d1_databases', 'r2_buckets'} & set(fh_ex), 'förhandsvisningen har ingen databas, bucket eller mejlhemlighet'
+assert fh_ex['vars'] == {'MILJO': 'forhandsvisning'} and not {'d1_databases', 'r2_buckets', 'send_email'} & set(fh_ex), 'förhandsvisningen har ingen databas, bucket eller mejlbindning'
+# K04: Cloudflares send_email-bindning, låst till platshållare som aldrig kan verifieras tills exporten skriver in kundens adresser
+assert wr_ex['send_email'] == [{'name': 'EMAIL', 'allowed_destination_addresses': ['inte-aktiverad@invalid.invalid'],
+                                'allowed_sender_addresses': ['inte-aktiverad@invalid.invalid']}], wr_ex.get('send_email')
+wr_ex2 = json.loads(re_ex.sub(r'(?m)^\s*//.*$', '', ex_k3.wrangler_namn((ROOT / 'mall' / 'leverans' / 'wrangler.jsonc').read_text(), 'kund-x',
+                    {'database_id': '12345678-1234-4123-8123-123456789abc', 'forfragan_till': 'a@kund.invalid, b@kund.invalid', 'forfragan_fran': 'formular@notis.nortropic.invalid'})))
+assert wr_ex2['send_email'][0]['allowed_destination_addresses'] == ['a@kund.invalid', 'b@kund.invalid'] and wr_ex2['send_email'][0]['allowed_sender_addresses'] == ['formular@notis.nortropic.invalid'], wr_ex2['send_email']
 assert ex_k3.wrangler_namn((ROOT / 'mall' / 'leverans' / 'wrangler.jsonc').read_text(), 'kund-x').count('kund-kund-x') == 4
 pub_ex = tmp / 'pub-ex'; (pub_ex / 'om').mkdir(parents=True)
 for f_ in ('index.html', 'om/index.html', '_astro/a.js', 'worker/index.js', 'wrangler.jsonc', '.dev.vars', 'migrations/0001.sql', 'x.js.map'):
@@ -5742,19 +5748,21 @@ const form = (f, bild) => { const fd = new FormData(); for (const [k, v] of Obje
 const g = { namn: 'Prov', telefon: '0700000000', meddelande: 'Hej', fylltid: '9000' };
 const ut = [];
 async function kor(req, env = {}, mejl = null) {
-  globalThis.fetch = mejl ? async (u, o) => { lager.mejl.push(u); return mejl(); } : async () => { throw new Error('inget nät'); };
-  const r = await worker.fetch(req, { ASSETS, ...env }); ut.push([r.status, r.headers.get('location'), r.headers.get('x-forfragan')]); }
+  // Cloudflares send_email-bindning (K04) som attrapp; inget nät alls i provet
+  globalThis.fetch = async () => { throw new Error('inget nät'); };
+  const EMAIL = mejl ? { async send(m) { lager.mejl.push(m.to); return mejl(); } } : undefined;
+  const r = await worker.fetch(req, { ASSETS, ...env, ...(EMAIL ? { EMAIL } : {}) }); ut.push([r.status, r.headers.get('location'), r.headers.get('x-forfragan')]); }
 const prod = { MILJO: 'produktion', DB: DB(false), BILAGOR: R2 };
-const konf = { ...prod, RESEND_API_KEY: 'k', FORFRAGAN_TILL: 'a@x.se', FORFRAGAN_FRAN: 'w@x.se' };
+const konf = { ...prod, FORFRAGAN_TILL: 'a@x.se', FORFRAGAN_FRAN: 'w@notis.x.se' };
 await kor(form({ ...g, webbplats: 'x' }), prod);
 await kor(form({ ...g, telefon: '' }), prod);
 await kor(new Request('https://x.se/api/forfragan/', { method: 'POST', headers: { 'content-length': '5000000' }, body: 'x' }), prod);
 await kor(form(g), { MILJO: 'forhandsvisning' });
 await kor(form(g), { MILJO: 'produktion', DB: DB(true), BILAGOR: R2 });
 const jpeg = () => new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' });
-await kor(form({ ...g, inskick: 'prov-inskick-00000001' }, jpeg()), konf, () => new Response('{"id":"m1"}', { status: 200 }));
-await kor(form({ ...g, inskick: 'prov-inskick-00000001' }, jpeg()), konf, () => new Response('{"id":"m2"}', { status: 200 }));
-await kor(form({ ...g, meddelande: 'Annan' }), konf, () => new Response('fel', { status: 422 }));
+await kor(form({ ...g, inskick: 'prov-inskick-00000001' }, jpeg()), konf, () => ({ messageId: 'm1' }));
+await kor(form({ ...g, inskick: 'prov-inskick-00000001' }, jpeg()), konf, () => ({ messageId: 'm2' }));
+await kor(form({ ...g, meddelande: 'Annan' }), konf, () => { throw Object.assign(new Error('nekad'), { code: 'E_RECIPIENT_NOT_ALLOWED' }); });
 await kor(form(g, new Blob([new Uint8Array(4200000)], { type: 'image/jpeg' })), prod);
 await kor(form(g, new Blob(['text'], { type: 'text/plain' })), prod);
 await kor(new Request('https://x.se/api/forfragan/', { method: 'POST', headers: { origin: 'https://annan.se' }, body: new FormData() }), prod);

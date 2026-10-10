@@ -121,6 +121,13 @@ def wrangler_namn(text, slug, drift=None):
             text, n = re.subn(monster, lambda m, v=drift[nyckel]: m.group(1) + v + m.group(2), text, count=1)
             if n != 1:
                 raise RuntimeError('mallens wrangler.jsonc saknar platsen för %s' % nyckel)
+    # send_email-bindningen låses till kundens mottagare och avsändare (K04)
+    for nyckel, falt in (('forfragan_till', 'allowed_destination_addresses'), ('forfragan_fran', 'allowed_sender_addresses')):
+        if drift and drift.get(nyckel):
+            adresser = json.dumps([x.strip() for x in drift[nyckel].split(',') if x.strip()])
+            text, n = re.subn(r'("%s":\s*)\["inte-aktiverad@invalid\.invalid"\]' % falt, lambda m, a=adresser: m.group(1) + a, text, count=1)
+            if n != 1:
+                raise RuntimeError('mallens wrangler.jsonc saknar send_email-bindningens %s' % falt)
     return text
 
 
@@ -129,8 +136,10 @@ EPOST = re.compile(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}')
 
 def driftvarden(slug):
     """Kundens driftvärden för produktionen, privat i underlag/<slug>/CLOUDFLARE.json (skapas vid aktiveringen):
-    {"database_id": "<D1-id>", "forfragan_till": "a@x.se[,b@x.se]", "forfragan_fran": "webb@x.se"}. None när filen
-    saknas; ValueError när ett värde har fel form (inget hamnar då i kundrepot)."""
+    {"database_id": "<D1-id>", "forfragan_till": "a@x.se[,b@x.se]", "forfragan_fran": "<kund>@notis.nortropic.se"}.
+    Mottagarna är verksamhetens brevlådor, verifierade i Nortropics Cloudflare-konto; avsändaren ligger på en
+    routing-domän i samma konto (kunskap/forfragan.md, punkt 6). None när filen saknas; ValueError när ett värde har fel
+    form (inget hamnar då i kundrepot)."""
     f = UNDERLAG / slug / 'CLOUDFLARE.json'
     if not f.is_file() or f.is_symlink():
         return None

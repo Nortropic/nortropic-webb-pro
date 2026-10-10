@@ -131,7 +131,7 @@ async function kundstartvy(eid='',besked='',personlig=null) {
     f.onsubmit=async e=>{e.preventDefault();if(!aktuell()||!utkast.klar())return;const b=f.querySelector('button[type="submit"]');b.disabled=true;
       try{await anropa(n,bygg(new FormData(f),utkast.revision()),{utkast,personlig});}finally{if(aktuell())b.disabled=!utkast.klar();}};};
   const bindFunktioner=fu=>{const f=document.getElementById('ks-funktion');if(!f||!fu||fu.fel)return;
-    const fyll=()=>{const o=fu.omraden.find(x=>x.id===f.elements.omrade.value);const s=f.elements.paket;s.replaceChildren(...o.paket.map(p=>{const op=document.createElement('option');op.value=p.id;op.textContent=p.funktion;return op;}));visa();};
+    const fyll=()=>{const o=fu.omraden.find(x=>x.id===f.elements.omrade.value);const s=f.elements.paket;s.replaceChildren(...o.paket.filter(p=>p.fardighet!=='inaktuellt').map(p=>{const op=document.createElement('option');op.value=p.id;op.textContent=p.funktion;return op;}));visa();};
     const visa=()=>{const o=fu.omraden.find(x=>x.id===f.elements.omrade.value),p=o&&o.paket.find(x=>x.id===f.elements.paket.value);
       document.getElementById('ks-paket-besked').textContent=p?p.niva+' · '+p.fardighet+': '+p.fardighet_omfattning:'';};
     f.elements.omrade.addEventListener('change',fyll);f.elements.paket.addEventListener('change',visa);fyll();

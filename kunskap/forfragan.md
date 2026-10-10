@@ -45,12 +45,14 @@ under `/api/` kör Workern (`wrangler.jsonc`, `run_worker_first`). Ärendet spar
 Proven och vad de bevisar:
 
 - `kontroller/rokprov/revision/prov_formularfel.py` kör Workern ur exporten i Node mot D1 som riktig SQLite med mallens
-  migreringar, R2 och mejltjänsten som märkta attrapper med felinjektion (lagret faller, kvittot stämmer inte, fristen
-  går ut), och samma Worker i Chromium utan JavaScript. Det bevisar felhanteringen, ordningen och idempotensen.
+  migreringar, R2 och mejlbindningen som märkta attrapper med felinjektion (lagret faller, kvittot stämmer inte, fristen
+  går ut, bindningen nekar med en felkod), och samma Worker i Chromium utan JavaScript. Det bevisar felhanteringen,
+  ordningen och idempotensen.
 - `kontroller/workersprov.py` (i rökprovet via `prov_workers.py`) kör den exporterade Workern i Cloudflares runtime
-  (workerd) med lokal D1 och R2 och en mejlattrapp på 127.0.0.1.
-- Inget av dem bevisar ett fungerande Cloudflare-konto, Resend-konto eller faktisk mottagning hos verksamheten; det är
-  fjärrprovet och det riktiga inskicket vid lanseringen (`kunskap/lansering.md`).
+  (workerd) med lokal D1 och R2 och Wranglers simulering av `send_email`, låst till provets adresser: mejlet sparas i
+  simuleringens lager och skickas inte.
+- Inget av dem bevisar ett fungerande Cloudflare-konto, en verifierad mottagare eller faktisk mottagning hos
+  verksamheten; det är fjärrprovet och det riktiga inskicket vid lanseringen (`kunskap/lansering.md`).
 
 Utfallen:
 
@@ -80,12 +82,15 @@ Utfallen:
 
 **Utkorgen** (D1-tabellen `utkorg`): `vantar` → `skickar` → `accepterad` | `fel`. Avsikten skrivs före nätanropet, så
 `skickar` utan slutläge är ett osäkert utfall, inte ett skäl att skicka igen i blindo. `fel` betyder bara att
-mejltjänsten nekade mejlet (4xx); en tidsgräns, ett nätfel, ett serverfel eller ett oläsbart kvitto lämnar raden som
-`skickar` (granskningspasset 2026-10-10: ett mejl som accepterats men vars svar kom sent får aldrig se ut som ett fel).
-Lokalt (`wrangler dev` på localhost) går inget mejl till Resend, också om en nyckel ligger i `.dev.vars`. Mejlet bär ärendets id som
-`Idempotency-Key` hos Resend: ett nytt försök med samma innehåll inom 24 timmar ger samma svar utan ett andra mejl
-(https://resend.com/docs/dashboard/emails/idempotency-keys, läst 2026-10-10). Loggen och utkorgen får bara Workerns
-egna orsaker, aldrig en leverantörs feltext. Läget och gallringen sköts med `kontroller/forfragningar.py` (`kunskap/drift.md`,
+bindningen nekade mejlet med en felkod som är ett slutligt besked (till exempel `E_RECIPIENT_NOT_ALLOWED`,
+`E_SENDER_NOT_VERIFIED`, `E_VALIDATION_ERROR`; listan `NEKADE` i Workern); en tidsgräns, `E_INTERNAL_SERVER_ERROR`, ett
+fel utan kod eller ett kvitto utan meddelande-id lämnar raden som `skickar` (granskningspasset 2026-10-10: ett mejl som
+accepterats men vars svar kom sent får aldrig se ut som ett fel). Bindningen har ingen idempotensnyckel
+(https://developers.cloudflare.com/email-service/api/send-emails/workers-api/, läst 2026-10-10), så ett osäkert utfall
+stäms av i utkorgen och skickas aldrig om automatiskt. Lokalt simulerar `wrangler dev` bindningen och skickar inget så
+länge bindningen saknar `remote: true` (https://developers.cloudflare.com/email-service/local-development/sending/, läst
+2026-10-10); mallen sätter det aldrig. Loggen och utkorgen får bara Workerns egna orsaker och felkoden, aldrig en
+leverantörs feltext. Läget och gallringen sköts med `kontroller/forfragningar.py` (`kunskap/drift.md`,
 Formulärets ärenden); ett automatiskt nytt försök och en schemalagd gallring körs inte, eftersom de väntar på
 beslutet om schemalagd körning (Cron Triggers är 5 per konto på gratisnivån).
 
@@ -100,13 +105,13 @@ den andra räknas som samma ärende. Två samtidiga inskick med samma nyckel bli
 **Frister:** varje lagringssteg (kontrollen av tidigare inskick, bilagan, ärendet, utkorgen) har 10 s, mejlanropet
 inklusive kvittot 8 s. Ett steg som inte bekräftas inom fristen räknas som obekräftat; det kan ändå bli klart senare,
 och därför tas en bilaga aldrig bort efter en frist (ärendet kan peka på den). En frist bevisar inte att leverantören
-saknar sidoeffekt. Mejlkvittot måste innehålla ett giltigt id utan felobjekt; HTTP 200 ensamt räcker inte.
+saknar sidoeffekt. Bindningens kvitto måste innehålla ett giltigt `messageId`; ett svar utan det räknas som obekräftat.
 
 `kontroller/driftkoll.py --formular` prövar HTTP-kontraktet mot en driftsatt adress med syntetiska ogiltiga inskick,
 och ett giltigt demoinskick bara i förhandsvisningen (bakom Cloudflare Access med `--access-fil`). Riktiga
 mottagningsprov görs uttryckligen med verksamhetens adress inför lansering. Workern sparar och skickar bara i
 produktionen (`MILJO=produktion` i `wrangler.jsonc`); förhandsvisningen (`--env forhandsvisning`) har varken D1, R2
-eller mejlnyckel och är demo också om en variabel skulle finnas (GR-20261008-r117-claude#D2).
+eller mejlbindning och är demo också om en variabel skulle finnas (GR-20261008-r117-claude#D2).
 
 1. Bara POST; multipart eller urlencoded; begäran högst 4,4 MB och bilden högst 4 MB (Workerns egna tak, långt under
    plattformens gräns för en begärans storlek), bara bildtyper i `bild`; en bild som inte tas emot får ett eget
@@ -124,11 +129,16 @@ eller mejlnyckel och är demo också om en variabel skulle finnas (GR-20261008-r
    DNS-post ändras, mejlet hamnar i skräpposten), och utan lagring är förfrågan borta utan att någon vet att den fanns
    (kirurgens intag 2026-10-03, Websites for Normal People). Ärendet bär `gallras` (integritetssidans lagringstid,
    `GALLRING_DAGAR`); ingen annan än verksamheten och Nortropic läser det.
-6. Mejl till verksamheten via en dedikerad tjänst (Resend) med SPF, DKIM och DMARC på domänen; texten som ren text,
-   bilden som bilaga. Resend lagrar kontots data, också mejlens metadata och loggar, i USA oavsett vald sändregion
-   (standardavtalsklausuler och EU–US Data Privacy Framework; https://resend.com/docs/dashboard/domains/regions, läst
-   2026-10-10). Integritetstexten säger det, och biträdesavtalet är accepterat före lanseringen; D1 och R2 skapas med
-   EU-jurisdiktion.
+6. Mejl till verksamheten genom Cloudflares e-post från Workern (`send_email`-bindningen `EMAIL`; ägarens beslut
+   2026-10-10, `BESLUT.md`); texten som ren text, bilden som bilaga. Avsändaren ligger på Nortropics routing-domän
+   `notis.nortropic.se` (Email Routing påslaget 2026-10-10; SPF och DKIM sköts av Cloudflare), och mottagaren är
+   verksamhetens brevlåda, verifierad i Nortropics konto. Mejl till verifierade mottagare är gratis på alla planer;
+   högst 200 verifierade adresser per konto och 25 MiB per meddelande
+   (https://developers.cloudflare.com/email-service/platform/limits/, läst 2026-10-10). Bindningen är låst till
+   kundens mottagare och avsändaren (`allowed_destination_addresses`, `allowed_sender_addresses`), som exporten skriver
+   in ur `underlag/<slug>/CLOUDFLARE.json`. Var Cloudflare behandlar mejlets innehåll anges inte i källorna;
+   integritetstexten nämner Cloudflare som mottagare av förfrågan. D1 och R2 skapas med EU-jurisdiktion. Resend är
+   ersatt för formuläret och står kvar i katalogen som historik.
 7. Svara enligt de separata utfallen ovan. Vid mejlfel finns ärendet kvar i D1; hanteringsrutinen ska vara klar före
    lansering.
 8. Konverteringshändelser för skickad förfrågan och telefonklick, i kakfri mätning.

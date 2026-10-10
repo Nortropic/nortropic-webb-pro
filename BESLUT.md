@@ -363,6 +363,8 @@ val inom det mandatet, inga egna ägarbeslut.
     och Standard Protection efter. Prövat med riktiga HTTP-svar i provprojektet `nortropic-leveransprov` med rökprovets
     fiktiva sajt (`kontroller/driftkoll.py`). Fyndet att produktionsaliaset var publikt under Standard Protection står i
     `kunskap/lansering.md`; aliaset var öppet i cirka tre minuter med den fiktiva sidan innan skyddet ändrades.
+    **Delvis ersatt av:** ägarens beslut 2026-10-09 ~21:17Z (Workers i stället för Vercel för nya leveranser) och
+    2026-10-10 ~06:05Z (formulärets mejl genom Cloudflares e-post i stället för Resend). Övrigt gäller.
 
 ## Tillägg 2026-10-05, natt: startkontrollen, det dagliga underhållet och granskningens rättelser
 
@@ -4482,3 +4484,33 @@ Migreringen gäller leveransvägen: mallen, exporten, förhandsvisningen, proven
 konto, Workern i workerd, formulärets felvägar), integrationskatalogen K01–K18 finns med validering och plan, och
 Nortropics Cloudflare-konto är inte anslutet: inget är prövat mot Cloudflare, och inget är driftaktiverat eller
 avvecklat. Var vägen och fakta står: `kunskap/lansering.md` (Cloudflare-steget) och `kunskap/forfragan.md`.
+
+## Ägarens beslut 2026-10-10 ~06:05Z: Cloudflares e-post är K04:s huvudväg i stället för Resend
+
+**Status:** gäller; genomfört i leveransvägen och prövat lokalt (b3, grenen `claude/cloudflare-20261009`). Ersätter
+Resend för formulärets avisering; prospektens utskick (`kontroller/utskick.py`) går fortfarande genom Resend, som
+beslutet inte rör. Resend-paketet står kvar i integrationskatalogen som inaktuellt (historik).
+
+Ägarens ord ~06:05Z, ordagrant: "Vi gör gör Cloudflares e-post till huvudvägen för K04 efter du har kvalificerat mot
+dokumentationen istället för resend"
+
+Ägarens ord före 06:16:55Z, ordagrant: "ja" (på frågan om att slå på Email Routing för underdomänen
+`notis.nortropic.se`: nya DNS-poster bara på underdomänen, apex-domänens MX hos Google Workspace orörda). Också,
+ordagrant: "vi kommer göra om nortropic.se så det gör inget ifall det händer."
+
+**Kvalificeringen** (Cloudflares dokumentation, läst 2026-10-10; källorna i katalogens `k04-cloudflare-epost`):
+- Workern skickar med `send_email`-bindningen (`env.EMAIL.send({from, to, subject, text, attachments})`), som svarar med
+  `messageId` och kastar fel med en kod (`E_*`). Ingen nyckel i Workern.
+- Mejl till verifierade mottagare är gratis på alla planer och räknas inte mot kvoten; högst 200 verifierade adresser
+  per konto, delade av alla kunder; 25 MiB per meddelande. Avsändaren måste ligga på en routing-domän i kontot.
+- Mejl till godtyckliga mottagare (Email Sending) kräver Workers Paid; det ingår inte (inget planbyte utan mandat).
+- Bindningen har ingen idempotensnyckel: ett osäkert utfall står som `skickar` i utkorgen och skickas aldrig om
+  automatiskt. Var innehållet behandlas anges inte i källorna.
+- Lokalt simulerar `wrangler dev` bindningen utan att skicka, så länge den saknar `remote: true`.
+
+**Genomfört:** Email Routing påslaget för `notis.nortropic.se` 2026-10-10 06:16:55Z (MX och SPF på underdomänen, DKIM
+under `cf2024-1._domainkey.nortropic.se`; posterna före ändringen sparade privat). Workern, mallens `wrangler.jsonc`
+(bindningen låst till platshållare som releasen nekar), exporten (kundens mottagare och avsändare ur
+`underlag/<slug>/CLOUDFLARE.json`), proven (attrappen av bindningen med felkoder; Wranglers simulering i
+`workersprov.py`), katalogen och dokumentationen (`kunskap/forfragan.md`, `kunskap/lansering.md`). Inget riktigt mejl
+är skickat: en verifierad mottagare och ett första skarpt prov kräver en verklig verksamhet och sitt eget mandat.

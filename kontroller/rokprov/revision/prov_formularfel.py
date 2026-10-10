@@ -148,8 +148,9 @@ class Formular(unittest.TestCase):
         self.assertEqual([e[0] if e[0]!='d1.run' else 'utkorg:'+e[1] for e in d['events'] if e[0] not in ('d1.first','d1.batch.efter')],
                          ['d1.batch','utkorg:skickar','mejl','utkorg:accepterad'])
         rad=d['rader'][0]
-        self.assertEqual((rad['status'],rad['forsok'],rad['mejl_id']),('accepterad',1,'00000000-0000-4000-8000-000000000001'))
-        self.assertEqual(self.mejl(d)[0]['idempotens'],'forfragan-'+rad['id'],'mejlet bär ärendets id som idempotensnyckel')
+        self.assertEqual((rad['status'],rad['forsok'],rad['mejl_id']),('accepterad',1,'<00000000-0000-4000-8000-000000000001@notis.nortropic.se>'))
+        m=self.mejl(d)[0]
+        self.assertEqual((m['to'],m['from'],m['text']),(['test@example.invalid'],'formular@notis.example.invalid','string'),'bindningen får mottagarna och avsändaren ur Workerns variabler')
         self.assertTrue(rad['nyckel'].startswith('i:'+d['values']['inskick']+':'),'inskicks-id och innehåll');self.assertTrue(rad['innehall'].startswith('h:'))
         self.assertEqual(rad['meddelande'],d['values']['meddelande']);self.assertEqual(rad['namn'],d['values']['namn'])
         mottagen=datetime.fromisoformat(rad['mottagen'].replace('Z','+00:00'))
@@ -161,11 +162,6 @@ class Formular(unittest.TestCase):
         self.assertFalse(any(e[0]=='r2.delete' for e in d['events']))
         self.assertEqual((d['svar'][1]['status'],d['svar'][1]['headers'].get('x-forfragan')),(303,'dubblett'),'ett nytt försök blir samma ärende')
 
-    def test_lokalt_gar_inget_mejl_till_resend(self):
-        d=self.kor('lokal-resend');self.assertEqual((d['status'],d['headers'].get('location')),(303,'/mottagen/'))
-        self.assertEqual(self.mejl(d),[]);self.assertEqual(d['rader'][0]['status'],'vantar')
-        self.assertTrue(any('lokal' in l for l in d['logs']))
-
     def test_bilagan_lagras_privat_under_arendets_nyckel(self):
         for mode,namn in (('giltig-bild','syntetisk.jpg'),('filnamn','bilaga')):
             with self.subTest(mode=mode):
@@ -176,6 +172,7 @@ class Formular(unittest.TestCase):
                 self.assertEqual(d['r2'][0][1]['meta'],{'forfragan':rad['id']})
                 self.assertEqual((rad['bilaga'],rad['bilaga_namn']),(nyckel,namn))
                 self.assertEqual(self.mejl(d)[0]['bilagor'],[namn])
+                self.assertEqual(self.mejl(d)[0]['bilagetyp'],['string'],'bilagan som base64-sträng (den lokala simuleringen kan inte serialisera ArrayBuffer)')
 
     def test_lokala_frister_avbryter_och_forhindrar_sena_foljdsteg(self):
         d=self.kor('langsam-r2');self.assertEqual(d['status'],503);self.bevarat(d)
@@ -187,10 +184,10 @@ class Formular(unittest.TestCase):
         self.assertEqual([r['status'] for r in d['rader']],['vantar']);self.assertEqual(len(d['r2']),1)
         self.assertEqual(d['r2'][0][0],d['rader'][0]['bilaga'])
         self.assertEqual((d['svar'][1]['status'],d['svar'][1]['headers']['location'],d['svar'][1]['headers']['x-forfragan']),(303,'/mottagen/','dubblett'))
-        for mode in ('langsam-mejl','langsam-json'):
+        for mode in ('langsam-mejl',):
             with self.subTest(mode=mode):
                 d=self.kor(mode);self.assertEqual(d['status'],303);self.assertEqual(d['headers']['location'],'/mottagen/')
-                self.assertIn(['avbrutet','mejl'],d['events']);self.assertEqual(len(self.mejl(d)),1)
+                self.assertEqual(len(self.mejl(d)),1)
                 self.assertEqual(d['rader'][0]['status'],'skickar','en tidsgräns är ett okänt utfall, inte ett fel')
         # utkorgens avsikt bekräftas inte: inget mejl i blindo
         d=self.kor('langsam-utkorg');self.assertEqual(d['status'],303);self.assertEqual(d['headers']['location'],'/mottagen/')

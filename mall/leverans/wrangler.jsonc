@@ -26,7 +26,12 @@
   },
   // database_id och bucket skapas vid aktiveringen med EU-jurisdiktion (wrangler d1 create --jurisdiction eu,
   // wrangler r2 bucket create --jurisdiction eu); jurisdiktionen kan inte ändras efteråt och R2-bindningen ska bära den.
-  // RESEND_API_KEY är en hemlighet (wrangler secret put), aldrig en variabel.
+  // Mejlet (K04): Cloudflares send_email-bindning, låst till kundens verifierade mottagare och avsändaren på Nortropics
+  // routningsdomän. Platshållarna nedan kan aldrig verifieras, så bindningen skickar ingenting förrän exporten har skrivit
+  // in kundens adresser (underlag/<slug>/CLOUDFLARE.json). Ingen nyckel behövs.
+  "send_email": [
+    { "name": "EMAIL", "allowed_destination_addresses": ["inte-aktiverad@invalid.invalid"], "allowed_sender_addresses": ["inte-aktiverad@invalid.invalid"] }
+  ],
   "d1_databases": [
     { "binding": "DB", "database_name": "kund-SLUG-forfragningar", "database_id": "AKTIVERAS-VID-LANSERING", "migrations_dir": "migrations" }
   ],
@@ -34,8 +39,8 @@
     { "binding": "BILAGOR", "bucket_name": "kund-SLUG-bilagor", "jurisdiction": "eu" }
   ],
   "env": {
-    // Skyddad förhandsvisning: en egen Worker utan databas, bucket eller mejlhemlighet (vars, d1_databases och
-    // r2_buckets ärvs inte mellan miljöer; assets, workers_dev och preview_urls gör det och sätts därför här), så att den aldrig kan läsa eller skriva produktionens data eller skicka ett riktigt mejl. Adressen skyddas
+    // Skyddad förhandsvisning: en egen Worker utan databas, bucket eller mejlbindning (vars, d1_databases, r2_buckets
+    // och send_email ärvs inte mellan miljöer; assets, workers_dev och preview_urls gör det och sätts därför här), så att den aldrig kan läsa eller skriva produktionens data eller skicka ett riktigt mejl. Adressen skyddas
     // med Cloudflare Access före första uppladdningen av verkligt material (lansering.md).
     "forhandsvisning": {
       "name": "kund-SLUG-forhandsvisning",

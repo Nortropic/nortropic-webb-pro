@@ -12,7 +12,7 @@ Samma repo återanvänds vid fortsättning, nya kandidater och återförsök; sk
 Exporten (kontroller/exportera.py) blir en commit i det beständiga repot (synka_export) i stället för ett katalogbyte,
 pushas till fjärrepot när det är bundet (push), och förhandsvisningen (preview) driftsätts på Cloudflare Workers
 (ägarens beslut 2026-10-09: Cloudflare är målplattform, Vercel är det inte längre) som Workern kund-<slug>-forhandsvisning
-(wrangler deploy --env forhandsvisning, utan databas, bucket och mejlhemlighet), byggd ur commitens frysta filer; kvittot
+(wrangler deploy --env forhandsvisning, utan databas, bucket och mejlbindning), byggd ur commitens frysta filer; kvittot
 kunder/<slug>/leverans/PREVIEW-<tid>.json bär commit, export, Cloudflares versions-id, adress, skydd och status. Kontot
 är Nortropics anslutna Cloudflare-konto (~/.nortropic-hemligheter/webb-pro/cloudflare.env, 0600: en avgränsad API-token,
 konto-id och workers.dev-underdomänen); saknas det står förhandsvisningen som väntande med den exakta handlingen, och inget
@@ -764,6 +764,8 @@ def release_krav(slug):
     for namn in ('FORFRAGAN_TILL', 'FORFRAGAN_FRAN'):
         if not re.search(r'"%s":\s*"[^"]+"' % namn, konfig):
             return '%s saknas i kundrepots wrangler.jsonc (underlag/%s/CLOUDFLARE.json), exportera igen' % (namn, slug)
+    if 'inte-aktiverad@invalid.invalid' in konfig:
+        return 'mejlbindningen (send_email) är inte låst till kundens adresser: exportera igen efter driftvärdena'
     return None
 
 

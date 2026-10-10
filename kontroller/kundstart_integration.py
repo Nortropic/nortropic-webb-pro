@@ -30,6 +30,8 @@ def valj(lager, eid, revision, data, katalog=None):
     p = _paket(k, data['paket'])
     if p['omrade'] != data['omrade']:
         raise ks.Vagrad('Paketet hör till %s, inte %s.' % (p['omrade'], data['omrade']))
+    if p['fardighet'] == 'inaktuellt':
+        raise ks.Vagrad('Paketet är inaktuellt: %s' % p['fardighet_omfattning'])
     behov = data.get('behov')
     if behov is not None:
         ks.nyckel(behov)
@@ -115,7 +117,7 @@ def modellforslag(lista, kallor, revision, katalog=None):
             raise ks.Vagrad('Följdfrågan är ogiltig.')
         p = paket.get(f['paket'])
         post = {**f, 'foljdfraga': f['foljdfraga'].strip() or None, 'utreds': False, 'avvisat_paket': None}
-        if f['paket'] != 'utreds' and (not p or p['omrade'] != f['omrade'] or p['grund']):
+        if f['paket'] != 'utreds' and (not p or p['omrade'] != f['omrade'] or p['grund'] or p['fardighet'] == 'inaktuellt'):
             post.update(paket=None, utreds=True, avvisat_paket=str(f['paket'])[:80])  # T02: aldrig en påhittad anslutning
         elif f['paket'] == 'utreds':
             post.update(paket=None, utreds=True)
@@ -134,6 +136,9 @@ def plan(d, katalog=None):
         p = paket.get(v['paket'])
         if not p:
             inaktuella.append({'val': v['id'], 'paket': v['paket'], 'skal': 'paketet finns inte längre i katalogen'})
+            continue
+        if p['fardighet'] == 'inaktuellt':
+            inaktuella.append({'val': v['id'], 'paket': v['paket'], 'skal': 'paketet är inaktuellt: ' + p['fardighet_omfattning']})
             continue
         l, skal = lage(d, v, p)
         if l is None:

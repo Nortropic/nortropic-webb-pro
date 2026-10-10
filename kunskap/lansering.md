@@ -72,8 +72,9 @@ skrivs aldrig i ett kvitto. Ingen ägarinloggning: Wranglers konfiguration ligge
 **Förhandsvisning och skydd.**
 
 - **Två Workers.** Förhandsvisningen är en egen Worker (`--env forhandsvisning`, namnet `kund-<slug>-forhandsvisning`)
-  på kontots workers.dev-adress, utan D1, R2 eller mejlhemlighet: `vars`, `d1_databases` och `r2_buckets` ärvs inte
-  mellan miljöer, så den kan varken läsa produktionens ärenden eller skicka ett riktigt mejl. Workern går före varje
+  på kontots workers.dev-adress, utan D1, R2 eller mejlbindning: `vars`, `d1_databases`, `r2_buckets` och `send_email`
+  ärvs inte mellan miljöer (Wranglers bindningslista för miljön, prövat i `workersprov.py`), så den kan varken läsa
+  produktionens ärenden eller skicka ett riktigt mejl. Workern går före varje
   fil där och märker varje svar `X-Robots-Tag: noindex, nofollow`. Produktionen har `workers_dev: false` och
   `preview_urls: false`: dess enda publika ingång är kundens domän.
 - **Skyddsmetoden är Cloudflare Access** (Zero Trust Free räcker för färre än 50 användare). Access slås på för
@@ -92,10 +93,12 @@ skrivs aldrig i ett kvitto. Ingen ägarinloggning: Wranglers konfiguration ligge
 --jurisdiction eu` och `wrangler r2 bucket create kund-<slug>-bilagor --jurisdiction eu`. Jurisdiktionen sätts bara
 när resursen skapas och kan inte ändras efteråt; R2-bindningen i `wrangler.jsonc` bär `"jurisdiction": "eu"`.
 `database_id` skrivs in i kundrepots `wrangler.jsonc`, schemat läggs med `wrangler d1 migrations apply DB --remote`,
-mottagarna i `vars` (`FORFRAGAN_TILL`, `FORFRAGAN_FRAN`) och mejlnyckeln som hemlighet (`wrangler secret put
-RESEND_API_KEY`). Resend lagrar kontots data, också mejlens metadata och loggar, i USA oavsett vald sändregion
-(överföringen vilar på standardavtalsklausuler och EU–US Data Privacy Framework): det ska stå i integritetstexten och
-vara accepterat i personuppgiftsbiträdesavtalet före lanseringen.
+och mottagaren och avsändaren står i `vars` (`FORFRAGAN_TILL`, `FORFRAGAN_FRAN`) och i `send_email`-bindningens
+listor, som exporten skriver in. Mejlet går genom Cloudflares e-post (K04, ägarens beslut 2026-10-10), utan nyckel:
+verksamhetens brevlåda läggs till som verifierad mottagare i Nortropics konto (Email Routing, Destination addresses),
+och verksamheten klickar på Cloudflares verifieringslänk före lanseringen. Avsändaren är en adress på
+`notis.nortropic.se`, routing-domänen i samma konto. Release nekas så länge bindningen bär mallens platshållare.
+Integritetstexten nämner Cloudflare som mottagare av förfrågan.
 
 **Gränser på gratisnivån** (Workers Free; läst 2026-10-10, prövas mot kontots faktiska plan): statiska filer är
 gratis och obegränsade; Workern 100 000 anrop per dygn för hela kontot (därefter svarar `/api/*` 429 i stället för
@@ -144,7 +147,9 @@ Källor (lästa 2026-10-10): [Static Assets: run_worker_first](https://developer
 [partiell zon](https://developers.cloudflare.com/dns/zone-setups/partial-setup/),
 [Cloudflare for SaaS](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/),
 [återgång](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/),
-[Resends regioner och lagring](https://resend.com/docs/dashboard/domains/regions).
+[e-post från Workers](https://developers.cloudflare.com/email-service/api/send-emails/workers-api/),
+[verifierade mottagare](https://developers.cloudflare.com/email-service/configuration/email-routing-addresses/),
+[e-postens gränser](https://developers.cloudflare.com/email-service/platform/limits/).
 
 **Sajterna som ligger kvar på Vercel** (ägarens besked 2026-10-09: inga befintliga hemsidor flyttas) förvaltas som
 förut: Vercels CLI finns kvar i verktygslådan, driftkollen tar `--bypass-fil` för en äldre förhandsvisning, och
@@ -167,8 +172,12 @@ TXT på `_dmarc`) med `dig +noall +answer <namn> <typ>` i en fil i kundmappen, o
 gamla TTL:en har löpt ut. Ändrad eller saknad MX, TXT eller `_dmarc` är ett fynd; webbposterna och NS ska ha
 ändrats. När bytet är bekräftat höjer den behöriga människan TTL igen.
 
-**E-postdomänen.** Domänen som formulärets mejl skickas från: SPF (`dig TXT <domän>`), DKIM under mejltjänstens
-selektor (`dig TXT <selektor>._domainkey.<domän>`) och DMARC (`dig TXT _dmarc.<domän>`). Saknas både SPF och DKIM är
+**E-postdomänen.** Formulärets mejl skickas från Nortropics routing-domän `notis.nortropic.se`. Cloudflare lade
+posterna när Email Routing slogs på 2026-10-10: MX och SPF på `notis.nortropic.se` och DKIM under
+`cf2024-1._domainkey.nortropic.se`; DMARC gäller via `_dmarc.nortropic.se` (`p=none`). Att signeringen och
+leveransen fungerar visar först ett riktigt mejl till en verifierad mottagare. Kontrollen av en avsändardomän: SPF
+(`dig TXT <domän>`), DKIM under mejltjänstens selektor (`dig TXT <selektor>._domainkey.<domän>`) och DMARC
+(`dig TXT _dmarc.<domän>`). Saknas både SPF och DKIM är
 det ett fynd; saknad DMARC en anmärkning; flera SPF-poster ett fynd. Det prövar att posterna finns, inte att
 signeringen fungerar; läs också mejltjänstens eget verifieringsbesked. Gmail kräver SPF eller DKIM av alla avsändare.
 
@@ -197,8 +206,9 @@ och DNS är egna handlingar (nedan), och återgången är `wrangler rollback`. I
 **Lanseringskonfigurationen** är samma bygge som förhandsvisningens: kanonisk värd vald, omdirigeringar från gamla
 adresser i `public/_redirects` (301 eller 308; högst 2 000 statiska regler, och de gäller inte vägar som Workern
 svarar på, [källa](https://developers.cloudflare.com/workers/static-assets/redirects/), läst 2026-10-10), sökkonsolens verifieringstagg renderad,
-D1 och R2 skapade med EU-jurisdiktion och bundna i `wrangler.jsonc`, schemat lagt, mottagarna i `vars` och
-`RESEND_API_KEY` som hemlighet, provet grönt mot bygget och `kontroller/seo_kontroll.py --lage lansering` utan fynd.
+D1 och R2 skapade med EU-jurisdiktion och bundna i `wrangler.jsonc`, schemat lagt, mottagaren verifierad och inskriven
+med avsändaren i `vars` och mejlbindningen, provet grönt mot bygget och `kontroller/seo_kontroll.py --lage lansering`
+utan fynd.
 Produktionens Worker får kundens domän som Custom Domain först när domänvägen ovan är vald och posterna sparade.
 
 ## Lanseringsdagen
