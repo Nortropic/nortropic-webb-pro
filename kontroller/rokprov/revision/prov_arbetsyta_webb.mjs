@@ -211,7 +211,7 @@ const srv = createServer(async (req, res) => {
       return json({ slutkod: 5, start_id: body.start_id, besked: 'Begäran är registrerad.' });
     }
     if (vag === `/api/arbetsyta/${SLUG}/partner`) {
-      const m = { id: body.meddelande_id, tid: new Date().toISOString(), avsikt: body.avsikt, kontext: body.kontext, text: body.text, lage: 'arbetar', svar: null, fel: null, overlamning: null, slut: null };
+      const m = { id: body.meddelande_id, tid: new Date().toISOString(), avsikt: body.avsikt, kontext: body.kontext, text: body.text, lage: body.vanta ? 'vantande' : 'arbetar', svar: null, fel: null, overlamning: null, slut: null };
       const forra = S.partner.find((x) => x.id === m.id);  // samma meddelande-id ger samma post (partner.skicka)
       if (forra) return json({ ...forra, upprepat: true });
       S.partner.push(m);
@@ -233,6 +233,7 @@ const srv = createServer(async (req, res) => {
       return json(meddelandeVy());
     }
     if (vag === `/api/arbetsyta/${SLUG}/beslut`) return json({ ok: true, dom: { tid: new Date().toISOString(), beslut: body.beslut } });
+    if (vag === `/api/arbetsyta/${SLUG}/partner/vantande`) { S.partner = S.partner.filter((x) => !(x.id === body.meddelande_id && x.lage === 'vantande')); return json({ borttagen: body.meddelande_id }); }
     if (vag === `/api/arbetsyta/${SLUG}/redigera`) return json({ id: body.redigering_id, status: 'koad', fil: 'src/pages/index.astro', gammal: body.gammal, ny: body.ny, upprepat: false });
     if (vag === `/api/arbetsyta/${SLUG}/andring`) {
       if (++andringAnrop === 1) return json({ fel: `kandidaten har en ny version sedan du skrev ändringen (din ${String(body.version).slice(0, 12)}, nu 0a1b2c3d4e5f); stäm av mot den aktuella.`, slag: 'Inaktuell' }, 409);
@@ -1081,6 +1082,16 @@ try {
   assert.match(await deltext.innerText(), /Delsvar som strömmas: inte färdigt/, 'delsvaret är märkt som ofärdigt, skilt från svaret');
   assert.match(await page.locator('#ay-samtal .ay-aktivitet').innerText(), /resonerar \(innehållet visas inte\)[\s\S]*läser kunskap\/arbetsyta\.md/, 'den observerade aktiviteten');
   assert.equal(await deltext.evaluate((e) => e.closest('[aria-live]')?.getAttribute('aria-live') || null), null, 'tokenströmmen läses inte upp (U37)');
+  // en väntande instruktion medan turen pågår: sparas utan ny ström, syns i samtalet och kan tas bort
+  await page.waitForFunction(() => document.querySelector('#ay-skriv [data-skicka="partner"]')?.textContent === 'Spara som väntande');
+  await page.locator('#ay-text').fill('Och knappen i första vyn?');
+  await page.locator('#ay-skriv [data-skicka="partner"]').click();
+  await vantaPa(() => partnerPosts().some((x) => x.vanta === true && x.text === 'Och knappen i första vyn?'), 'meddelandet sparas som väntande');
+  await page.locator('#ay-samtal').getByText('Väntande: startar som nästa tur').waitFor();
+  assert.equal(partnerStrommar.size, 1, 'ingen ny ström och ingen ny tur för en väntande instruktion');
+  await page.locator('#ay-samtal [data-vantande-bort]').click();
+  await vantaPa(() => posts.some((x) => x.vag === `/api/arbetsyta/${SLUG}/partner/vantande` && x.body.handling === 'ta_bort'), 'den väntande tas bort');
+  await page.locator('#ay-samtal').getByText('Väntande: startar som nästa tur').waitFor({ state: 'detached' });
   const m1 = S.partner.find((x) => x.id === mid);
   const o = { kandidat: 'k01', version: S.k01v.slice(0, 12), sida: '/', del: 'rubriken', mal: 'En rubrik på fyra ord', avgransning: 'bilden och färgerna', forvantat: 'rubriken ryms på en rad i mobilen' };
   besvara(m1, 'Jag föreslår en rubrik på fyra ord.\n```overlamning\n' + JSON.stringify(o) + '\n```'); m1.overlamning = o;
@@ -1155,7 +1166,7 @@ try {
   assert.match(await page.locator('#ay-text').inputValue(), /^Byt texten «Boka tid»/, 'den ärliga vägen: ett uppdrag med texten');
   await page.locator('[data-forhandslage="besok"]').click();
   await axeKor('Arbetsyta med strömmen, genomförandet och redigeringen');
-  sammanfattning.nortropic_app = { strom_delsvar_skilt_fran_svar: true, avbrott_utan_pahittat_svar: true, genomfor_samma_operations_id: true,
+  sammanfattning.nortropic_app = { strom_delsvar_skilt_fran_svar: true, vantande_instruktion: true, avbrott_utan_pahittat_svar: true, genomfor_samma_operations_id: true,
     brygga_markering: true, direktredigering_efter_klick: true, ej_mappbar_blir_uppdrag: true, forfalskad_markering_nekad: true };
 
   // 13. Inga sidfel; konsolfelen är bara de nätfel provet självt framkallar
