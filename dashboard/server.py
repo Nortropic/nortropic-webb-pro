@@ -2090,6 +2090,17 @@ def flode(slug):
     else:
         steg.append(_steg(9, 'Leveransen', 'inte observerat' if s8 in ('skapat', 'inte observerat') else 'inte påbörjat',
                           brister=['exporten är förberedelse; verklig driftsättning, domän och formulärmottagning är inte verifierade av den']))
+    # migreringsläget (M18): fem skilda besked ur kvitton och observationer; en förhandsadress blir aldrig "migrerad"
+    try:
+        import migreringslage
+        ml = migreringslage.lage(slug)
+        steg[-1]['kontroller'].append({'text': 'Migreringsläge: ' + ml['besked']})
+        steg[-1]['underlag'] += [{'text': '%s: %s · %s' % (s['namn'], {'ja': 'ja', 'nej': 'nej', 'inte_tillampligt': 'inte tillämpligt'}[s['status']], s['belagg'])}
+                                 for s in ml['steg']]
+        if ml.get('bestandsfel'):
+            steg[-1]['brister'].append('Vercel-beståndet: ' + ml['bestandsfel'])
+    except (OSError, ValueError) as e_:
+        steg[-1]['brister'].append('migreringsläget kunde inte läsas: %s' % type(e_).__name__)
     return {'slug': slug, 'blind': blind, 'ab_dold': False,
             'korning': {'startad': st.get('startad'), 'steg': st.get('steg'), 'lage': st.get('lage')} if st else None,
             'steg': steg, 'tid': nu(), 'besked': flodesbesked(slug, blind=blind),

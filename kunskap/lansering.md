@@ -203,6 +203,20 @@ Byggflöde: dashboarden skriver då `RELEASEMANDAT.json`, bundet till förhandsv
 gäller en release. Ett okänt utfall spärrar nästa release tills den stämts av. Releasen gör inte domänen: Custom Domain
 och DNS är egna handlingar (nedan), och återgången är `wrangler rollback`. Inget av detta är prövat mot ett konto.
 
+**Migreringsläget** (`kontroller/migreringslage.py <slug>`, i Byggflöde under Leveransen) har fem skilda besked, vart och
+ett med sitt belägg:
+- förberedd: en aktuell export;
+- måltestad: en klar förhandsvisning på Cloudflare;
+- trafik flyttad: en klar release och, efter den, en observation av kundens egen adress som svarar från Workern;
+- data avstämd: gäller bara kunder med äldre data på Vercel;
+- legacy avvecklad: gäller bara kunder med ett äldre Vercel-projekt.
+
+Observationen görs efter releasen och domänbytet: `migreringslage.py <slug> --observera https://<kundens domän>`. Den gör
+två GET-anrop och sparar kvittot `TRAFIK-*.json`. Förhandsadresser, workers.dev och vercel.app nekas. "Migrerad" sägs
+bara när kunden hade en äldre drift och alla fem är uppfyllda, och en ny kund blir "i drift på Cloudflare". Beståndet av
+äldre Vercel-projekt är privat (`underlag/leverans/VERCEL-BESTAND.json`), och `--oversikt` visar varje kund och varje
+äldre projekt.
+
 **Lanseringskonfigurationen** är samma bygge som förhandsvisningens: kanonisk värd vald, omdirigeringar från gamla
 adresser i `public/_redirects` (301 eller 308; högst 2 000 statiska regler, och de gäller inte vägar som Workern
 svarar på, [källa](https://developers.cloudflare.com/workers/static-assets/redirects/), läst 2026-10-10), sökkonsolens verifieringstagg renderad,

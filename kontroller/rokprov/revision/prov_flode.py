@@ -453,6 +453,10 @@ with fall('exporten'):
     st = stegen(s)
     kontroll(st[8]['status'] == 'inte observerat' and any('utan versionskvitto' in t for t in texter(st[8], 'brister')) and st[9]['status'] == 'inte observerat',
              (st[8]['status'], st[8]['brister'], st[9]['status']))
+    # M18: migreringsläget med fem skilda besked; utan export är kunden inte påbörjad, och inget steg säger migrerad
+    kontroll(any(t.startswith('Migreringsläge: inte påbörjad') for t in texter(st[9], 'kontroller'))
+             and [t.split(':')[0] for t in texter(st[9], 'underlag')][-5:] == ['Förberedd', 'Måltestad', 'Trafik flyttad', 'Data avstämd', 'Legacy avvecklad']
+             and not any('migrerad:' in t for t in texter(st[9], 'kontroller')), ('M18: migreringsläget i Leveransen', st[9]['kontroller'], st[9]['underlag']))
 skriv(K / s / 'DOM.json', {'schema': 1, 'slug': s, 'domar': [{'tid': '2026-10-06T15:00:00Z', 'bygge_dist': 'e0' * 6, 'svar': {'namn': 'Ja, som den är'}}]})
 with fall('B2 dom över ett annat bygge'):
     st = stegen(s)
