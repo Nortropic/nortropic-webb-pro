@@ -111,6 +111,8 @@ MATERIAL_MAX = 200               # så många filer av det egna materialet spara
 TMP_PREFIX = (
     'nwp-workersprov-',  # kundrepots Worker i workerd (kontroller/workersprov.py)
     'nwp-migrering-',  # migreringslägets prov (prov_migreringslage.py)
+    'nwp-nyckelintag-',  # nyckelintagets prov (prov_nyckelintag.py)
+    'nwp-aktivering-',  # aktiveringens prov och körning (prov_aktivera.py, aktivera.py)
     'nwp-kandidatmaterial-',                                                         # kandidater.py
     'nwp-kallgap-',                                                                  # prov_kallgap.py
     'nwp-underhall-', 'nwp-global-', 'nwp-skill-', 'nwp-skillintag-', 'nwp-skillreserv-', 'nwp-sajtpaket-',
