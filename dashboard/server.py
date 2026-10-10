@@ -3608,7 +3608,7 @@ class H(BaseHTTPRequestHandler):
                     return self.skicka(404, {'fel': 'finns inte'})
                 return self.skicka(200, {'meddelande': samverkan.skicka, 'mandat': samverkan.mandat, 'paus': samverkan.paus,
                                          'foljdfraga': samverkan.foljdfraga, 'beslut': samverkan.beslut}[del_](dash, slug, data))
-            m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(partner|andring|oppna|redigera)', vag)
+            m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(partner|partner/vantande|andring|oppna|redigera)', vag)
             if m:  # arbetsytans skrivningar: ett meddelande till partnern, ägarens ändring och öppning i editorn (dashboard/arbetsyta.py)
                 import arbetsyta
                 import partner
@@ -3617,6 +3617,12 @@ class H(BaseHTTPRequestHandler):
                     return self.skicka(404, {'fel': 'ingen kund som arbetsytan känner till'})
                 if m.group(2) == 'partner':
                     return self.skicka(200, partner.skicka(dash, m.group(1), data))
+                if m.group(2) == 'partner/vantande':  # den väntande instruktionen: ta bort, eller skicka nu
+                    if not isinstance(data, dict) or data.get('handling') not in ('ta_bort', 'skicka'):
+                        raise ValueError('handlingen är ta_bort eller skicka')
+                    if data['handling'] == 'ta_bort':
+                        return self.skicka(200, partner.ta_bort_vantande(dash, m.group(1), data.get('meddelande_id')))
+                    return self.skicka(200, partner.starta_vantande(dash, m.group(1), str(data.get('meddelande_id') or '')) or {'fel': 'ingen väntande instruktion'})
                 if m.group(2) == 'andring':
                     return self.skicka(200, arbetsyta.skicka_andring(dash, m.group(1), data))
                 if m.group(2) == 'redigera':  # ägarens direktredigering: flödeshandlingen redigera (kontroller/direktredigering.py)

@@ -310,6 +310,11 @@ finns under Kod och preview.
   sessionens meddelanden, aldrig i en blind jämförelse. Vyn visar delsvaret märkt "inte färdigt", skilt från svaret, som
   är turens slutpost; en tur som avbryts visar det som hann strömmas som just det, aldrig som ett svar. Skärmläsaren får
   slutet, inte varje token. Varje anslutning börjar om från turens början, så en återanslutning lämnar ingen lucka.
+- **Väntande instruktion:** medan en tur pågår heter knappen Spara som väntande. Meddelandet sparas i `PARTNER.json`
+  märkt väntande (en åt gången, ingen process, med markeringen fryst när det sparades) och startar som nästa tur i samma
+  session när turen är klar (`partner.starta_vantande` från turens vakt). Innan dess kan du ändra det (det läggs tillbaka i
+  skrivfältet) eller ta bort det (`POST /api/arbetsyta/<kund>/partner/vantande`, `ta_bort`); efter en omstart av
+  dashboarden startar Skicka nu det (`skicka`). En session som bytts startar det inte, och det står då med skälet.
 - **Överlämning:** ett `overlamning`-block blir ett förslag i vyn. Partnerns svar blir aldrig ett beslut. Du kan använda
   det som din ändring (formuläret fylls, du skickar själv) eller **Genomför i utkastet**: förslagets fält (uppdragets
   typ, önskat resultat, omfattning och det som ska bevaras) står i ett formulär som du justerar, och ett klick sparar

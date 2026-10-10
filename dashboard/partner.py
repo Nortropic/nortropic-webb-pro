@@ -224,7 +224,9 @@ def _meddelandelage(dash, slug, m, sid=None):
     """Ett meddelandes läge ur processen och svarsfilen, prövat nu: skickat (journalfört, ingen process än), arbetar
     (processen lever), svarat, fel eller avbrutet (processen lever inte och inget svar finns)."""
     s = _svar(dash, slug, m)
-    if s:
+    if m.get('vantande'):
+        lage = 'vantande'
+    elif s:
         lage = 'fel' if s['fel'] else 'svarat'
     elif m.get('pid') and _lever(m['pid']) and (not sid or sid in _kommando(m['pid'])) \
             and time.time() - _epok(m.get('tid')) <= profil()['frist'] + 60:
@@ -269,7 +271,8 @@ def lage(dash, slug, samtal=False):
                      'lage_text': 'inget meddelande i den här körningen än' if hist['tidigare'] else 'inget meddelande än',
                      'bindning': {'korning': b['korning'], 'blind': b['blind']}}, **hist)
     med = [_meddelandelage(dash, slug, m, d.get('session_id')) for m in d.get('meddelanden') or [] if isinstance(m, dict)]
-    senaste = med[-1] if med else None
+    vantande = next((m['id'] for m in med if m['lage'] == 'vantande'), None)
+    senaste = next((m for m in reversed(med) if m['lage'] != 'vantande'), None)
     egna = {m.get('pid') for m in d.get('meddelanden') or [] if isinstance(m, dict) and m.get('pid')}
     andra = andra_processer(d['session_id'], utom=egna)
     sl = ('aktiv' if senaste and senaste['lage'] == 'arbetar' else 'startar' if senaste and senaste['lage'] == 'skickat'
@@ -296,6 +299,7 @@ def lage(dash, slug, samtal=False):
                'senaste_handelse': (akt or {}).get('senaste_handelse'), 'kalla': 'partnersamtalet'}
     ut = {'session_id': d['session_id'], 'skapad': d.get('skapad'), 'modell': d.get('modell'), 'effort': d.get('effort'), 'profil': p,
           'lage': sl, 'lage_text': text, 'session': session, 'antal': len(med), 'senaste': {k: (senaste or {}).get(k) for k in ('id', 'lage', 'tid')},
+          'vantande': vantande,
           'andra_processer': andra, 'terminal': 'claude --resume %s' % d['session_id'],
           'arbetskatalog': str(_rum(dash, slug)), 'bindning': {'korning': d.get('korning'), 'blind_vid_start': d.get('blind_vid_start')}}
     ut.update(hist)
@@ -370,7 +374,9 @@ def _kontroller_in():
 
 def skicka(dash, slug, data, starta=True):
     """Ett meddelande till partnern. Samma meddelande-id ger samma post (dubbelklick, två flikar, tappat svar); en tur som
-    pågår eller en annan process med sessionens id ger Upptagen. Ger meddelandets läge."""
+    pågår eller en annan process med sessionens id ger Upptagen. Med vanta sparas meddelandet medan en tur pågår som en
+    väntande instruktion (en åt gången, ingen ny process): den startar som nästa tur i samma session när turen är klar
+    (starta_vantande), och går att ta bort innan dess. Ger meddelandets läge."""
     _kontroller_in()
     import nastlad
     if not isinstance(data, dict):
@@ -406,8 +412,16 @@ def skicka(dash, slug, data, starta=True):
                     _skriv(dash, slug, d)
             pagar = [m for m in d.get('meddelanden') or [] if isinstance(m, dict) and m.get('pid') and _lever(m['pid'])
                      and not _svar(dash, slug, m) and str(d['session_id']) in _kommando(m['pid'])]
+            if any(isinstance(x, dict) and x.get('vantande') for x in d.get('meddelanden') or []):
+                raise Upptagen('en väntande instruktion finns redan; ta bort den eller låt den starta först')
+            if pagar and data.get('vanta'):
+                m = {'id': mid, 'tid': _nu(), 'avsikt': avsikt, 'kontext': _rensa_kontext(data.get('kontext')), 'text': text[:MAX_TEXT],
+                     'svarsfil': 'svar-%s.json' % mid, 'stromfil': 'strom-%s.jsonl' % mid, 'pid': None, 'modell': d.get('modell'), 'vantande': True}
+                d['meddelanden'] = list(d.get('meddelanden') or []) + [m]
+                _skriv(dash, slug, d)
+                return _meddelandelage(dash, slug, m)
             if pagar:
-                raise Upptagen('partnern svarar på ett tidigare meddelande; vänta på svaret')
+                raise Upptagen('partnern svarar på ett tidigare meddelande; vänta på svaret eller spara meddelandet som väntande')
             andra = andra_processer(d['session_id'], utom={m.get('pid') for m in d.get('meddelanden') or [] if isinstance(m, dict)})
             if andra:
                 raise Upptagen('sessionen är öppen i en annan process (%s, pid %d); avsluta den först' % (andra[0]['kommando'], andra[0]['pid']))
@@ -437,21 +451,85 @@ def skicka(dash, slug, data, starta=True):
         _skriv(dash, slug, d)
         if not starta:
             return _meddelandelage(dash, slug, m)
-        prompt = '%s\n\nÄgarens avsikt: %s\n\n%s' % (ktext, AVSIKTER[avsikt], text)
-        ut = _katalog(dash, slug) / 'partner'
-        try:
-            fu = open(ut / m['stromfil'], 'wb')
-            fe = open(ut / ('svar-%s.err' % mid), 'wb')
-            proc = subprocess.Popen(args(dash, slug, d['session_id'], ny, p), stdin=subprocess.PIPE, stdout=fu, stderr=fe,
-                                    cwd=str(rum), env=nastlad.miljo(), start_new_session=True)
-        except OSError as e:
-            m['fel'] = 'kunde inte starta claude: %s' % e
+        tur = _starta_tur(dash, slug, d, m, ny, p, rum, ktext)
+    if tur:
+        threading.Thread(target=_vakta, args=(dash, slug, mid) + tur + (p['frist'],), daemon=True).start()
+    return _meddelandelage(dash, slug, m)
+
+
+def _starta_tur(dash, slug, d, m, ny, p, rum, ktext):
+    """Turens process (under partnerns lås): prompten, strömfilen och claude med sessionens id. Ger (proc, prompt, fu, fe),
+    eller None med felet i posten."""
+    import nastlad
+    prompt = '%s\n\nÄgarens avsikt: %s\n\n%s' % (ktext, AVSIKTER.get(m.get('avsikt'), 'Fråga'), m['text'])
+    ut = _katalog(dash, slug) / 'partner'
+    try:
+        fu = open(ut / m['stromfil'], 'wb')
+        fe = open(ut / ('svar-%s.err' % m['id']), 'wb')
+        proc = subprocess.Popen(args(dash, slug, d['session_id'], ny, p), stdin=subprocess.PIPE, stdout=fu, stderr=fe,
+                                cwd=str(rum), env=nastlad.miljo(), start_new_session=True)
+    except OSError as e:
+        m['fel'] = 'kunde inte starta claude: %s' % e
+        _skriv(dash, slug, d)
+        return None
+    m['pid'] = proc.pid
+    _skriv(dash, slug, d)
+    return proc, prompt, fu, fe
+
+
+def starta_vantande(dash, slug, mid=None):
+    """Den väntande instruktionen startar som nästa tur i samma session när ingen tur pågår: efter turen (_vakta) eller
+    med ägarens Skicka nu (till exempel efter en omstart av dashboarden). Markeringen är den som frystes när instruktionen
+    sparades; arbetsytans läge läses nu. En session som bytts (ny körning, annat blindläge) startar den inte. Ger
+    meddelandets läge, eller None utan väntande instruktion."""
+    _kontroller_in()
+    b = bindning(dash, slug)
+    if b['ab_dold']:
+        raise Dold('kunden är en arm i en blind jämförelse som du inte valt i än')
+    with _lasat(dash, slug):
+        d = _las(dash, slug)
+        m = next((x for x in d.get('meddelanden') or [] if isinstance(x, dict) and x.get('vantande') and (mid is None or x.get('id') == mid)), None)
+        if not m:
+            return None
+        if not _galler(d, b):
+            m.update(vantande=False, fel='sessionen byttes (en ny körning eller ett annat blindläge) innan instruktionen startade; skriv den igen',
+                     slut=_nu())
             _skriv(dash, slug, d)
             return _meddelandelage(dash, slug, m)
-        m['pid'] = proc.pid
-        _skriv(dash, slug, d)
-    threading.Thread(target=_vakta, args=(dash, slug, mid, proc, prompt, fu, fe, p['frist']), daemon=True).start()
+        pagar = [x for x in d.get('meddelanden') or [] if isinstance(x, dict) and x.get('pid') and _lever(x['pid'])
+                 and not _svar(dash, slug, x) and str(d['session_id']) in _kommando(x['pid'])]
+        if pagar:
+            return _meddelandelage(dash, slug, m)
+        andra = andra_processer(d['session_id'], utom={x.get('pid') for x in d.get('meddelanden') or [] if isinstance(x, dict)})
+        if andra:
+            raise Upptagen('sessionen är öppen i en annan process (%s, pid %d); avsluta den först' % (andra[0]['kommando'], andra[0]['pid']))
+        try:
+            ktext, _lage = kontexttext(dash, slug, m.get('kontext'))
+        except Exception as e:  # noqa: BLE001
+            ktext = '[Arbetsytans läge kunde inte läsas: %s]' % type(e).__name__
+        p = profil()
+        m.update(vantande=False, startad=_nu())
+        tur = _starta_tur(dash, slug, d, m, False, p, _rum(dash, slug), ktext)
+    if tur:
+        threading.Thread(target=_vakta, args=(dash, slug, m['id']) + tur + (p['frist'],), daemon=True).start()
     return _meddelandelage(dash, slug, m)
+
+
+def ta_bort_vantande(dash, slug, mid):
+    """Ägaren tar bort sin väntande instruktion innan den startat; en som startat ger Upptagen."""
+    if not ID.fullmatch(str(mid or '')):
+        raise ValueError('ett meddelande-id behövs')
+    with _lasat(dash, slug):
+        d = _las(dash, slug)
+        med = [x for x in d.get('meddelanden') or [] if isinstance(x, dict)]
+        m = next((x for x in med if x.get('id') == mid), None)
+        if not m:
+            raise ValueError('ingen sådan instruktion i den gällande sessionen')
+        if not m.get('vantande'):
+            raise Upptagen('instruktionen har redan startat')
+        d['meddelanden'] = [x for x in med if x.get('id') != mid]
+        _skriv(dash, slug, d)
+    return {'borttagen': mid}
 
 
 def _vakta(dash, slug, mid, proc, prompt, fu, fe, frist):
@@ -490,6 +568,10 @@ def _vakta(dash, slug, mid, proc, prompt, fu, fe, frist):
                         m['fel'] = fel
             _skriv(dash, slug, d)
     except OSError:
+        pass
+    try:  # en väntande instruktion startar som nästa tur i samma session
+        starta_vantande(dash, slug)
+    except Exception:  # noqa: BLE001 — den står kvar som väntande, och ägaren kan starta den med Skicka nu
         pass
 
 

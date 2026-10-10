@@ -654,7 +654,9 @@
     const svar = m.svar;
     const anv = svar?.anvandning;
     return `<div class="ay-msg agaren"><div class="ay-kontextrad">${e_({ fraga: 'Fråga', plan: 'Planförslag', andring: 'Ändring' }[m.avsikt] || m.avsikt)}${kt ? ' · ' + e_(kt) : ''}</div>${formatera(m.text)}<div class="meta"><span>Du</span><time>${e_(klocka(m.tid).slice(0, 5))}</time></div></div>
-      ${m.lage === 'arbetar' ? `<div class="ay-msg partnern">${lagechip('aktiv', 'partnern svarar')} <span class="svag">Partnern svarar…</span>${delsvarHtml(m.id, false)}</div>`
+      ${m.lage === 'vantande' ? `<div class="ay-msg partnern">${lagechip('vantar', 'väntande instruktion')} <span class="svag">Väntande: startar som nästa tur i samma session när partnern har svarat.</span>
+          <div class="ay-knapprad"><button class="ay-knapp liten" type="button" data-vantande-andra="${e_(m.id)}">Ändra</button><button class="ay-knapp liten" type="button" data-vantande-bort="${e_(m.id)}">Ta bort</button>${(A.partner?.meddelanden || []).some((x) => x.lage === 'arbetar') ? '' : `<button class="ay-knapp liten primar" type="button" data-vantande-skicka="${e_(m.id)}">Skicka nu</button>`}</div></div>`
+        : m.lage === 'arbetar' ? `<div class="ay-msg partnern">${lagechip('aktiv', 'partnern svarar')} <span class="svag">Partnern svarar…</span>${delsvarHtml(m.id, false)}</div>`
         : m.lage === 'skickat' ? `<div class="ay-msg partnern">${lagechip('startar', '')}${delsvarHtml(m.id, false)}</div>`
         : svar ? `<div class="ay-msg partnern">${svar.fel ? `<div class="ay-notis fel">Turen slutade med fel (${e_(svar.subtyp || 'okänt')}).</div>${A.delsvar[m.id]?.text ? delsvarHtml(m.id, true) : ''}` : ''}${formatera(svar.text)}
             ${m.overlamning ? overlamningskort(m) : ''}
@@ -859,9 +861,16 @@
   function utkastLas(slug) { const k = 'nwp-arbetsyta-utkast:' + slug; let v = sessionStorageLas(k); if (v == null) { try { v = localStorage.getItem(k); } catch { v = null; } } return v || ''; }
   function utkastSpara(slug, v) { const k = 'nwp-arbetsyta-utkast:' + slug; for (const l of [() => sessionStorage, () => localStorage]) { try { v ? l().setItem(k, v) : l().removeItem(k); } catch { /* bara en bekvämlighet */ } } }
   function uppdateraSkrivstatus() {
-    const p = A.partner, upptagen = (p?.meddelanden || []).some((m) => m.lage === 'arbetar') || (p?.andra_processer || []).length;
+    const p = A.partner, tur = (p?.meddelanden || []).some((m) => m.lage === 'arbetar'), upptagen = tur || (p?.andra_processer || []).length;
+    const vantande = (p?.meddelanden || []).some((m) => m.lage === 'vantande');
     const knapp = document.querySelector('#ay-skriv [data-skicka="partner"]');
-    if (knapp) knapp.disabled = Boolean(upptagen);
+    // medan en tur pågår sparas nästa meddelande som en väntande instruktion (en åt gången), i stället för att knappen stängs
+    if (knapp) {
+      knapp.disabled = Boolean((p?.andra_processer || []).length || vantande);
+      const namn = tur ? 'Spara som väntande' : A.avsikt === 'andring' ? 'Be partnern formulera' : 'Skicka';
+      if (knapp.textContent !== namn) knapp.textContent = namn;
+      knapp.title = vantande ? 'En väntande instruktion finns redan: ändra eller ta bort den först' : '';
+    }
     const a = document.querySelector('#ay-skriv [data-skicka="andring"]');
     if (a) {
       const k = A.lage.korning || {}, mk = markering();
@@ -889,9 +898,11 @@
     const id = await innehallsId('m', [A.slug, A.partner?.antal ?? A.lage?.partner?.antal ?? 0, A.avsikt, text, kontext]);  // samma tur i två flikar: samma id; ett senare "Ja": ett nytt
     svar.textContent = 'Skickar…';
     try {
-      const r = await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/partner', { meddelande_id: id, text, avsikt: A.avsikt, kontext });
+      const tur = (A.partner?.meddelanden || []).some((m) => m.lage === 'arbetar');
+      const r = await postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/partner', Object.assign({ meddelande_id: id, text, avsikt: A.avsikt, kontext }, tur ? { vanta: true } : {}));
       t.value = ''; utkastSpara(A.slug, '');
-      svar.textContent = r.upprepat ? 'Samma meddelande har redan skickats; svaret står i samtalet. Ändra texten för en ny fråga.' : 'Skickat. Partnern svarar i samma session.';
+      svar.textContent = r.upprepat ? 'Samma meddelande har redan skickats; svaret står i samtalet. Ändra texten för en ny fråga.'
+        : r.lage === 'vantande' ? 'Sparat som väntande: det startar som nästa tur när partnern har svarat.' : 'Skickat. Partnern svarar i samma session.';
       await laddaPartner();
     } catch (err) { svar.textContent = (err.status === 409 ? '' : 'Svaret gick inte att bekräfta: ') + err.message + (err.status === 409 ? '' : '. Försök igen: samma text ger samma meddelande-id, så inget skickas två gånger.'); }
   }
@@ -1494,6 +1505,15 @@
       const t = document.getElementById('ay-text'); if (t) { t.value = `Byt texten «${r.gammal || ''}»${r.ny ? ' mot «' + r.ny + '»' : ' mot: '}`; t.focus(); }
       const res = document.querySelector('#ay-skriv [data-uppdrag="resultat"]'); if (res && r.ny) res.value = `texten «${r.ny}» där det nu står «${r.gammal}»`;
       const omf = document.querySelector('#ay-skriv [data-uppdrag="omfattning"]'); if (omf) omf.value = `${r.del || 'texten'} på ${r.sida || '/'}`;
+      return;
+    }
+    if (d.vantandeBort || d.vantandeSkicka || d.vantandeAndra) {
+      const mid = d.vantandeBort || d.vantandeSkicka || d.vantandeAndra, m = (A.partner?.meddelanden || []).find((x) => x.id === mid);
+      postJson('/api/arbetsyta/' + encodeURIComponent(A.slug) + '/partner/vantande', { meddelande_id: mid, handling: d.vantandeSkicka ? 'skicka' : 'ta_bort' })
+        .then(() => { if (d.vantandeAndra && m) { const t = document.getElementById('ay-text'); if (t) { t.value = m.text; utkastSpara(A.slug, m.text); t.focus(); } }
+          meddela(d.vantandeSkicka ? 'Den väntande instruktionen är skickad.' : d.vantandeAndra ? 'Instruktionen står i skrivfältet igen; spara den på nytt när den är ändrad.' : 'Den väntande instruktionen är borttagen.');
+          laddaPartner(); })
+        .catch((err) => meddela('Gick inte: ' + err.message));
       return;
     }
     if (d.genomforOppna) { A.genomforOppen = d.genomforOppna; ritaPartner(); document.querySelector(`[data-fokus="g-res-${CSS.escape(d.genomforOppna)}"]`)?.focus(); return; }

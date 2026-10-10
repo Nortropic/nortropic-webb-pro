@@ -866,6 +866,40 @@ class Arbetsyta(unittest.TestCase):
         self.assertFalse((katalog / 'svar-meddelande-strom-02.json').exists())
         self.vanta_pa_strommar(fore)
 
+    def test_vantande_instruktion_sparas_tas_bort_och_startar_efter_turen(self):
+        falsk, _ps = self.falsk_partner()
+        falsk.svara, falsk.sov = False, '60'
+        self.assertEqual(partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-vt-01', 'text': 'Första frågan'})['lage'], 'arbetar')
+        with self.assertRaises(partner.Upptagen):
+            partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-vt-02', 'text': 'Nästa'})
+        v = partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-vt-02', 'text': 'Nästa', 'vanta': True, 'kontext': {'kandidat': 'k01'}})
+        self.assertEqual(v['lage'], 'vantande')
+        self.assertEqual(len(falsk.anrop), 1, 'ingen ny process medan turen pågår (aldrig två skrivare på samma sessions-id)')
+        with self.assertRaises(partner.Upptagen):
+            partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-vt-03', 'text': 'En till', 'vanta': True})
+        l = partner.lage(dash, SLUG)
+        self.assertEqual((l['vantande'], l['lage']), ('meddelande-vt-02', 'aktiv'), 'turen som pågår avgör läget, inte den väntande')
+        self.assertEqual(partner.ta_bort_vantande(dash, SLUG, 'meddelande-vt-02'), {'borttagen': 'meddelande-vt-02'})
+        partner.skicka(dash, SLUG, {'meddelande_id': 'meddelande-vt-04', 'text': 'Ändrad nästa', 'vanta': True})
+        self.assertIsNone(partner.starta_vantande(dash, SLUG, 'meddelande-finns-inte'))
+        self.assertEqual(partner.starta_vantande(dash, SLUG)['lage'], 'vantande', 'startar inte medan turen pågår')
+        falsk.svara, falsk.sov = True, '0.3'
+        stoppa(falsk.processer[-1].p)
+        slut = time.time() + 15
+        while len(falsk.anrop) < 2 and time.time() < slut:
+            time.sleep(0.1)
+        self.assertEqual(len(falsk.anrop), 2, 'den väntande startade när turen tog slut')
+        a = falsk.anrop[1]
+        self.assertEqual(a[a.index('--resume') + 1], self.las(self.u / 'arbetsyta' / 'PARTNER.json')['session_id'], 'som nästa tur i samma session')
+        vanta_pa_vakter()
+        vanta_pa_vakter()
+        med = partner.lage(dash, SLUG, samtal=True)['meddelanden']
+        self.assertEqual([(x['id'], x['lage']) for x in med], [('meddelande-vt-01', 'avbrutet'), ('meddelande-vt-04', 'svarat')])
+        self.assertIn('Ändrad nästa', falsk.processer[-1].prompt)
+        self.assertEqual(med[1]['kontext'], {}, 'markeringen är den som frystes när instruktionen sparades')
+        with self.assertRaises(partner.Upptagen):
+            partner.ta_bort_vantande(dash, SLUG, 'meddelande-vt-04')
+
     # --- Genomför i utkastet (U16/E5, 2026-10-10) ---
 
     def test_genomfor_i_utkastet_kraver_partnerns_forslag_i_den_gallande_sessionen(self):
