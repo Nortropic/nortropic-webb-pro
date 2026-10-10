@@ -112,10 +112,11 @@ Införd 2026-10-10 (ägarens uppdrag ~16:58Z, Tauri 2 som första väg). Rust in
 | Del | Version | Källa och datum | Licens | Granskning 2026-10-10 |
 |---|---|---|---|---|
 | `@tauri-apps/cli` (`desktop/package.json`, exakt) | 2.12.1 (npm 2026-09-30) | github.com/tauri-apps/tauri | Apache-2.0 OR MIT | 2 paket i låset, inga installationsskript, `npm audit` 0 |
-| `tauri` / `tauri-build` (`desktop/src-tauri/Cargo.toml`, exakt) | 2.12.1 / 2.7.1 (crates.io 2026-09-30) | v2.tauri.app, crates.io | Apache-2.0 OR MIT | `Cargo.lock` med 262 paket för aarch64-apple-darwin: MIT, Apache-2.0, Unicode-3.0, Zlib, BSD-3-Clause, MPL-2.0 (5), Unlicense-alternativ; ingen GPL |
+| `tauri` / `tauri-build` (`desktop/src-tauri/Cargo.toml`, exakt) | 2.12.1 / 2.7.1 (crates.io 2026-09-30) | v2.tauri.app, crates.io | Apache-2.0 OR MIT | `Cargo.lock` (262 paket för aarch64-apple-darwin vid införandet, före uppdateringens fyra): MIT, Apache-2.0, Unicode-3.0, Zlib, BSD-3-Clause, MPL-2.0 (5), Unlicense-alternativ; ingen GPL |
 | Tauris officiella insticksmoduler (exakt) | single-instance 2.5.2, dialog 2.8.1, notification 2.5.1 (2026-10-01) | github.com/tauri-apps/plugins-workspace | Apache-2.0 OR MIT | samma lås |
 | `objc2-local-authentication` | 0.3.2 (2025-10-04) | github.com/madsmtm/objc2 | Zlib OR Apache-2.0 OR MIT | macOS LocalAuthentication för upplåsningen |
-| `hmac`, `sha2`, `getrandom`, `hex`, `libc`, `serde`, `serde_json` | 0.12, 0.10, 0.2, 0.4, 0.2, 1, 1 | RustCrypto, rust-lang m.fl. | MIT OR Apache-2.0 | identitetsprovets HMAC (RFC 2104) och slumptal |
+| `hmac`, `sha2`, `getrandom`, `hex`, `libc`, `serde`, `serde_json` | 0.12, 0.10, 0.2, 0.4, 0.2, 1, 1 | RustCrypto, rust-lang m.fl. | MIT OR Apache-2.0 | identitetsprovets HMAC (RFC 2104), skrivbeviset och slumptal |
+| `minisign-verify`, `flate2`, `tar`, `base64` | 0.2.5 (2026-03-03), 1.1.10 (2026-08-28), 0.4.46 (2026-05-18), 0.22 | github.com/jedisct1/rust-minisign-verify, rust-lang/flate2-rs, alexcrichton/tar-rs | MIT; MIT OR Apache-2.0 | uppdateringens signaturkontroll (samma som Tauris uppdateringsmodul) och uppackning; Tauris uppdateringsmodul valdes bort eftersom den kräver https eller en "dangerous"-flagga och drar in en TLS-stack för ett loopbackanrop |
 
 Karenstiden gäller också här: varje version var publicerad minst tre dygn före införandet. En ny version prövas med
 `cargo build`, `npm run bygg`, `desktop/prov/prov_release.py` och `desktop/prov/prov_app.py` mot en provinstans, och

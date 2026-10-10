@@ -3145,7 +3145,8 @@ class H(BaseHTTPRequestHandler):
                 data = json.loads(self._kropp or b'{}')
             else:
                 n = int(self.headers.get('Content-Length') or 0)
-                data = json.loads(self.rfile.read(min(n, 64 * 1024)) or b'{}')
+                tak = 6 * 1024 * 1024 if vag.endswith('/material') else 64 * 1024  # en bilaga om högst 4 MB i base64
+                data = json.loads(self.rfile.read(min(n, tak)) or b'{}')
         except (ValueError, json.JSONDecodeError):
             return self.skicka(400, {'fel': 'kroppen ska vara JSON'})
         try:
@@ -3182,7 +3183,7 @@ class H(BaseHTTPRequestHandler):
                 return self.skicka(409, {'fel': str(e), 'slag': 'Inaktuell'})
             except ValueError as e:
                 return self.skicka(400, {'fel': str(e)})
-        m = re.fullmatch(r'/api/desktop/intervju/([a-f0-9]{32})/(svar|rattelse|ai)', vag)
+        m = re.fullmatch(r'/api/desktop/intervju/([a-f0-9]{32})/(svar|rattelse|ai|material)', vag)
         if m:
             import kundstart as ks
             import kundstart_agare

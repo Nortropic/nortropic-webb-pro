@@ -119,7 +119,26 @@ def intervju(repo,eid,namn,data):
     # kundens bekräftelse), och ett ersatt AI-förslag märks rattat. Samma operation ger samma svar; en annan revision än
     # den ägaren såg nekas (Konflikt), så att ett sent AI-svar aldrig skriver över en senare rättelse.
     import time
-    if namn not in ('svar','rattelse'):raise ks.Vagrad('Okänd handling i intervjun.')
+    if namn not in ('svar','rattelse','material'):raise ks.Vagrad('Okänd handling i intervjun.')
+    if namn=='material':
+        # material ur Finder eller filväljaren: samma prövning och lagring som kundens bilaga (typ, signatur, storlek,
+        # högst 20 filer), med ägaren som avsändare; läsningen och rätten står som inte läst och okänd tills de bedöms
+        ks.falt(data,('revision','operation','namn','typ','data'),('revision','operation','namn','typ','data'))
+        if type(data['revision']) is not int:raise ks.Vagrad('En aktuell revision behövs.')
+        db=lager(repo);ks.nyckel(eid);ks.nyckel(data['operation'])
+        finger=ks.sha(['agare',namn,data['revision'],data['namn'],data['typ'],ks.sha(str(data['data']).encode())])
+        with db.trans() as c:
+            fore=c.execute('SELECT begaran,svar FROM operationer WHERE arende=? AND id=?',(eid,data['operation'])).fetchone()
+            if fore:
+                if fore[0]!=finger:raise ks.Konflikt('Begärans id har redan använts för ett annat innehåll.')
+                return json.loads(fore[1])
+            d=db._doc(c,eid)
+            if d['revision']!=data['revision']:raise ks.Konflikt('Ärendet har ändrats sedan du läste det. Läs om och lägg till filen igen.')
+            db._handling(c,d,'agaren','bilaga',{'namn':data['namn'],'typ':data['typ'],'data':data['data']})
+            db._spara(c,d)
+            svar={'revision':d['revision'],'material':d['material'][-1]}
+            c.execute('INSERT INTO operationer VALUES(?,?,?,?)',(eid,data['operation'],finger,ks.jsontext(svar)))
+            return svar
     ks.falt(data,('revision','operation','text','amne','forslag','uppgift'),('revision','operation','text'))
     if type(data['revision']) is not int:raise ks.Vagrad('En aktuell revision behövs.')
     db=lager(repo);ks.nyckel(eid);ks.nyckel(data['operation'])

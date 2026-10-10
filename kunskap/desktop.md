@@ -143,7 +143,10 @@ arbetsytans variabler portalens ljusa värden (målbildens ljusa yta och mörka 
   testkund med budget kvar, låter AI ta en tur (`…/ai`: Kundstarts modellarbetare för just det ärendets köjobb,
   `kundstart_modell.py --live-cli --antal 1 --arende <ärende>`, högst två samtidigt). Ett verkligt ärende får ingen
   AI-tur och ingen kö som aldrig töms. AI:s frågor är frågekort utan sidoeffekter; AI:s funktionsförslag är kort som går
-  genom Kundstarts planväg (`integrationsval`) och ansluter inget konto. Samma revision som ägaren såg krävs; ett sent
+  genom Kundstarts planväg (`integrationsval`) och ansluter inget konto. Material läggs till med filväljaren eller genom
+  att dra en fil från Finder till intervjun (`…/material`): samma prövning och lagring som kundens bilaga i Kundstart
+  (PNG, JPEG, PDF eller UTF-8-text med rätt signatur, högst 4 MB och 20 filer), med ägaren som avsändare och läsningen
+  och rätten som inte läst och okänd. En fil är data, inget kommando, och ger ingen åtkomst till mappen den kom ifrån. Samma revision som ägaren såg krävs; ett sent
   AI-svar ersätts när ärendet ändrats.
 - **Förfining** (`#/granska/<kund>`, P07/E6): kommentarer på kandidatens bevarade ögonblicksbild (en punkt på bilden
   eller hela sidan), bundna till kandidat, hel version, bredd och bildens sha256; tråd, avvisa och verifierat löst (bara
@@ -219,5 +222,5 @@ Täckningsmatrisen U01–U40, D01–D28 och J01–J12 med bevisnivå per prov st
 `underlag/rapporter/RAPPORT-2026-10-10-desktop-kundportal.md`. I korthet inte gjort: direktredigering av text i
 förhandsvisningen och elementmarkering i den levande förhandsvisningen (E6; kommentarerna gäller den bevarade bilden),
 strömmande partnersvar (partnern svarar som förut i hela turer), ett handlingskort "Genomför i utkastet" ur partnern,
-filimport ur Finder i portalen, Developer ID och notarisering, en publik uppdateringskanal, VoiceOver-prov och ett
+Developer ID och notarisering, en publik uppdateringskanal, VoiceOver-prov och ett
 mänskligt användbarhetsprov med ägaren. Upplåsningen med Touch ID eller lösenord kan bara en människa pröva.

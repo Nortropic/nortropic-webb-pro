@@ -195,3 +195,7 @@ html.pt-ram .ay-rakning:not(:empty) { color: #fff; }
 .pt-svar { margin: 4px 0 0; padding-left: 10px; border-left: 2px solid var(--pt-linje); font-size: 13.5px; }
 .pt-verktyg select { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--pt-linje); border-radius: 8px; margin-left: 6px; }
 @media (max-width: 1080px) { .pt-granska { grid-template-columns: 1fr; } }
+.pt-slapp { border: 1.5px dashed var(--pt-linje); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+.pt-slapp.over { border-color: var(--pt-accent); background: var(--pt-accent-mjuk); }
+.pt-slapp p { margin: 2px 0; }
+.pt-slapp label.pt-lank { padding: 0; }

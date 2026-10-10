@@ -371,7 +371,12 @@
             <span class="pt-post-kunskap k-tolkning">AI:s förslag</span> <b>${e_(f.omrade)}${f.paket ? ' · ' + e_(f.paket) : ' · utreds'}</b>
             <span class="pt-post-text">${e_(f.nytta)}</span><span class="pt-under">Alternativ: ${e_(f.alternativ)} · Konsekvens: ${e_(f.konsekvens)} · Osäkert: ${e_(f.osakerhet)}${f.foljdfraga ? ' · Följdfråga: ' + e_(f.foljdfraga) : ''}</span>
             ${f.paket ? `<button type="button" class="pt-knapp" data-valj="${e_(f.id)}" data-omrade="${e_(f.omrade)}" data-paket="${e_(f.paket)}" data-nytta="${e_(f.nytta)}">Lägg i planen (inget konto ansluts)</button>` : '<span class="pt-under">Paket saknas i katalogen: utreds, ingen anslutning.</span>'}</li>`).join('')}</ul></section>` : ''}
-          ${(a.material || []).length ? `<section class="pt-amne"><h3>Material</h3><ul>${a.material.map((m) => `<li class="pt-post"><span class="pt-post-text">${e_(m.namn)}</span><span class="pt-etikett">${m.lasning === 'inte_last' ? 'uppladdad, inte läst' : e_(m.lasning)}</span><span class="pt-etikett">rätt: ${e_(m.rattighet)}</span></li>`).join('')}</ul></section>` : ''}
+          <section class="pt-amne"><h3>Material</h3>
+            <div class="pt-slapp" id="pt-slapp"><p>Dra en fil hit från Finder, eller <label class="pt-lank" for="pt-fil">välj en fil</label>.</p>
+              <input type="file" id="pt-fil" accept="image/png,image/jpeg,application/pdf,text/plain" class="pt-dold-text">
+              <p class="pt-under">PNG, JPEG, PDF eller UTF-8-text, högst 4 MB och 20 filer. En fil är material, inget kommando; den läses och bedöms innan den används.</p>
+              <p id="pt-fil-lage" class="pt-under" role="status" aria-live="polite"></p></div></section>
+          ${(a.material || []).length ? `<section class="pt-amne"><h3>Uppladdat</h3><ul>${a.material.map((m) => `<li class="pt-post"><span class="pt-post-text">${e_(m.namn)}${m.person === 'agaren' ? ' <span class="pt-under">(från dig)</span>' : ''}</span><span class="pt-etikett">${m.lasning === 'inte_last' ? 'uppladdad, inte läst' : e_(m.lasning)}</span><span class="pt-etikett">rätt: ${e_(m.rattighet)}</span></li>`).join('')}</ul></section>` : ''}
           <p class="pt-under">Kundens ord, dina anteckningar och rättelser och AI:s tolkningar är märkta var för sig. En AI-tolkning är aldrig kundens bekräftade fakta.</p>
         </section>
       </div>`);
@@ -403,6 +408,23 @@
       try { await skicka('/api/desktop/intervju/' + eid + '/ai', {}); intervjuvy(eid); }
       catch (err) { e.target.insertAdjacentHTML('afterend', ` <span class="pt-fel" role="alert">${e_(err.message)}</span>`); e.target.disabled = false; }
     });
+    // material: filväljaren och Finder (HTML5-släpp; appen lämnar släppet till sidan), samma prövning som kundens bilaga
+    const filLage = document.getElementById('pt-fil-lage');
+    const laddaUpp = async (fil) => {
+      if (!fil) return;
+      if (fil.size > 4 * 1024 * 1024) { filLage.textContent = `${fil.name} är större än 4 MB och laddas inte upp.`; return; }
+      filLage.textContent = `Laddar upp ${fil.name} …`;
+      const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(r.error); r.readAsDataURL(fil); });
+      try {
+        await skicka('/api/desktop/intervju/' + eid + '/material', { revision: a.revision, operation: crypto.randomUUID(), namn: fil.name, typ: fil.type || 'application/octet-stream', data: b64 });
+        intervjuvy(eid);
+      } catch (e) { filLage.textContent = `${fil.name} laddades inte upp: ${e.message}`; }
+    };
+    document.getElementById('pt-fil').addEventListener('change', (e) => laddaUpp(e.target.files[0]));
+    const slapp = document.getElementById('pt-slapp');
+    slapp.addEventListener('dragover', (e) => { e.preventDefault(); slapp.classList.add('over'); });
+    slapp.addEventListener('dragleave', () => slapp.classList.remove('over'));
+    slapp.addEventListener('drop', (e) => { e.preventDefault(); slapp.classList.remove('over'); const f = [...(e.dataTransfer?.files || [])]; if (f.length > 1) filLage.textContent = 'En fil i taget.'; else laddaUpp(f[0]); });
     // frågekort: ingen sidoeffekt, bara skrivfältet
     document.querySelectorAll('[data-svara]').forEach((b) => b.addEventListener('click', () => { ta.focus(); ta.setAttribute('aria-description', 'Svar på: ' + b.dataset.svara); document.getElementById('pt-svar-lage').textContent = 'Svarar på: ' + b.dataset.svara; }));
     // funktionskort: samma väg och prövning som Funktioner i Kundstart (katalogen, revisionen); ett val ansluter inget konto

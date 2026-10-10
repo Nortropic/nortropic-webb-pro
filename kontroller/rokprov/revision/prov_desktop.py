@@ -309,6 +309,26 @@ class Desktop(unittest.TestCase):
         s, _, _ = self.intervju(t['arende'], 'rattelse', {'revision': db.internt(t['arende'])['revision'], 'operation': str(uuid.uuid4()), 'text': 'x', 'amne': 'Z'})
         self.assertEqual(s, 400, 'okänt ämne')
 
+    def test_material_ur_finder_samma_provning_som_kundens_bilaga(self):
+        import base64
+        (_, _, t), _ = self.ny()
+        d = self.arende(t['arende'])
+        png = bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082')
+        op = str(uuid.uuid4())
+        data = {'revision': d['revision'], 'operation': op, 'namn': 'skylt.png', 'typ': 'image/png', 'data': base64.b64encode(png).decode()}
+        s, _, j = self.intervju(t['arende'], 'material', data)
+        self.assertEqual(s, 200, j)
+        self.assertEqual((j['material']['person'], j['material']['lasning'], j['material']['rattighet']), ('agaren', 'inte_last', 'okand'))
+        self.assertEqual(self.intervju(t['arende'], 'material', data)[2], j, 'samma operation: samma svar')
+        d = self.arende(t['arende'])
+        for fel, namn in (({'typ': 'image/png', 'data': base64.b64encode(b'GIF89a...').decode()}, 'signaturen stämmer inte'),
+                          ({'typ': 'text/html', 'data': base64.b64encode(b'<script>').decode()}, 'html är ingen tillåten typ'),
+                          ({'namn': '../x.png'}, 'sökväg i namnet'), ({'data': 'inte base64!'}, 'trasig överföring')):
+            with self.subTest(namn):
+                s, _, _ = self.intervju(t['arende'], 'material', dict(data, revision=d['revision'], operation=str(uuid.uuid4()), **fel))
+                self.assertEqual(s, 400)
+        self.assertEqual(len(self.arende(t['arende'])['material']), 1)
+
     def test_ai_turen_startar_bara_for_testkund_med_kat_svar(self):
         import subprocess
         (_, _, t), _ = self.ny()
