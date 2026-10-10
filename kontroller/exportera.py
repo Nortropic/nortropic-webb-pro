@@ -293,11 +293,11 @@ def exportmanifest(rot):
     def fel(e):
         raise e
     for katalog, kataloger, filer in os.walk(rot, followlinks=False, onerror=fel):
-        # Git, installerade paket och Astros cache på varje nivå; byggets och Wranglers utdata bara i roten, så att en
-        # sida som src/pages/paket/ eller src/pages/dist/ räknas
+        # Git, installerade paket och Astros cache på varje nivå; byggets, Wranglers och processgränsens utdata (.tmp:
+        # bland annat Nodes kompileringscache, fjärrprovet 2026-10-10) bara i roten, så att en sida som src/pages/paket/ räknas
         topp = Path(katalog) == Path(rot)
         kataloger[:] = sorted(n for n in kataloger if n not in ('.git', 'node_modules', '.astro')
-                              and not (topp and n in ('dist', '.wrangler', 'paket', '.vercel')))
+                              and not (topp and n in ('dist', '.wrangler', 'paket', '.vercel', '.tmp')))
         if any((Path(katalog) / n).is_symlink() for n in kataloger):
             raise ValueError('exporten innehåller en kataloglänk')
         for n in sorted(filer):

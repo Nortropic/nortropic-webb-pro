@@ -250,7 +250,7 @@ class Kundrepo(unittest.TestCase):
         self.assertTrue(akt['aktuell'] and akt['fil'].endswith('.json'))
         kopia = self.root / 'manifestkopia'; shutil.copytree(self.k / 'kundrepo', kopia, ignore=shutil.ignore_patterns('.git'))
         fore = exportera.exportmanifest(kopia)
-        for x in ('.wrangler/state/v3/d1/db.sqlite', 'paket/index.js', '.vercel/project.json'):
+        for x in ('.wrangler/state/v3/d1/db.sqlite', 'paket/index.js', '.vercel/project.json', '.tmp/node-compile-cache/v24/abc'):
             (kopia / x).parent.mkdir(parents=True, exist_ok=True); (kopia / x).write_text('lokalt')
         self.assertEqual(exportera.exportmanifest(kopia), fore, 'Wranglers lokala lager, provpaketet och Vercels koppling ingår aldrig i manifestet')
         (kopia / 'src' / 'pages' / 'paket').mkdir(parents=True); (kopia / 'src' / 'pages' / 'paket' / 'index.astro').write_text('<h1>Paket</h1>')
