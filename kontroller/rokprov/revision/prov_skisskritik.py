@@ -647,6 +647,7 @@ def _andra():
     SVAR.clear()
     SVAR[lambda p, s: s in (kd.FORSKA_SCHEMA, kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED)] = lambda p, s: (
         {'varfor': 'befintligt material räcker', 'riktningar': 'tre grunder', 'sajter': [], 'fragor': [],
+         'urvalsfragor': referensfixtur.URVALSFRAGOR, 'tackning': referensfixtur.TACKNING,
          'antaganden': [{'antagande': 'besökaren vill se jobb', 'underlag': 'ännu inte observerat', 'provning': 'uppgift', 'om_fel': 'kontakt först'}]},
         kompetens_transkript('forska', referensfixtur.webbhandelser()))  # referenskontraktet: webbsökningen och Awwwards-besöket
     SESSIONER.clear()

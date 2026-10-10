@@ -21,6 +21,7 @@ def _sajt(paket, namn, roll, upptackt):
     for b in ('390', '1440'):
         (kat / ('vy-%s-forsta.png' % b)).write_bytes(PNG)
     (kat / 'SEKTIONER.md').write_text('# Sektioner (fixtur)\n', encoding='utf-8')
+    (kat / 'vy-390-aria.txt').write_text('- form "Boka": textbox "Namn", button "Skicka"\n', encoding='utf-8')  # funktionsbelägg
     return {'namn': namn, 'adress': 'https://%s.example/' % namn, 'roll': roll, 'ok': True, 'upptackt': upptackt, 'uppgift': ['komposition'],
             'sidor': [{'sida': '/', 'katalog': '%s/01-start' % namn, 'ok': True}]}
 
@@ -50,6 +51,20 @@ def bidrag(slug):
              'belagg': [belagg(slug, GALLERI[0])]}]
 
 
+def branschrad(slug, n):
+    return {'sajt': n, 'varfor_studera': TEXT, 'stark_for': 'stark webbplatsreferens för en tydlig bokningsväg i mobilen', 'evidens': 'egen_observation',
+            'lokal_marknad': 'ej relevant för uppgiften', 'anseende': 'okänt', 'affarsframgang': 'okänt', 'erbjudande': TEXT, 'tjanster_priser': TEXT,
+            'fortroende': TEXT, 'navigation_kontakt': TEXT, 'bilder_identitet': TEXT, 'mobil': TEXT, 'tillganglighet': 'fokus syns på länkarna',
+            'styrkor': TEXT, 'svagheter': TEXT, 'mojligheter': TEXT, 'tar_med': 'kurslistan med datum överst', 'undviker': 'den täta sidfoten',
+            'observation': TEXT, 'tolkning': 'besökaren hittar nästa kurstillfälle snabbt', 'belagg': [belagg(slug, n)]}
+
+
+def forebild(slug, n):
+    return {'sajt': n, 'galleri': 'awwwards', 'stark_for': 'stark webbplatsreferens för bildregi med beskurna arbetsbilder', 'kvalitet': TEXT,
+            'kundens_material': TEXT, 'tillganglighet': 'kontrasten i bildtexterna är låg', 'tar_med': 'helbilden i första vyn',
+            'undviker': 'den skrollstyrda rörelsen', 'begransningar': 'en stillbild visar ingen rörelse', 'belagg': [belagg(slug, n)]}
+
+
 def uppfyll(underlag, slug, plan):
     """Planen kompletterad till kontraktet: paketet, version, genomgångarna och varje kandidats bidrag (bara där de
     saknas, så att ett prov kan göra sin egen kedja)."""
@@ -57,11 +72,8 @@ def uppfyll(underlag, slug, plan):
     plan = dict(plan or {})
     plan.setdefault('paket', 'paket-v01')
     plan.setdefault('referenskontrakt', {'version': 1, 'brister': [], 'tid': '2026-10-10T00:00:00Z'})
-    plan.setdefault('bransch', [{'sajt': n, 'varfor_studera': TEXT, 'evidens': 'egen_observation', 'erbjudande': TEXT, 'tjanster_priser': TEXT,
-                                 'fortroende': TEXT, 'navigation_kontakt': TEXT, 'bilder_identitet': TEXT, 'mobil': TEXT, 'styrkor': TEXT,
-                                 'svagheter': TEXT, 'mojligheter': TEXT, 'belagg': [belagg(slug, n)]} for n in BRANSCH])
-    plan.setdefault('forebilder_utanfor', [{'sajt': n, 'galleri': 'awwwards', 'kvalitet': TEXT, 'kundens_material': TEXT,
-                                            'begransningar': 'en stillbild visar ingen rörelse', 'belagg': [belagg(slug, n)]} for n in GALLERI])
+    plan.setdefault('bransch', [branschrad(slug, n) for n in BRANSCH])
+    plan.setdefault('forebilder_utanfor', [forebild(slug, n) for n in GALLERI])
     plan['kandidater'] = {kid: (dict(k, referensbidrag=bidrag(slug)) if isinstance(k, dict) and not k.get('referensbidrag') else k)
                           for kid, k in (plan.get('kandidater') or {}).items()}
     return plan
@@ -76,7 +88,13 @@ def logg():
 def forskning(underlag, slug, post=None):
     """En sparad research i kontraktets form (för prov som återupptar på en sparad FORSKNING.json)."""
     paket(underlag, slug)
-    return dict(post or {}, sok=logg(), referenskontrakt={'version': 1, 'brister': [], 'paket': 'paket-v01'})
+    return dict(post or {}, sok=logg(), urvalsfragor=URVALSFRAGOR, tackning=TACKNING,
+                referenskontrakt={'version': 1, 'brister': [], 'paket': 'paket-v01'})
+
+
+URVALSFRAGOR = {'fragor': ['hur visar starka sajter nästa kurstillfälle'], 'kundbehov': ['boka en kursplats i mobilen'],
+                'material': ['inga egna foton ännu'], 'kvaliteter': ['bokningsväg', 'bildregi']}
+TACKNING = {'varfor_racker': 'tre fångade branschsajter och två galleriförebilder täcker bokning och bildregi', 'luckor': ['ingen sajt med prislista']}
 
 
 def uppdrag(underlag, slug, plan, kid, forst=''):

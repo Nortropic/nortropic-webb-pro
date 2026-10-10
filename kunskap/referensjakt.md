@@ -98,6 +98,52 @@ kandidatens status): insamlat, tillgängligt, öppnat (en lyckad Read av bilden)
 varv; att tillämpningen stöds av implementationen bedöms av bilderna, aldrig av kvittot. Den blinda skisskritiken ser
 varken UPPDRAG.md eller skaparens förklaring.
 
+## Rätt grunder för urvalet
+
+Ägarens tillägg 2026-10-10: ort, sökplacering, företagsstorlek, omdömen eller designutmärkelser avgör aldrig ensamma
+vilka sajter som blir designförebilder. Fyra frågor hålls isär i instruktioner, data och presentation:
+
+- **A Lokal marknad:** vilka alternativ möter kundens besökare, och vilka tjänster, förtroendesignaler och kontaktvägar
+  förväntas. Görs när kunduppgiften motiverar det, ur kundens underlag och på regionnivå; den begränsar aldrig
+  designförebilderna till samma ort, och kundens ort går aldrig till en söktjänst (kundvakten).
+- **B Företagets anseende:** omdömen, kundreferenser och dokumenterade projekt, med källa och begränsning.
+- **C Affärsframgång:** okänt utan faktiska belägg med källa. Omdömen och sökplacering bevisar den inte, och ingen
+  ekonomisk granskning görs av varje företag.
+- **D Webbplatsens kvalitet och relevans:** det granskningen i webbläsaren visar om design, innehåll, användbarhet och
+  mobilupplevelse, och vilka kvaliteter som är användbara för kunden. Bara D gör en sajt till designförebild.
+
+Googles lokala rankning bygger på relevans, avstånd och känddhet, bland annat länkar och antal omdömen
+(support.google.com/business/answer/7091); den säger ingenting om webbplatsens design, och en sökplacering är därför
+aldrig ett designbetyg. Ort används i koden bara för att identifiera ett känt företags egen webbplats (prospekt.py:
+namn och postort i sökningen, och ett identitetsmått på träffen), aldrig för att rangordna referenser. Prospektpoängen
+(prospekt_poang.py, kampanjens förbättringsbehov) mäter något annat och nås inte från skapandeflödet; provet
+`prov_referenskontrakt.py` (Grunder) visar att den, omdömena, orten och storleken inte påverkar kontraktet.
+
+**Förfarandet.** Före sökningen skriver researchen urvalsfrågorna: vilka frågor referenserna ska besvara, vilka kundbehov
+och materialförutsättningar som styr relevansen och vilka kvaliteter som ska undersökas. Under sökningen används den
+verkliga webbsökningen, svenska och internationella verksamheter, Awwwards och kompletterande gallerier, och Refero,
+Mobbin och 21st enligt kompetenskontraktet, utan att låsa urvalet vid första träffarna eller en förutbestämd stil. En
+första sållning med urval och bortval följs av en fördjupad granskning av ett mindre urval, och täckningen säger varför
+underlaget räcker och vilka luckor som återstår (Design Councils utforskning före avgränsning; NN/g:s jämförelse som leder
+till designrekommendationer). Samma värd, med eller utan www och med flera sidor, är en förebild och räknas en gång.
+
+**Bedömningen.** Varje vald webbreferens granskas i riktig webbläsare i mobil och dator, och bedöms för sig: relevans för
+verksamheten och besökaruppgifterna, erbjudande och hierarki, förtroende och tydlighet, navigation och vägen till kontakt
+eller bokning, komposition, typografi, bildregi, rytm och detaljer, responsivitet och relevanta interaktioner, observerade
+tillgänglighetsproblem och vad kundens verkliga material kan bära. En teknisk mätning är inget estetiskt betyg, en vacker
+skärmbild bevisar ingen fungerande navigation, och en begränsad tillgänglighetskontroll bevisar ingen överensstämmelse
+(W3C:s snabbkontroller är "quick and easy, rather than definitive"). Omdömen och storlek är aldrig positiva faktorer i
+designbedömningen, och saknade omdömen sänker den inte. En sajt får vara förebild för bildregi trots svag navigation:
+tar med och undviker sägs uttryckligen. Formuleringen är "stark webbplatsreferens för <konkret kvalitet eller uppgift>";
+"premium", "modern", "framgångsrik" och "snygg" är inga urvalsskäl.
+
+**Mekaniskt och kvalitativt.** Kontraktet prövar struktur, identitet, filer och genomförda steg: fångsten, upptäckten,
+dubletterna, beläggen, att designgrunden är egen observation och inte omdömen, betyg, storlek eller sökplacering, att en
+påstådd affärsframgång har en källa och att en funktionsuppgift (kontakt, navigation, interaktion, rörelse) har fångade
+funktionsbelägg. Planprövningen bedömer kvalitativt om observationerna stöder urvalet och designbesluten. Det renderade
+resultatet bedöms fortfarande visuellt: av den blinda skisskritiken, före/efter-bedömningen och ägaren. Antalen och
+verktygsvalen är Nortropics produktbeslut; källorna föreskriver dem inte.
+
 ## Läs och se på riktigt
 
 Öppna de utvalda sajterna i riktig webbläsare på relevant mobil och större vy. Läs representativt innehåll,

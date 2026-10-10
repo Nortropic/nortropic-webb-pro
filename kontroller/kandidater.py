@@ -769,8 +769,17 @@ _GALLERI_OBJEKT = {'type': 'object', 'additionalProperties': False, 'required': 
                    'properties': {'galleri': {'type': 'string'}, 'objekt': {'type': 'string'}, 'sajt': {'type': 'string'},
                                   'utmarkelse': {'type': 'string'}, 'undersokt': {'type': 'boolean'}, 'vald': {'type': 'boolean'}, 'skal': {'type': 'string'}}}
 FORSKA_SCHEMA = {
-    'type': 'object', 'additionalProperties': False, 'required': ['varfor', 'riktningar', 'antaganden', 'sajter', 'fragor', 'galleri', 'sallning'],
+    'type': 'object', 'additionalProperties': False,
+    'required': ['varfor', 'riktningar', 'antaganden', 'sajter', 'fragor', 'galleri', 'sallning', 'urvalsfragor', 'tackning'],
     'properties': {
+        # före sökningen (ägarens tillägg 2026-10-10 om starka webbplatsreferenser): vad referenserna ska besvara, vilka
+        # kundbehov och materialförutsättningar som styr relevansen och vilka kvaliteter som ska undersökas
+        'urvalsfragor': {'type': 'object', 'additionalProperties': False, 'required': ['fragor', 'kundbehov', 'material', 'kvaliteter'],
+                         'properties': {k: {'type': 'array', 'minItems': 1, 'maxItems': 8, 'items': {'type': 'string'}}
+                                        for k in ('fragor', 'kundbehov', 'material', 'kvaliteter')}},
+        # efter sökningen: varför underlaget räcker och vilka viktiga luckor som återstår
+        'tackning': {'type': 'object', 'additionalProperties': False, 'required': ['varfor_racker', 'luckor'],
+                     'properties': {'varfor_racker': {'type': 'string'}, 'luckor': {'type': 'array', 'maxItems': 8, 'items': {'type': 'string'}}}},
         # gallerierna (ägarens uppdrag 2026-10-10): Awwwards i varje ny designomgång och minst ett annat galleri; varje
         # objekt följs till den verkliga sajten, och de valda står också i sajter (roll hantverk, upptäckt galleri)
         'galleri': {'type': 'object', 'additionalProperties': False, 'required': ['sokningar', 'objekt'],
@@ -790,7 +799,8 @@ FORSKA_SCHEMA = {
             'type': 'object', 'additionalProperties': False, 'required': ['antagande', 'underlag', 'provning', 'om_fel'],
             'properties': {'antagande': {'type': 'string'}, 'underlag': {'type': 'string'}, 'provning': {'type': 'string'}, 'om_fel': {'type': 'string'}}}},
         'sajter': {'type': 'array', 'maxItems': skapande.MAX_KANDIDATER_BRED, 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': ['namn', 'adress', 'roll', 'varfor', 'sidor', 'upptackt', 'uppgift', 'evidens'],
+            'type': 'object', 'additionalProperties': False,
+            'required': ['namn', 'adress', 'roll', 'varfor', 'sidor', 'upptackt', 'uppgift', 'evidens', 'stark_for', 'syfte'],
             'properties': {'namn': {'type': 'string'}, 'adress': {'type': 'string'}, 'roll': {'type': 'string', 'enum': ['bransch', 'hantverk', 'ux']},
                            'varfor': {'type': 'string'}, 'sidor': {'type': 'array', 'maxItems': skapande.MAX_SIDOR_PER, 'items': {'type': 'string'}},
                            # hur sajten hittades: väg och källa (sökfrågan, galleriobjektets adress, byråns sida); minnet är kunskap
@@ -800,8 +810,11 @@ FORSKA_SCHEMA = {
                            # vad referensen ska lära oss: fångstens fullständighet bedöms mot den uppgiften (punkt 8)
                            'uppgift': {'type': 'array', 'minItems': 1, 'maxItems': 4, 'items': {'type': 'string', 'enum': [
                                'innehall', 'fortroende', 'navigation', 'kontakt', 'komposition', 'typografi', 'bildregi', 'rytm', 'mobil', 'interaktion', 'rorelse']}},
-                           # vad urvalet vilar på: egen observation, sökrankning, företagsomdömen, designutmärkelse eller kundens egen
+                           # varför sajten kom fram (sökrankning, omdömen, utmärkelse, egen observation, kundens egen): ingen designgrund;
+                           # designbeslutet kommer först ur fångsten i webbläsaren och planens egen observation
                            'evidens': {'type': 'string', 'enum': ['egen_observation', 'sokrankning', 'omdomen', 'utmarkelse', 'kundens_egen']},
+                           # "stark webbplatsreferens för <konkret kvalitet eller uppgift>", och sökningens syfte (vilken urvalsfråga)
+                           'stark_for': {'type': 'string'}, 'syfte': {'type': 'string'},
                            # referensinspektionen (ägarens uppdrag 2026-10-07, punkt 7): mellanbredderna och tillstånden valbara per sajt
                            'bredder': {'type': 'array', 'maxItems': 2, 'items': {'type': 'string', 'enum': ['768', '1280']}},
                            'hover': {'type': 'array', 'maxItems': 4, 'items': {'type': 'string'}},
@@ -874,6 +887,7 @@ def forska_prompt(slug, n, fel=None, skiss=False):
         '- galleri: sokningar (galleriet, frågan eller adressen och utfallet: traffar, tomt eller otillganglig) och objekt (galleriet,',
         '  objektsidans adress, den verkliga sajtens adress, utmärkelsen, om du öppnade objektet, om det valdes och skälet).',
         '- sallning: den första sållningen av branschsajter och förebilder med namn, adress, roll, upptäcktsväg, vald och skäl.',
+        '- urvalsfragor och tackning enligt referensjakten ovan.',
         ('I riktningar: vilka riktningar researchen prövar för att välja den bärande, och vad i kundens material som bär var och en. Skilj på'
          if n == 1 else 'I riktningar: vilka skilda grundidéer researchen ska öppna, och vad i kundens material som bär var och en. Skilj på'),
         'observation (vad en referens gör), rekommendation (vad vi föreslår för kunden) och belagd effekt (bara med källa).',
@@ -890,7 +904,19 @@ def referensjakt_rader(slug, n, skiss=False):
     befintligt = rk.paket_rad(paket)
     return [
         'Referensjakten är obligatorisk och formar förslagen (referenskontraktet, kunskap/referensjakt.md). Börja i kundens',
-        'erbjudande, målgrupp, material och viktigaste besökaruppgifter, och sök sedan genom flera vägar med WebSearch och WebFetch:',
+        'erbjudande, målgrupp, material och viktigaste besökaruppgifter. Skriv före sökningen i urvalsfragor vilka frågor',
+        'referenserna ska besvara, vilka kundbehov och materialförutsättningar som styr relevansen och vilka kvaliteter du vill',
+        'undersöka; skriv efter sökningen i tackning varför underlaget räcker och vilka viktiga luckor som återstår.',
+        'Håll fyra frågor isär: A lokal marknad (vilka alternativ möter besökaren, vilka tjänster, förtroendesignaler och',
+        'kontaktvägar förväntas), B företagets anseende (omdömen, kundreferenser, projekt, med källa och begränsning), C',
+        'affärsframgång (okänt utan faktiska belägg; omdömen och sökplacering bevisar den inte) och D webbplatsens kvalitet och',
+        'relevans (det granskningen i webbläsaren visar). Bara D gör en sajt till designförebild: ort, sökplacering, storlek,',
+        'omdömen och utmärkelser är sökvägar och sammanhang, aldrig designgrund, och saknade omdömen sänker inget. Lokal research',
+        'görs när kunduppgiften motiverar den (A), ur kundens underlag och på regionnivå; den begränsar aldrig designförebilderna',
+        'till samma ort, och kundens ort går aldrig till en söktjänst. Skriv för varje sajt stark_for ("stark webbplatsreferens för',
+        '<konkret kvalitet eller uppgift>") och syfte (vilken urvalsfråga sökningen besvarade); "premium", "modern",',
+        '"framgångsrik" och "snygg" är inga urvalsskäl. Samma sajt med www, en annan sida eller en annan väg är en förebild, inte två.',
+        'Sök sedan genom flera vägar med WebSearch och WebFetch:',
         '- vanlig webbsökning på svenska och engelska efter starka verkliga verksamhetssajter i branschen, nationellt och',
         '  internationellt där det ger bättre förebilder; byråers dokumenterade kundprojekt; jämförbara verksamheter. Första',
         '  träffen, ett högt företagsbetyg eller stor omsättning är inget designbetyg;',
@@ -975,13 +1001,15 @@ def forska(slug, n, skiss=False):
             if fel:
                 continue
         # referenskontraktet: det fångade paketet och den loggade upptäckten, inte svarets påståenden
-        kontraktsbrister = rk.researchbrister(slug, atelje.UNDERLAG, {'sok': logg}, skapande.senaste_paket(slug, atelje.UNDERLAG))
+        kontraktsbrister = rk.researchbrister(slug, atelje.UNDERLAG, {'sok': logg, 'urvalsfragor': plan.get('urvalsfragor'), 'tackning': plan.get('tackning')},
+                                              skapande.senaste_paket(slug, atelje.UNDERLAG))
         if not kontraktsbrister:
             break
         fel = 'referenskontraktet uppfylls inte än (%s); komplettera det som saknas' % '; '.join(kontraktsbrister)
     efter_paket = skapande.senaste_paket(slug, atelje.UNDERLAG)
     if not kravbrister:  # alltid prövat efter sista försöket, också när hämtningen föll: saknat underlag är aldrig klart
-        kontraktsbrister = rk.researchbrister(slug, atelje.UNDERLAG, {'sok': logg}, efter_paket)
+        kontraktsbrister = rk.researchbrister(slug, atelje.UNDERLAG, {'sok': logg, 'urvalsfragor': plan.get('urvalsfragor'), 'tackning': plan.get('tackning')},
+                                              efter_paket)
     tj = atelje.las_json(u / 'referenser' / 'tjanster' / 'TJANSTER.json') or {}
     nya_sajter = []
     if efter_paket and efter_paket != fore_paket:
@@ -996,6 +1024,7 @@ def forska(slug, n, skiss=False):
             # webbupptäckten och gallerierna (ägarens uppdrag 2026-10-10): loggen ur transkripten, sessionens egen redovisning
             # av gallerierna och sållningen, den prövade upptäcktsvägen per sajt och kontraktets brister
             'sok': logg, 'galleri': plan.get('galleri') or {}, 'sallning': plan.get('sallning') or [], 'proveniens': proveniens,
+            'urvalsfragor': plan.get('urvalsfragor') or {}, 'tackning': plan.get('tackning') or {},
             'referenskontrakt': {'version': rk.VERSION, 'brister': kontraktsbrister, 'tid': nu(),
                                  'paket': efter_paket.name if efter_paket else None}}
     (r / 'FORSKNING.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
@@ -1028,6 +1057,11 @@ def forska(slug, n, skiss=False):
     rader += ['', '## Sajterna', ''] + ['- %s (%s) %s — %s' % (s.get('namn'), s.get('roll'), s.get('adress'), s.get('varfor')) for s in post['sajter']]
     if slappta:
         rader += ['', '## Släppta (utanför kanalens form)', ''] + ['- ' + x for x in slappta]
+    uf_, tk_ = post.get('urvalsfragor') or {}, post.get('tackning') or {}
+    rader += ['', '## Före sökningen', '', '- frågorna: %s' % '; '.join(uf_.get('fragor') or ['inga angivna']),
+              '- kundbehoven: %s' % '; '.join(uf_.get('kundbehov') or ['inga angivna']), '- materialet: %s' % '; '.join(uf_.get('material') or ['inget angivet']),
+              '- kvaliteterna: %s' % '; '.join(uf_.get('kvaliteter') or ['inga angivna']), '', '## Täckningen efter sökningen', '',
+              '- varför underlaget räcker: %s' % (tk_.get('varfor_racker') or 'ej angivet'), '- luckor: %s' % ('; '.join(tk_.get('luckor') or []) or 'inga angivna')]
     rader += ['', '## Webbupptäckten (ur transkriptet)', '']
     rader += ['- %s %s: %s' % (x['verktyg'], x.get('fraga') or x.get('url'), ('fel: %s' % x['fel'][:120]) if x.get('fel') else '%d adresser' % len(x.get('traffar') or []))
               for x in logg] or ['- ingen sökning eller hämtning gjordes']
@@ -1099,16 +1133,23 @@ PLAN_SCHEMA = {
         # paketets bilder, bedömd konkret; referenskontrakt.planbrister prövar sajten, beläggen och bedömningarna
         'bransch': {'type': 'array', 'minItems': 3, 'maxItems': 8, 'items': {
             'type': 'object', 'additionalProperties': False,
-            'required': ['sajt', 'varfor_studera', 'evidens', 'erbjudande', 'tjanster_priser', 'fortroende', 'navigation_kontakt', 'bilder_identitet',
-                         'mobil', 'styrkor', 'svagheter', 'mojligheter', 'belagg'],
-            'properties': {**{k: {'type': 'string'} for k in ('sajt', 'varfor_studera', 'erbjudande', 'tjanster_priser', 'fortroende', 'navigation_kontakt',
-                                                               'bilder_identitet', 'mobil', 'styrkor', 'svagheter', 'mojligheter')},
+            'required': ['sajt', 'varfor_studera', 'stark_for', 'evidens', 'lokal_marknad', 'anseende', 'affarsframgang',
+                         'erbjudande', 'tjanster_priser', 'fortroende', 'navigation_kontakt', 'bilder_identitet', 'mobil', 'tillganglighet',
+                         'styrkor', 'svagheter', 'mojligheter', 'tar_med', 'undviker', 'observation', 'tolkning', 'belagg'],
+            # de fyra frågorna hålls isär (ägarens tillägg 2026-10-10): A lokal marknad, B anseende (källa och begränsning),
+            # C affärsframgång (okänt utan belägg), och D webbplatsens kvalitet och relevans i resten av fälten, ur fångsten
+            'properties': {**{k: {'type': 'string'} for k in ('sajt', 'varfor_studera', 'stark_for', 'lokal_marknad', 'anseende', 'affarsframgang',
+                                                               'erbjudande', 'tjanster_priser', 'fortroende', 'navigation_kontakt', 'bilder_identitet',
+                                                               'mobil', 'tillganglighet', 'styrkor', 'svagheter', 'mojligheter', 'tar_med', 'undviker',
+                                                               'observation', 'tolkning')},
                            'evidens': {'type': 'string', 'enum': ['egen_observation', 'sokrankning', 'omdomen', 'utmarkelse', 'kundens_egen']},
                            'belagg': {'type': 'array', 'minItems': 1, 'maxItems': 6, 'items': {'type': 'string'}}}}},
         # visuella förebilder ur gallerierna, också utanför branschen, vars kvaliteter kan fungera med kundens material
         'forebilder_utanfor': {'type': 'array', 'minItems': 2, 'maxItems': 8, 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': ['sajt', 'galleri', 'kvalitet', 'kundens_material', 'begransningar', 'belagg'],
-            'properties': {**{k: {'type': 'string'} for k in ('sajt', 'galleri', 'kvalitet', 'kundens_material', 'begransningar')},
+            'type': 'object', 'additionalProperties': False,
+            'required': ['sajt', 'galleri', 'stark_for', 'kvalitet', 'kundens_material', 'tillganglighet', 'tar_med', 'undviker', 'begransningar', 'belagg'],
+            'properties': {**{k: {'type': 'string'} for k in ('sajt', 'galleri', 'stark_for', 'kvalitet', 'kundens_material', 'tillganglighet', 'tar_med',
+                                                               'undviker', 'begransningar')},
                            'belagg': {'type': 'array', 'minItems': 1, 'maxItems': 6, 'items': {'type': 'string'}}}}},
         'kandidater': {'type': 'array', 'minItems': 2, 'maxItems': 12, 'items': {
             'type': 'object', 'additionalProperties': False,
@@ -1317,20 +1358,27 @@ def referensplan_rader(slug):
         'Branschgenomgången och inspirationen först, ur det fångade paketet %s (fångade sajter: %s). Antalen är Nortropics' % (
             rel(paket) if paket else '(inget paket)', ', '.join(fangade) or 'inga'),
         'arbetsregel för täckning, aldrig ett kvalitetsbetyg:',
-        '- "bransch": minst %d rader, en per fångad branschsajt (sajt = paketets namn): varför den är värd att studera, evidens' % a['plan_bransch'],
-        '  (egen observation, sökrankning, omdömen, utmärkelse eller kundens egen), erbjudande och informationshierarki, tjänster,',
-        '  priser och hur osäkerhet hanteras, förtroende och belägg (projekt, resultat), navigation och vägen till kontakt eller',
-        '  bokning, bildmaterial och identitet, mobilupplevelsen, styrkor, svagheter och möjligheter för vår kund, och belagg:',
-        '  1–6 sökvägar till paketets bilder som visar det (under underlag/%s/referenser/<paket>/<sajt>/<sida>/). Att något' % slug,
-        '  förekommer hos konkurrenter gör det inte till bästa praxis; skriv "starka relevanta referenser", aldrig "bäst".',
-        '- "forebilder_utanfor": minst %d visuella förebilder ur gallerierna (sajt = paketets namn, galleri), med den konkreta' % a['plan_forebilder'],
-        '  observerade kvaliteten (komposition, proportioner, typografisk hierarki, bildbeskärning och bildsekvenser, rytm och',
-        '  täthet, färg och detaljer, responsiva förändringar, tillstånd), om kundens material bär den, begränsningarna (en',
-        '  stillbild bevisar ingen rörelse eller interaktion; en arkiverad skärm har ingen levande DOM) och belagg i paketet.',
+        '- "bransch": minst %d rader, en per fångad branschsajt (sajt = paketets namn; samma värd räknas en gång): varför den är' % a['plan_bransch'],
+        '  värd att studera och stark_for ("stark webbplatsreferens för <konkret kvalitet eller uppgift>"). De fyra frågorna',
+        '  isär: lokal_marknad (A, eller "ej relevant för uppgiften"), anseende (B, med källa och begränsning, eller "okänt") och',
+        '  affarsframgang (C, "okänt" utan faktiska belägg med källa) är sammanhang och aldrig designgrund; designbedömningen (D,',
+        '  evidens egen_observation, ur fångsten i webbläsaren) står i erbjudande och informationshierarki, tjänster, priser och',
+        '  hur osäkerhet hanteras, förtroende och tydlighet, navigation och vägen till kontakt eller bokning, bildmaterial och',
+        '  identitet, mobil, tillganglighet (observerade problem; en begränsad kontroll bevisar ingen överensstämmelse),',
+        '  styrkor, svagheter, möjligheter för vår kund, tar_med och undviker (en sajt får vara förebild för bildregi trots svag',
+        '  navigation), observation (det som syns i beläggen) skilt från tolkning, och belagg: 1–6 sökvägar till paketets',
+        '  bilder (under underlag/%s/referenser/<paket>/<sajt>/<sida>/). Omdömen och företagsstorlek är aldrig positiva faktorer' % slug,
+        '  i designbedömningen. Att något förekommer hos konkurrenter gör det inte till bästa praxis; aldrig "bäst".',
+        '- "forebilder_utanfor": minst %d visuella förebilder ur gallerierna (sajt = paketets namn, galleri), med stark_for, den' % a['plan_forebilder'],
+        '  konkreta observerade kvaliteten (komposition, proportioner, typografisk hierarki, bildbeskärning och bildsekvenser, rytm',
+        '  och täthet, färg och detaljer, responsiva förändringar, tillstånd), om kundens material bär den, tillganglighet, tar_med,',
+        '  undviker, begränsningarna (en stillbild bevisar ingen rörelse eller interaktion; en utmärkelse är en sökväg; en',
+        '  arkiverad skärm har ingen levande DOM) och belagg i paketet.',
         '- per uppdrag "referensbidrag": 2–6 bidrag, minst ett ur branschen (roll bransch) och ett ur den visuella inspirationen',
         '  (roll visuellt), också för en egen huvudreferens. Varje bidrag: kalla (paketets sajtnamn, eller tjänsternas id för ux',
         '  och implementation), uppgift, kundbehov, observerad kvalitet (konkret och synlig i beläggen; matbart när den är mätt',
-        '  i DOM/CSS i SEKTIONER.md eller EXTRAKT.md, annars visuell tolkning), beslut (infor, anpassar eller undviker),',
+        '  i DOM/CSS i SEKTIONER.md eller EXTRAKT.md, annars visuell tolkning; en funktionsuppgift som kontakt, navigation,',
+        '  interaktion eller rörelse kräver fångade funktionsbelägg, inte ett företagsbetyg), beslut (infor, anpassar eller undviker),',
         '  designbeslut, planerad tillämpning, hur resultatet bedöms (i samma bredd och tillstånd som referensen) och belagg (1–4',
         '  bilder i paketet). Det är skaparens koncentrerade urval: hela underlaget står kvar i planen och paketet. Låt',
         '  uppdragen bygga på olika huvudreferenser och kompositioner där underlaget bär det.']
@@ -2974,6 +3022,12 @@ def planprovning(slug, bara=None, _foregaende=None):
             'kan kundens faktiska material bära referensens kvalitet?' if len(ids) == 1 else
             'skiljer sig uppdragen verkligen i komposition, berättelse, bildanvändning och uttryck?'),
         'färgkoder: formfälten anger avsikt, och skaparen avgör värdena i renderingen.',
+        'Pröva också referensunderlaget kvalitativt (referenskontraktet prövar bara struktur, identitet och filer): stöder',
+        'observationerna i branschgenomgången, förebilderna och varje uppdrags referensbidrag (bilderna under belagg) det urval',
+        'och de designbeslut som planen gör? Är designbedömningen fråga D, det som syns i webbläsaren, och hålls lokal marknad,',
+        'anseende och affärsframgång isär som sammanhang? Är "stark webbplatsreferens för …" konkret och belagd, och står det vad',
+        'som tas med och vad som undviks? Ett bidrag som vilar på omdömen, ort, storlek, en utmärkelse eller en bild som inte',
+        'visar det påstådda är en invändning i bedömningen, och ett uppdrag vars referensbidrag inte bär blir en återgång.',
         'Ändra ett fält bara när kompetensen kräver det, och skriv då fältets nya hela text; annars säg i bedömningen',
         'varför valen håller. Titel, hypotes och huvudreferens är låsta (titeln och hypotesen visas för ägaren före det blinda',
         'valet och nämner ingen referens eller sajt vid namn), liksom Referos stil och Mobbins sökfras (materialet är redan',

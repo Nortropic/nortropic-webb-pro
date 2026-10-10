@@ -50,7 +50,13 @@ BESLUT = ('infor', 'anpassar', 'undviker')
 URL = re.compile(r'https?://[^\s"\'<>)\]}]+')
 BILD = re.compile(r'\.(png|jpe?g|webp)$', re.I)
 # en observation som bara är värdeord är ingen observation (ägarens exempel: "premium och modernt")
-VARDEORD = re.compile(r'\b(premium|modern[at]?|clean|ren|elegant|snygg[at]?|stilren|fräsch|lyxig|exklusiv|professionell[at]?|minimalistisk[at]?)\b', re.I)
+VARDEORD = re.compile(r'\b(premium|modern[at]?|clean|ren|elegant|snygg[at]?|stilren|fräsch|lyxig|exklusiv|professionell[at]?|minimalistisk[at]?|'
+                      r'framgångsrik[at]?|ledande|branschledande|världsledande|bäst[ae]?|best|leading|successful)\b', re.I)
+# omdömen, betyg och företagsstorlek är anseende och sammanhang (fråga B och C), aldrig designbelägg (fråga D)
+ANSEENDEORD = re.compile(r'(\b\d[.,]\d\s*(av 5|/5|stjärn)|\bstjärn|\bomdöm|\brecension|\breview|\brating|\bbetyg|\bomsättning|\banställd|'
+                         r'\bstort företag|\bmarknadsandel|\bmarknadsledande|\bförst i sök|\bsökträff|\brankning)', re.I)
+FRAMGANGSORD = re.compile(r'(framgångsrik|tillväxt|lönsam|växer|marknadsledande|branschledande|ledande aktör|omsätter)', re.I)
+FUNKTIONSUPPGIFTER = ('kontakt', 'navigation', 'interaktion', 'rorelse')  # kräver fångade funktionsbelägg, inte bara en bild
 MIN_OBSERVATION = 40
 
 
@@ -204,8 +210,16 @@ def researchbrister(slug, underlag, post, paket=None):
     rader = paket_rad(paket)
     logg = post.get('sok') or []
     fel = []
-    bransch = [k for k in rader.values() if k.get('roll') == 'bransch' and k['sidor_ok']]
-    insp = [k for k in rader.values() if k.get('roll') == 'hantverk' and k['sidor_ok'] and str((k.get('upptackt') or {}).get('vag')) == 'galleri']
+    def unika(xs):  # samma värd (med eller utan www, en annan sida) är en förebild, aldrig två oberoende
+        sett_, ut_ = set(), []
+        for k in xs:
+            v_ = vard(k.get('adress'))
+            if v_ and v_ not in sett_:
+                sett_.add(v_)
+                ut_.append(k)
+        return ut_
+    bransch = unika([k for k in rader.values() if k.get('roll') == 'bransch' and k['sidor_ok']])
+    insp = unika([k for k in rader.values() if k.get('roll') == 'hantverk' and k['sidor_ok'] and str((k.get('upptackt') or {}).get('vag')) == 'galleri'])
     if len(bransch) < ARBETSREGEL['bransch_sajter']:
         fel.append('branschgenomgången har %d fångade branschsajter med lyckad sida i 390 och 1440 (arbetsregeln: minst %d)' % (
             len(bransch), ARBETSREGEL['bransch_sajter']))
@@ -218,6 +232,12 @@ def researchbrister(slug, underlag, post, paket=None):
         fel.append('Awwwards ingick inte i referensjakten i den här designomgången (ingen sökning eller hämtning mot awwwards.com)')
     elif not any(galleri_for(s.get('fraga') or s.get('url')) and not s.get('fel') for s in logg):
         fel.append('ingen gallerisökning lyckades (Awwwards och alternativen var otillgängliga); den visuella inspirationen saknas')
+    uf = post.get('urvalsfragor') if isinstance(post.get('urvalsfragor'), dict) else {}
+    if not all(isinstance(uf.get(k), list) and any(str(x).strip() for x in uf[k]) for k in ('fragor', 'kundbehov', 'material', 'kvaliteter')):
+        fel.append('urvalsfrågorna före sökningen saknas (frågorna, kundbehoven, materialförutsättningarna och kvaliteterna)')
+    tk = post.get('tackning') if isinstance(post.get('tackning'), dict) else {}
+    if not _text_ok(tk.get('varfor_racker'), 25):
+        fel.append('täckningen efter sökningen saknas (varför underlaget räcker och vilka luckor som återstår)')
     sett = sokta_vardar(logg)
     upptackta = [k for k in bransch if vard(k.get('adress')) in sett]
     if len(upptackta) < ARBETSREGEL['upptackta_bransch']:
@@ -245,7 +265,7 @@ def planbrister(slug, underlag, plan, paket=None):
     rader = paket_rad(paket)
     fel = []
     br = [b for b in plan.get('bransch') or [] if isinstance(b, dict)]
-    giltiga_br = []
+    giltiga_br, sedda_vardar = [], set()
     for b in br:
         post = rader.get(str(b.get('sajt') or ''))
         brist = ('sajten %s finns inte i paketet %s' % (b.get('sajt'), Path(paket).name) if not post else
@@ -259,6 +279,11 @@ def planbrister(slug, underlag, plan, paket=None):
             brist = 'branschraden för %s har trasiga belägg (%s)' % (b.get('sajt'), '; '.join(bel_fel[:2]))
         if not brist and not all(_text_ok(b.get(f), 25) for f in ('erbjudande', 'navigation_kontakt', 'mobil', 'styrkor', 'svagheter', 'mojligheter')):
             brist = 'branschraden för %s saknar konkreta bedömningar (erbjudande, navigation och kontakt, mobil, styrkor, svagheter, möjligheter)' % b.get('sajt')
+        brist = brist or designgrundbrist(b, post)
+        if not brist and vard((post or {}).get('adress')) in sedda_vardar:
+            brist = 'branschraden för %s upprepar en sajt som redan står med (samma värd är en förebild)' % b.get('sajt')
+        if not brist:
+            sedda_vardar.add(vard(post.get('adress')))
         (fel.append(brist) if brist else giltiga_br.append(b))
     if len(giltiga_br) < ARBETSREGEL['plan_bransch']:
         fel.append('branschgenomgången har %d giltiga rader (arbetsregeln: minst %d, var och en med en fångad branschsajt och belägg)' % (
@@ -272,12 +297,35 @@ def planbrister(slug, underlag, plan, paket=None):
                  'förebilden %s saknar lyckad fångst' % b.get('sajt') if not post['sidor_ok'] else
                  'förebilden %s har inga belägg' % b.get('sajt') if not bel else
                  'förebilden %s har trasiga belägg' % b.get('sajt') if any(belagg_ok(slug, underlag, paket, x) for x in bel) else
-                 'förebilden %s saknar en konkret observerad kvalitet' % b.get('sajt') if not _text_ok(b.get('kvalitet')) else None)
+                 'förebilden %s saknar en konkret observerad kvalitet' % b.get('sajt') if not _text_ok(b.get('kvalitet')) else
+                 'förebilden %s saknar ett konkret "stark webbplatsreferens för …"' % b.get('sajt') if not _text_ok(b.get('stark_for'), 15) else
+                 'förebilden %s bygger designbedömningen på omdömen, betyg, storlek eller sökplacering' % b.get('sajt')
+                 if ANSEENDEORD.search(' '.join(str(b.get(f) or '') for f in ('kvalitet', 'stark_for', 'tar_med'))) else None)
         (fel.append(brist) if brist else giltiga_fb.append(b))
     if len(giltiga_fb) < ARBETSREGEL['plan_forebilder']:
         fel.append('inspirationsgenomgången i planen har %d giltiga förebilder (arbetsregeln: minst %d, fångade och med belägg)' % (
             len(giltiga_fb), ARBETSREGEL['plan_forebilder']))
     return fel
+
+
+def designgrundbrist(b, post):
+    """En branschrad som designförebild vilar på fråga D (det granskningen visar), aldrig på A–C: evidensen är egen
+    observation, designfälten åberopar inte omdömen, betyg, storlek eller sökplacering, en påstådd affärsframgång har en
+    källa (annars "okänt"), och stark_for är en konkret kvalitet eller uppgift, inte värdeord."""
+    namn = b.get('sajt')
+    if b.get('evidens') != 'egen_observation':
+        return 'branschraden för %s vilar på %s, inte på egen observation i webbläsaren; omdömen, sökplacering och utmärkelser är ingen designgrund' % (
+            namn, b.get('evidens') or 'okänd evidens')
+    design = ' '.join(str(b.get(f) or '') for f in ('stark_for', 'erbjudande', 'tjanster_priser', 'navigation_kontakt', 'bilder_identitet', 'mobil',
+                                                   'styrkor', 'tar_med', 'observation'))
+    if ANSEENDEORD.search(design):
+        return 'branschraden för %s använder omdömen, betyg, storlek eller sökplacering som designbelägg (de hör till anseendet, fråga B)' % namn
+    af = str(b.get('affarsframgang') or '').strip()
+    if FRAMGANGSORD.search(af) and not re.search(r'https?://|källa|enligt ', af, re.I):
+        return 'branschraden för %s påstår affärsframgång utan belägg; skriv "okänt"' % namn
+    if not _text_ok(b.get('stark_for'), 15):
+        return 'branschraden för %s saknar ett konkret "stark webbplatsreferens för …" (värdeord som premium eller modern räcker inte)' % namn
+    return None
 
 
 def kandidatbrister(slug, underlag, k, paket):
@@ -305,6 +353,15 @@ def kandidatbrister(slug, underlag, k, paket):
                                                         ('tillampning', 25), ('bedomning', 20))):
             fel.append('bidrag %d (%s): kedjan är inte konkret (kundbehov, observerad kvalitet, designbeslut, tillämpning och bedömning)' % (i, namn))
             continue
+        if ANSEENDEORD.search(str(b.get('observerad_kvalitet') or '')):
+            fel.append('bidrag %d (%s): den observerade kvaliteten åberopar omdömen, betyg, storlek eller sökplacering' % (i, namn))
+            continue
+        if b.get('uppgift') in FUNKTIONSUPPGIFTER and b['roll'] in ('bransch', 'visuellt'):
+            tack = uppgiftstackning(rader.get(namn) or {}, [b['uppgift']])
+            if tack.get(b['uppgift'], '').startswith('okänt'):
+                fel.append('bidrag %d (%s): funktionsuppgiften %s saknar fångade funktionsbelägg (meny, tillstånd, formulär eller rörelse); '
+                           'ett företagsbetyg ersätter dem inte' % (i, namn, b['uppgift']))
+                continue
         roller.add('bransch' if b['roll'] == 'bransch' else 'visuellt' if b['roll'] == 'visuellt' else b['roll'])
     if len(bid) < ARBETSREGEL['bidrag_per_kandidat'] or not {'bransch', 'visuellt'} <= roller:
         fel.append('uppdraget saknar spårbara bidrag från både branschresearchen och den visuella inspirationen (har: %s)' % (
@@ -465,10 +522,16 @@ def oversikt(slug, underlag, med_kandidater=False):
                          '%d adresser' % len(s.get('traffar') or [])} for s in logg][:40],
           'galleri': (fo.get('galleri') or {}).get('objekt') or [],
           'sallning': fo.get('sallning') or [],
-          'undersokta': [{'namn': n, 'adress': p.get('adress'), 'roll': p.get('roll'), 'upptackt': p.get('upptackt'),
-                          'fangad': bool(p.get('sidor_ok')), 'sidor': len(p.get('sidor_ok') or [])} for n, p in sorted(rader.items())],
-          'bransch': [{'sajt': b.get('sajt'), 'styrkor': b.get('styrkor'), 'svagheter': b.get('svagheter')} for b in plan.get('bransch') or [] if isinstance(b, dict)],
-          'forebilder': [{'sajt': b.get('sajt'), 'kvalitet': b.get('kvalitet')} for b in plan.get('forebilder_utanfor') or [] if isinstance(b, dict)],
+          'urvalsfragor': fo.get('urvalsfragor') or {}, 'tackning': fo.get('tackning') or {},
+          'undersokta': [{'namn': n, 'adress': p.get('adress'), 'roll': p.get('roll'), 'upptackt': p.get('upptackt'), 'uppgift': p.get('uppgift'),
+                          'fangad': bool(p.get('sidor_ok')), 'sidor': len(p.get('sidor_ok') or []), 'ateranvand': p.get('arv'),
+                          'tid': p.get('tid'), 'bredder': p.get('bredder')} for n, p in sorted(rader.items())],
+          'bransch': [{'sajt': b.get('sajt'), 'stark_for': b.get('stark_for'), 'lokal_marknad': b.get('lokal_marknad'), 'anseende': b.get('anseende'),
+                       'affarsframgang': b.get('affarsframgang'), 'styrkor': b.get('styrkor'), 'svagheter': b.get('svagheter'), 'tar_med': b.get('tar_med'),
+                       'undviker': b.get('undviker'), 'observation': b.get('observation'), 'tolkning': b.get('tolkning'), 'belagg': b.get('belagg')}
+                      for b in plan.get('bransch') or [] if isinstance(b, dict)],
+          'forebilder': [{'sajt': b.get('sajt'), 'stark_for': b.get('stark_for'), 'kvalitet': b.get('kvalitet'), 'tar_med': b.get('tar_med'),
+                          'undviker': b.get('undviker'), 'belagg': b.get('belagg')} for b in plan.get('forebilder_utanfor') or [] if isinstance(b, dict)],
           'brister': (fo.get('referenskontrakt') or {}).get('brister') or [],
           'planbrister': (plan.get('referenskontrakt') or {}).get('brister') or []}
     if med_kandidater:

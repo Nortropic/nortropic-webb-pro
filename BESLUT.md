@@ -4665,3 +4665,16 @@ Genomförarens tillämpning (Claude):
   bedöms av bilderna, aldrig av kvittot. Den blinda skisskritiken ser inte UPPDRAG.md.
 - Inspektionen observerar rörelse utanför `getAnimations()` (requestAnimationFrame, canvas, video) och tar en kort
   bildsekvens när den är aktiv.
+
+Ägarens tillägg ~10:13Z (inklistrat; hela texten ordagrant i sessionens privata minne), ur målet, ordagrant:
+
+> Vi ska kunna följa varför en sajt hittades, vad som faktiskt undersöktes, varför den valdes och hur den påverkar kundens design.
+>
+> Ort, sökplacering, företagsstorlek, omdömen eller designutmärkelser får inte ensamma avgöra vilka sajter som blir designförebilder.
+
+och ordagrant: "Uppdraget är att välja webbplatsreferenser. Inför inte obligatorisk ekonomisk granskning av varje
+företag." Tillämpningen: de fyra frågorna (lokal marknad, anseende, affärsframgång, webbplatsens kvalitet) hålls isär i
+scheman, prompter och arbetsytan; bara den observerade kvaliteten är designgrund; urvalsfrågor före sökningen och täckning
+efter; samma värd räknas en gång; funktionsuppgifter kräver fångade funktionsbelägg; planprövningen bedömer om
+observationerna stöder urvalet (`kunskap/referensjakt.md`, Rätt grunder för urvalet). Ort används bara i prospekt.py för
+att identifiera ett känt företags webbplats, och prospektpoängen nås inte från skapandeflödet.

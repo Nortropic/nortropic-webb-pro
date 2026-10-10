@@ -23,6 +23,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'kontroller'))
 import korregister  # noqa: E402
+import referensfixtur  # noqa: E402
 
 if '--bas' in sys.argv:
     sys.argv.remove('--bas')
@@ -86,6 +87,7 @@ class Grund(unittest.TestCase):
             (kat / ('vy-%s-forsta.png' % b)).write_bytes(PNG)
         (kat / 'vy-390-hela.png').write_bytes(PNG)
         (kat / 'SEKTIONER.md').write_text('# Sektioner\n')
+        (kat / 'vy-390-aria.txt').write_text('- form "Boka": button "Skicka"\n')  # bokningens funktionsbelägg
         return {'namn': namn, 'adress': 'https://%s.example/' % namn, 'roll': roll, 'ok': True, 'upptackt': upptackt, 'uppgift': ['komposition'],
                 'sidor': [{'sida': '/', 'katalog': '%s/01-start' % namn, 'ok': True}]}
 
@@ -101,13 +103,13 @@ class Grund(unittest.TestCase):
     def bel(self, namn):
         return 'underlag/%s/referenser/paket-v01/%s/01-start/vy-1440-forsta.png' % (SLUG, namn)
 
+    def research(self, logg=None):
+        return {'sok': self.logg() if logg is None else logg, 'urvalsfragor': referensfixtur.URVALSFRAGOR, 'tackning': referensfixtur.TACKNING}
+
     def plan(self):
         text = 'Rubriken bär ett konkret erbjudande i första vyn med pris och nästa kurstillfälle synligt direkt'
-        bransch = [{'sajt': 'bransch-%d' % i, 'varfor_studera': text, 'evidens': 'egen_observation', 'erbjudande': text, 'tjanster_priser': text,
-                    'fortroende': text, 'navigation_kontakt': text, 'bilder_identitet': text, 'mobil': text, 'styrkor': text, 'svagheter': text,
-                    'mojligheter': text, 'belagg': [self.bel('bransch-%d' % i)]} for i in range(3)]
-        fb = [{'sajt': 'galleri-%d' % i, 'galleri': 'awwwards', 'kvalitet': text, 'kundens_material': text, 'begransningar': 'en stillbild visar ingen rörelse',
-               'belagg': [self.bel('galleri-%d' % i)]} for i in range(2)]
+        bransch = [dict(referensfixtur.branschrad(SLUG, 'bransch-%d' % i), belagg=[self.bel('bransch-%d' % i)]) for i in range(3)]
+        fb = [dict(referensfixtur.forebild(SLUG, 'galleri-%d' % i), belagg=[self.bel('galleri-%d' % i)]) for i in range(2)]
         bid = [{'kalla': 'bransch-0', 'roll': 'bransch', 'uppgift': 'kontakt', 'kundbehov': 'besökaren vill boka en kursplats snabbt',
                 'observerad_kvalitet': text, 'matbart': False, 'beslut': 'infor', 'designbeslut': 'kurstillfällena först med boka-knapp intill',
                 'tillampning': 'en kurslista med datum och plats överst i första vyn', 'bedomning': 'jämför 390 första vyn mot beläggets 390',
@@ -123,21 +125,21 @@ class Grund(unittest.TestCase):
 @unittest.skipIf(rk is None, 'basen saknar referenskontraktet')
 class Researchen(Grund):
     def test_tomma_genomgangar_och_saknade_sokningar_stoppar(self):
-        self.assertTrue(rk.researchbrister(SLUG, self.u, {'sok': self.logg()}, None), 'utan paket')
+        self.assertTrue(rk.researchbrister(SLUG, self.u, self.research(), None), 'utan paket')
         self.bygg_paket(bransch=2, insp=0)
-        fel = rk.researchbrister(SLUG, self.u, {'sok': []}, self.paket)
+        fel = rk.researchbrister(SLUG, self.u, self.research([]), self.paket)
         self.assertTrue(any('branschsajter' in f for f in fel) and any('gallerierna' in f for f in fel) and any('webbsökning' in f for f in fel), fel)
         self.assertTrue(any('Awwwards' in f for f in fel), fel)
 
     def test_komplett_research_godkanns(self):
         self.bygg_paket()
-        self.assertEqual(rk.researchbrister(SLUG, self.u, {'sok': self.logg()}, self.paket), [])
+        self.assertEqual(rk.researchbrister(SLUG, self.u, self.research(), self.paket), [])
 
     def test_awwwards_som_inte_provats_eller_misslyckades(self):
         self.bygg_paket()
-        self.assertTrue(any('Awwwards' in f for f in rk.researchbrister(SLUG, self.u, {'sok': self.logg(awwwards=False)}, self.paket)))
+        self.assertTrue(any('Awwwards' in f for f in rk.researchbrister(SLUG, self.u, self.research(self.logg(awwwards=False)), self.paket)))
         misslyckat = self.logg(awwwards=False) + [{'verktyg': 'WebFetch', 'url': 'https://www.awwwards.com/sites/x', 'fel': '403', 'traffar': []}]
-        self.assertTrue(any('gallerisökning' in f for f in rk.researchbrister(SLUG, self.u, {'sok': misslyckat}, self.paket)),
+        self.assertTrue(any('gallerisökning' in f for f in rk.researchbrister(SLUG, self.u, self.research(misslyckat), self.paket)),
                         'ett misslyckat Awwwards-besök är ingen genomförd undersökning')
 
     def test_pastadd_sokning_utan_logg_ar_kunskap(self):
@@ -186,6 +188,94 @@ class Planen(Grund):
         self.assertEqual(rk.kandidatbrister(SLUG, self.u, k, self.paket), [])
         self.assertTrue(rk.kandidatbrister(SLUG, self.u, dict(k, referensbidrag=k['referensbidrag'][:1]), self.paket), 'bara branschen räcker inte')
         self.assertTrue(rk.kandidatbrister(SLUG, self.u, dict(k, referensbidrag=[]), self.paket), 'egen huvudreferens utan bidrag')
+
+
+@unittest.skipIf(rk is None, 'basen saknar referenskontraktet')
+class Grunder(Grund):
+    """Ägarens tillägg 2026-10-10: ort, sökplacering, storlek, omdömen och utmärkelser avgör aldrig ensamma en designförebild."""
+    def test_hoga_omdomen_utan_granskad_sajt_ar_ingen_designreferens(self):
+        self.bygg_paket(bransch=2)
+        p = self.plan()
+        p['bransch'][2] = dict(p['bransch'][2], sajt='omdomesstjarnan', anseende='4,9 av 5 i 412 omdömen', evidens='omdomen')
+        fel = rk.planbrister(SLUG, self.u, p, self.paket)
+        self.assertTrue(any('omdomesstjarnan' in f for f in fel) and any('branschgenomgången har 2' in f for f in fel), fel)
+        self.assertTrue(any('branschsajter' in f for f in rk.researchbrister(SLUG, self.u, self.research(), self.paket)))
+
+    def test_stjarnor_och_recensionsantal_styr_inget(self):
+        self.bygg_paket()
+        utfall = []
+        for anseende in ('4,9 av 5 i 412 omdömen', '2,1 av 5 i 3 omdömen', 'okänt'):
+            p = self.plan()
+            for b in p['bransch']:
+                b['anseende'] = anseende
+            utfall.append(rk.planbrister(SLUG, self.u, p, self.paket))
+        self.assertEqual(utfall, [[], [], []], 'anseendet styr inte designfiltreringen')
+        p = self.plan()
+        p['bransch'][0]['styrkor'] = 'Över 400 omdömen med snittbetyg 4,9 visar att sajten fungerar för kunderna och besökarna'
+        self.assertTrue(any('omdömen, betyg' in f for f in rk.planbrister(SLUG, self.u, p, self.paket)), 'omdömen förs inte in som designbevis')
+
+    def test_annan_ort_ger_inget_battre_designbetyg(self):
+        self.bygg_paket()
+        a, b = self.plan(), self.plan()
+        for r in a['bransch']:
+            r['lokal_marknad'] = 'samma ort som kunden: besökarna jämför med den här'
+        for r in b['bransch']:
+            r['lokal_marknad'] = 'annan ort, ej relevant för uppgiften'
+        self.assertEqual(rk.planbrister(SLUG, self.u, a, self.paket), rk.planbrister(SLUG, self.u, b, self.paket))
+        self.assertEqual(rk.kandidatbrister(SLUG, self.u, a['kandidater']['k01'], self.paket),
+                         rk.kandidatbrister(SLUG, self.u, b['kandidater']['k01'], self.paket))
+
+    def test_bokningsreferensen_kraver_funktionsbelagg(self):
+        self.bygg_paket()
+        (self.paket / 'bransch-1' / '01-start' / 'vy-390-aria.txt').unlink()  # högt företagsbetyg, men bokningen är inte fångad
+        k = self.plan()['kandidater']['k01']
+        self.assertEqual(rk.kandidatbrister(SLUG, self.u, k, self.paket), [], 'bransch-0 har bokningens funktionsbelägg')
+        k2 = json.loads(json.dumps(k))
+        k2['referensbidrag'][0].update(kalla='bransch-1', belagg=[self.bel('bransch-1')])
+        self.assertTrue(any('funktionsuppgiften kontakt' in f for f in rk.kandidatbrister(SLUG, self.u, k2, self.paket)))
+
+    def test_prospektpoang_paverkar_inget(self):
+        self.bygg_paket()
+        bas = (rk.researchbrister(SLUG, self.u, self.research(), self.paket), rk.planbrister(SLUG, self.u, self.plan(), self.paket))
+        d = json.loads((self.paket / 'PAKET.json').read_text())
+        for poang in (95, 5, None):
+            for k in d['kandidater']:
+                k['poang'] = poang
+            (self.paket / 'PAKET.json').write_text(json.dumps(d))
+            self.assertEqual((rk.researchbrister(SLUG, self.u, self.research(), self.paket), rk.planbrister(SLUG, self.u, self.plan(), self.paket)), bas)
+        kod = (ROOT / 'kontroller' / 'referenskontrakt.py').read_text() + (ROOT / 'kontroller' / 'kandidater.py').read_text()
+        self.assertNotIn('prospekt_poang', kod)
+        self.assertNotIn('import prospekt', kod)
+
+    def test_branschledande_men_misslyckad_inspektion_ar_ingen_observation(self):
+        self.bygg_paket()
+        d = json.loads((self.paket / 'PAKET.json').read_text())
+        d['kandidater'][0].update(ok=False, varfor='branschledande enligt sökträffen')
+        d['kandidater'][0]['sidor'][0]['ok'] = False
+        (self.paket / 'PAKET.json').write_text(json.dumps(d))
+        self.assertTrue(any('branschsajter' in f for f in rk.researchbrister(SLUG, self.u, self.research(), self.paket)))
+        self.assertTrue(any('lyckad fångst' in f for f in rk.planbrister(SLUG, self.u, self.plan(), self.paket)))
+
+    def test_dubletter_och_www_varianter_raknas_en_gang(self):
+        self.bygg_paket()
+        d = json.loads((self.paket / 'PAKET.json').read_text())
+        d['kandidater'][1]['adress'] = 'https://www.bransch-0.example/'
+        d['kandidater'][2]['adress'] = 'https://bransch-0.example/tjanster/'
+        (self.paket / 'PAKET.json').write_text(json.dumps(d))
+        self.assertTrue(any('branschsajter' in f for f in rk.researchbrister(SLUG, self.u, self.research(), self.paket)))
+        self.assertTrue(any('upprepar en sajt' in f for f in rk.planbrister(SLUG, self.u, self.plan(), self.paket)))
+
+    def test_urvalsfragor_tackning_och_affarsframgang(self):
+        self.bygg_paket()
+        r = self.research()
+        r['urvalsfragor'] = {}
+        self.assertTrue(any('urvalsfrågorna' in f for f in rk.researchbrister(SLUG, self.u, r, self.paket)))
+        p = self.plan()
+        p['bransch'][0]['affarsframgang'] = 'framgångsrik och växer snabbt'
+        self.assertTrue(any('affärsframgång utan belägg' in f for f in rk.planbrister(SLUG, self.u, p, self.paket)))
+        p['bransch'][0]['affarsframgang'] = 'okänt'
+        p['bransch'][0]['stark_for'] = 'premium och modern'
+        self.assertTrue(any('stark webbplatsreferens' in f for f in rk.planbrister(SLUG, self.u, p, self.paket)))
 
 
 class Startvillkoret(Grund):
