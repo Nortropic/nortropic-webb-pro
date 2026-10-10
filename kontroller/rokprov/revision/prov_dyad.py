@@ -450,6 +450,8 @@ def i_kopian(ut):
     for b in (390, 768, 1280, 1440):  # skissens förhandsvarv: första vyn och hela sidan (hela sidan är längre än 2000 px)
         skriv(d / 'varv' / 'start' / 'varv-01' / ('vy-%d-forsta.png' % b), png(b, 800, (b % 251, 40, 90)))
         skriv(d / 'varv' / 'start' / 'varv-01' / ('vy-%d-hela.png' % b), png(b, 3000, (b % 251, 90, 40)))
+    import prova  # varvet bär versionen det fotograferades av, som forhandsvisa.py skriver den (KALLA.json; förenklingen 2026-10-10, E)
+    skriv(d / 'varv' / 'start' / 'varv-01' / 'KALLA.json', {'kalla': prova.byggidentitet(kd.ksajt(SLUG, 'k01'))})
     for mapp, farg in ((d / 'versioner' / v0[:12] / 'bilder' / 'start', (200, 30, 30)), (d / 'bilder' / 'start', (30, 200, 30))):
         for b in (390, 1440):
             skriv(mapp / ('vy-%d-forsta.png' % b), png(b, 800, farg))
