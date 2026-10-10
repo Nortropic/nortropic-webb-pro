@@ -80,6 +80,12 @@ FRIST_PLAN = int(os.environ.get('NWP_KANDIDAT_FRIST_PLAN') or 3000)
 FRIST_GRANSKA = int(os.environ.get('NWP_KANDIDAT_FRIST_GRANSKA') or 1800)
 FRIST_FORSKA = int(os.environ.get('NWP_KANDIDAT_FRIST_FORSKA') or 2400)  # researchpasset (sessionen)
 FRIST_HAMTA = int(os.environ.get('NWP_KANDIDAT_FRIST_HAMTA') or 5400)  # referenssteget och tjänsterna, var för sig
+# Ägarens beslut 2026-10-10: researchens fångst i skissläget högst 2 700 s och högst 3 sidor per sajt (startsidan och de sidor
+# som bär uppgiften). Kandidatprovet mätte 81 s per sida och 254 s per sajt i snitt (22 sidor på 1 777 s, första passet
+# inräknat); med 3 sidor och två extra varv i första passet blir det omkring 320 s per sajt, så åtta sajter ryms (~2 600 s).
+# Läget full och helbygget är oförändrade (FRIST_HAMTA, skapande.MAX_SIDOR_PER).
+FRIST_FANGST_SKISS = 2700
+SIDOR_SKISS = 3
 FRIST_FORFINA = int(os.environ.get('NWP_KANDIDAT_FRIST_FORFINA') or 5400)
 GRANSKARE_MODELL = os.environ.get('NWP_KANDIDAT_GRANSKARE') or 'claude-sonnet-5-5[1m]'
 MAX_FORSOK = 2  # skaparsessioner per kandidat i en körning: en ofullständig kandidat får ett andra försök med bristerna
@@ -809,7 +815,8 @@ FORSKA_SCHEMA = {
                                                        'kalla': {'type': 'string'}}},
                            # vad referensen ska lära oss: fångstens fullständighet bedöms mot den uppgiften (punkt 8)
                            'uppgift': {'type': 'array', 'minItems': 1, 'maxItems': 4, 'items': {'type': 'string', 'enum': [
-                               'innehall', 'fortroende', 'navigation', 'kontakt', 'komposition', 'typografi', 'bildregi', 'rytm', 'mobil', 'interaktion', 'rorelse']}},
+                               'innehall', 'fortroende', 'navigation', 'kontakt', 'bokning', 'komposition', 'typografi', 'bildregi', 'rytm', 'mobil',
+                               'interaktion', 'rorelse']}},
                            # varför sajten kom fram (sökrankning, omdömen, utmärkelse, egen observation, kundens egen): ingen designgrund;
                            # designbeslutet kommer först ur fångsten i webbläsaren och planens egen observation
                            'evidens': {'type': 'string', 'enum': ['egen_observation', 'sokrankning', 'omdomen', 'utmarkelse', 'kundens_egen']},
@@ -832,6 +839,8 @@ FORSKA_SCHEMA_SKISS['properties']['sajter']['maxItems'] = 6  # ett tomt paket be
 # antalets skull (ägarens uppdrag 2026-10-06, punkt 3)
 FORSKA_SCHEMA_SKISS_BRED = json.loads(json.dumps(FORSKA_SCHEMA))
 FORSKA_SCHEMA_SKISS_BRED['properties']['fragor']['minItems'] = 0
+for _sch in (FORSKA_SCHEMA_SKISS, FORSKA_SCHEMA_SKISS_BRED):  # fångstens sidtak i skissläget (ägarens beslut 2026-10-10)
+    _sch['properties']['sajter']['items']['properties']['sidor']['maxItems'] = SIDOR_SKISS
 
 
 def forska_prompt(slug, n, fel=None, skiss=False):
@@ -879,7 +888,8 @@ def forska_prompt(slug, n, fel=None, skiss=False):
         '  och dator, projekt- och tjänstesidor, förtroende och kontakt; flöden (typ flode) för förfrågan och projektgenomgång;',
         '  Mobbins sektioner, skärmar och flöden.',
         '- sajter: högst %d riktiga sajter att fånga (namn a-z0-9-, adress https://värd/ med små bokstäver, roll bransch,' % (6 if skiss and n == 1 else skapande.MAX_KANDIDATER_BRED),
-        '  hantverk eller ux, varför, högst %d sidvägar; valfritt bredder ["768", "1280"] när layouten troligen byter form mellan' % skapande.MAX_SIDOR_PER,
+        '  hantverk eller ux, varför, högst %d sidvägar; valfritt bredder ["768", "1280"] när layouten troligen byter form mellan' % (
+            SIDOR_SKISS if skiss else skapande.MAX_SIDOR_PER),
         '  mobil och dator, och valfritt hover och fokus som listor med högst 4 generiska CSS-väljare, till exempel "nav a" eller',
         '  \'a[href^="tel:"]\', när ett tillstånd bär designen). Välj sajter som paketet inte redan har, eller skriv varför en',
         '  befintlig behöver fler sidor; en referens som en förkastad riktning redan byggt på väljs bara med ett skäl som svarar',
@@ -943,7 +953,16 @@ def referensjakt_rader(slug, n, skiss=False):
             a['inspiration_sajter'], a['webbsokningar']),
         'den här omgången, och minst %d branschsajt som syns i en loggad sökning eller hämtning. Paketet har nu: %s.' % (
             a['upptackta_bransch'], ', '.join('%s (%s)' % (n_, p_.get('roll')) for n_, p_ in sorted(befintligt.items()) if p_.get('sidor_ok')) or 'inga fångade sajter'),
-        'Återanvänd en fångad sajt när den passar briefen, och fånga nytt där paketet inte räcker.']
+        'Återanvänd en fångad sajt när den passar briefen, och fånga nytt där paketet inte räcker.',
+        *(['Fångsten har högst %d s och högst %d sidor per sajt i skissläget: startsidan och de sidor som bär uppgiften (till exempel' % (
+            FRIST_FANGST_SKISS, SIDOR_SKISS),
+           'kurs eller bokning och kontakt). En sida där en CDN vägrar bilderna bär bara kontakt, bokning, navigation och interaktion.']
+          if skiss else [])]
+
+
+def sidtak(sidor, n=SIDOR_SKISS):
+    """Startsidan först och högst n sidor per sajt (fångstens sidtak i skissläget, ägarens beslut 2026-10-10)."""
+    return list(dict.fromkeys(['/'] + [x for x in sidor or [] if isinstance(x, str) and x.strip() and x != '/']))[:n]
 
 
 def forska(slug, n, skiss=False):
@@ -958,7 +977,8 @@ def forska(slug, n, skiss=False):
     fore_tj = (atelje.las_json(u / 'referenser' / 'tjanster' / 'TJANSTER.json') or {}).get('tid')
     import referenskontrakt as rk
     fel, plan, res, slappta, sessioner_, kravbrister = None, {}, {}, [], [], []
-    logg, kontraktsbrister, proveniens = [], [], {}
+    logg, kontraktsbrister, proveniens, kompetensomforsok = [], [], {}, None
+    fangst = {'frist': min(FRIST_HAMTA, FRIST_FANGST_SKISS) if skiss else FRIST_HAMTA, 'sidor_per_sajt': SIDOR_SKISS if skiss else skapande.MAX_SIDOR_PER}
     webb = any('webbsok' in x['verktyg'] for x in kompetens.for_pass('forska'))  # rollens webbupptäckt (metodkartan)
     for forsok in (1, 2):
         svar = atelje.session(forska_prompt(slug, n, fel, skiss), LASVERKTYG + kompetens.verktyg('forska', slug), r / ('svar-forska-%d.json' % forsok),
@@ -970,6 +990,15 @@ def forska(slug, n, skiss=False):
         kravbrister = kompetens.kravbrister(kompetens.kvitto(sessioner_, 'forska'), 'forska')
         if kravbrister:  # inget beroende referensuppdrag genomförs på en otillräckligt observerad research
             fel = 'researchens kompetenskrav uppfylldes inte: ' + '; '.join(kravbrister)
+            if forsok == 1 and isinstance(svar.get('structured_output'), dict) and svar['structured_output']:
+                # ägarens beslut 2026-10-10: bara kompetensen brast och researchen går i övrigt att pröva: ett nytt försök (aldrig
+                # fler än i dag) med de saknade kraven namngivna; det underkända försökets svar används inte, dess sökningar står
+                # kvar i loggen, och det redan fångade paketet ärvs. En upprepad brist stoppar som förut.
+                kompetensomforsok = {'session': svar.get('session_id'), 'brister': kravbrister, 'tid': nu()}
+                sessioner_ = []
+                fel = ('det förra försöket brast bara i kompetenskraven, så researchen görs om en gång: %s. Gör exakt det som saknas i '
+                       'den här sessionen innan du söker vidare; det redan fångade paketet ärvs' % '; '.join(kravbrister))
+                continue
             break
         plan = svar.get('structured_output') or {}
         sajter, fragor, slappta = [], [], []
@@ -977,6 +1006,8 @@ def forska(slug, n, skiss=False):
             if isinstance(s, dict):  # upptäcktsvägen prövad mot loggen: en påstådd sökning som aldrig gjordes står som kunskap
                 proveniens[str(s.get('namn'))] = rk.verifiera_upptackt(s, logg)
                 s = dict(s, upptackt={'vag': proveniens[str(s.get('namn'))]['vag'], 'kalla': proveniens[str(s.get('namn'))]['kalla']})
+                if skiss:  # fångstens sidtak i skissläget
+                    s['sidor'] = sidtak(s.get('sidor'))
             f_ = skapande.kanal_fel({'referens': {'kandidater': [s]}}, bred=True)
             (slappta.append('sajten %s: %s' % (str((s or {}).get('adress'))[:80], f_)) if f_ else sajter.append(s))
         for q in plan.get('fragor') or []:
@@ -996,7 +1027,7 @@ def forska(slug, n, skiss=False):
         else:
             f = r / 'FORSKNING-begaran.json'
             f.write_text(json.dumps(begaran, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-            res = skapande.komplettera(slug, f, r, atelje.UNDERLAG, frist=min(FRIST_HAMTA, 1800) if skiss else FRIST_HAMTA, bred=True)
+            res = skapande.komplettera(slug, f, r, atelje.UNDERLAG, frist=fangst['frist'], bred=True)
             fel = res.get('fel')
             if fel:
                 continue
@@ -1027,6 +1058,7 @@ def forska(slug, n, skiss=False):
             # webbupptäckten och gallerierna (ägarens uppdrag 2026-10-10): loggen ur transkripten, sessionens egen redovisning
             # av gallerierna och sållningen, den prövade upptäcktsvägen per sajt och kontraktets brister
             'sok': logg, 'galleri': plan.get('galleri') or {}, 'sallning': plan.get('sallning') or [], 'proveniens': proveniens,
+            'fangst': fangst, 'kompetensomforsok': kompetensomforsok,
             'urvalsfragor': plan.get('urvalsfragor') or {}, 'tackning': plan.get('tackning') or {},
             'referenskontrakt': {'version': rk.VERSION, 'brister': kontraktsbrister, 'tid': nu(),
                                  'paket': efter_paket.name if efter_paket else None}}
@@ -1075,6 +1107,9 @@ def forska(slug, n, skiss=False):
                                           for x in post['sallning']] + ['', '## Upptäcktsvägen per sajt (prövad mot loggen)', '']
     rader += ['- %s: %s%s' % (n_, p_.get('vag'), (' (påstod %s; %s)' % (p_.get('pastadd'), p_.get('not'))) if p_.get('pastadd') else '') for n_, p_ in proveniens.items()]
     rader += ['', '## Referenskontraktet', ''] + (['- ' + x for x in kontraktsbrister] or ['- uppfyllt (arbetsregelns täckning; ingen kvalitetsbedömning)'])
+    rader += ['', '## Fångsten', '', '- tidsgräns %d s, högst %d sidor per sajt' % (fangst['frist'], fangst['sidor_per_sajt'])]
+    if kompetensomforsok:
+        rader.append('- första försöket brast bara i kompetenskraven (%s); researchen gjordes om en gång' % '; '.join(kompetensomforsok['brister']))
     rader += ['', '## Kompetensen', '', *kompetensrad(post['kompetens'], 'forska')]
     (r / 'FORSKNING.md').write_text('\n'.join(rader) + '\n', encoding='utf-8')
     if kravbrister:
@@ -1176,8 +1211,8 @@ PLAN_SCHEMA = {
                     'required': ['kalla', 'roll', 'uppgift', 'kundbehov', 'observerad_kvalitet', 'matbart', 'beslut', 'designbeslut', 'tillampning',
                                  'bedomning', 'belagg'],
                     'properties': {'kalla': {'type': 'string'}, 'roll': {'type': 'string', 'enum': ['bransch', 'visuellt', 'ux', 'implementation']},
-                                   'uppgift': {'type': 'string', 'enum': ['innehall', 'fortroende', 'navigation', 'kontakt', 'komposition', 'typografi',
-                                                                          'bildregi', 'rytm', 'mobil', 'interaktion', 'rorelse']},
+                                   'uppgift': {'type': 'string', 'enum': ['innehall', 'fortroende', 'navigation', 'kontakt', 'bokning', 'komposition',
+                                                                          'typografi', 'bildregi', 'rytm', 'mobil', 'interaktion', 'rorelse']},
                                    'kundbehov': {'type': 'string'}, 'observerad_kvalitet': {'type': 'string'}, 'matbart': {'type': 'boolean'},
                                    'beslut': {'type': 'string', 'enum': ['infor', 'anpassar', 'undviker']}, 'designbeslut': {'type': 'string'},
                                    'tillampning': {'type': 'string'}, 'bedomning': {'type': 'string'},
@@ -1380,8 +1415,9 @@ def referensplan_rader(slug):
         '- per uppdrag "referensbidrag": 2–6 bidrag, minst ett ur branschen (roll bransch) och ett ur den visuella inspirationen',
         '  (roll visuellt), också för en egen huvudreferens. Varje bidrag: kalla (paketets sajtnamn, eller tjänsternas id för ux',
         '  och implementation), uppgift, kundbehov, observerad kvalitet (konkret och synlig i beläggen; matbart när den är mätt',
-        '  i DOM/CSS i SEKTIONER.md eller EXTRAKT.md, annars visuell tolkning; en funktionsuppgift som kontakt, navigation,',
-        '  interaktion eller rörelse kräver fångade funktionsbelägg, inte ett företagsbetyg), beslut (infor, anpassar eller undviker),',
+        '  i DOM/CSS i SEKTIONER.md eller EXTRAKT.md, annars visuell tolkning; en funktionsuppgift som kontakt, bokning, navigation,',
+        '  interaktion eller rörelse kräver fångade funktionsbelägg, inte ett företagsbetyg; en sida märkt "delvis fångad: bilder',
+        '  vägrade av CDN" bär bara kontakt, bokning, navigation och interaktion), beslut (infor, anpassar eller undviker),',
         '  designbeslut, planerad tillämpning, hur resultatet bedöms (i samma bredd och tillstånd som referensen) och belagg (1–4',
         '  bilder i paketet). Det är skaparens koncentrerade urval: hela underlaget står kvar i planen och paketet. Låt',
         '  uppdragen bygga på olika huvudreferenser och kompositioner där underlaget bär det.']

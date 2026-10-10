@@ -65,7 +65,8 @@ galleri), skärm eller flöde (Refero och Mobbin: arkiverat material utan levand
 komponent och tema eller mall (21st, med licens). En skärmbild redovisas aldrig som en tillgänglig kodmall.
 
 **Kontraktet** (`kontroller/referenskontrakt.py`, version 1). Beroende planering och skapande startar inte förrän:
-- paketet har minst 3 fångade branschsajter och minst 2 fångade sajter ur gallerierna, med lyckad sida i 390 och 1440;
+- paketet har minst 3 fångade branschsajter och minst 2 fångade sajter ur gallerierna, med lyckad sida i 390 och 1440
+  (en branschsajt räknas också med en delvis fångad sida, men bara för de funktionsuppgifter den deklarerar; se nedan);
 - researchen har minst en lyckad webbsökning med träffar, Awwwards prövat i den här omgången och minst en branschsajt som
   syns i en loggad sökning eller hämtning;
 - planen har en branschgenomgång (minst 3 rader: varför sajten är värd att studera, evidens, erbjudande och hierarki,
@@ -81,14 +82,34 @@ och märks så; den skrivs inte om, och en ny designomgång krävs. Kontraktet p
 varje väg till en skaparsession (`kandidater.referensstopp`), så att en cache eller en annan startväg inte kringgår det.
 Vid nätfel: avgränsade omförsök (två försök i researchen och planen), ett annat galleri, eller ett fångat och prövat
 återbruk ur paketet; ett misslyckat Awwwards-besök är ingen genomförd undersökning, och saknat underlag lämnar steget
-ofullständigt. Fångsten har en tidsgräns (i skissläget 1 800 s; en sajt med undersidor och tillstånd tar några minuter).
+ofullständigt. Brister ett researchförsök bara i kompetenskraven (en kärnskill som inte aktiverats) och har det gett ett
+prövbart svar, görs researchen om en gång med de saknade kraven namngivna; det underkända försökets svar används inte,
+kraven prövas på sessionen vars svar används, paketet ärvs, och en upprepad brist stoppar. Två försök är fortfarande
+taket (ägarens beslut 2026-10-10, `BESLUT.md`).
+
+**Fångstens budget.** I skissläget har researchens fångst högst 2 700 s och högst 3 sidor per sajt: startsidan och de
+sidor som bär uppgiften, till exempel kurs eller bokning och kontakt (ägarens beslut 2026-10-10). Beräkningen ur
+kandidatprovet: den andra fångsten tog 1 777 s för 22 sidor på sju sajter, alltså 81 s per sida och 254 s per sajt med
+första passet inräknat (22–238 s per sida). Tre sidor och två extra varv i första passet ger omkring 320 s per sajt, så
+åtta sajter ryms i ungefär 2 600 s; en långsam sajt tar mer, och då bär det löpande paketet det som hann fångas. Läget
+full och helbygget har kvar FRIST_HAMTA och upp till fyra sidor per sajt.
 `referens.py` varvar rollerna i fångstordningen och skriver PAKET.json efter varje färdig sajt, märkt `"pagar": true`
 tills allt är fångat: når fångsten gränsen bär paketet de sajter som hann fångas helt, kontraktet räknar dem, och
 omförsöket ärver dem och begär bara det som saknas (kandidatprovet 2026-10-10: åtta sajter nådde gränsen, och utan
-löpande PAKET.json såg kontraktet noll sajter och omförsöket kunde inte ärva). En sida räknas som fångad först när dess egna resurser laddats; fångstens första pass upprepas därför tills inga nya resursursprung syns (högst tre varv), så att typsnittsfiler bakom en CSS hos ett annat ursprung tillåts. En CDN som vägrar en webbläsare utan inloggning (403) fäller sidan, och det står i paketet.
+löpande PAKET.json såg kontraktet noll sajter och omförsöket kunde inte ärva). En sida räknas som fångad först när
+dess egna resurser laddats; fångstens första pass upprepas därför tills inga nya resursursprung syns (högst tre varv), så
+att typsnittsfiler bakom en CSS hos ett annat ursprung tillåts.
+
+**Delvis fångade sidor.** En sida vars vyer fångats med status 200 men där servern vägrat egna bilder (403 och liknande,
+till exempel en bild-CDN som avvisar fångstens webbläsare) märks i PAKET.json och arbetsytan "delvis fångad: bilder
+vägrade av CDN", med de saknade resurserna. Den bär bara funktionsuppgifterna kontakt, bokning (boknings- eller
+offertväg), navigation och interaktion, aldrig bildregi, typografi, komposition eller färg, och kontraktet räknar en
+branschsajt med sådana sidor bara för de funktionsuppgifter sajten deklarerar; ett bidrag vars belägg ligger på en delvis
+fångad sida måste gälla en sådan uppgift. Blockerade eller misslyckade typsnitt och stilar fäller sidan som förut
+(ägarens beslut 2026-10-10).
 
 **Fullständighet mot uppgiften.** Varje sajt och bidrag deklarerar sin uppgift (innehåll, förtroende, navigation,
-kontakt, komposition, typografi, bildregi, rytm, mobil, interaktion eller rörelse), och fångsten bedöms mot den
+kontakt, bokning, komposition, typografi, bildregi, rytm, mobil, interaktion eller rörelse), och fångsten bedöms mot den
 (`referenskontrakt.uppgiftstackning`): en typografireferens kräver SEKTIONER.md, en navigationsreferens meny-, hover-
 eller fokusbilder, en rörelsereferens spår eller bildsekvens. Det som saknas står som okänt. En tom `getAnimations()`
 bevisar inte att sidan saknar rörelse: inspektionen räknar sidans requestAnimationFrame, canvas och spelande video för
@@ -143,7 +164,7 @@ tar med och undviker sägs uttryckligen. Formuleringen är "stark webbplatsrefer
 
 **Mekaniskt och kvalitativt.** Kontraktet prövar struktur, identitet, filer och genomförda steg: fångsten, upptäckten,
 dubletterna, beläggen, att designgrunden är egen observation och inte omdömen, betyg, storlek eller sökplacering, att en
-påstådd affärsframgång har en källa och att en funktionsuppgift (kontakt, navigation, interaktion, rörelse) har fångade
+påstådd affärsframgång har en källa och att en funktionsuppgift (kontakt, bokning, navigation, interaktion, rörelse) har fångade
 funktionsbelägg. Planprövningen bedömer kvalitativt om observationerna stöder urvalet och designbesluten. Det renderade
 resultatet bedöms fortfarande visuellt: av den blinda skisskritiken, före/efter-bedömningen och ägaren. Antalen och
 verktygsvalen är Nortropics produktbeslut; källorna föreskriver dem inte.

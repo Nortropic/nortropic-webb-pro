@@ -44,7 +44,8 @@ ARBETSREGEL = {
 GALLERIER = {'awwwards': 'awwwards.com', 'siteinspire': 'siteinspire.com', 'land-book': 'land-book.com', 'godly': 'godly.website',
              'fwa': 'thefwa.com', 'cssda': 'cssdesignawards.com', 'httpster': 'httpster.net', 'onepagelove': 'onepagelove.com'}
 UPPTACKTSVAGAR = ('websok', 'galleri', 'byra', 'refero', 'mobbin', 'kund', 'kunskap')
-UPPGIFTER = ('innehall', 'fortroende', 'navigation', 'kontakt', 'komposition', 'typografi', 'bildregi', 'rytm', 'mobil', 'interaktion', 'rorelse')
+UPPGIFTER = ('innehall', 'fortroende', 'navigation', 'kontakt', 'bokning', 'komposition', 'typografi', 'bildregi', 'rytm', 'mobil', 'interaktion',
+             'rorelse')
 BIDRAGSROLLER = ('bransch', 'visuellt', 'ux', 'implementation')
 BESLUT = ('infor', 'anpassar', 'undviker')
 URL = re.compile(r'https?://[^\s"\'<>)\]}]+')
@@ -56,7 +57,11 @@ VARDEORD = re.compile(r'\b(premium|modern[at]?|clean|ren|elegant|snygg[at]?|stil
 ANSEENDEORD = re.compile(r'(\b\d[.,]\d\s*(av 5|/5|stjärn)|\bstjärn|\bomdöm|\brecension|\breview|\brating|\bbetyg|\bomsättning|\banställd|'
                          r'\bstort företag|\bmarknadsandel|\bmarknadsledande|\bförst i sök|\bsökträff|\brankning)', re.I)
 FRAMGANGSORD = re.compile(r'(framgångsrik|tillväxt|lönsam|växer|marknadsledande|branschledande|ledande aktör|omsätter)', re.I)
-FUNKTIONSUPPGIFTER = ('kontakt', 'navigation', 'interaktion', 'rorelse')  # kräver fångade funktionsbelägg, inte bara en bild
+FUNKTIONSUPPGIFTER = ('kontakt', 'bokning', 'navigation', 'interaktion', 'rorelse')  # kräver fångade funktionsbelägg, inte bara en bild
+# Ägarens beslut 2026-10-10: en sida där vyerna fångats med status 200 men en CDN vägrat egna bilder (403 och liknande) är
+# delvis fångad och bär bara funktionsuppgifterna nedan, aldrig bildregi, typografi, komposition eller färg; blockerade
+# typsnitt eller stilar fäller sidan (referens.observationer).
+DELVIS_UPPGIFTER = ('kontakt', 'bokning', 'navigation', 'interaktion')
 MIN_OBSERVATION = 40
 
 
@@ -131,7 +136,8 @@ def senaste_paket(slug, underlag):
 
 
 def paket_rad(paket):
-    """{namn: kandidatposten} ur PAKET.json, med 'sidor_ok' (lyckade sidor vars bilder i 390 och 1440 finns)."""
+    """{namn: kandidatposten} ur PAKET.json, med 'sidor_ok' (lyckade sidor vars bilder i 390 och 1440 finns) och 'sidor_delvis'
+    (delvis fångade sidor, bilder vägrade av CDN, med samma bilder; de bär bara DELVIS_UPPGIFTER)."""
     if not paket:
         return {}
     try:
@@ -142,14 +148,29 @@ def paket_rad(paket):
     for k in d.get('kandidater') or []:
         if not isinstance(k, dict) or not k.get('namn'):
             continue
-        ok_sidor = []
+        ok_sidor, delvis = [], []
         for s in k.get('sidor') or []:
             kat = Path(paket) / str((s or {}).get('katalog') or '')
-            if (s or {}).get('ok') and kat.is_dir() and not kat.is_symlink() and \
-                    all((kat / ('vy-%s-forsta.png' % b)).is_file() for b in ('390', '1440')):
+            if not (kat.is_dir() and not kat.is_symlink() and all((kat / ('vy-%s-forsta.png' % b)).is_file() for b in ('390', '1440'))):
+                continue
+            if (s or {}).get('ok'):
                 ok_sidor.append({'sida': s.get('sida'), 'katalog': str(kat), 'adress': s.get('adress')})
-        ut[k['namn']] = dict(k, sidor_ok=ok_sidor)
+            elif isinstance((s or {}).get('delvis'), dict):
+                delvis.append({'sida': s.get('sida'), 'katalog': str(kat), 'adress': s.get('adress'), 'delvis': s['delvis']})
+        ut[k['namn']] = dict(k, sidor_ok=ok_sidor, sidor_delvis=delvis)
     return ut
+
+
+def _belagg_vag(slug, underlag, vag_):
+    s = str(vag_ or '').strip()
+    p = Path(s)
+    if not p.is_absolute():
+        pre = 'underlag/%s/' % slug
+        p = Path(underlag) / slug / s[len(pre):] if s.startswith(pre) else ROOT / s
+    try:
+        return p.resolve()
+    except (OSError, ValueError):
+        return p
 
 
 def belagg_ok(slug, underlag, paket, vag_):
@@ -173,14 +194,25 @@ def belagg_ok(slug, underlag, paket, vag_):
     return None
 
 
+def delvis_for(post):
+    """De funktionsuppgifter som sajtens delvis fångade sidor får bära: de som sajten deklarerar (ägarens beslut 2026-10-10)."""
+    return sorted(set((post or {}).get('uppgift') or []) & set(DELVIS_UPPGIFTER)) if (post or {}).get('sidor_delvis') else []
+
+
+def fangad_bransch(post):
+    """En branschsajt räknas när en sida är helt fångad, eller när delvis fångade sidor bär en funktionsuppgift sajten deklarerar."""
+    return bool((post or {}).get('sidor_ok')) or bool(delvis_for(post))
+
+
 def uppgiftstackning(post, uppgifter):
     """Fångstens fullständighet mot den deklarerade uppgiften: vad som finns och vad som är okänt (aldrig ett påstående om
     kvalitet). En stillbild bevisar ingen rörelse, och en tom getAnimations() bevisar inte att sidan saknar rörelse."""
     ut = {}
-    sidor = [Path(s['katalog']) for s in (post or {}).get('sidor_ok') or []]
+    hela = [Path(s['katalog']) for s in (post or {}).get('sidor_ok') or []]
+    delvis = [Path(s['katalog']) for s in (post or {}).get('sidor_delvis') or []]
     for u in uppgifter or []:
         finns, saknas = [], []
-        for kat in sidor:
+        for kat in hela + (delvis if u in delvis_for(post) else []):  # delvis fångade sidor bara för en deklarerad funktionsuppgift
             filer = {f.name for f in kat.iterdir()} if kat.is_dir() else set()
             if u in ('typografi', 'komposition', 'rytm', 'innehall', 'fortroende'):
                 (finns if 'SEKTIONER.md' in filer else saknas).append('SEKTIONER.md')
@@ -192,7 +224,7 @@ def uppgiftstackning(post, uppgifter):
                 (finns if any(f.endswith('-spar.zip') or '-sekvens-' in f for f in filer) else saknas).append('rörelsespår eller bildsekvens')
             if u == 'bildregi':
                 (finns if any(f.endswith('-extrakt.json') for f in filer) else saknas).append('bildmätningen (extrakt)')
-            if u == 'kontakt':
+            if u in ('kontakt', 'bokning'):
                 (finns if any(f.endswith('-aria.txt') for f in filer) else saknas).append('tillgänglighetsträdet (formulär och knappar)')
         ut[u] = 'underlag finns' if finns and not saknas else 'delvis' if finns else 'okänt (underlaget saknas)'
     return ut
@@ -218,10 +250,11 @@ def researchbrister(slug, underlag, post, paket=None):
                 sett_.add(v_)
                 ut_.append(k)
         return ut_
-    bransch = unika([k for k in rader.values() if k.get('roll') == 'bransch' and k['sidor_ok']])
+    bransch = unika([k for k in rader.values() if k.get('roll') == 'bransch' and fangad_bransch(k)])
     insp = unika([k for k in rader.values() if k.get('roll') == 'hantverk' and k['sidor_ok'] and str((k.get('upptackt') or {}).get('vag')) == 'galleri'])
     if len(bransch) < ARBETSREGEL['bransch_sajter']:
-        fel.append('branschgenomgången har %d fångade branschsajter med lyckad sida i 390 och 1440 (arbetsregeln: minst %d)' % (
+        fel.append('branschgenomgången har %d fångade branschsajter med lyckad sida i 390 och 1440, eller delvis fångad sida för en deklarerad '
+                   'funktionsuppgift (arbetsregeln: minst %d)' % (
             len(bransch), ARBETSREGEL['bransch_sajter']))
     if len(insp) < ARBETSREGEL['inspiration_sajter']:
         fel.append('inspirationsgenomgången har %d fångade sajter ur gallerierna (arbetsregeln: minst %d)' % (len(insp), ARBETSREGEL['inspiration_sajter']))
@@ -270,7 +303,7 @@ def planbrister(slug, underlag, plan, paket=None):
         post = rader.get(str(b.get('sajt') or ''))
         brist = ('sajten %s finns inte i paketet %s' % (b.get('sajt'), Path(paket).name) if not post else
                  'sajten %s är inte en branschsajt i paketet' % b.get('sajt') if post.get('roll') != 'bransch' else
-                 'sajten %s saknar lyckad fångst' % b.get('sajt') if not post['sidor_ok'] else None)
+                 'sajten %s saknar lyckad fångst' % b.get('sajt') if not fangad_bransch(post) else None)
         bel = [x for x in b.get('belagg') or [] if isinstance(x, str)]
         bel_fel = [('%s: %s' % (x, belagg_ok(slug, underlag, paket, x))) for x in bel if belagg_ok(slug, underlag, paket, x)]
         if not brist and not bel:
@@ -348,6 +381,13 @@ def kandidatbrister(slug, underlag, k, paket):
         if not bel or any(belagg_ok(slug, underlag, paket, x) for x in bel):
             fel.append('bidrag %d (%s): beläggen saknas eller pekar fel (%s)' % (i, namn, '; '.join('%s: %s' % (x, belagg_ok(slug, underlag, paket, x))
                                                                                            for x in bel if belagg_ok(slug, underlag, paket, x))[:200] or 'inga'))
+            continue
+        post_ = rader.get(namn) or {}
+        delvis_kat = [Path(x['katalog']).resolve() for x in post_.get('sidor_delvis') or []]
+        pa_delvis = [x for x in bel if any(d_ in _belagg_vag(slug, underlag, x).parents for d_ in delvis_kat)]
+        if (pa_delvis or (b['roll'] == 'bransch' and not post_.get('sidor_ok') and post_.get('sidor_delvis'))) and b.get('uppgift') not in DELVIS_UPPGIFTER:
+            fel.append('bidrag %d (%s): källan är bara delvis fångad (bilder vägrade av CDN) och bär bara funktionsuppgifter (%s), inte %s' % (
+                i, namn, ', '.join(DELVIS_UPPGIFTER), b.get('uppgift') or 'en designuppgift'))
             continue
         if not all(_text_ok(b.get(f), n) for f, n in (('kundbehov', 20), ('observerad_kvalitet', MIN_OBSERVATION), ('designbeslut', 25),
                                                         ('tillampning', 25), ('bedomning', 20))):
@@ -525,6 +565,8 @@ def oversikt(slug, underlag, med_kandidater=False):
           'urvalsfragor': fo.get('urvalsfragor') or {}, 'tackning': fo.get('tackning') or {},
           'undersokta': [{'namn': n, 'adress': p.get('adress'), 'roll': p.get('roll'), 'upptackt': p.get('upptackt'), 'uppgift': p.get('uppgift'),
                           'fangad': bool(p.get('sidor_ok')), 'sidor': len(p.get('sidor_ok') or []), 'ateranvand': p.get('arv'),
+                          'delvis': len(p.get('sidor_delvis') or []), 'delvis_for': delvis_for(p),
+                          'delvis_saknade': sorted({u for x in p.get('sidor_delvis') or [] for u in (x.get('delvis') or {}).get('saknade') or []})[:20],
                           'tid': p.get('tid'), 'bredder': p.get('bredder')} for n, p in sorted(rader.items())],
           'bransch': [{'sajt': b.get('sajt'), 'stark_for': b.get('stark_for'), 'lokal_marknad': b.get('lokal_marknad'), 'anseende': b.get('anseende'),
                        'affarsframgang': b.get('affarsframgang'), 'styrkor': b.get('styrkor'), 'svagheter': b.get('svagheter'), 'tar_med': b.get('tar_med'),

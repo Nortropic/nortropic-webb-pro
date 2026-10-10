@@ -11,8 +11,12 @@ hela referenskedjan); inga modeller eller nätanrop: sessionerna är attrapper o
 - En fångst som dödas vid sin tidsgräns lämnar de sajter som hann fångas helt, med båda rollerna, i ett paket som går att
   läsa och ärva; kompletteringen ärver aldrig ett paket utan PAKET.json, och tidsgränsen redovisas (kandidatprovet
   2026-10-10).
+- Ägarens tillägg 2026-10-10 (robusthet mot riktiga sajter): en sida med CDN-vägrade bilder är delvis fångad och bär
+  bokningen men aldrig bildregi eller typografi, märkt i paketet och arbetsytan; blockerade typsnitt fäller sidan;
+  budgeten och sidtaket gäller i skissläget men inte i läget full; en research som bara missar en kärnskill får ett
+  namngivet omförsök, en upprepad brist stoppar, och omförsöket ärver paketet.
 
---bas kör fallen mot HEAD:s kandidater.py, atelje.py, kundvakt.py, skapande.py och referens.py (föreprovet).
+--bas kör fallen mot HEAD:s kandidater.py, atelje.py, kundvakt.py, referenskontrakt.py, skapande.py och referens.py (föreprovet).
 """
 import contextlib
 import json
@@ -30,7 +34,7 @@ import referensfixtur  # noqa: E402
 
 if '--bas' in sys.argv:
     sys.argv.remove('--bas')
-    for namn in ('kundvakt', 'skapande', 'referens', 'atelje', 'kandidater'):
+    for namn in ('kundvakt', 'referenskontrakt', 'skapande', 'referens', 'atelje', 'kandidater'):
         src = subprocess.run(['git', 'show', 'HEAD:kontroller/%s.py' % namn], cwd=ROOT, check=True, capture_output=True, text=True).stdout
         m = types.ModuleType(namn)
         m.__file__ = str(ROOT / 'kontroller' / ('%s.py' % namn))
@@ -474,6 +478,162 @@ class Fangsten(Grund):
         self.assertIsNone(ut['referens']['rc'])
         self.assertEqual(ut['referens'].get('tidsgrans'), 7)
         self.assertTrue(ut['referens'].get('paket'), 'tidsgränsen redovisas med paketet som bär det som hann fångas')
+
+
+@unittest.skipIf(rk is None, 'basen saknar referenskontraktet')
+class Robusthet(Grund):
+    """Ägarens tillägg 2026-10-10: referenskedjan robust mot riktiga sajter utan att kraven sänks för det som bedöms."""
+    CDN = 'https://static.cdn-prov.se/bild-1.jpg'
+
+    def vyer(self, ut, fel=(), blockerade=()):
+        Path(ut).mkdir(parents=True, exist_ok=True)
+        for b in ('390', '1440'):
+            for namn in ('forsta', 'hela'):
+                (Path(ut) / ('vy-%s-%s.png' % (b, namn))).write_bytes(PNG * 400)
+        return {'vyer': {b: {'status': 200, 'tillstand': {}, 'natverk': {'fel': list(fel), 'blockerade': list(blockerade)}} for b in ('390', '1440')}}
+
+    def test_cdn_vagrade_bilder_ger_delvis_fangad_och_typsnitt_faller_sidan(self):
+        ut = self.tmp / 'sida'
+        obs = rf.observationer(self.vyer(ut, fel=[{'typ': 'image', 'url': self.CDN, 'status': 403}]), ut, (), ('390', '1440'))
+        self.assertFalse(obs['ok'])
+        self.assertEqual((obs.get('delvis') or {}).get('skal'), 'delvis fångad: bilder vägrade av CDN')
+        self.assertEqual(obs['delvis']['saknade'], [self.CDN])
+        self.assertTrue(any('delvis fångad' in b for b in obs['begransningar']))
+        obs = rf.observationer(self.vyer(ut, fel=[{'typ': 'image', 'url': self.CDN, 'status': 403},
+                                                  {'typ': 'font', 'url': 'https://fonts.gstatic.com/a.woff2', 'status': 403}]), ut, (), ('390', '1440'))
+        self.assertIsNone(obs.get('delvis'), 'ett vägrat typsnitt fäller sidan')
+        obs = rf.observationer(self.vyer(ut, fel=[{'typ': 'image', 'url': self.CDN, 'status': 403}],
+                                         blockerade=[{'typ': 'font', 'url': 'https://fonts.gstatic.com/a.woff2'}]), ut, (), ('390', '1440'))
+        self.assertIsNone(obs.get('delvis'), 'ett blockerat typsnitt fäller sidan')
+
+    def delvis_sajt(self, p, namn, uppgift):
+        kat = p / namn / '01-start'
+        kat.mkdir(parents=True)
+        for b in ('390', '1440'):
+            (kat / ('vy-%s-forsta.png' % b)).write_bytes(PNG)
+        (kat / 'vy-390-aria.txt').write_text('- form "Boka": textbox "Namn", button "Skicka"\n')
+        return {'namn': namn, 'adress': 'https://%s.example/' % namn, 'roll': 'bransch', 'ok': False, 'uppgift': uppgift,
+                'upptackt': {'vag': 'websok', 'kalla': 'keramikkurs drejning'},
+                'sidor': [{'sida': '/', 'katalog': '%s/01-start' % namn, 'ok': False,
+                           'delvis': {'skal': 'delvis fångad: bilder vägrade av CDN', 'antal': 1, 'saknade': [self.CDN], 'status': [403]}}]}
+
+    def paket_med_delvis(self, uppgift):
+        p = self.u / SLUG / 'referenser' / 'paket-v01'
+        kand = [self.sajt(p, 'bransch-%d' % i, 'bransch', {'vag': 'websok', 'kalla': 'keramikkurs drejning'}) for i in range(2)]
+        kand.append(self.delvis_sajt(p, 'delvis-0', uppgift))
+        kand += [self.sajt(p, 'galleri-%d' % i, 'hantverk', {'vag': 'galleri', 'kalla': 'https://www.awwwards.com/sites/galleri-%d' % i}) for i in range(2)]
+        (p / 'PAKET.json').write_text(json.dumps({'schema': 2, 'version': 'paket-v01', 'kandidater': kand}))
+        return p
+
+    def test_delvis_sida_raknas_for_bokning_men_aldrig_for_bildregi_eller_typografi(self):
+        p = self.paket_med_delvis(['bokning'])
+        fel = rk.researchbrister(SLUG, self.u, self.research(), p)
+        self.assertFalse([x for x in fel if x.startswith('branschgenomgången')], fel)
+        rad = rk.paket_rad(p)['delvis-0']
+        self.assertEqual(rk.uppgiftstackning(rad, ['bokning'])['bokning'], 'underlag finns')
+        self.assertTrue(rk.uppgiftstackning(rad, ['typografi'])['typografi'].startswith('okänt'))
+        k = self.plan()['kandidater']['k01']
+        bid = dict(k['referensbidrag'][0], kalla='delvis-0', uppgift='bildregi',
+                   belagg=['underlag/%s/referenser/paket-v01/delvis-0/01-start/vy-1440-forsta.png' % SLUG])
+        fel_k = rk.kandidatbrister(SLUG, self.u, dict(k, referensbidrag=[bid, k['referensbidrag'][1]]), p)
+        self.assertTrue(any('delvis fångad' in x for x in fel_k), fel_k)
+        fel_k = rk.kandidatbrister(SLUG, self.u, dict(k, referensbidrag=[dict(bid, uppgift='bokning'), k['referensbidrag'][1]]), p)
+        self.assertFalse(any('delvis fångad' in x for x in fel_k), fel_k)
+        import shutil as sh_
+        sh_.rmtree(p)
+        p = self.paket_med_delvis(['bildregi'])  # samma sajt deklarerad för bildregi räknas inte som branschsajt
+        fel = rk.researchbrister(SLUG, self.u, self.research(), p)
+        self.assertTrue([x for x in fel if x.startswith('branschgenomgången har 2 ')], fel)
+
+    def test_markeringen_syns_i_paketet_och_arbetsytan(self):
+        def kor(adress, ut, tillat, tillstand, miljo, extrahera=None, bredder=rf.BREDDER_STANDARD):
+            if str(ut).endswith('.pass1'):
+                return 0, {}, ''
+            return 0, self.vyer(ut, fel=[{'typ': 'image', 'url': self.CDN, 'status': 403}]), ''
+        u = {'fragor': [], 'kandidater': [{'namn': 'cdn-sajt', 'adress': 'https://cdn-sajt.se/', 'roll': 'bransch', 'varfor': 'prov', 'sidor': ['/'],
+                                           'tillstand': {}, 'upptackt': {'vag': 'websok', 'kalla': 'prov'}, 'uppgift': ['bokning']}]}
+        with patch.multiple(rf, kor_inspektera=kor):
+            p, _res = rf.samla(SLUG, u, self.u)
+        sida = json.loads((p / 'PAKET.json').read_text())['kandidater'][0]['sidor'][0]
+        self.assertFalse(sida['ok'])
+        self.assertEqual((sida.get('delvis') or {}).get('skal'), 'delvis fångad: bilder vägrade av CDN')
+        self.assertIn('delvis fångad: bilder vägrade av CDN', (p / 'PAKET.md').read_text())
+        ov = rk.oversikt(SLUG, self.u)
+        rad = [x for x in ov['undersokta'] if x['namn'] == 'cdn-sajt'][0]
+        self.assertEqual((rad.get('delvis'), rad.get('delvis_for'), rad.get('delvis_saknade')), (1, ['bokning'], [self.CDN]))
+        self.assertIn('delvis fångad: bilder vägrade av CDN', (ROOT / 'dashboard' / 'index.html').read_text())
+
+    def forska(self, skiss, so, kravbrister, komplettera=None):
+        """kd.forska med attrapper för sessionen och kvittot; kompletteringen spelas in."""
+        (self.u / SLUG / 'atelje').mkdir(parents=True, exist_ok=True)
+        prompter, kvitton, hamtat = [], [], []
+
+        def sess(prompt, verktyg, ut, *a, **k):
+            return {'structured_output': so, 'session_id': SID}
+
+        def komp(slug, fil, rot, underlag=None, frist=None, **k):
+            hamtat.append({'frist': frist, 'begaran': json.loads(Path(fil).read_text())})
+            return {'referens': {'rc': 0}}
+
+        def hamta(*a, **k):
+            hamtat.append({'frist': k.get('frist')})
+            return komplettera(*a, **k)
+        with patch.object(atelje, 'session', sess), \
+                patch.multiple(kd, forska_prompt=lambda slug, n, fel=None, skiss=False: prompter.append(fel) or 'research',
+                               kompetens_kort=lambda kv: kv, kompetensrad=lambda *a, **k: []), \
+                patch.multiple(kd.kompetens, verktyg=lambda *a, **k: [], kvitto=lambda sess_, pass_, **k: kvitton.append(len(sess_)) or {'verifierad': True},
+                               kravbrister=lambda *a, **k: kravbrister.pop(0) if kravbrister else []), \
+                patch.object(rk, 'researchbrister', lambda *a, **k: []), \
+                patch.object(kd.skapande, 'komplettera', hamta if komplettera else komp):
+            try:
+                post = kd.forska(SLUG, 2, skiss=skiss)
+            except RuntimeError as e:
+                post = e
+        return post, prompter, kvitton, hamtat
+
+    def so(self, sidor):
+        return {'varfor': 'prov', 'riktningar': 'två grunder', 'fragor': [], 'antaganden': [], 'galleri': {}, 'sallning': [],
+                'urvalsfragor': referensfixtur.URVALSFRAGOR, 'tackning': referensfixtur.TACKNING,
+                'sajter': [{'namn': 'lera-a', 'adress': 'https://lera-a.se/', 'roll': 'bransch', 'varfor': 'prov', 'sidor': sidor,
+                            'upptackt': {'vag': 'kunskap', 'kalla': ''}, 'uppgift': ['bokning'], 'evidens': 'egen_observation',
+                            'stark_for': 'prov', 'syfte': 'prov'}]}
+
+    def test_budgeten_och_sidtaket_galler_i_skisslaget_men_inte_i_full(self):
+        _p, _pr, _kv, h = self.forska(True, self.so(['/kurser', '/boka', '/kontakt']), [])
+        self.assertEqual(h[0]['frist'], min(kd.FRIST_HAMTA, 2700))
+        self.assertEqual(h[0]['begaran']['referens']['kandidater'][0]['sidor'], ['/', '/kurser', '/boka'], 'startsidan först, högst tre')
+        self.assertEqual(kd.FORSKA_SCHEMA_SKISS_BRED['properties']['sajter']['items']['properties']['sidor']['maxItems'], 3)
+        _p, _pr, _kv, h = self.forska(False, self.so(['/kurser', '/boka', '/kontakt', '/om']), [])
+        self.assertEqual(h[0]['frist'], kd.FRIST_HAMTA)
+        self.assertEqual(h[0]['begaran']['referens']['kandidater'][0]['sidor'], ['/kurser', '/boka', '/kontakt', '/om'], 'läget full är oförändrat')
+        self.assertEqual(kd.FORSKA_SCHEMA['properties']['sajter']['items']['properties']['sidor']['maxItems'], skapande.MAX_SIDOR_PER)
+
+    def test_kompetensbrist_ger_ett_namngivet_omforsok_och_upprepad_brist_stoppar(self):
+        brist = 'session 1: Skill-aktivering saknas: better-explain-interface'
+        post, prompter, kvitton, h = self.forska(True, self.so(['/']), [[brist], []])
+        self.assertIsInstance(post, dict, post)
+        self.assertEqual(len(prompter), 2)
+        self.assertIn('better-explain-interface', prompter[1] or '')
+        self.assertEqual(kvitton[-1], 1, 'kraven prövas på sessionen vars svar används')
+        self.assertEqual(post['kompetensomforsok']['brister'], [brist])
+        self.assertEqual(len(h), 1, 'bara omförsöket hämtar')
+        post, prompter, _kv, h = self.forska(True, self.so(['/']), [[brist], ['session 1: Skill-aktivering saknas: better-explain-interface']])
+        self.assertIsInstance(post, RuntimeError)
+        self.assertEqual((len(prompter), len(h)), (2, 0), 'aldrig fler försök än två, och ingen hämtning')
+
+    def test_omforsoket_arver_paketet(self):
+        self.bygg_paket()  # ett läsbart paket-v01 från ett tidigare försök
+        sedda = []
+
+        def kor(args, frist):
+            if 'referens.py' in args[2]:
+                sedda.append(json.loads(Path(args[-1]).read_text() if Path(args[-1]).is_absolute() else (ROOT / args[-1]).read_text()))
+            return types.SimpleNamespace(returncode=0, stdout='', stderr='')
+        echt = skapande.komplettera
+        post, _pr, _kv, _h = self.forska(True, self.so(['/']), [['session 1: Skill-aktivering saknas: x'], []],
+                                         komplettera=lambda *a, **k: echt(*a, **dict(k, kor=kor, forbjudna={'ord': set(), 'siffror': set()})))
+        self.assertIsInstance(post, dict, post)
+        self.assertEqual(sedda and sedda[0].get('kompletterar'), 'paket-v01')
 
 
 if __name__ == '__main__':

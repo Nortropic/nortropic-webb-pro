@@ -4749,3 +4749,46 @@ skarpt aktiverat: ingen D1, R2, nyckel eller verifierad mottagare har skapats ho
 - Proven `prov_nyckelintag`, `prov_aktivera` och `prov_handlingsko` och webbläsarproven för båda vyerna ligger i
   rökprovet.
 - Vägen beskrivs i `kunskap/lansering.md`, under Aktiveringen.
+
+## Tillägg 2026-10-10: referenskedjan robust mot riktiga sajter
+
+**Status:** gäller; genomfört av Claude i grenen `claude/referenser-robust-20261010`. Räckvidd: skapandeflödets research
+i skissläget (fångstens budget och sidtak), referenssteget och referenskontraktet (delvis fångade sidor) och researchens
+omförsök. Läget full och helbygget är oförändrade. Kundvakten, blindningen, andra rollers skydd, startvillkoret och
+kontraktets kedja per kandidat står kvar.
+
+Ägarens tillägg (inklistrat 2026-10-10 ~16:10Z, efter att kandidatprovet `kompetensprov-lerverket` stoppats tre gånger,
+varje gång av en grind som gjorde rätt). Besluten ordagrant:
+
+> 1. Fångstens budget i skissläget. Researchens fångst får högst 2 700 s i skissläget, i dag min(FRIST_HAMTA, 1800). Researchens uppdrag till referenssteget får högst 3 sidor per sajt: startsidan och de sidor som bär uppgiften, till exempel kurs eller bokning och kontakt. Utgå från den uppmätta tiden per sajt i kandidatprovet och redovisa beräkningen. Ändra inte läget full eller helbygget.
+>
+> 2. Sidor med vägrade CDN-resurser. En sida där vyerna fångats med status 200, men där egna bilder från en CDN vägrats (403 och liknande), får räknas för funktionsuppgifter: kontakt, navigation, interaktion och boknings- eller offertväg. Den räknas aldrig för bildregi, typografi, komposition eller färg. Sidan märks uttryckligen i PAKET.json och i arbetsytan, till exempel "delvis fångad: bilder vägrade av CDN", med vilka resurser som saknas. Kontraktets räkning av branschsajter får bara använda sådana sidor för de funktionsuppgifter sajten deklarerar. Blockerade typsnitt eller stilar fäller fortfarande sidan.
+>
+> 3. Omförsök vid kompetensbrist. När ett researchförsök bara brister i kompetenskraven, till exempel en kärnskill som inte aktiverats, och kontraktet i övrigt kan prövas, får researchen ett nytt försök. Det nya försöket får de saknade kraven namngivna i prompten. Det får aldrig bli fler försök än i dag. En upprepad brist stoppar som nu. Det fångade paketet ärvs.
+>
+> 4. Ärlig rapport. GR-20261010-kompetens-integration ska säga rakt ut att designkvaliteten ännu inte är visad, så länge ägaren inte har sett bilderna. Ett uppfyllt kontrakt eller ett grönt kvitto är inget designgodkännande.
+
+Och ordagrant ur gränserna: "Samma datagräns som förut. Kundens ort och namn går inte till söktjänster (F1 och F2 väntar
+på separata beslut)." samt "Inget helbygge och ingen publicering."
+
+Genomförarens tillämpning (Claude):
+
+- `kandidater.FRIST_FANGST_SKISS = 2700` och `SIDOR_SKISS = 3`: researchens fångst i skissläget får
+  `min(FRIST_HAMTA, 2700)`, skisschemana tillåter högst tre sidor per sajt, och `kandidater.sidtak` sätter startsidan först
+  och kapar till tre. Beräkningen (`kunskap/referensjakt.md`, Fångstens budget): 1 777 s för 22 sidor i kandidatprovets
+  andra fångst, 81 s per sida och 254 s per sajt; tre sidor och två extra varv i första passet ger omkring 320 s per sajt,
+  så åtta sajter ryms i ungefär 2 600 s. Planprövningens återgång och läget full är oförändrade.
+- `referens.observationer` märker en sida `delvis` ("delvis fångad: bilder vägrade av CDN", de saknade adresserna och
+  statuskoderna) när vyerna har status 200, bildfilerna finns, tillstånden lyckades och de enda felen är egna bilder som
+  servern vägrat med HTTP-status ≥ 400; ett blockerat eller misslyckat typsnitt eller stilark fäller sidan. Märkningen står
+  i PAKET.json, PAKET.md och arbetsytans referensvy.
+- `referenskontrakt`: uppgiften `bokning` (boknings- eller offertväg) är ny bland uppgifterna och funktionsuppgifterna;
+  `DELVIS_UPPGIFTER` är kontakt, bokning, navigation och interaktion. En branschsajt räknas med delvis fångade sidor bara
+  för de funktionsuppgifter den deklarerar (`fangad_bransch`, `delvis_for`); täckningen mot uppgiften använder dem bara då;
+  ett bidrag vars belägg ligger på en delvis fångad sida, eller vars branschkälla bara är delvis fångad, måste gälla en
+  sådan uppgift. Förebilderna ur gallerierna räknas bara med helt fångade sidor.
+- `kandidater.forska`: brister första försöket bara i kompetenskraven och har det gett ett svar, görs researchen om en gång
+  med kraven namngivna; det underkända svaret används inte (dess sökningar står kvar i loggen), kraven prövas på
+  sessionen vars svar används, paketet ärvs genom kompletteringen, och FORSKNING.json bär `kompetensomforsok` och
+  `fangst`. Två försök är taket.
+- Prov: `prov_referenskontrakt.py`, klassen Robusthet (sex fall, alla röda på basen av rätt skäl).

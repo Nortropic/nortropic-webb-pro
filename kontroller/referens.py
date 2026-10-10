@@ -66,6 +66,7 @@ SPARARE = ('google-analytics.com', 'googletagmanager.com', 'doubleclick.net', 'f
            'snapchat.com', 'pinterest.com', 'bing.com', 'yandex.ru', 'adsrvr.org', 'criteo.com', 'taboola.com', 'outbrain.com')
 MAX_KANDIDATER, MAX_SIDOR, MAX_RESURSVARDAR = 12, 6, 15
 PASS1_VARV = 3  # första passets varv: resursursprung i flera led (CSS som hämtar typsnitt från ett annat ursprung)
+DELVIS_SKAL = 'delvis fångad: bilder vägrade av CDN'  # ägarens beslut 2026-10-10 (referenskontrakt.DELVIS_UPPGIFTER)
 BREDDER_STANDARD = ('390', '1440')  # alltid; 768 och 1280 när uppdraget beställer dem (valbara ur BREDDER)
 assert set(BREDDER_STANDARD) <= set(BREDDER), 'standardvyerna måste finnas bland prototypens bredder'
 MAX_VALJARE = 6  # hover- och fokusväljare per kandidat
@@ -428,8 +429,17 @@ def observationer(rapport, ut, bestallda=(), bredder=BREDDER_STANDARD):
         obs['begransningar'].append('%d egna resurser (bild, typsnitt, stil) förblev blockerade' % len(egna_kvar))
     if obs['fel_resurser']:
         obs['begransningar'].append('%d egna resurser (bild, typsnitt, stil) misslyckades: %s' % (len(obs['fel_resurser']), '; '.join('%s %s %s' % (e['typ'], e['status'] if e['status'] is not None else e['fel'], e['url']) for e in obs['fel_resurser'][:5])))
-    obs['ok'] = (all(vy in vyer for vy in bredder) and not egna_kvar and not obs['fel_resurser']
-                 and all(o['status'] == 200 and not o['fel'] and all(o['bildfiler'].values()) and all(o['tillstand'].values()) for o in obs['vyer'].values()))
+    vyerna_hela = all(vy in vyer for vy in bredder) and all(
+        o['status'] == 200 and not o['fel'] and all(o['bildfiler'].values()) and all(o['tillstand'].values()) for o in obs['vyer'].values())
+    obs['ok'] = vyerna_hela and not egna_kvar and not obs['fel_resurser']
+    # ägarens beslut 2026-10-10: vyerna fångade med status 200 och bara egna bilder som servern vägrat (403 och liknande): sidan
+    # är delvis fångad och bär bara funktionsuppgifter; en blockerad eller misslyckad typsnitts- eller stilfil fäller den
+    vagrade = [e for e in obs['fel_resurser'] if e['typ'] == 'image' and isinstance(e.get('status'), int) and e['status'] >= 400]
+    if vyerna_hela and not egna_kvar and obs['fel_resurser'] and len(vagrade) == len(obs['fel_resurser']):
+        saknade = sorted({e['url'] for e in vagrade})
+        obs['delvis'] = {'skal': DELVIS_SKAL, 'antal': len(saknade), 'saknade': saknade[:20],
+                         'status': sorted({e['status'] for e in vagrade})}
+        obs['begransningar'].append('%s (%d bilder; sidan bär bara kontakt, bokning, navigation och interaktion)' % (DELVIS_SKAL, len(saknade)))
     return obs
 
 
@@ -647,6 +657,8 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
                         obs['begransningar'].append('%s saknas i inventeringen' % fil_)
             sida_ok = rc == 0 and obs['ok'] and all(all((o_.get('bildfiler') or {}).values()) for o_ in obs['vyer'].values())  # efter sista bildkontrollen (Codex R35)
             post['sidor'].append({'sida': sida, 'adress': adress, 'katalog': str(ut.relative_to(paket)), 'tillstand': tillstand, 'bredder': bredder, 'rc': rc, 'ok': sida_ok,
+                                  'delvis': obs.get('delvis') if rc == 0 and not sida_ok and all(
+                                      all((o_.get('bildfiler') or {}).values()) for o_ in obs['vyer'].values()) else None,
                                   'observationer': obs['vyer'], 'kvar_blockerade': obs['kvar_blockerade'], 'fel_resurser': obs['fel_resurser'],
                                   'begransningar': obs['begransningar'], 'filer': filer, 'sektioner': obs.get('sektioner'), 'brytpunkter': obs.get('brytpunkter')})
         nya_ok = len(post['sidor']) == len(k['sidor']) and all(s['ok'] for s in post['sidor'])
@@ -687,7 +699,7 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         for s in post['sidor']:
             vy = s['observationer']
             rader.append('- %s (%s): %s · status %s · bilder laddade %s · typsnitt %s · blockerade kvar %d · filer %d' % (
-                s['sida'], s['katalog'], 'fångad' if s['ok'] else 'brister', ','.join(str(v.get('status')) for v in vy.values()),
+                s['sida'], s['katalog'], 'fångad' if s['ok'] else DELVIS_SKAL if s.get('delvis') else 'brister', ','.join(str(v.get('status')) for v in vy.values()),
                 '/'.join(str(v.get('bilder_laddade')) for v in vy.values()), '/'.join(str(v.get('typsnitt_laddade')) for v in vy.values()),
                 len(s['kvar_blockerade']), len(s['filer']))
                 + (' · underlag %s/SEKTIONER.md' % s['katalog'] if any(f_.endswith('SEKTIONER.md') for f_ in s['filer']) else '')
