@@ -664,6 +664,13 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
         for x in h:
             if x[0] == 'anrop' and str(x[2]).startswith('mcp__') and x[1] not in felade:
                 mcp.append(str(x[2]))
+            elif x[0] == 'anrop' and x[2] in ('WebSearch', 'WebFetch'):  # researchrollens webbupptäckt, med utfall
+                va = verktyg_anrop.setdefault('webbsok', {'anrop': 0, 'ok': 0, 'fel': 0})
+                va['anrop'] += 1
+                if x[1] in felade:
+                    va['fel'] += 1
+                elif x[1] in svarade:
+                    va['ok'] += 1
             elif x[0] == 'anrop' and x[2] == 'Bash':  # flödets verktyg, med utfall: ett svar utan fel, ett fel eller inget svar
                 m_ = VERKTYGSKOMMANDO.search(str((x[3] or {}).get('command') or ''))
                 if m_:
