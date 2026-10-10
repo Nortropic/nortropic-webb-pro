@@ -398,3 +398,6 @@ body.ay-aktiv input[type=file]::file-selector-button { font: inherit; color: var
 .ay-bev-tackning li > span:first-child { flex: 1 1 260px; }
 .ay-bev-tackning li[data-lage="saknar_tackning"] b::before, .ay-bev-tackning li[data-lage="inaktuell"] b::before { content: "! "; }
 .ay-bev-tackning li > .svag { flex-basis: 100%; }
+
+/* ett dolt element är dolt: klasser med display (som .ay-knapp) får aldrig visa ett fält vars etikett är dold (axe, 2026-10-10) */
+.ay [hidden] { display: none !important; }

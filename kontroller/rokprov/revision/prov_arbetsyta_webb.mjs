@@ -1081,7 +1081,7 @@ try {
   await deltext.filter({ hasText: 'Jag föreslår en rubrik på fyra ord.' }).waitFor();
   assert.match(await deltext.innerText(), /Delsvar som strömmas: inte färdigt/, 'delsvaret är märkt som ofärdigt, skilt från svaret');
   assert.match(await page.locator('#ay-samtal .ay-aktivitet').innerText(), /resonerar \(innehållet visas inte\)[\s\S]*läser kunskap\/arbetsyta\.md/, 'den observerade aktiviteten');
-  assert.equal(await deltext.evaluate((e) => e.closest('[aria-live]')?.getAttribute('aria-live') || null), null, 'tokenströmmen läses inte upp (U37)');
+  assert([null, 'off'].includes(await deltext.evaluate((e) => e.closest('[aria-live]')?.getAttribute('aria-live') || null)), 'tokenströmmen läses inte upp (U37)');
   // en väntande instruktion medan turen pågår: sparas utan ny ström, syns i samtalet och kan tas bort
   await page.waitForFunction(() => document.querySelector('#ay-skriv [data-skicka="partner"]')?.textContent === 'Spara som väntande');
   await page.locator('#ay-text').fill('Och knappen i första vyn?');
@@ -1128,6 +1128,7 @@ try {
   // förhandsvisningens brygga: kandidatens sida på ett eget ursprung, lägena Besök, Markera och Redigera text
   await page.route((u) => u.origin === forhandOrigin, (r) => r.continue());
   S.bryggaPreview = true; S.k01Byggd = T(41); skickaLage();
+  await page.locator('[data-material="forhandsvisning"]').click();  // körningen väntar på dig: vyn visar först den bevarade bilden
   const scen = page.frameLocator('#ay-material iframe');
   await scen.locator('h1').waitFor();
   await page.waitForFunction((x) => window.__arbetsyta.forhandsUrsprung === x, forhandOrigin);

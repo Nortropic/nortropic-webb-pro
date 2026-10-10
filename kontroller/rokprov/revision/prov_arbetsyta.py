@@ -170,7 +170,10 @@ class FalskClaude:
         if self.svara:
             rader.append({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': 'Svar (testdata).',
                           'session_id': sid, 'num_turns': 1, 'usage': {'input_tokens': 12, 'output_tokens': 3}})
-        kw['stdout'].write(''.join(json.dumps(r, ensure_ascii=False) + '\n' for r in rader).encode())
+        if args[args.index('--output-format') + 1] == 'stream-json':
+            kw['stdout'].write(''.join(json.dumps(r, ensure_ascii=False) + '\n' for r in rader).encode())
+        elif self.svara:  # --output-format json (följdfrågan): bara slutposten, som ett enda JSON-objekt
+            kw['stdout'].write(json.dumps(rader[-1], ensure_ascii=False).encode())
         kw['stdout'].flush()
         fp = FalskProcess(p)
         self.processer.append(fp)
@@ -961,6 +964,7 @@ const rubrik = 'Bilverkstad i Testby';
         (sajt / 'src' / 'data' / 'texter.json').write_text('{"knapp": "Skicka förfrågan", "lista": ["Däckbyte"]}\n', encoding='utf-8')
         d = kandidater.kdir(SLUG, 'k02')
         arbetsyta_fixtur._kopiera_kod(sajt, d, kandidater)
+        kandidater.frys_material(SLUG, 'k02')  # som fotograferingen: materialet hör till versionen
         v = kandidater.version(SLUG, 'k02')
         self.assertEqual(kandidater.projektets_version(SLUG, 'k02'), v, 'projektet och den fotograferade koden är samma version')
         f = d / 'STATUS.json'
@@ -975,6 +979,7 @@ const rubrik = 'Bilverkstad i Testby';
         def foto(slug, kid, skiss=None):
             anrop.append(kid)
             sajt, d = kandidater.ksajt(slug, kid), kandidater.kdir(slug, kid)
+            kandidater.frys_material(slug, kid)
             shutil.rmtree(d / 'kod', ignore_errors=True)
             shutil.rmtree(d / kandidater.KODSRC, ignore_errors=True)
             arbetsyta_fixtur._kopiera_kod(sajt, d, kandidater)
