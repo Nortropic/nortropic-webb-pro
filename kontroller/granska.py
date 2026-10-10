@@ -707,7 +707,7 @@ def arbetare(rdir):
             except Exception as e:  # noqa: BLE001
                 s_['lasning'] = {'verifierad': False, 'grupper': {}, 'bilder_lasta': None, 'skal': 'bildkedjan föll: %s' % e}
         # Granskarens kompetens är det frysta kriteriepaketet (metod_sha), inte ateljéns Skill-aktivering: sessionen har
-        # inget Skill-verktyg (lucka 4 i GR-20261010-kompetens-integration). Att instruktionen och designreglerna lästs
+        # Skill-verktyget ingår inte (lucka 4 i GR-20261010-kompetens-integration). Att instruktionen och designreglerna lästs
         # är observerat ur transkriptet; en granskare som bevisligen inte läste dem kan inte godkänna. Ett saknat
         # transkript är inte observerat och står så, utan att fälla en dom.
         metodbrister = kriteriebrister(sessioner)

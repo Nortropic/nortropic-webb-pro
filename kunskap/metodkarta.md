@@ -237,8 +237,8 @@ tillåter underagenter; ateljéns och granskarnas sessioner nekar Task. Läsordn
 skriver under kodens väg, eller ett program som inte känns igen som läsande (ett eget skript, `python -c`, `npm install`,
 en relativ väg efter `cd`), räknas som första ändringen (`bildkedja.bash_andring`). Klassningen är konservativ och avgör
 bara ordningen; den är ingen sandlåda, och ett program som skriver utan att det syns i kommandot fångas bara som en
-möjlig ändring. Slutgranskarens kompetens är det frysta kriteriepaketet (`metod_sha`), inte Skill-aktivering: sessionen
-har inget Skill-verktyg. Läsningen av instruktionen och designreglerna observeras ur transkriptet, och en granskare som
+möjlig ändring. Slutgranskarens kompetens är det frysta kriteriepaketet (`metod_sha`), inte Skill-aktivering:
+Skill-verktyget ingår inte i granskarens session. Läsningen av instruktionen och designreglerna observeras ur transkriptet, och en granskare som
 bevisligen inte läste dem kan inte godkänna (`metodbrister`); ett saknat transkript står som inte observerat.
 
 Rollerna arbetar där de gör nytta, en gång:
