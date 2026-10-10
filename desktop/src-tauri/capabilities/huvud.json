@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "huvud",
+  "description": "Det paketerade skalet i huvudfönstret (lås, första start, diagnos, senast kända läge). Gäller bara appens egna sidor (tauri://localhost); motorns arbetsyta och förhandsvisningarna har inga native-rättigheter alls.",
+  "windows": ["huvud"],
+  "permissions": [
+    "allow-diagnos",
+    "allow-registrera-motor",
+    "allow-valj-motorrot",
+    "allow-starta-motor",
+    "allow-las-upp",
+    "allow-oppna-arbetsytan",
+    "allow-las",
+    "allow-senast-kanda",
+    "allow-installning"
+  ]
+}

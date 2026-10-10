@@ -1,0 +1,51 @@
+/* Skalets tokens: samma som arbetsytans portal (dashboard/arbetsyta.css, desktopläget): ljus yta, mörk navigering,
+   återhållsam blåviolett accent. Systemets typsnitt; inga fontfiler i appen. */
+:root {
+  --yta: #f6f6f9; --kort: #ffffff; --linje: #e3e3ea; --text: #1b1d29; --dov: #5d6072;
+  --nav: #151826; --nav-text: #e9e9f1; --nav-dov: #a3a6ba;
+  --accent: #5b4fd6; --accent-text: #ffffff; --accent-svag: #ecebfb;
+  --ok: #1f7a4d; --varning: #9a5b00; --fel: #b4232c;
+  --radie: 10px; --fokus: 0 0 0 3px #ffffff, 0 0 0 5px #5b4fd6;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; color: var(--text); background: var(--yta); }
+.ram { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.rail { background: var(--nav); color: var(--nav-text); padding: 28px 20px; display: flex; flex-direction: column; gap: 12px; }
+.marke { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 17px; letter-spacing: .01em; }
+.rail-text { color: var(--nav-dov); font-size: 13px; margin: 0; }
+.rail-status { margin-top: auto; font-size: 12.5px; color: var(--nav-dov); display: grid; gap: 6px; }
+.rail-status span { display: flex; gap: 8px; align-items: center; }
+.prick { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; border: 1px solid currentColor; }
+.prick.ok { background: #3ec58a; border-color: #3ec58a; } .prick.av { background: transparent; } .prick.fel { background: #ef5b63; border-color: #ef5b63; }
+main { padding: 48px clamp(20px, 5vw, 72px); max-width: 860px; outline: none; }
+h1 { font-size: 26px; line-height: 1.25; margin: 0 0 10px; font-weight: 650; }
+h2 { font-size: 15px; margin: 0 0 8px; font-weight: 650; }
+.ingress { font-size: 16px; color: var(--text); max-width: 62ch; margin: 0 0 20px; }
+.under { color: var(--dov); font-size: 13.5px; max-width: 70ch; }
+.fel { color: var(--fel); font-size: 14px; }
+.kort { background: var(--kort); border: 1px solid var(--linje); border-radius: var(--radie); padding: 16px 18px; margin: 0 0 16px; }
+.rad { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+.knapp { font: inherit; font-size: 14px; padding: 8px 14px; min-height: 36px; border-radius: 8px; border: 1px solid var(--linje); background: var(--kort); color: var(--text); cursor: pointer; }
+.knapp:hover { border-color: #c9c9d6; }
+.knapp.primar { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+.knapp.primar:hover { background: #4c41c4; }
+.knapp.stor { font-size: 15px; padding: 11px 18px; min-height: 44px; }
+.knapp:disabled { opacity: .55; cursor: default; }
+.knapp:focus-visible, input:focus-visible { outline: none; box-shadow: var(--fokus); }
+.falt { display: grid; gap: 6px; margin: 10px 0; font-size: 14px; }
+.falt:has(input[type=checkbox]) { display: flex; align-items: center; gap: 8px; }
+input[type=number] { font: inherit; padding: 7px 10px; border: 1px solid var(--linje); border-radius: 8px; width: 140px; }
+.sokvag { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; word-break: break-all; margin: 0 0 6px; }
+.lista { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.lista li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.lista .etikett { font-weight: 600; min-width: 70px; }
+.statusrad { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 28px; font-size: 13px; color: var(--dov); }
+.statusrad span { display: inline-flex; align-items: center; gap: 7px; }
+.statusrad .prick.ok { background: var(--ok); border-color: var(--ok); } .statusrad .prick.fel { background: var(--fel); border-color: var(--fel); }
+.dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 13.5px; }
+.dl dt { color: var(--dov); } .dl dd { margin: 0; word-break: break-word; }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--accent-svag); color: #3b32a3; }
+@media (max-width: 720px) { .ram { grid-template-columns: 1fr; } .rail { padding: 16px; flex-direction: row; align-items: center; flex-wrap: wrap; } .rail-text { display: none; } .rail-status { margin: 0 0 0 auto; } main { padding: 24px 16px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

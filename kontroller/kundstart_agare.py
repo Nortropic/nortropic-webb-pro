@@ -26,7 +26,8 @@ def lista(repo):
         return {'arenden':[{'id':d['id'],'slug':d['slug'],'revision':d['revision'],'uppdaterad':d['uppdaterad'],
                  'bestallning':ks.vy(d)['bestallning'],'modell':d['modell']['status'],
                  'fragor':len(d['fragor'])+sum(q['status']!='svarad' for q in d.get('returfragor',{}).values()),
-                 'fiktiv':d.get('fiktiv',True)} for d in rows if d['id'] not in sparrade],
+                 'fiktiv':d.get('fiktiv',True),
+                 'foretag':next((a['text'] for a in d.get('anteckningar',[]) if a.get('slag')=='foretag'),None)} for d in rows if d['id'] not in sparrade],
                 'lagring':'lokal_privata_sqlite','gallringar':{k:{n:p[n] for n in ('status','revision','kvar')} for k,p in sparrade.items()}}
 
 
@@ -83,6 +84,22 @@ def skapa(repo,data):
     db=lager(repo);eid,token=db.skapa(data['slug'],data['namn'],modellbudget=data['modellbudget'],fiktiv=data['fiktiv'],operation=data['operation'])
     return {'arende':eid,'nyckel':token,'aterforsok':token is None,
             'text':'Nyckeln visas endast nu. Ingen kundserver är startad.' if token else 'Ärendet skapades redan. Nyckeln sparas inte; skapa en ny personlig länk om första svaret försvann.'}
+
+
+def anteckningar(repo,eid,operation,poster):
+    # Ägarens anteckningar när kunden skapas ur portalen (dashboard/desktop.py): operatörens ord, aldrig kundens uppgifter
+    # eller AI:s tolkning. Id:t härleds ur operationen, så att ett omförsök inte lägger till samma anteckning två gånger.
+    import time
+    db=lager(repo);ks.nyckel(eid)
+    with db.trans() as c:
+        d=db._doc(c,eid);fore={a['id'] for a in d.get('anteckningar',[])};nya=[]
+        for slag,text in poster:
+            if not text:continue
+            aid=ks.sha([operation,slag])[:32]
+            if aid in fore:continue
+            nya.append({'id':aid,'slag':slag,'text':ks.text(text,2000),'kunskap':'agarens_anteckning','tid':time.time()})
+        if nya:d.setdefault('anteckningar',[]).extend(nya);db._spara(c,d)
+    return len(nya)
 
 
 def handling(repo,eid,namn,data):

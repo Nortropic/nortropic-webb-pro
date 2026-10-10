@@ -1,0 +1,334 @@
+// Portalen (kunskap/desktop.md, Portalen): ramen med mörk navigering, sök och kundens arbetsområden runt alla vyer, och
+// portalens egna vyer: Hem (Ny kund, Kunder, Testkunder, fortsättning och uppmärksamhet), kundlistorna, kundens sida och
+// den minsta vägen till ett nytt ärende. Samma frontend i Nortropic.app och i webbläsaren. Datan räknas fram av motorn ur
+// befintliga källor (GET /api/desktop/oversikt: arbetsytans projekt, Kundstarts ärenden, flödets kundlägen, körregistret).
+// Inget här startar en modell, ett bygge eller en leverantörsresurs; arbetsområdena leder till de befintliga vyerna.
+(() => {
+  'use strict';
+  const e_ = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const EGNA = ['start', 'kunder', 'testkunder', 'ny-kund', 'ny-testkund', 'kund'];
+  const P = { data: null, lastes: 0, desktop: null, filter: 'alla', sok: '', gen: 0 };
+  const IKON = {
+    hem: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    kunder: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.8.1 4.9 1.8 5.5 4.9"/>',
+    ny: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+    test: '<path d="M9 3h6M10 3v6l-5.5 9.5A1.6 1.6 0 0 0 5.9 21h12.2a1.6 1.6 0 0 0 1.4-2.5L14 9V3"/><path d="M7.5 15h9"/>',
+    arbetsyta: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M9 4v14M3 20h18"/>',
+    system: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    las: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+    sok: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  };
+  const ikon = (n) => `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IKON[n]}</svg>`;
+
+  async function hamta(url) {
+    const r = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.fel || ('HTTP ' + r.status));
+    return j;
+  }
+  async function skicka(url, body) {
+    let k = ''; try { k = localStorage.getItem('nwp-dashboardnyckel') || ''; } catch { /* i appen räcker sessionen */ }
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Nyckel': k }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const f = new Error(j.fel || ('HTTP ' + r.status)); f.status = r.status; f.svar = j; throw f; }
+    return j;
+  }
+  async function desktopLage() {
+    if (P.desktop) return P.desktop;
+    try { P.desktop = await hamta('/api/desktop/lage'); } catch { P.desktop = { session: false }; }
+    if (P.desktop.session) document.documentElement.classList.add('i-appen');
+    return P.desktop;
+  }
+  async function data(farsk) {
+    if (!farsk && P.data && Date.now() - P.lastes < 8000) return P.data;
+    const gen = ++P.gen;
+    const d = await hamta('/api/desktop/oversikt');
+    if (gen === P.gen) { P.data = d; P.lastes = Date.now(); }
+    return d;
+  }
+  const tid = (iso) => {
+    if (!iso) return 'okänd tid';
+    const t = typeof iso === 'number' ? new Date(iso * 1000) : new Date(iso);
+    if (isNaN(t)) return String(iso);
+    const s = (Date.now() - t.getTime()) / 1000;
+    if (s < 90) return 'nyss'; if (s < 3600) return Math.round(s / 60) + ' min sedan'; if (s < 86400) return Math.round(s / 3600) + ' tim sedan';
+    return t.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+  };
+  const initialer = (n) => String(n || '?').replace(/\(.*?\)/g, '').trim().split(/\s+/).slice(0, 2).map((x) => x[0] || '').join('').toUpperCase() || '?';
+
+  // --- kundens arbetsområden: begripliga namn mappade till befintliga steg och vyer (ingen ny statusmaskin) ---
+  function omraden(k) {
+    const s = encodeURIComponent(k.slug), a = (k.arenden || [])[0];
+    const ks = a ? '#/kundstart/' + encodeURIComponent(a.id) : null, p = k.projekt ? '#/arbetsyta/' + s : null;
+    return [
+      ['kundstart', 'Kundstart', ks, 'samtalet och kundens svar', null],
+      ['underlag', 'Underlag', ks, 'källbundna uppgifter och material', 'underlag'],
+      ['funktioner', 'Funktioner', ks, 'K01–K18: behov, val och plan', 'funktioner'],
+      ['forslag', 'Förslag', p && p + '/forslag', 'skisserna och dina val', null],
+      ['forfining', 'Förfining', p, 'markera, jämför och ge uppdrag', null],
+      ['bygge', 'Bygge', p && p + '/flode', 'helbygget och sessionerna', null],
+      ['granskning', 'Granskning', p && p + '/kod', 'förhandsvisning, kod och kontroller', null],
+      ['leverans', 'Leverans', ks || p ? '#/leverans' : null, 'Cloudflare-vägen, versionsbunden', null],
+      ['forvaltning', 'Förvaltning', ks || p ? '#/leverans' : null, 'drift, ändringar och tillval', null],
+    ];
+  }
+  function aktivtOmrade(h) {
+    if (h.startsWith('kundstart/')) { try { return sessionStorage.getItem('nwp-portal:omrade') || 'kundstart'; } catch { return 'kundstart'; } }
+    if (/^arbetsyta\/[^/]+\/forslag/.test(h)) return 'forslag';
+    if (/^arbetsyta\/[^/]+\/flode/.test(h)) return 'bygge';
+    if (/^arbetsyta\/[^/]+\/kod/.test(h)) return 'granskning';
+    if (/^arbetsyta\/[^/]+/.test(h)) return 'forfining';
+    if (h === 'leverans') return 'leverans';
+    return null;
+  }
+  function kundFor(h, d) {
+    if (!d) return null;
+    let m = h.match(/^(?:arbetsyta|kund|bygge)\/([^/]+)/);
+    if (m) return d.kunder.find((k) => k.slug === decodeURIComponent(m[1])) || null;
+    m = h.match(/^kundstart\/([a-f0-9]{32})/);
+    if (m) return d.kunder.find((k) => (k.arenden || []).some((a) => a.id === m[1])) || null;
+    if (h === 'leverans') { let s = ''; try { s = localStorage.getItem('nwp-portal:kund') || ''; } catch { /* */ } return d.kunder.find((k) => k.slug === s) || null; }
+    return null;
+  }
+
+  // --- ramen ---
+  function navlank(href, text, ik, aktiv, id) { return `<a href="${href}"${aktiv === id ? ' aria-current="page"' : ''}>${ikon(ik)}<span>${text}</span></a>`; }
+  function ritaRam(h) {
+    const aktiv = h === '' || h === 'start' ? 'start' : h.startsWith('ny-') ? 'ny-kund' : h.startsWith('testkunder') ? 'testkunder'
+      : h.startsWith('kunder') || h.startsWith('kund/') || h.startsWith('kundstart') ? 'kunder' : h.startsWith('arbetsyta') ? 'arbetsyta'
+      : ['underhall', 'kirurgen', 'backlog', 'kalibrering', 'lardomar', 'designprov'].includes(h.split('/')[0]) ? 'system' : null;
+    let nav = document.getElementById('pt-nav');
+    if (!nav) {
+      nav = document.createElement('nav'); nav.id = 'pt-nav'; nav.className = 'pt-nav'; nav.setAttribute('aria-label', 'Nortropic');
+      const topp = document.createElement('div'); topp.id = 'pt-topp'; topp.className = 'pt-topp';
+      const steg = document.createElement('div'); steg.id = 'pt-steg';
+      const rot = document.getElementById('rot');
+      document.body.insertBefore(nav, rot); document.body.insertBefore(topp, rot); document.body.insertBefore(steg, rot);
+      topp.innerHTML = `<form class="pt-sok" role="search" id="pt-sokform"><label for="pt-sokfalt" class="pt-dold-text">Sök kunder</label>${ikon('sok')}
+          <input id="pt-sokfalt" type="search" placeholder="Sök kunder" autocomplete="off" list="pt-soklista"><datalist id="pt-soklista"></datalist></form>
+        <div class="pt-toppstatus" id="pt-toppstatus"></div>`;
+      document.getElementById('pt-sokform').addEventListener('submit', (e) => {
+        e.preventDefault(); const q = document.getElementById('pt-sokfalt').value.trim(); P.sok = q;
+        const k = (P.data?.kunder || []).find((x) => (x.namn || x.slug) === q || x.slug === q);
+        location.hash = k ? '#/kund/' + encodeURIComponent(k.slug) : (k?.test ? '#/testkunder' : '#/kunder');
+      });
+    }
+    nav.innerHTML = `<a class="pt-marke" href="#/start"><span>Nortropic</span></a>
+      <div class="pt-grupp">${navlank('#/start', 'Hem', 'hem', aktiv, 'start')}${navlank('#/kunder', 'Kunder', 'kunder', aktiv, 'kunder')}${navlank('#/ny-kund', 'Ny kund', 'ny', aktiv, 'ny-kund')}${navlank('#/testkunder', 'Testkunder', 'test', aktiv, 'testkunder')}</div>
+      <div class="pt-grupp">${navlank('#/arbetsyta', 'Arbetsytan', 'arbetsyta', aktiv, 'arbetsyta')}${navlank('#/underhall', 'Systemförbättring', 'system', aktiv, 'system')}</div>
+      ${P.desktop?.session ? `<div class="pt-grupp pt-sist"><button type="button" class="pt-las" id="pt-las">${ikon('las')}<span>Lås Nortropic</span></button></div>` : ''}`;
+    document.getElementById('pt-las')?.addEventListener('click', lasAppen);
+    document.getElementById('pt-toppstatus').innerHTML = P.desktop?.session ? '<span class="pt-chip ok">Upplåst i Nortropic.app</span>' : '<span class="pt-chip">Webbläsaren</span>';
+    ritaSteg(h);
+  }
+  function ritaSteg(h) {
+    const el = document.getElementById('pt-steg'); if (!el) return;
+    const k = kundFor(h, P.data);
+    if (!k) { el.innerHTML = ''; el.className = ''; return; }
+    try { localStorage.setItem('nwp-portal:kund', k.slug); } catch { /* bekvämlighet */ }
+    const akt = aktivtOmrade(h);
+    el.className = 'pt-steg';
+    el.innerHTML = `<div class="pt-steg-kund"><a href="#/kund/${encodeURIComponent(k.slug)}">${e_(k.namn || k.slug)}</a>${k.test ? ' <span class="pt-test">Testkund</span>' : ''}</div>
+      <ol class="pt-stegrad" aria-label="Kundens arbetsområden">${omraden(k).map(([id, namn, href, om, del], i) => `<li${akt === id ? ' class="aktiv"' : ''}>${href
+        ? `<a href="${href}" data-omrade="${id}" data-del="${del || ''}" title="${e_(om)}"${akt === id ? ' aria-current="step"' : ''}><i>${i + 1}</i><span>${namn}</span></a>`
+        : `<span class="pt-ej" title="${e_(om)}: inte påbörjat för kunden"><i>${i + 1}</i><span>${namn}</span></span>`}</li>`).join('')}</ol>`;
+    el.querySelectorAll('[data-omrade]').forEach((a) => a.addEventListener('click', () => { try { sessionStorage.setItem('nwp-portal:omrade', a.dataset.omrade); sessionStorage.setItem('nwp-portal:del', a.dataset.del); } catch { /* */ } }));
+  }
+  async function lasAppen() {
+    try { await skicka('/api/desktop/utloggning', {}); } catch { /* sessionen kan redan vara borta */ }
+    location.href = '/desktop/last';  // Nortropic.app fångar adressen och visar sitt lås; webbläsaren får en utloggad sida
+  }
+
+  // Varje route går hit först: ramen ritas i appen alltid och i webbläsaren bara för portalens egna vyer, så att
+  // arbetsytan i webbläsaren ser ut som förut.
+  window.portalSkal = async function portalSkal(h) {
+    const d = await desktopLage();
+    const egen = EGNA.includes(String(h).split('/')[0]) || (h === '' && d.session);
+    const visa = d.session || egen;
+    document.documentElement.classList.toggle('pt-ram', visa);
+    if (!visa) { ['pt-nav', 'pt-topp', 'pt-steg'].forEach((id) => document.getElementById(id)?.remove()); return false; }
+    if (!P.data) { try { await data(); } catch { /* listan saknas; ramen ritas ändå */ } }
+    ritaRam(h);
+    const lista = document.getElementById('pt-soklista');
+    if (lista && P.data) lista.innerHTML = P.data.kunder.map((k) => `<option value="${e_(k.namn || k.slug)}"></option>`).join('');
+    return egen;
+  };
+  // Efter att en befintlig vy ritats: skrolla till den del av Kundstart som arbetsområdet pekade på.
+  window.portalEfter = function portalEfter(h) {
+    if (!h.startsWith('kundstart/')) return;
+    let del = ''; try { del = sessionStorage.getItem('nwp-portal:del') || ''; sessionStorage.removeItem('nwp-portal:del'); } catch { /* */ }
+    if (!del) return;
+    const rubrik = [...document.querySelectorAll('#vy h2, #vy h3, #vy summary')].find((x) => x.textContent.toLowerCase().includes(del === 'funktioner' ? 'funktioner' : 'underlag'));
+    rubrik?.scrollIntoView({ block: 'start' });
+  };
+
+  function kundkort(k) {
+    const et = [];
+    if (k.test) et.push('<span class="pt-test">Testkund</span>');
+    if ((k.arenden || []).length) et.push('<span class="pt-etikett">Kundstart</span>');
+    if (k.projekt) et.push('<span class="pt-etikett">Skapandeflödet</span>');
+    if (k.blind) et.push('<span class="pt-etikett">blind jämförelse</span>');
+    return `<li><a class="pt-kund" href="${e_(k.vy)}" data-kund="${e_(k.slug)}">
+      <span class="pt-avatar" aria-hidden="true">${e_(initialer(k.namn || k.slug))}</span>
+      <span class="pt-kund-text"><span class="pt-kund-namn">${e_(k.namn || k.slug)}</span><span class="pt-kund-nasta">${e_(k.nasta || 'Ingen handling väntar')}</span>
+        <span class="pt-kund-meta">${et.join(' ')}</span></span>
+      <span class="pt-kund-tid">${e_(tid(k.senast))}</span></a></li>`;
+  }
+
+  function senast() { try { return localStorage.getItem('nwp-arbetsyta:senaste') || localStorage.getItem('nwp-portal:kund') || ''; } catch { return ''; } }
+  function yta(html) { const v = document.getElementById('rot'); v.innerHTML = `<main class="pt-yta" id="vy" tabindex="-1">${html}</main>`; }
+  function fokus() { const h = document.querySelector('#vy h1'); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
+
+  async function startvy() {
+    yta('<p class="pt-under">Läser kunderna …</p>');
+    let d; try { d = await data(true); } catch (e) { return fel(e); }
+    const riktiga = d.kunder.filter((k) => !k.test), test = d.kunder.filter((k) => k.test);
+    const fort = [d.kunder.find((k) => k.slug === senast()), ...d.kunder].filter(Boolean).filter((k, i, a) => a.indexOf(k) === i).slice(0, 3);
+    const upp = d.uppmarksamhet.filter((u) => !u.test), testUpp = d.uppmarksamhet.filter((u) => u.test);
+    yta(`<h1>Välkommen</h1><p class="pt-ingress">Vad vill du göra idag?</p>
+      <div class="pt-primara">
+        <a class="pt-primar" href="#/ny-kund"><span class="pt-p-ikon">${ikon('ny')}</span><span class="pt-p-titel">Ny kund</span><span class="pt-p-text">Börja med namnet, webbplatsen om den finns och vad de söker hjälp med.</span><span class="pt-knapp mjuk">Starta ny kund</span></a>
+        <a class="pt-primar" href="#/kunder"><span class="pt-p-ikon gron">${ikon('kunder')}</span><span class="pt-p-titel">Kunder <b>${riktiga.length}</b></span><span class="pt-p-text">Påbörjade intervjuer, kunder i skapandeflödet och levererade sajter.</span><span class="pt-knapp mjuk">Visa kunder</span></a>
+        <a class="pt-primar" href="#/testkunder"><span class="pt-p-ikon lila">${ikon('test')}</span><span class="pt-p-titel">Testkunder <b>${test.length}</b></span><span class="pt-p-text">Fiktiva kunder för att prova flödet, skilda från riktiga kunder.</span><span class="pt-knapp mjuk">Öppna testkunder</span></a>
+      </div>
+      <div class="pt-tva">
+        <section class="pt-panel" aria-labelledby="pt-fort"><h2 id="pt-fort">Fortsätt där du slutade</h2>
+          ${fort.length ? `<ul class="pt-kunder">${fort.map(kundkort).join('')}</ul>` : `<p class="pt-tomt">Inga kunder än. Börja med <a href="#/ny-kund">Ny kund</a> eller prova flödet med en <a href="#/ny-testkund">testkund</a>.</p>`}</section>
+        <section class="pt-panel" aria-labelledby="pt-upp"><h2 id="pt-upp">Behöver din uppmärksamhet</h2>
+          ${upp.length ? `<ul class="pt-kunder">${upp.map((u) => { const k = d.kunder.find((x) => x.slug === u.slug); return k ? kundkort({ ...k, nasta: 'Väntar på dig: ' + u.vad.join(', ') }) : ''; }).join('')}</ul>`
+          : '<p class="pt-tomt">Inget hos riktiga kunder väntar på ditt beslut just nu.</p>'}
+          ${testUpp.length ? `<p class="pt-under">Dessutom ${testUpp.length} testkund${testUpp.length > 1 ? 'er' : ''} (<a href="#/testkunder">Testkunder</a>).</p>` : ''}</section>
+      </div>
+      ${d.pagaende.length ? `<section class="pt-panel" aria-labelledby="pt-pag"><h2 id="pt-pag">Pågår i motorn</h2><ul class="pt-lista">${d.pagaende.map((p) => `<li><a href="#/arbetsyta/${encodeURIComponent(p.slug || '')}">${e_(p.slug || 'okänd kund')}</a> <span>${e_(p.vad)}, pid ${e_(p.pid)}</span></li>`).join('')}</ul></section>` : ''}
+      ${d.kundstart_fel ? `<p class="pt-fel" role="alert">Kundstarts ärenden kunde inte läsas: ${e_(d.kundstart_fel)}</p>` : ''}
+      <p class="pt-under pt-fot">Läst ${e_(tid(d.tid))} ur motorn. Listorna räknas fram ur arbetsytan, Kundstart och flödet; ingen modell körs för att visa dem.</p>`);
+    fokus();
+  }
+
+  const FILTER = [['alla', 'Alla'], ['vantar', 'Väntar på dig'], ['intervju', 'Påbörjade intervjuer'], ['flode', 'I skapandeflödet'], ['pagar', 'Pågår']];
+  function matchar(k) {
+    const f = P.filter;
+    if (f === 'vantar' && !(k.vantar || []).length) return false;
+    if (f === 'intervju' && !((k.arenden || []).length && !k.projekt)) return false;
+    if (f === 'flode' && !k.projekt) return false;
+    if (f === 'pagar' && !(k.pagar || []).length) return false;
+    const s = P.sok.trim().toLocaleLowerCase('sv');
+    return !s || (k.namn || '').toLocaleLowerCase('sv').includes(s) || k.slug.includes(s);
+  }
+  async function listvy(test) {
+    yta('<p class="pt-under">Läser kunderna …</p>');
+    let d; try { d = await data(); } catch (e) { return fel(e); }
+    const alla = d.kunder.filter((k) => Boolean(k.test) === test);
+    yta(`<div class="pt-rubrikrad"><h1>${test ? 'Testkunder' : 'Kunder'}</h1><a class="pt-knapp primar" href="${test ? '#/ny-testkund' : '#/ny-kund'}">${test ? 'Skapa testkund' : 'Ny kund'}</a></div>
+      ${test ? '<p class="pt-ingress">Fiktiva kunder, märkta i motorn hela vägen: ingen GitHub-remote, ingen skarp release, aktiveringen bara som torrkörning. De räknas aldrig bland riktiga kunder.</p>' : '<p class="pt-ingress">Alla riktiga kunder, också påbörjade intervjuer. Ett öppnande tar dig dit arbetet står; det startar inget.</p>'}
+      <div class="pt-verktyg"><label class="pt-filtersok"><span class="pt-dold-text">Filtrera på namn</span><input type="search" id="pt-filtersok" placeholder="Filtrera på namn" value="${e_(P.sok)}" autocomplete="off"></label>
+        <div class="pt-filter" role="group" aria-label="Urval">${FILTER.map(([k, n]) => `<button type="button" data-filter="${k}" aria-pressed="${P.filter === k}">${n}</button>`).join('')}</div></div>
+      <p class="pt-under" id="pt-antal" role="status" aria-live="polite"></p>
+      <ul class="pt-kunder pt-lista-stor" id="pt-lista"></ul>`);
+    const rita = () => {
+      const urval = alla.filter(matchar);
+      document.getElementById('pt-lista').innerHTML = urval.map(kundkort).join('') || `<li class="pt-tomt">${alla.length ? 'Ingen kund matchar urvalet.' : test ? 'Inga testkunder än. Skapa en för att prova flödet.' : 'Inga kunder än. Börja med Ny kund.'}</li>`;
+      document.getElementById('pt-antal').textContent = `${urval.length} av ${alla.length} ${test ? 'testkunder' : 'kunder'}`;
+    };
+    document.getElementById('pt-filtersok').addEventListener('input', (e) => { P.sok = e.target.value; rita(); });
+    document.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => {
+      P.filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); rita();
+    }));
+    rita(); fokus();
+  }
+
+  // Kundens sida: företagets identitet, uppdragen (Kundstarts ärenden och skapandeflödet) och arbetsområdena. Samma kund
+  // får senare tillägg här (funktioner i det befintliga ärendet), aldrig en ny dubblettkund.
+  async function kundvy(slug) {
+    yta('<p class="pt-under">Läser kunden …</p>');
+    let d; try { d = await data(true); } catch (e) { return fel(e); }
+    const k = d.kunder.find((x) => x.slug === slug);
+    if (!k) { yta(`<h1>Kunden finns inte</h1><p class="pt-tomt">Ingen kund med adressen ${e_(slug)} finns i motorn, eller så är den gallrad. <a href="#/kunder">Till kunderna</a></p>`); return fokus(); }
+    ritaSteg('kund/' + slug);
+    yta(`<div class="pt-rubrikrad"><h1>${e_(k.namn || k.slug)}</h1>${k.test ? '<span class="pt-test">Testkund</span>' : ''}</div>
+      <p class="pt-ingress">${e_(k.nasta || 'Ingen handling väntar just nu.')}</p>
+      <div class="pt-tva">
+        <section class="pt-panel"><h2>Uppdrag</h2><ul class="pt-lista">
+          ${(k.arenden || []).map((a) => `<li><a href="#/kundstart/${encodeURIComponent(a.id)}">Kundstart</a> <span>${a.aktuell_bestallning ? 'omfattningen accepterad' : 'intervju och underlag'} · uppdaterad ${e_(tid(a.uppdaterad))}${a.fragor ? ' · ' + a.fragor + ' frågor att följa upp' : ''}</span></li>`).join('')}
+          ${k.projekt ? `<li><a href="#/arbetsyta/${encodeURIComponent(k.slug)}">Skapandeflödet</a> <span>senast aktivt ${e_(tid(k.projekt.senast_andrad))}${(k.pagar || []).length ? ' · pågår: ' + e_(k.pagar.join(', ')) : ''}</span></li>` : ''}
+          ${!(k.arenden || []).length && !k.projekt ? '<li class="pt-tomt">Inga uppdrag.</li>' : ''}</ul></section>
+        <section class="pt-panel"><h2>Väntar på dig</h2>${(k.vantar || []).length ? `<ul class="pt-lista">${k.vantar.map((v) => `<li>${e_(v)}</li>`).join('')}</ul>` : '<p class="pt-tomt">Inget beslut väntar.</p>'}
+          <h2>Senare tillägg</h2><p class="pt-under">En ny funktion eller ändring för samma kund görs i kundens befintliga ärende (Funktioner) och får en egen konsekvensplan; ingen ny kund skapas.</p>
+          ${(k.arenden || [])[0] ? `<a class="pt-knapp" href="#/kundstart/${encodeURIComponent(k.arenden[0].id)}" data-omrade="funktioner" data-del="funktioner">Öppna Funktioner</a>` : ''}</section>
+      </div>`);
+    document.querySelectorAll('#vy [data-omrade]').forEach((a) => a.addEventListener('click', () => { try { sessionStorage.setItem('nwp-portal:omrade', 'funktioner'); sessionStorage.setItem('nwp-portal:del', 'funktioner'); } catch { /* */ } }));
+    fokus();
+  }
+
+  // Ny kund: minsta möjliga ärende. Samma operations-id följer ett dubbelklick, ett omförsök och en andra flik i samma
+  // session, så att två klick aldrig blir två kunder; utkastet står kvar tills ärendet finns.
+  function nykundvy(test) {
+    const id = test ? 'ny-testkund' : 'ny-kund', lagring = 'nwp-portal:' + id;
+    let u = {}; try { u = JSON.parse(localStorage.getItem(lagring) || '{}'); } catch { u = {}; }
+    yta(`<h1>${test ? 'Skapa testkund' : 'Ny kund'}</h1>
+      <p class="pt-ingress">${test ? 'En fiktiv kund för att prova flödet. Den märks som test i motorn, inte av något du skriver.' : 'Låt oss komma igång. Fyll i det grundläggande så tar intervjun över.'}</p>
+      <div class="pt-tva pt-tva-form">
+        <form id="pt-form" class="pt-panel pt-form" novalidate>
+          <label for="pt-foretag">Företagets namn eller arbetsnamn</label>
+          <input id="pt-foretag" name="foretag" required maxlength="120" autocomplete="off" value="${e_(u.foretag || '')}" aria-describedby="pt-foretag-fel" placeholder="${test ? 'Exempel: Provbageriet (test)' : ''}">
+          <p id="pt-foretag-fel" class="pt-fel" hidden></p>
+          <label for="pt-webb">Befintlig webbplats <span class="pt-valfri">(valfritt)</span></label>
+          <input id="pt-webb" name="webbplats" type="url" inputmode="url" maxlength="300" placeholder="https://" value="${e_(u.webbplats || '')}" aria-describedby="pt-webb-fel">
+          <p id="pt-webb-fel" class="pt-fel" hidden></p>
+          <label for="pt-syfte">Vad vill kunden ha hjälp med?</label>
+          <textarea id="pt-syfte" name="syfte" rows="4" maxlength="2000" placeholder="Med kundens egna ord om du har dem">${e_(u.syfte || '')}</textarea>
+          <label for="pt-kontakt">Kontaktperson <span class="pt-valfri">(valfritt)</span></label>
+          <input id="pt-kontakt" name="kontakt" maxlength="120" autocomplete="off" value="${e_(u.kontakt || '')}">
+          <div class="pt-knapprad"><button type="submit" class="pt-knapp primar">Starta kundintervjun</button><a class="pt-knapp" href="${test ? '#/testkunder' : '#/start'}">Avbryt</a></div>
+          <p id="pt-svar" role="status" aria-live="polite" class="pt-under"></p>
+        </form>
+        <aside class="pt-panel pt-bra"><h2>Bra att veta</h2><ul>
+          <li>Du behöver inte ha alla svar nu; det som saknas står som okänt.</li>
+          <li>Det du skriver här sparas som din anteckning, skild från kundens egna svar.</li>
+          <li>Att skapa kunden startar ingen modell, inget bygge och inga konton, och accepterar inget erbjudande.</li>
+          <li>${test ? 'Testkunden får aldrig en GitHub-remote, en skarp release eller en aktivering.' : 'Två klick eller ett omförsök blir samma kund.'}</li></ul></aside>
+      </div>`);
+    const f = document.getElementById('pt-form');
+    const spara = () => { const v = Object.fromEntries(new FormData(f)); v.operation = u.operation; try { localStorage.setItem(lagring, JSON.stringify(v)); } catch { /* utan lagring */ } };
+    f.addEventListener('input', spara);
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const foretag = f.foretag.value.trim(), webb = f.webbplats.value.trim();
+      let ok = true;
+      const visaFel = (falt, text) => { const p = document.getElementById(falt + '-fel'); p.textContent = text; p.hidden = !text; document.getElementById(falt).setAttribute('aria-invalid', text ? 'true' : 'false'); if (text) ok = false; };
+      visaFel('pt-foretag', foretag ? '' : 'Skriv företagets namn eller ett arbetsnamn.');
+      visaFel('pt-webb', !webb || /^https?:\/\/[^\s/$.?#][^\s]*$/i.test(webb) ? '' : 'Skriv hela adressen, till exempel https://exempel.se, eller lämna fältet tomt.');
+      if (!ok) { f.querySelector('[aria-invalid="true"]')?.focus(); return; }
+      if (!u.operation) { u.operation = crypto.randomUUID(); spara(); }
+      const knapp = f.querySelector('button[type=submit]'); knapp.disabled = true;
+      const svar = document.getElementById('pt-svar'); svar.textContent = 'Skapar ärendet …';
+      try {
+        const r = await skicka('/api/desktop/ny-kund', { foretag, webbplats: webb, syfte: f.syfte.value.trim(), kontakt: f.kontakt.value.trim(), test, operation: u.operation });
+        try { localStorage.removeItem(lagring); localStorage.setItem('nwp-portal:kund', r.slug); if (r.nyckel) sessionStorage.setItem('nwp-portal:engang:' + r.arende, JSON.stringify({ arende: r.arende, nyckel: r.nyckel })); } catch { /* */ }
+        P.data = null;
+        location.hash = '#/kundstart/' + encodeURIComponent(r.arende);
+      } catch (e) {
+        if (e.status === 409 && e.svar?.arende) svar.innerHTML = `${e_(e.message)} <a href="#/kundstart/${encodeURIComponent(e.svar.arende)}">Öppna den befintliga kunden</a>`;
+        else svar.textContent = e.message;
+        knapp.disabled = false;
+      }
+    });
+    f.foretag.focus();
+  }
+
+  function fel(e) {
+    yta(`<h1>Kunderna kunde inte läsas</h1><p class="pt-fel" role="alert">${e_(e.message)}</p><p class="pt-under">Motorn svarade inte som väntat. Inget har ändrats. <a href="#/start">Försök igen</a></p>`);
+    fokus();
+  }
+
+  window.portalvy = async function portalvy(h) {
+    const [v, rest] = String(h || '').split('/');
+    if (v === 'kunder') return listvy(false);
+    if (v === 'testkunder') return listvy(true);
+    if (v === 'ny-kund') return nykundvy(false);
+    if (v === 'ny-testkund') return nykundvy(true);
+    if (v === 'kund' && rest) return kundvy(decodeURIComponent(rest));
+    return startvy();
+  };
+  window.portalEgna = EGNA;
+})();

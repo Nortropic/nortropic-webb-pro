@@ -209,6 +209,7 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 </style>
 <link rel="stylesheet" href="/kundstart-agare.css">
 <link rel="stylesheet" href="/arbetsyta.css">
+<link rel="stylesheet" href="/portal.css">
 </head>
 <body>
 <div id="rot"><p class="under" style="padding:28px 20px">Laddar …</p></div>
@@ -217,6 +218,7 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 <script src="/kundstart-agare.js"></script>
 <script src="/kirurg-forbattring.js"></script>
 <script src="/arbetsyta.js"></script>
+<script src="/portal.js"></script>
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1558,6 +1560,9 @@ async function route() {
   clearTimeout(timer);
   const h = location.hash.replace(/^#\/?/, '');
   try {
+    // portalens ram (dashboard/portal.js): i Nortropic.app runt varje vy och med Hem som startvy; i webbläsaren bara på
+    // portalens egna vyer, så att arbetsytan där ser ut som förut
+    if (typeof portalSkal === 'function' && await portalSkal(h)) return await portalvy(h);
     // arbetsytan är startvyn (ägarens uppdrag 2026-10-09), och varje annan del ritas i dess ram med samma adress och
     // samma funktioner som förut (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan)
     if (h === '' || h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
@@ -1572,7 +1577,7 @@ async function route() {
     else $('#rot').innerHTML = '<div id="vy"></div>';
     if (h.startsWith('bygge/')) return await byggevy(decodeURIComponent(h.slice(6)));
     if (h === 'backlog') return await backlogvy();
-    if (h === 'kundstart' || h.startsWith('kundstart/')) return await kundstartvy(decodeURIComponent(h.slice(10)));
+    if (h === 'kundstart' || h.startsWith('kundstart/')) { await kundstartvy(decodeURIComponent(h.slice(10))); if (typeof portalEfter === 'function') portalEfter(h); return; }
     if (h === 'kirurgen') return await kirurgvy();
     if (h === 'lardomar') return await lardomvy();
     if (h === 'ab') return await abvy();

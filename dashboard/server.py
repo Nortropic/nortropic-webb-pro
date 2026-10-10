@@ -43,6 +43,7 @@ import prospektvy as pv  # noqa: E402  (prospekten: kampanjer, kort, brev; heter
 import kallnyckel  # noqa: E402  (spanarens nyckel: är länken redan bedömd?)
 import bildstatus  # noqa: E402  (leveransens visuella status ur beställningen)
 import qr  # noqa: E402  (QR-koden till visningen i telefonen, ritad lokalt)
+import desktop  # noqa: E402  (Nortropic.app: identiteten, engångskoden och sessionen, kunskap/desktop.md)
 
 STEG = [
     ('Underlag', lambda s: (UNDERLAG / s / 'RESEARCH.md').is_file()),
@@ -3074,6 +3075,79 @@ class H(BaseHTTPRequestHandler):
         except ValueError as e:
             return self.skicka(409 if type(e).__name__ in ('Dold', 'Inaktuell', 'Nekad') else 400, {'fel': str(e), 'slag': type(e).__name__})
 
+    def port(self):
+        return self.server.server_address[1]
+
+    def desktop_get(self, vag):
+        """Nortropic.app (dashboard/desktop.py, kunskap/desktop.md): identiteten, inloggningen med engångskoden, översikten,
+        uppmärksamheten och det pågående arbetet. Läsvägarna är öppna som arbetsytans; inloggningen sätter bara en kaka."""
+        q = dict(parse_qsl(urlsplit(self.path).query))
+        try:
+            if vag == '/api/desktop/identitet':
+                if self.headers.get('Origin') or (self.headers.get('Sec-Fetch-Site') or '').lower() not in ('', 'none'):
+                    return self.skicka(403, {'fel': 'identiteten prövas av appens native-lager, inte från en webbsida'})
+                return self.skicka(200, desktop.identitet(q.get('utmaning'), NYCKEL['varde'], Path(__file__).parent))
+            if vag == '/api/desktop/oversikt':
+                return self.skicka(200, desktop.oversikt(sys.modules[__name__]))
+            if vag == '/api/desktop/uppmarksamhet':
+                return self.skicka(200, desktop.uppmarksamhet(sys.modules[__name__]))
+            if vag == '/api/desktop/pagaende':
+                return self.skicka(200, {'pagaende': desktop.pagaende(ROOT)})
+            if vag == '/api/desktop/lage':
+                sid = desktop.kaka_sid(self.headers.get('Cookie'), self.port())
+                return self.skicka(200, {'kontrakt': desktop.KONTRAKT, 'session': desktop.giltig(sid, rora=False)})
+            if vag == '/desktop/inloggning':
+                sid = desktop.los_in(q.get('kod'))
+                if not sid:
+                    return self.skicka(403, '<!doctype html><meta charset="utf-8"><title>Nortropic</title><p>Inloggningskoden gäller inte längre. '
+                                       'Lås upp igen i Nortropic.app.</p>'.encode(), 'text/html; charset=utf-8')
+                till = q.get('till') or ''
+                till = till if re.fullmatch(r'[a-z0-9/-]{0,120}', till) else ''
+                self.send_response(303)
+                self.send_header('Location', '/#/' + (till or 'start'))
+                self.send_header('Set-Cookie', desktop.kaka(sid, self.port()))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('Referrer-Policy', 'no-referrer')
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return None
+            if vag == '/desktop/last':
+                return self.skicka(200, '<!doctype html><meta charset="utf-8"><title>Nortropic</title><p>Utloggad.</p>'.encode(), 'text/html; charset=utf-8',
+                                   {'Set-Cookie': desktop.kaka('', self.port(), ta_bort=True)})
+        except ValueError as e:
+            return self.skicka(400, {'fel': str(e)})
+        except Exception as e:  # noqa: BLE001 — ett läsfel blir ett svar, aldrig en bruten förbindelse
+            return self.skicka(500, {'fel': '%s: %s' % (type(e).__name__, str(e)[:300])})
+        return self.skicka(404, {'fel': 'finns inte'})
+
+    def desktop_post(self, vag, nyckel_ok):
+        """Engångskoden och låset kräver nyckeln (appens native-lager); utloggningen gäller den egna sessionen."""
+        try:
+            n = int(self.headers.get('Content-Length') or 0)
+            data = json.loads(self.rfile.read(min(n, 64 * 1024)) or b'{}')
+        except (ValueError, json.JSONDecodeError):
+            return self.skicka(400, {'fel': 'kroppen ska vara JSON'})
+        if vag == '/api/desktop/session' and nyckel_ok:
+            try:
+                return self.skicka(200, desktop.ny_kod((data or {}).get('instans')))
+            except ValueError as e:
+                return self.skicka(409, {'fel': str(e)})
+        if vag == '/api/desktop/las' and nyckel_ok:
+            desktop.aterkalla()
+            return self.skicka(200, {'last': True})
+        if vag == '/api/desktop/ny-kund':
+            import kundstart as ks
+            try:
+                return self.skicka(200, desktop.ny_kund(sys.modules[__name__], data))
+            except desktop.DubblettKund as e:
+                return self.skicka(409, {'fel': str(e), 'arende': e.arende})
+            except (ks.Vagrad, ValueError) as e:
+                return self.skicka(400, {'fel': str(e)})
+        if vag == '/api/desktop/utloggning':
+            desktop.aterkalla(desktop.kaka_sid(self.headers.get('Cookie'), self.port()))
+            return self.skicka(200, {'utloggad': True}, extra={'Set-Cookie': desktop.kaka('', self.port(), ta_bort=True)})
+        return self.skicka(404, {'fel': 'finns inte'})
+
     def strom(self, slug):
         """Läget som en ström (text/event-stream): ett nytt läge när signaturen över källorna ändrats, en puls med tiden var
         tionde sekund och ett fel som en egen händelse. Återanslutningen är webbläsarens (retry 3 s); varje ny anslutning får
@@ -3101,7 +3175,11 @@ class H(BaseHTTPRequestHandler):
             self.wfile.write(b'retry: 3000\n\n')
             self.wfile.flush()
             start, senaste_sig, senaste_hash, sekv, senast_full, senast_skrivet = time.time(), None, None, 0, 0, 0
+            sid = desktop.kaka_sid(self.headers.get('Cookie'), self.port())
+            med_session = desktop.giltig(sid, rora=False)  # öppnad i Nortropic.app: strömmen gäller så länge sessionen gör det
             while time.time() - start < STROMMAR['livslangd']:
+                if med_session and not desktop.giltig(sid, rora=False):
+                    break
                 t = time.time()
                 try:
                     sig = arbetsyta.signatur(dash, slug)
@@ -3139,11 +3217,13 @@ class H(BaseHTTPRequestHandler):
             return self.skicka(421, {'fel': 'fel värd: använd http://127.0.0.1:<port>'})
         if vag.startswith('/api/extern/'):
             return self.extern(vag, None)
+        if vag.startswith('/api/desktop/') or vag.startswith('/desktop/'):
+            return self.desktop_get(vag)
         try:
             if vag in ('/', '/index.html'):  # aldrig inramad av en annan sida, som en förhandsvisad sajt (arbetsytan, 2026-10-09)
                 return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8',
                                    {'X-Frame-Options': 'DENY', 'Content-Security-Policy': "frame-ancestors 'none'"})
-            if vag in ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js', '/arbetsyta.js', '/arbetsyta.css'):
+            if vag in ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js', '/arbetsyta.js', '/arbetsyta.css', '/portal.js', '/portal.css'):
                 typ = 'text/javascript; charset=utf-8' if vag.endswith('.js') else 'text/css; charset=utf-8'
                 return self.skicka(200, (Path(__file__).parent / vag[1:]).read_bytes(), typ)
             if vag == '/api/kundstart':
@@ -3298,8 +3378,14 @@ class H(BaseHTTPRequestHandler):
         vard = (self.headers.get('Host') or '').strip().lower()
         if ursprung.scheme != 'http' or ursprung.netloc.lower() != vard:
             return self.skicka(403, {'fel': 'fel ursprung'})
-        if NYCKEL['varde'] and not hmac.compare_digest(str(self.headers.get('X-Nyckel') or ''), NYCKEL['varde']):
-            return self.skicka(403, {'fel': 'saknad eller fel dashboardnyckel: skrivande anrop går bara från dashboarden öppnad via ./dashboard.sh'})
+        nyckel_ok = not NYCKEL['varde'] or hmac.compare_digest(str(self.headers.get('X-Nyckel') or ''), NYCKEL['varde'])
+        # Nortropic.app: sessionskakan i stället för nyckeln, bara med exakt samma ursprung (dashboard/desktop.py). En
+        # session kan aldrig skapa nya sessioner eller låsa: det gör appens native-lager med nyckeln.
+        session_ok = not nyckel_ok and vag not in ('/api/desktop/session', '/api/desktop/las') and desktop.session_skriv_ok(self.headers, self.port())
+        if not (nyckel_ok or session_ok):
+            return self.skicka(403, {'fel': 'saknad eller fel dashboardnyckel: skrivande anrop går bara från dashboarden öppnad via ./dashboard.sh eller från Nortropic.app'})
+        if vag.startswith('/api/desktop/'):
+            return self.desktop_post(vag, nyckel_ok)
         try:
             n = int(self.headers.get('Content-Length') or 0)
             data = json.loads(self.rfile.read(min(n, 56 * 1024 * 1024)) or b'{}')
@@ -3485,6 +3571,7 @@ def main():
     klockor = klocklage in ('pa', 'bevakning')
     LAN['pa'] = not a.utan_lan
     VARD['tillatna'] = {'127.0.0.1:%d' % a.port, 'localhost:%d' % a.port}
+    desktop.konfigurera(ROOT, a.port)
     NYCKEL['varde'] = os.environ.pop('NWP_DASHBOARD_NYCKEL', None) or secrets.token_urlsafe(24)
     # porten först: en andra start som inte får porten skriver aldrig över den körande dashboardens nyckel (A11)
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
