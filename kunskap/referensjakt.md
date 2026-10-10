@@ -81,7 +81,11 @@ och märks så; den skrivs inte om, och en ny designomgång krävs. Kontraktet p
 varje väg till en skaparsession (`kandidater.referensstopp`), så att en cache eller en annan startväg inte kringgår det.
 Vid nätfel: avgränsade omförsök (två försök i researchen och planen), ett annat galleri, eller ett fångat och prövat
 återbruk ur paketet; ett misslyckat Awwwards-besök är ingen genomförd undersökning, och saknat underlag lämnar steget
-ofullständigt.
+ofullständigt. Fångsten har en tidsgräns (i skissläget 1 800 s; en sajt med undersidor och tillstånd tar några minuter).
+`referens.py` varvar rollerna i fångstordningen och skriver PAKET.json efter varje färdig sajt, märkt `"pagar": true`
+tills allt är fångat: når fångsten gränsen bär paketet de sajter som hann fångas helt, kontraktet räknar dem, och
+omförsöket ärver dem och begär bara det som saknas (kandidatprovet 2026-10-10: åtta sajter nådde gränsen, och utan
+löpande PAKET.json såg kontraktet noll sajter och omförsöket kunde inte ärva).
 
 **Fullständighet mot uppgiften.** Varje sajt och bidrag deklarerar sin uppgift (innehåll, förtroende, navigation,
 kontakt, komposition, typografi, bildregi, rytm, mobil, interaktion eller rörelse), och fångsten bedöms mot den

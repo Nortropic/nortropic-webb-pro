@@ -673,6 +673,20 @@ def senaste_paket(slug, underlag=None):
     return max(nr)[1] if nr else None
 
 
+def senaste_lasbara_paket(slug, underlag=None):
+    """Den senaste paketversionen med en läsbar PAKET.json, eller None: en fångst som dödades före sin första färdiga
+    kandidat lämnar en katalog utan PAKET.json, och den går inte att ärva från (kandidatprovet 2026-10-10)."""
+    r = Path(underlag or UNDERLAG) / slug / 'referenser'
+    nr = sorted(((int(p.name[7:]), p) for p in r.glob('paket-v*') if re.match(r'^paket-v\d{2,}$', p.name) and p.is_dir()), reverse=True) if r.is_dir() else []
+    for _n, p in nr:
+        try:
+            if isinstance(json.loads((p / 'PAKET.json').read_text(encoding='utf-8')), dict):
+                return p
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 # Kompletteringen är skaparsessionens enda kanal ut: adresserna hämtas och frågorna går till tjänsterna. Formen och mängden
 # begränsas så att den inte kan bära mer än en referensjakt behöver (omgranskningen av skapandeflödet, fynd 8: en spärr
 # mot frågesträngar räckte inte, vägsegment bär samma data). Kanalen är smal, inte stängd: värdnamnet och några korta
@@ -1036,7 +1050,7 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False,
                     time.sleep(2)
         if isinstance(begaran.get('referens'), dict):
             upp = dict(begaran['referens'])
-            forra = senaste_paket(slug, underlag)
+            forra = senaste_lasbara_paket(slug, underlag)
             if forra and not upp.get('kompletterar'):
                 upp['kompletterar'] = forra.name  # den nya versionen ärver allt oförändrat, så att alla Bildval kan peka dit
             f = u / ('REFERENSUPPDRAG-%s.json' % tid)
@@ -1044,8 +1058,9 @@ def komplettera(slug, fil, rot, underlag=None, frist=3600, kor=None, bred=False,
             try:
                 r = kor([sys.executable, '-B', str(ROOT / 'kontroller' / 'referens.py'), slug, '--uppdrag', rel(f)], frist)
                 ut['referens'] = {'rc': r.returncode, 'paket': rel(senaste_paket(slug, underlag) or u), 'utdrag': (r.stdout + r.stderr)[-1500:]}
-            except subprocess.TimeoutExpired:
-                ut['referens'] = {'rc': None, 'utdrag': 'referenssteget nådde tidsgränsen %d s' % frist}
+            except subprocess.TimeoutExpired:  # PAKET.json bär det som hann fångas helt (referens.py skriver den per kandidat)
+                ut['referens'] = {'rc': None, 'paket': rel(senaste_paket(slug, underlag) or u), 'tidsgrans': frist,
+                                  'utdrag': 'referenssteget nådde tidsgränsen %d s; paketet bär bara de kandidater som hann fångas helt' % frist}
         if isinstance(begaran.get('tjanster'), dict):
             t = u / 'referenser' / 'tjanster'  # referenstjanster.samla flyttar den förra rapporten till tidigare/ (radera inget)
             f = u / ('TJANSTEUPPDRAG-%s.json' % tid)

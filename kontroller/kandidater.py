@@ -1006,6 +1006,9 @@ def forska(slug, n, skiss=False):
         if not kontraktsbrister:
             break
         fel = 'referenskontraktet uppfylls inte än (%s); komplettera det som saknas' % '; '.join(kontraktsbrister)
+        if isinstance(res.get('referens'), dict) and res['referens'].get('rc') is None and res['referens'].get('tidsgrans'):
+            fel += ('; fångsten nådde sin tidsgräns (%d s) och paketet bär bara de sajter som hann fångas helt: de ärvs, så begär '
+                    'bara sajterna som saknas, med färre sidor per sajt' % res['referens']['tidsgrans'])
     efter_paket = skapande.senaste_paket(slug, atelje.UNDERLAG)
     if not kravbrister:  # alltid prövat efter sista försöket, också när hämtningen föll: saknat underlag är aldrig klart
         kontraktsbrister = rk.researchbrister(slug, atelje.UNDERLAG, {'sok': logg, 'urvalsfragor': plan.get('urvalsfragor'), 'tackning': plan.get('tackning')},

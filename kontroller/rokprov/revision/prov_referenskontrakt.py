@@ -8,8 +8,11 @@ hela referenskedjan); inga modeller eller nätanrop: sessionerna är attrapper o
 - En äldre plan och en återupptagning kan inte kringgå kravet: skissa och skapa startar ingen session.
 - Komplett underlag når rätt skapare: UPPDRAG.md bär bidragen med bilderna, ur just den planen.
 - Researchrollen ensam får webben, bakom kundvakten; blindningen består.
+- En fångst som dödas vid sin tidsgräns lämnar de sajter som hann fångas helt, med båda rollerna, i ett paket som går att
+  läsa och ärva; kompletteringen ärver aldrig ett paket utan PAKET.json, och tidsgränsen redovisas (kandidatprovet
+  2026-10-10).
 
---bas kör fallen mot HEAD:s kandidater.py, atelje.py och kundvakt.py (föreprovet: kontraktet saknas där).
+--bas kör fallen mot HEAD:s kandidater.py, atelje.py, kundvakt.py, skapande.py och referens.py (föreprovet).
 """
 import contextlib
 import json
@@ -27,7 +30,7 @@ import referensfixtur  # noqa: E402
 
 if '--bas' in sys.argv:
     sys.argv.remove('--bas')
-    for namn in ('kundvakt', 'atelje', 'kandidater'):
+    for namn in ('kundvakt', 'skapande', 'referens', 'atelje', 'kandidater'):
         src = subprocess.run(['git', 'show', 'HEAD:kontroller/%s.py' % namn], cwd=ROOT, check=True, capture_output=True, text=True).stdout
         m = types.ModuleType(namn)
         m.__file__ = str(ROOT / 'kontroller' / ('%s.py' % namn))
@@ -37,6 +40,8 @@ import atelje  # noqa: E402
 import bildkedja  # noqa: E402
 import kandidater as kd  # noqa: E402
 import kundvakt  # noqa: E402
+import referens as rf  # noqa: E402
+import skapande  # noqa: E402
 try:
     import referenskontrakt as rk  # noqa: E402
 except ImportError:  # basen saknar modulen
@@ -366,6 +371,83 @@ class Webben(Grund):
         (self.u / SLUG / 'atelje' / 'kandidater' / 'k01' / 'UPPDRAG.md').write_text('skaparens uppdrag')
         nekas = ' '.join(kd.blind_nekas(SLUG, 'k01', ('varv',)))
         self.assertIn('kandidater', nekas)
+
+
+
+@unittest.skipIf(rk is None, 'basen saknar referenskontraktet')
+class Fangsten(Grund):
+    """Fångstens tidsgräns (kandidatprovet 2026-10-10): åtta sajter nådde 1 800 s, det halva paketet saknade PAKET.json,
+    kontraktet såg noll sajter och omförsöket kunde inte ärva."""
+    def uppdrag(self):
+        k = lambda n, roll: {'namn': n, 'adress': 'https://%s.se/' % n, 'roll': roll, 'varfor': 'prov', 'sidor': ['/'], 'tillstand': {},  # noqa: E731
+                             'upptackt': {'vag': 'websok', 'kalla': 'prov'} if roll == 'bransch' else
+                             {'vag': 'galleri', 'kalla': 'https://www.awwwards.com/sites/%s' % n}, 'uppgift': ['komposition']}
+        return {'fragor': [], 'kandidater': [k('bransch-0', 'bransch'), k('bransch-1', 'bransch'), k('bransch-2', 'bransch'),
+                                             k('galleri-0', 'hantverk'), k('galleri-1', 'hantverk')]}
+
+    def fanga(self, dod_vid=None):
+        """Fångar uppdraget med en attrapp för webbläsaren; processen dödas (KeyboardInterrupt, som ingen except fångar)
+        när dod_vid sajter är klara."""
+        klara = []
+
+        def kor(adress, ut, tillat, tillstand, miljo, extrahera=None, bredder=rf.BREDDER_STANDARD):
+            if str(ut).endswith('.pass1'):
+                return 0, {}, ''
+            if dod_vid is not None and len(klara) == dod_vid:
+                raise KeyboardInterrupt('tidsgränsen: processen dödas mitt i nästa sajt')
+            Path(ut).mkdir(parents=True, exist_ok=True)
+            for b in bredder:
+                (Path(ut) / ('vy-%s-forsta.png' % b)).write_bytes(PNG)
+            klara.append(adress)
+            return 0, {'ok': True}, ''
+
+        def obs(rapport, ut, bestallda=(), bredder=rf.BREDDER_STANDARD):
+            return {'ok': True, 'vyer': {b: {'bildfiler': {'vy-%s-forsta.png' % b: True}} for b in bredder}, 'kvar_blockerade': [],
+                    'fel_resurser': [], 'begransningar': []}
+        with patch.multiple(rf, kor_inspektera=kor, observationer=obs, blockerade_ursprung=lambda *a, **k: []):
+            try:
+                rf.samla(SLUG, self.uppdrag(), self.u)
+            except KeyboardInterrupt:
+                pass
+        return skapande.senaste_paket(SLUG, self.u)
+
+    def test_avbruten_fangst_behaller_det_som_hann_fangas_med_bada_rollerna(self):
+        p = self.fanga(dod_vid=3)
+        d = json.loads((p / 'PAKET.json').read_text())
+        self.assertTrue(d.get('pagar'), 'paketet är märkt som avbrutet, aldrig som klart')
+        self.assertFalse(d.get('alla_ok'))
+        self.assertEqual([k['namn'] for k in d['kandidater']], ['bransch-0', 'galleri-0', 'bransch-1'], 'rollerna varvade i fångstordningen')
+        self.assertEqual(skapande.senaste_lasbara_paket(SLUG, self.u), p)
+        fel = rk.researchbrister(SLUG, self.u, self.research(), p)
+        self.assertTrue(any('2 fångade branschsajter' in x for x in fel), fel)  # kontraktet räknar det som fångades, inte noll
+        self.assertTrue(any('1 fångade sajter ur gallerierna' in x for x in fel), fel)
+
+    def test_hel_fangst_ar_klar_utan_markering(self):
+        d = json.loads((self.fanga() / 'PAKET.json').read_text())
+        self.assertNotIn('pagar', d)
+        self.assertTrue(d['alla_ok'])
+        self.assertEqual(len(d['kandidater']), 5)
+
+    def test_kompletteringen_arver_inte_ett_paket_utan_pakettext_och_tidsgransen_redovisas(self):
+        self.bygg_paket()  # paket-v01 läsbart
+        (self.u / SLUG / 'referenser' / 'paket-v02' / 'bransch-9').mkdir(parents=True)  # dödat före första färdiga sajt
+        r = self.tmp / 'rot'
+        r.mkdir()
+        sedda = []
+
+        def kor(args, frist):
+            if 'referens.py' in args[2]:
+                sedda.append(json.loads(Path(args[-1]).read_text()) if Path(args[-1]).is_absolute() else json.loads((ROOT / args[-1]).read_text()))
+                raise subprocess.TimeoutExpired(args, frist)
+            return types.SimpleNamespace(returncode=0, stdout='', stderr='')
+        f = r / 'begaran.json'
+        f.write_text(json.dumps({'varfor': 'prov', 'referens': {'kandidater': [{'namn': 'ny-sajt', 'adress': 'https://ny-sajt.se/', 'roll': 'bransch',
+                                                                                 'varfor': 'prov', 'sidor': ['/']}]}}))
+        ut = skapande.komplettera(SLUG, f, r, self.u, frist=7, kor=kor, bred=True, forbjudna={'ord': set(), 'siffror': set()})
+        self.assertEqual(sedda[0].get('kompletterar'), 'paket-v01', 'ärver det senaste läsbara paketet, aldrig katalogen utan PAKET.json')
+        self.assertIsNone(ut['referens']['rc'])
+        self.assertEqual(ut['referens'].get('tidsgrans'), 7)
+        self.assertTrue(ut['referens'].get('paket'), 'tidsgränsen redovisas med paketet som bär det som hann fångas')
 
 
 if __name__ == '__main__':

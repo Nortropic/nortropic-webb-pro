@@ -32,6 +32,9 @@ en kandidat betyder fullständig ersättning utan arv.
 Med sandlådan på körs steget av webbtjänsten utanför byggsessionen (kontroller/webbtjanst.py, verktyget referens) med
 uppdraget och utkatalogen som enda beröringspunkter; byggsessionens eget nät öppnas aldrig. Slutkod 0 när varje kandidat
 fångades helt, annars 1 (paketet skrivs ändå, med bristerna i PAKET.json); 2 vid ogiltigt uppdrag eller oförankrat mål.
+PAKET.json skrivs också efter varje färdig kandidat, märkt "pagar": true, och rollerna varvas i fångstordningen: en
+fångst som dödas vid sin tidsgräns lämnar de kandidater som hann fångas helt, med båda rollerna, i ett paket som går att
+läsa och ärva (kandidatprovet 2026-10-10: åtta sajter nådde 1 800 s, och det halva paketet saknade PAKET.json).
 """
 import argparse
 import hashlib
@@ -538,13 +541,34 @@ def samla(slug, uppdrag, underlag=None, torr=False, lokala_portar=()):
         raise
 
 
+def varvade(kandidater):
+    """Kandidaterna med rollerna varvade (rollernas ordning och ordningen inom rollen som i uppdraget): når fångsten sin
+    tidsgräns har varje roll hunnit fångas, och referenskontraktet kräver både bransch och förebilder."""
+    grupper = {}
+    for k in kandidater:
+        grupper.setdefault(k.get('roll'), []).append(k)
+    ut = []
+    while any(grupper.values()):
+        for g in grupper.values():
+            if g:
+                ut.append(g.pop(0))
+    return ut
+
+
+def skriv_paketpost(paket, res, pagar):
+    """PAKET.json atomärt (en tempfil som byter namn): en process som dödas mitt i skrivningen lämnar den förra versionen."""
+    tmp = paket / '.PAKET.json.tmp'
+    tmp.write_text(json.dumps(dict(res, pagar=True, alla_ok=False) if pagar else res, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    os.replace(tmp, paket / 'PAKET.json')
+
+
 def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
     res = {'schema': 2, 'slug': slug, 'version': paket.name, 'tid': nu(), 'kompletterar': uppdrag.get('kompletterar'),
            'uppdrag_sha256': hashlib.sha256(json.dumps(uppdrag, sort_keys=True, ensure_ascii=False).encode()).hexdigest(),
            'fragor': uppdrag['fragor'], 'kandidater': [], 'torr': torr}
     alla_ok = True
     nya = {k['namn'] for k in uppdrag['kandidater']}
-    for k in uppdrag['kandidater']:
+    for k in varvade(uppdrag['kandidater']):
         post = {'namn': k['namn'], 'adress': k['adress'], 'roll': k['roll'], 'varfor': k['varfor'], 'sidor': [], 'resursursprung': [], 'ok': False,
                 'bredder': k.get('bredder') or list(BREDDER_STANDARD), 'upptackt': k.get('upptackt'), 'uppgift': k.get('uppgift') or [],
                 'tid': nu()}
@@ -567,6 +591,7 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
             post['sidor'] = arvda_sidor
             post['ok'] = True
             res['kandidater'].append(post)
+            skriv_paketpost(paket, res, pagar=True)
             continue
         egna = kandidat_ursprung(k['adress'])  # adressens ursprung, www-/bartvillingen, båda scheman
         varden = tvillingar(urllib.parse.urlsplit(k['adress']).hostname)
@@ -616,6 +641,7 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         post['ok'] = bool(post['sidor']) and nya_ok and (not arvda_sidor or arvd_ok(arvda_sidor))
         alla_ok = alla_ok and post['ok']
         res['kandidater'].append(post)
+        skriv_paketpost(paket, res, pagar=True)  # det som hann fångas helt går att läsa och ärva, också efter en tidsgräns
     # komplettering: orörda kandidater ärvs hela från föregående paket, så att varje Bildval kan peka på den nya versionen
     for namn, post in arv.items():
         if namn in nya:
@@ -628,7 +654,7 @@ def _samla(slug, uppdrag, paket, rot, arv_fran, arv, torr, lokala_portar):
         res['kandidater'].append(arvd)
         alla_ok = alla_ok and arvd['ok']
     res['alla_ok'] = alla_ok
-    (paket / 'PAKET.json').write_text(json.dumps(res, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    skriv_paketpost(paket, res, pagar=False)
     rader = ['# Referenspaket %s · %s · %s' % (paket.name, slug, res['tid']), '']
     if uppdrag.get('kompletterar'):
         rader.append('Kompletterar %s; oförändrat material är ärvt därifrån, så alla Bildval kan peka på %s.' % (uppdrag['kompletterar'], paket.name))
