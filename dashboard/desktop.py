@@ -325,3 +325,19 @@ def starta_ai(dash, eid):
                              cwd=str(dash.ROOT), stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
     _AI[eid] = p
     return {'startad': True, 'pid': p.pid, 'modell': modell, 'transport': 'live-cli (pilotens abonnemangstransport, bara fiktiva ärenden)'}
+
+
+def utgava(rot):
+    """Appens senast byggda signerade utgåva i utcheckningen (desktop/utgava/, byggd av desktop/bygg-utgava.sh; utanför
+    git). Motorn intygar ingenting om den: appen prövar minisign-signaturen och versionsbindningen själv."""
+    kat = Path(rot) / 'desktop' / 'utgava'
+    try:
+        b = json.loads((kat / 'utgava.json').read_text(encoding='utf-8'))
+        artefakt = kat / 'Nortropic.app.tar.gz'
+        sig = (kat / 'Nortropic.app.tar.gz.sig').read_text(encoding='utf-8').strip()
+        if not artefakt.is_file():
+            return None
+    except (OSError, ValueError):
+        return None
+    return {'artefakt': artefakt, 'beskrivning': {'version': str(b.get('version') or ''), 'kontrakt': str(b.get('kontrakt') or ''), 'noter': str(b.get('noter') or '')[:2000],
+                                                  'storlek': artefakt.stat().st_size, 'signatur': sig, 'byggd': b.get('byggd'), 'commit': b.get('commit')}}

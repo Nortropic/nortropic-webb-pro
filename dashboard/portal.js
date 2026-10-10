@@ -353,7 +353,8 @@
       <div class="pt-intervju">
         <section class="pt-panel pt-samtal" aria-labelledby="pt-samtal-r"><h2 id="pt-samtal-r">Samtalet</h2>
           <ol class="pt-msgs" id="pt-msgs">${(a.meddelanden || []).map(rad).join('') || '<li class="pt-tomt">Inget sagt än. Börja med kundens egna ord om verksamheten och vad de vill uppnå.</li>'}</ol>
-          ${(a.fragor || []).length ? `<div class="pt-fragor"><h3>AI:s frågor till nästa svar</h3><ul>${a.fragor.map((q) => `<li><b>${e_(q.text)}</b><span>${e_(q.varfor)}${q.kritisk ? ' · behövs före nästa steg' : ''}</span></li>`).join('')}</ul></div>` : ''}
+          ${(a.fragor || []).length ? `<div class="pt-fragor"><h3>AI:s frågor till nästa svar</h3><ul>${a.fragor.map((q) => `<li class="pt-kort" data-kort="fraga"><b>${e_(q.text)}</b><span>${e_(q.varfor)}${q.kritisk ? ' · behövs före nästa steg' : ''}</span>
+            <button type="button" class="pt-lank" data-svara="${e_(q.text)}">Svara på frågan</button></li>`).join('')}</ul></div>` : ''}
           <form id="pt-svar-form" class="pt-form"><label for="pt-svar-text">Kundens svar (antecknas som kundens ord, via dig)</label>
             <textarea id="pt-svar-text" rows="3" maxlength="30000" placeholder="Skriv kundens svar här">${e_(utkast)}</textarea>
             <div class="pt-knapprad"><button type="submit" class="pt-knapp primar" name="ai" value="1"${ai ? '' : ' hidden'}>Spara svaret och låt AI fortsätta</button>
@@ -363,6 +364,10 @@
         <section class="pt-panel pt-underlag" aria-labelledby="pt-underlag-r"><h2 id="pt-underlag-r">Kundunderlag <span class="pt-under">uppdateras när samtalet sparas</span></h2>
           ${(a.anteckningar || []).length ? `<section class="pt-amne"><h3>Dina anteckningar</h3><ul>${a.anteckningar.map((x) => post(x, 'anteckning')).join('')}</ul></section>` : ''}
           ${perAmne || '<p class="pt-tomt">Inga uppgifter än. Det som saknas står som okänt.</p>'}
+          ${(a.integrationsforslag || []).length ? `<section class="pt-amne"><h3>AI:s förslag till funktioner</h3><ul>${a.integrationsforslag.map((f) => `<li class="pt-kort" data-kort="integrationsval">
+            <span class="pt-post-kunskap k-tolkning">AI:s förslag</span> <b>${e_(f.omrade)}${f.paket ? ' · ' + e_(f.paket) : ' · utreds'}</b>
+            <span class="pt-post-text">${e_(f.nytta)}</span><span class="pt-under">Alternativ: ${e_(f.alternativ)} · Konsekvens: ${e_(f.konsekvens)} · Osäkert: ${e_(f.osakerhet)}${f.foljdfraga ? ' · Följdfråga: ' + e_(f.foljdfraga) : ''}</span>
+            ${f.paket ? `<button type="button" class="pt-knapp" data-valj="${e_(f.id)}" data-omrade="${e_(f.omrade)}" data-paket="${e_(f.paket)}" data-nytta="${e_(f.nytta)}">Lägg i planen (inget konto ansluts)</button>` : '<span class="pt-under">Paket saknas i katalogen: utreds, ingen anslutning.</span>'}</li>`).join('')}</ul></section>` : ''}
           ${(a.material || []).length ? `<section class="pt-amne"><h3>Material</h3><ul>${a.material.map((m) => `<li class="pt-post"><span class="pt-post-text">${e_(m.namn)}</span><span class="pt-etikett">${m.lasning === 'inte_last' ? 'uppladdad, inte läst' : e_(m.lasning)}</span><span class="pt-etikett">rätt: ${e_(m.rattighet)}</span></li>`).join('')}</ul></section>` : ''}
           <p class="pt-under">Kundens ord, dina anteckningar och rättelser och AI:s tolkningar är märkta var för sig. En AI-tolkning är aldrig kundens bekräftade fakta.</p>
         </section>
@@ -390,6 +395,16 @@
         intervjuvy(eid);
       } catch (e) { lage.textContent = e.status === 409 ? e.message : 'Inte sparat: ' + e.message + ' Texten finns kvar här.'; f.querySelectorAll('button').forEach((b) => { b.disabled = false; }); }
     });
+    // frågekort: ingen sidoeffekt, bara skrivfältet
+    document.querySelectorAll('[data-svara]').forEach((b) => b.addEventListener('click', () => { ta.focus(); ta.setAttribute('aria-description', 'Svar på: ' + b.dataset.svara); document.getElementById('pt-svar-lage').textContent = 'Svarar på: ' + b.dataset.svara; }));
+    // funktionskort: samma väg och prövning som Funktioner i Kundstart (katalogen, revisionen); ett val ansluter inget konto
+    document.querySelectorAll('[data-valj]').forEach((b) => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        await skicka('/api/kundstart/' + eid + '/integrationsval', { revision: a.revision, val: { id: 'ai-' + b.dataset.valj, omrade: b.dataset.omrade, paket: b.dataset.paket, motivering: 'Ur AI:s förslag i intervjun: ' + b.dataset.nytta } });
+        intervjuvy(eid);
+      } catch (e) { b.insertAdjacentHTML('afterend', `<p class="pt-fel" role="alert">${e_(e.message)}</p>`); b.disabled = false; }
+    }));
     document.querySelectorAll('[data-ratta]').forEach((b) => b.addEventListener('click', () => {
       const li = b.closest('li'); if (li.querySelector('form')) return;
       const nu = li.querySelector('.pt-post-text').textContent;

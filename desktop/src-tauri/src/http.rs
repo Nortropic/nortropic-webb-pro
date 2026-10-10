@@ -21,6 +21,10 @@ const TAK: usize = 4 * 1024 * 1024;
 
 /// Ett anrop till motorn på loopback. `huvuden` är appens egna (aldrig renderarens).
 pub fn anrop(port: u16, metod: &str, vag: &str, huvuden: &[(&str, &str)], kropp: Option<&[u8]>, frist: Duration) -> Result<Svar, String> {
+    anrop_med_tak(port, metod, vag, huvuden, kropp, frist, TAK)
+}
+
+pub fn anrop_med_tak(port: u16, metod: &str, vag: &str, huvuden: &[(&str, &str)], kropp: Option<&[u8]>, frist: Duration, tak: usize) -> Result<Svar, String> {
     if !vag.starts_with('/') || vag.contains(['\r', '\n', ' ']) {
         return Err("ogiltig väg".into());
     }
@@ -50,7 +54,7 @@ pub fn anrop(port: u16, metod: &str, vag: &str, huvuden: &[(&str, &str)], kropp:
             Ok(0) => break,
             Ok(n) => {
                 buf.extend_from_slice(&chunk[..n]);
-                if buf.len() > TAK {
+                if buf.len() > tak {
                     return Err("svaret är för stort".into());
                 }
             }

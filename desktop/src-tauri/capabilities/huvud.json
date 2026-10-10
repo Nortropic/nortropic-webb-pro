@@ -12,6 +12,9 @@
     "allow-oppna-arbetsytan",
     "allow-las",
     "allow-senast-kanda",
-    "allow-installning"
+    "allow-installning",
+    "allow-sok-uppdatering",
+    "allow-installera-uppdatering",
+    "allow-ga-tillbaka-version"
   ]
 }

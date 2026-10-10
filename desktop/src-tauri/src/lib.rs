@@ -9,6 +9,7 @@ mod http;
 mod installningar;
 mod motor;
 mod upplasning;
+mod uppdatering;
 #[cfg(feature = "prov")]
 mod prov;
 
@@ -208,7 +209,7 @@ async fn diagnos(app: AppHandle) -> Result<serde_json::Value, String> {
         let forslag = if inst.rot.is_none() { motor::huvudrot().filter(|r| motor::validera_rot(r).is_ok()) } else { None };
         json!({
             "app": { "version": env!("CARGO_PKG_VERSION"), "kontrakt": motor::KONTRAKT, "prov": cfg!(feature = "prov") },
-            "installningar": { "rot": inst.rot, "port": inst.port, "verktyg": inst.verktyg, "avslut": inst.avslut, "las_efter_min": inst.las_efter_min },
+            "installningar": { "rot": inst.rot, "port": inst.port, "verktyg": inst.verktyg, "avslut": inst.avslut, "las_efter_min": inst.las_efter_min, "aviseringar": inst.aviseringar },
             "upptackta_verktyg": motor::hitta_verktyg(),
             "rotfel": rotfel,
             "rotforslag": forslag,
@@ -221,12 +222,21 @@ async fn diagnos(app: AppHandle) -> Result<serde_json::Value, String> {
     .map_err(|e| e.to_string())
 }
 
-/// Internet prövas för sig (en TCP-anslutning till modellernas tjänst), skilt från den lokala motorn.
+static NATET: Mutex<Option<(u64, serde_json::Value)>> = Mutex::new(None);
+
+/// Internet prövas för sig (en TCP-anslutning till modellernas tjänst), skilt från den lokala motorn; högst var 30:e sekund.
 fn natet() -> serde_json::Value {
     use std::net::{TcpStream, ToSocketAddrs};
+    if let Some((t, v)) = NATET.lock().unwrap().as_ref() {
+        if nu().saturating_sub(*t) < 30 {
+            return v.clone();
+        }
+    }
     let start = std::time::Instant::now();
     let ok = ("api.anthropic.com", 443).to_socket_addrs().ok().and_then(|mut a| a.next()).map(|a| TcpStream::connect_timeout(&a, Duration::from_millis(1500)).is_ok()).unwrap_or(false);
-    json!({ "nar": ok, "ms": start.elapsed().as_millis() as u64 })
+    let v = json!({ "nar": ok, "ms": start.elapsed().as_millis() as u64 });
+    *NATET.lock().unwrap() = Some((nu(), v.clone()));
+    v
 }
 
 #[tauri::command]
@@ -341,6 +351,56 @@ fn spara_senast_kanda(inst: &Installningar, data: &std::path::Path) {
     }
 }
 
+/// Finns en nyare signerad utgåva i den verifierade motorn? Installerar ingenting.
+#[tauri::command]
+async fn sok_uppdatering(app: AppHandle) -> Result<serde_json::Value, String> {
+    let l = lage(&app);
+    tauri::async_runtime::spawn_blocking(move || {
+        let inst = l.inst();
+        let u = uppdatering::sok(&inst)?;
+        let pagaende = motor::las(&inst, "/api/desktop/pagaende").ok().and_then(|j| j.get("pagaende").cloned()).unwrap_or(json!([]));
+        let plats = uppdatering::eget_paket().map(|p| p.display().to_string());
+        Ok(json!({ "nuvarande": env!("CARGO_PKG_VERSION"), "utgava": u, "pagaende": pagaende, "plats": plats.as_ref().ok(), "platsfel": plats.err(),
+                   "forra_finns": l.data.join("forra-version/Nortropic.app/Contents/Info.plist").exists() }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Installerar den signerade utgåvan efter ägarens val och startar om appen. Pågår arbete i motorn krävs ett uttryckligt
+/// "ändå" (arbetet påverkas inte: det körs av motorn), annars skjuts uppdateringen upp.
+#[tauri::command]
+async fn installera_uppdatering(app: AppHandle, version: String, aven_under_arbete: bool) -> Result<serde_json::Value, String> {
+    let l = lage(&app);
+    let a = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let inst = l.inst();
+        let u = uppdatering::sok(&inst)?.ok_or("ingen nyare utgåva finns")?;
+        if u.version != version {
+            return Err(format!("utgåvan har ändrats sedan du valde (nu {}); sök igen", u.version));
+        }
+        let pagar = motor::las(&inst, "/api/desktop/pagaende").ok().and_then(|j| j.get("pagaende").and_then(|v| v.as_array()).map(|x| x.len())).unwrap_or(0);
+        if pagar > 0 && !aven_under_arbete {
+            return Ok(json!({ "installerad": false, "uppskjuten": true, "pagaende": pagar }));
+        }
+        let paket = uppdatering::installera(&inst, &u, &l.data)?;
+        uppdatering::starta_om(&paket);
+        a.exit(0);
+        Ok(json!({ "installerad": true, "version": u.version }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn ga_tillbaka_version(app: AppHandle) -> Result<(), String> {
+    let l = lage(&app);
+    let paket = uppdatering::ga_tillbaka(&l.data)?;
+    uppdatering::starta_om(&paket);
+    app.exit(0);
+    Ok(())
+}
+
 #[tauri::command]
 async fn installning(app: AppHandle, nyckel: String, varde: String) -> Result<serde_json::Value, String> {
     let l = lage(&app);
@@ -348,10 +408,11 @@ async fn installning(app: AppHandle, nyckel: String, varde: String) -> Result<se
     match nyckel.as_str() {
         "avslut" if ["fraga", "behall"].contains(&varde.as_str()) => inst.avslut = varde,
         "las_efter_min" => inst.las_efter_min = varde.parse::<u32>().ok().filter(|m| *m <= 480).ok_or("0–480 minuter")?,
+        "aviseringar" if ["pa", "av"].contains(&varde.as_str()) => inst.aviseringar = varde == "pa",
         _ => return Err("okänd inställning".into()),
     }
     installningar::spara(&l.data, &inst)?;
-    Ok(json!({ "avslut": inst.avslut, "las_efter_min": inst.las_efter_min }))
+    Ok(json!({ "avslut": inst.avslut, "las_efter_min": inst.las_efter_min, "aviseringar": inst.aviseringar }))
 }
 
 // ---------- menyn ----------
@@ -360,11 +421,13 @@ fn meny(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let om = PredefinedMenuItem::about(app, Some("Om Nortropic"), None)?;
     let las = MenuItem::with_id(app, "las", "Lås Nortropic", true, Some("CmdOrCtrl+Shift+L"))?;
     let diagnos = MenuItem::with_id(app, "diagnos", "Motor och diagnos…", true, None::<&str>)?;
+    let uppd = MenuItem::with_id(app, "uppdatering", "Sök efter uppdatering…", true, None::<&str>)?;
     let avsluta = MenuItem::with_id(app, "avsluta", "Avsluta Nortropic", true, Some("CmdOrCtrl+Q"))?;
     let appmeny = Submenu::with_items(app, "Nortropic", true, &[
         &om,
         &PredefinedMenuItem::separator(app)?,
         &diagnos,
+        &uppd,
         &las,
         &PredefinedMenuItem::separator(app)?,
         &PredefinedMenuItem::services(app, None)?,
@@ -431,10 +494,10 @@ fn menyval(app: &AppHandle, id: &str) {
             let a = app.clone();
             std::thread::spawn(move || avsluta(&a));
         }
-        "diagnos" | "hjalp" => {
+        "diagnos" | "hjalp" | "uppdatering" => {
             visa(app);
             if let Some(w) = huvudfonster(app) {
-                let frag = if id == "hjalp" { "hjalp" } else { "diagnos" };
+                let frag = match id { "hjalp" => "hjalp", "uppdatering" => "diagnos-uppdatering", _ => "diagnos" };
                 if lage(app).upplast.load(Ordering::SeqCst) {
                     // skalet visar diagnosen; arbetsytan står kvar i motorn och öppnas igen därifrån
                     let _ = w.navigate(Url::parse(&format!("{SKAL}#{frag}")).unwrap());
@@ -543,7 +606,7 @@ fn vakt(app: AppHandle) {
         if let Ok(j) = motor::las(&inst, "/api/desktop/uppmarksamhet") {
             let n = j.get("antal").and_then(|v| v.as_u64()).unwrap_or(0);
             let forra = l.uppmarksamhet.swap(n, Ordering::SeqCst);
-            if n > forra && forra != u64::MAX {
+            if n > forra && forra != u64::MAX && inst.aviseringar {
                 aviser(&app, upplast, n, &j);
             }
         }
@@ -575,7 +638,10 @@ pub fn kor() {
             oppna_arbetsytan,
             las,
             senast_kanda,
-            installning
+            installning,
+            sok_uppdatering,
+            installera_uppdatering,
+            ga_tillbaka_version
         ])
         .setup(|app| {
             let h = app.handle().clone();

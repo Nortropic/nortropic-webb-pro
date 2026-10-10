@@ -3111,6 +3111,14 @@ class H(BaseHTTPRequestHandler):
                 self.send_header('Content-Length', '0')
                 self.end_headers()
                 return None
+            if vag in ('/desktop/uppdatering/utgava', '/desktop/uppdatering/artefakt'):
+                # appens signerade utgåva ur den här utcheckningen (desktop/bygg-utgava.sh); appen prövar signaturen själv
+                u = desktop.utgava(ROOT)
+                if not u:
+                    return self.skicka(404, {'fel': 'ingen utgåva byggd i den här motorn'})
+                if vag.endswith('/utgava'):
+                    return self.skicka(200, u['beskrivning'])
+                return self.skicka(200, u['artefakt'].read_bytes(), 'application/gzip')
             if vag == '/desktop/last':
                 return self.skicka(200, '<!doctype html><meta charset="utf-8"><title>Nortropic</title><p>Utloggad.</p>'.encode(), 'text/html; charset=utf-8',
                                    {'Set-Cookie': desktop.kaka('', self.port(), ta_bort=True)})

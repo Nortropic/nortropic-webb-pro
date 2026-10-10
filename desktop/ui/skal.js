@@ -143,14 +143,45 @@ function diagnos(d) {
   const v = d.installningar.verktyg || {};
   $('#diag-motor').innerHTML = [['Rot', d.installningar.rot], ['Port', `127.0.0.1:${d.installningar.port}`], ['claude', v.claude || 'saknas'], ['node', v.node || 'saknas'], ['Process', id.pid ? `pid ${id.pid}, startad ${id.startad}` : '—']]
     .map(([k, x]) => `<dt>${esc(k)}</dt><dd class="sokvag">${esc(x)}</dd>`).join('');
+  if (location.hash.includes('uppdatering')) { $('#uppdatering').scrollIntoView(); sokUppdatering(); }
   $('#inst-behall').checked = d.installningar.avslut === 'behall';
+  $('#inst-avisera').checked = d.installningar.aviseringar === true;
   $('#inst-las').value = d.installningar.las_efter_min;
 }
+
+async function sokUppdatering() {
+  const svar = $('#uppd-svar'), h = $('#uppd-handlingar');
+  svar.textContent = 'Söker i motorns utgåvor …';
+  try {
+    const r = await invoke('sok_uppdatering');
+    const knappar = ['<button class="knapp" id="sok-uppd" type="button">Sök igen</button>'];
+    if (r.forra_finns) knappar.push('<button class="knapp" id="ga-tillbaka" type="button">Gå tillbaka till föregående version</button>');
+    if (!r.utgava) { svar.textContent = `Du har den senaste versionen (${r.nuvarande}).`; }
+    else if (r.platsfel) { svar.textContent = `Version ${r.utgava.version} finns, men ${r.platsfel}. Installera med desktop/installera.sh.`; }
+    else {
+      const pag = (r.pagaende || []).length;
+      svar.textContent = `Version ${r.utgava.version} finns (du har ${r.nuvarande}). ${r.utgava.noter || ''} Signaturen prövas före installationen.${pag ? ` ${pag} arbete pågår i motorn; det påverkas inte av en uppdatering av appen, men du kan vänta.` : ''}`;
+      knappar.unshift(`<button class="knapp primar" id="installera-uppd" type="button" data-version="${esc(r.utgava.version)}" data-pag="${pag}">Installera och starta om</button>`, '<button class="knapp" id="senare-uppd" type="button">Senare</button>');
+    }
+    h.innerHTML = knappar.join('');
+    $('#sok-uppd')?.addEventListener('click', sokUppdatering);
+    $('#senare-uppd')?.addEventListener('click', () => { svar.textContent = 'Uppdateringen väntar tills du söker igen.'; h.innerHTML = '<button class="knapp" id="sok-uppd" type="button">Sök efter uppdatering</button>'; $('#sok-uppd').addEventListener('click', sokUppdatering); });
+    $('#installera-uppd')?.addEventListener('click', async (e) => {
+      e.target.disabled = true; svar.textContent = 'Hämtar och prövar signaturen …';
+      try { const x = await invoke('installera_uppdatering', { version: e.target.dataset.version, avenUnderArbete: e.target.dataset.pag !== '0' });
+        if (x.uppskjuten) svar.textContent = 'Uppskjuten: arbete pågår.'; }
+      catch (err) { svar.textContent = 'Inte installerad: ' + err; e.target.disabled = false; }
+    });
+    $('#ga-tillbaka')?.addEventListener('click', async (e) => { e.target.disabled = true; try { await invoke('ga_tillbaka_version'); } catch (err) { svar.textContent = String(err); e.target.disabled = false; } });
+  } catch (e) { svar.textContent = 'Kunde inte söka: ' + e; }
+}
+$('#sok-uppd').addEventListener('click', sokUppdatering);
 
 $('#spara-inst').addEventListener('click', async () => {
   try {
     await invoke('installning', { nyckel: 'avslut', varde: $('#inst-behall').checked ? 'behall' : 'fraga' });
     await invoke('installning', { nyckel: 'las_efter_min', varde: String($('#inst-las').value || 0) });
+    await invoke('installning', { nyckel: 'aviseringar', varde: $('#inst-avisera').checked ? 'pa' : 'av' });
     $('#inst-svar').textContent = 'Sparat.';
   } catch (e) { $('#inst-svar').textContent = String(e); }
 });

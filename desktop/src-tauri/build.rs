@@ -12,6 +12,9 @@ fn main() {
             "las",
             "senast_kanda",
             "installning",
+            "sok_uppdatering",
+            "installera_uppdatering",
+            "ga_tillbaka_version",
         ]),
     ))
     .expect("tauri-build");

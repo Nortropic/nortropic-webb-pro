@@ -369,6 +369,18 @@ class Desktop(unittest.TestCase):
         self.assertEqual(s, 200)
         self.assertEqual([p['slug'] for p in j['pagaende']], ['kund-a'])
 
+    def test_utgavan_serveras_bara_nar_den_finns(self):
+        self.assertEqual(self.anropa('GET', '/desktop/uppdatering/utgava')[0], 404)
+        kat = self.root / 'desktop' / 'utgava'
+        kat.mkdir(parents=True)
+        (kat / 'Nortropic.app.tar.gz').write_bytes(b'\x1f\x8b provartefakt')
+        (kat / 'Nortropic.app.tar.gz.sig').write_text('c2lnbmF0dXI=\n', encoding='utf-8')
+        (kat / 'utgava.json').write_text(json.dumps({'version': '0.2.0', 'kontrakt': 'desktop/1', 'noter': 'prov'}), encoding='utf-8')
+        s, _, j = self.anropa('GET', '/desktop/uppdatering/utgava')
+        self.assertEqual((s, j['version'], j['kontrakt'], j['signatur']), (200, '0.2.0', 'desktop/1', 'c2lnbmF0dXI='))
+        s, r, _ = self.anropa('GET', '/desktop/uppdatering/artefakt')
+        self.assertEqual((s, r.getheader('Content-Type')), (200, 'application/gzip'))
+
     def test_portalens_filer_och_ui_versionen(self):
         s, r, _ = self.anropa('GET', '/portal.js')
         self.assertEqual((s, r.getheader('Content-Type').split(';')[0]), (200, 'text/javascript'))

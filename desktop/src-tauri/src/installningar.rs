@@ -23,6 +23,7 @@ pub struct Fonster {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)] // ett fält som saknas i en äldre fil får sitt standardvärde; resten av inställningarna står kvar
 pub struct Installningar {
     /// Registrerad motorrot (en nortropic-webb-pro-utcheckning), vald av ägaren vid första starten.
     pub rot: Option<PathBuf>,
@@ -34,11 +35,14 @@ pub struct Installningar {
     pub fonster: Option<Fonster>,
     /// Lås efter så många minuter utan aktivitet i appen (0 = aldrig).
     pub las_efter_min: u32,
+    /// macOS-aviseringar när något nytt väntar på ägarens beslut; av tills ägaren slår på dem i Inställningar.
+    #[serde(default)]
+    pub aviseringar: bool,
 }
 
 impl Default for Installningar {
     fn default() -> Self {
-        Installningar { rot: None, port: 4771, verktyg: Verktyg::default(), avslut: "fraga".into(), fonster: None, las_efter_min: 30 }
+        Installningar { rot: None, port: 4771, verktyg: Verktyg::default(), avslut: "fraga".into(), fonster: None, las_efter_min: 30, aviseringar: false }
     }
 }
 

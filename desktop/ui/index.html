@@ -77,11 +77,18 @@
       <div class="kort">
         <h2>Inställningar</h2>
         <label class="falt"><input type="checkbox" id="inst-behall"> Avsluta utan att fråga när arbete pågår (arbetet fortsätter i bakgrunden)</label>
+        <label class="falt"><input type="checkbox" id="inst-avisera"> Avisera när något nytt väntar på ditt beslut. macOS frågar om lov första gången; när appen är låst visar aviseringen ingen kunduppgift.</label>
         <label class="falt">Lås appen efter minuter utan fokus (0 = aldrig)
           <input id="inst-las" type="number" min="0" max="480" inputmode="numeric">
         </label>
         <div class="rad"><button class="knapp" id="spara-inst" type="button">Spara inställningarna</button></div>
         <p id="inst-svar" class="under" role="status"></p>
+      </div>
+      <div class="kort" id="uppdatering">
+        <h2>Uppdatering</h2>
+        <p class="under" id="uppd-text">Appen uppdateras från en signerad utgåva i motorn. Inget installeras utan att du väljer det.</p>
+        <div class="rad" id="uppd-handlingar"><button class="knapp" id="sok-uppd" type="button">Sök efter uppdatering</button></div>
+        <p id="uppd-svar" class="under" role="status" aria-live="polite"></p>
       </div>
       <div class="kort">
         <h2>Registrerad motor</h2>

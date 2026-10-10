@@ -24,6 +24,11 @@ sha2 = "0.10"
 getrandom = "0.2"
 hex = "0.4"
 libc = "0.2"
+# uppdateringen: samma signaturkontroll som Tauris uppdateringsmodul (minisign), utan dess TLS-stack (kunskap/desktop.md, Uppdatering)
+minisign-verify = "0.2"
+base64 = "0.22"
+flate2 = "1"
+tar = "0.4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
