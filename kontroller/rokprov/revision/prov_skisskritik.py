@@ -1311,5 +1311,5 @@ def _alias():
         assert any('alias' in x for x in fel_), (tillagg, fel_)
 
 
-print('skisskritikens prov: %d fall, %d föll' % (27, len(FEL)), file=sys.stderr)
+print('skisskritikens prov: %d fall, %d föll' % (28, len(FEL)), file=sys.stderr)
 sys.exit(1 if FEL else 0)

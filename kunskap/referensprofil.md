@@ -60,8 +60,10 @@ de andra kandidaternas beställningar görs ändå. En brist är underlag, inte 
 designflödet): den sparas i kandidatens status (`referensprofil` med `brister`), skaparen startar och får veta att
 profilen är ofullständig, och arbetar från referensbilderna och SEKTIONER.md, som fångsten redan mätt. Kandidatprovet
 2026-10-11 visade varför: ett prestandaspår som inte blev klart stoppade k02 två gånger fast CSS-reglerna var uppmätta.
-En äldre starts spärr (status fel med `referensprofil_brister`) tas upp av nästa start och profileras en gång till, aldrig i
-en slinga. Ett stopp under profileringen är ett avbrott. Ett prov med ett annat underlag än motorns startar aldrig en
+Det gäller en rapport som profileringen skrev i den här starten för uppdraget som det står nu. Ingen rapport (tidsgränsen,
+en process som föll, slugvaktens eller skrivmålets vägran) och ett uppdrag som ändrades under profileringen stoppar
+kandidaten som förut (status fel med `referensprofil_brister`): orsaken är okänd eller uppdraget är inte prövat i sin nya
+version. Nästa start tar upp spärren och profilerar en gång till, aldrig i en slinga. Ett stopp under profileringen är ett avbrott. Ett prov med ett annat underlag än motorns startar aldrig en
 verklig profilering (`kandidater.profilrapport`).
 
 ## Vad skaparen får

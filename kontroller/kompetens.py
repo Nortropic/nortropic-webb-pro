@@ -908,12 +908,12 @@ def kravbrister(kv, pass_, k=None):
             for namn in krav:
                 if namn not in sedda:
                     fel.append('session %d: Skill-aktivering saknas: %s' % (i, namn))
-                elif skrivande and p.get('andrade') and namn in karnskills and namn not in tidiga:
+                elif skrivande and p.get('andrade') and (namn in karnskills or pass_ not in BEHOVSSTYRDA) and namn not in tidiga:
                     # bara kärnan före första ändringen; ett valt alternativ är specialisten för ett observerat problem och
                     # aktiveras när beslutet står (ägarens uppdrag 2026-10-11 om designflödet: bygg, rendera, se det största
                     # problemet, välj relevant kompetens, ändra, kontrollera effekten)
                     fel.append('session %d: Skill aktiverades inte före första ändringen: %s' % (i, namn))
-            fel += underagentbrister(p, i, karnafiler, karna, alternativ)
+            fel += underagentbrister(p, i, karnafiler, karna, alternativ, pass_)
     for m in dict.fromkeys(m for r in roller for m in r.get('mcp_krav', [])):
         utfall = kv.get('mcp_utfall')
         lyckade = sum(n for a, u in (utfall or {}).items() if a.startswith('mcp__%s__' % m)
@@ -1004,7 +1004,7 @@ def redovisat_i_text(kv, pass_, text, k=None):
     return [f.split(': ', 1)[1] for f in redovisade_brister(kv, pass_, {'valda': rader}, k) if ': ' in f]
 
 
-def underagentbrister(p, i, karnafiler, karna, alternativ):
+def underagentbrister(p, i, karnafiler, karna, alternativ, pass_=None):
     """Underagenternas egna krav (lucka 1 i GR-20261010-kompetens-integration): en underagent ser varken huvudsessionens
     skills eller läsningar, så en underagent som ändrar i koden läser kärnan och aktiverar rollens skills själv före sin
     första ändring. En läsande underagent (till exempel ett blint rubrikprov) har inga krav men står i kvittot. Fler
@@ -1026,8 +1026,9 @@ def underagentbrister(p, i, karnafiler, karna, alternativ):
         valda, _ = aktiverbara([f for f in alternativ if vag(f) in (u.get('valda') or [])])
         tidiga = {bildkedja.skillnamn(n) for n in u.get('skill_fore') or []}
         sedda = {bildkedja.skillnamn(n) for n in u.get('skill_anrop') or []}
-        fel += ['%s: Skill aktiverades inte före första ändringen: %s' % (namn_u, n) for n in karnskills if n not in tidiga]
-        fel += ['%s: Skill-aktivering saknas: %s' % (namn_u, n) for n in valda if n not in karnskills and n not in sedda]
+        fore = karnskills if pass_ in BEHOVSSTYRDA else list(dict.fromkeys(karnskills + valda))  # utanför skissen och fördjupningen som förut
+        fel += ['%s: Skill aktiverades inte före första ändringen: %s' % (namn_u, n) for n in fore if n not in tidiga]
+        fel += ['%s: Skill-aktivering saknas: %s' % (namn_u, n) for n in valda if n not in fore and n not in sedda]
     return fel
 
 

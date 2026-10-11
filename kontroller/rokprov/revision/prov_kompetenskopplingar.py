@@ -41,8 +41,11 @@ class Kopplingar(unittest.TestCase):
         # alla skapare. Ägarens uppdrag 2026-10-11 om designflödet: en ofullständig profil är underlag, inte en spärr; skaparen
         # startar och får bristen i sin prompt. Bara den externa inspektionen ersätts.
         kd.satt_status(self.slug, 'k01', 'planerad', 'uppdraget skrivet', forsok=0)
-        with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['k01: syntetisk profilbrist']}) as profil:
+        rapport = {'ok': False, 'brister': ['k01: syntetisk profilbrist'], 'uppdrag': {'k01': kd.uppdrag_sha(self.k)},
+                   'kandidater': {'k01': {'tillstand': 'ofullstandig', 'profiler': [], 'brister': ['k01: syntetisk profilbrist']}}}
+        with patch.object(kd, 'profilrapport', return_value=rapport) as profil:
             self.assertTrue(kd.referensprofil_klar(self.slug, 'k01'))
+        (kd.kdir(self.slug, 'k01') / 'REFERENSPROFIL.json').write_text(json.dumps(rapport))
         profil.assert_called_once_with(self.slug, 'k01')
         st = kd.las_status(self.slug, 'k01')
         self.assertEqual((st['status'], st['skal']), ('planerad', 'uppdraget skrivet'), 'skaparen får börja; statusen står kvar')
@@ -54,7 +57,8 @@ class Kopplingar(unittest.TestCase):
                             uppdragsmaterial_rader=lambda *a: [], historik_rader=lambda *a: [], metodvariant=lambda *a: 'grund'), \
              patch.object(skapande, 'kritikrader', lambda *a, **k: []), patch.object(kompetens, 'prompt_rader', lambda *a, **k: []):
             prompt = kd.skiss_prompt(self.slug, 'k01')
-        self.assertIn('DevTools-profilen för huvudreferensen blev ofullständig (k01: syntetisk profilbrist)', prompt)
+        self.assertIn('DevTools-profilen för referenssidorna blev ofullständig (k01: syntetisk profilbrist)', prompt)
+        self.assertIn('Ofullständigt: k01: syntetisk profilbrist', prompt, 'rapportens egna rader följer med')
         self.assertIn('SEKTIONER.md', prompt)
         # körningen har inget gemensamt profilsteg före poolen: poolen startar, och brister stannar i kandidaterna
         with patch.multiple(kd, STOPP_EFTER='', lista=lambda _: ['k01'], leverera_metod=lambda _: {},

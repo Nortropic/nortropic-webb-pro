@@ -219,14 +219,16 @@ behov avgörs av Avgörandena ovan, designreglerna och kundens aktuella domar, s
 **Skissen och fördjupningen: kärnan först, specialisten efter problemet** (ägarens uppdrag 2026-10-11 om designflödet:
 kompetenserna ska få relevanta uppgifter, inte bli obligatoriska stationer som varje pass besöker; Emil, Motion och GSAP
 vid behov, ingen obligatorisk animation; högst en Taste-variant åt gången). I passen skapa och fordjupa
-(`kompetens.BEHOVSSTYRDA`) är kärnan det som varje skiss behöver före första ändringen: art direction
-(frontend-design), hantverksgolvet och bildreglerna, typografins grund, sanningen och tonen i texten, layouten och
-interaktionens behovsprövning. Alternativen är specialisterna: skaparen bygger, renderar, ser det största problemet,
+(`kompetens.BEHOVSSTYRDA`) är kärnan det som varje skiss och fördjupning behöver före första ändringen: art direction
+(frontend-design), hantverksgolvet och bildreglerna, typografins grund, sanningen och tonen i texten och layouten; i
+skissen också interaktionens behovsprövning (rollen interaktion), i fördjupningen leveransens tre (rollen leverans). Alternativen är specialisterna: skaparen bygger, renderar, ser det största problemet,
 väljer specialisten som problemet kräver, läser eller aktiverar den hel när beslutet står och kontrollerar effekten i
 nästa varvs bilder. Kvittot kräver kärnan före första ändringen och en vald specialist aktiverad eller läst hel, men
 inte före första ändringen; ett val som redovisas utan att observeras är fortfarande en brist. Förut var hela
 skaparkärnan 18 filer och 159 956 tecken före första ändringen, rörelsens 44 036 inräknade; nu 8 filer och omkring
-43 000 tecken. Passet rörelse efter fördjupningen behåller hela rörelsekärnan. Kandidatprovet 2026-10-11 visade varför:
+43 000 tecken. Fördjupningens kärna gick från 18 filer och 137 473 tecken till 10 och 59 307 (de valbara är desamma).
+Passet rörelse efter fördjupningen behåller hela rörelsekärnan, och passen utanför skissen och fördjupningen kräver
+ett valt alternativ aktiverat före första ändringen som förut. Kandidatprovet 2026-10-11 visade varför:
 skaparen (Opus 5.5) läste 7 av 18 kärnfiler, 3 före första ändringen, och hade en bedömbar skiss efter åtta minuter, som
 arbetskravet sedan märkte ofullständig.
 

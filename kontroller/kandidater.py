@@ -1649,13 +1649,15 @@ def profil_rader(slug, kid):
     import referensprofil
     rapport = atelje.las_json(kdir(slug, kid) / 'REFERENSPROFIL.json') or {}
     k = ((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid)
-    if rapport.get('ok') and (rapport.get('uppdrag') or {}).get(kid) == uppdrag_sha(k):
-        return referensprofil.prompt_rader(rapport, kid)
+    bunden = (rapport.get('uppdrag') or {}).get(kid) == uppdrag_sha(k)
     brister = (las_status(slug, kid).get('referensprofil') or {}).get('brister')
-    if brister:
-        return ['- DevTools-profilen för huvudreferensen blev ofullständig (%s). Underlaget är referensbilderna och' % '; '.join(brister)[:400],
-                '  SEKTIONER.md (sektionernas uppmätta mått, typsnitt och CSS-regler ur fångsten); skriv i RIKTNING.md under Material',
-                '  om något som profilen skulle ha gett saknades för ett beslut.']
+    if brister:  # den här startens rapport (referensprofil_klar släpper bara en brist ur en rapport från samma start)
+        return (referensprofil.prompt_rader(rapport, kid) if bunden else []) + [
+            '- DevTools-profilen för referenssidorna blev ofullständig (%s). Underlaget är referensbilderna och' % '; '.join(brister)[:400],
+            '  SEKTIONER.md (sektionernas uppmätta mått, typsnitt och CSS-regler ur fångsten); skriv i RIKTNING.md under Material',
+            '  om något som profilen skulle ha gett saknades för ett beslut.']
+    if rapport.get('ok') and bunden:
+        return referensprofil.prompt_rader(rapport, kid)
     return []
 
 
@@ -1664,8 +1666,11 @@ def referensprofil_klar(slug, kid):
     Profilen är underlag, inte en spärr (ägarens uppdrag 2026-10-11 om designflödet: fel i valfri inspiration fäller inte
     en kandidat i onödan): en ofullständig profil sparas som brist i referensprofil, skaparen får veta det och arbetar från
     referensbilderna och SEKTIONER.md, som fångsten redan mätt (kandidatprovet 2026-10-11: ett prestandaspår som inte
-    blev klart stoppade k02 två gånger fast CSS-reglerna var uppmätta). Kundgränsen, referenskontraktet och stoppet
-    gäller som förut: ett stopp under profileringen är ett avbrott. Ger True när skaparen får börja."""
+    blev klart stoppade k02 två gånger fast CSS-reglerna var uppmätta). Det gäller bara en rapport som profileringen
+    skrev i den här starten för uppdraget som det står nu. Ingen rapport (tidsgränsen, en process som föll, slugvaktens
+    eller skrivmålets vägran) och ett uppdrag som ändrades under profileringen stoppar kandidaten som förut (status fel
+    med referensprofil_brister; nästa start gör om profileringen en gång): orsaken är okänd eller uppdraget är inte
+    prövat i sin nya version. Ett stopp under profileringen är ett avbrott. Ger True när skaparen får börja."""
     k = ((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid)
     if not isinstance(k, dict):
         return True  # ingen plan i kontraktets form: startvillkoren prövas av referensstopp
@@ -1675,8 +1680,16 @@ def referensprofil_klar(slug, kid):
     sek = int(time.monotonic() - start)
     if atelje.STOPP.is_set():  # stoppet dödade profileringen: ett avbrott, ingen profilbrist; statusen står orörd
         raise atelje.Stoppad('profileringen avbröts av stoppet')
-    if rapport.get('ok') and (rapport.get('uppdrag') or {}).get(kid) != uppdrag_sha(k):
-        rapport = dict(rapport, ok=False, brister=['uppdraget ändrades under profileringen'])
+    andrat = (rapport.get('uppdrag') or {}).get(kid) != uppdrag_sha(k)
+    if 'kandidater' not in rapport or andrat:
+        b_ = [str(x) for x in rapport.get('brister') or []] + (['uppdraget ändrades under profileringen'] if andrat and 'kandidater' in rapport else [])
+        b_ = b_ or ['okänt fel']
+        # det som gällde före bristen sparas, så att nästa start återställer det (ett tekniskt omförsök förblir ett)
+        satt_status(slug, kid, 'fel', 'referensprofilen gav ingen rapport för uppdraget, så skaparen startar inte: ' + '; '.join(b_)[:600],
+                    referensprofil_brister={'tid': nu(), 'brister': b_, 'sekunder': sek, 'status_fore': st.get('status'),
+                                            'skal_fore': st.get('skal'), 'tekniskt_fel_fore': bool(st.get('tekniskt_fel'))},
+                    tekniskt_fel=False)
+        return False
     p_ = ((rapport.get('kandidater') or {}).get(kid) or {})
     post = {'tid': nu(), 'sekunder': sek, 'tillstand': p_.get('tillstand') if rapport.get('ok') else 'ofullstandig',
             'profiler': len(p_.get('profiler') or []), 'ateranvanda': sum(1 for x in p_.get('profiler') or [] if x.get('ateranvand'))}
@@ -2231,7 +2244,8 @@ def skapa(slug, kid):
     """En skaparsession för kandidaten (och en ny efter en begärd komplettering); sedan fotograferas den."""
     if referensstopp(slug, kid):  # också en direkt start eller en återupptagning prövar kontraktet
         return las_status(slug, kid)
-    referensprofil_klar(slug, kid)  # kandidatens egen profil; en brist blir skaparens underlag, aldrig en spärr
+    if not referensprofil_klar(slug, kid):  # en profils brist blir skaparens underlag; ingen rapport eller ett ändrat uppdrag stoppar
+        return las_status(slug, kid)
     st = las_status(slug, kid)
     forsok = int(st.get('forsok') or 0) + 1
     forbered_projekt(slug, kid)
@@ -2674,7 +2688,8 @@ def skissa(slug, kid, fel=None):
     efter ett identifierat tekniskt fel, med kortare tid. Ingen förlängning."""
     if referensstopp(slug, kid):  # startvillkoret också här: varje väg till en skaparsession prövar kontraktet
         return las_status(slug, kid)
-    referensprofil_klar(slug, kid)  # kandidatens egen profil; en brist blir skaparens underlag, aldrig en spärr
+    if not referensprofil_klar(slug, kid):  # en profils brist blir skaparens underlag; ingen rapport eller ett ändrat uppdrag stoppar
+        return las_status(slug, kid)
     st = las_status(slug, kid)
     installningar = skaparval(slug, kid)
     forsok = int(st.get('forsok') or 0) + 1
@@ -5692,11 +5707,13 @@ def denna_korningens_tider(slug, status, fv):
     if not start or not t.get('start') or start <= t['start']:
         return []
     valbara = [k for k in lista(slug) if las_status(slug, k).get('status') in VISBARA]
-    forsta = ('%s minuter till första bedömbara version' % minuter_mellan(start, fv)) if fv and fv >= start else \
+    egen = forsta_valbara(slug, start)  # den här körningens första bedömbara version, inte kedjans
+    forsta = ('%s minuter till första bedömbara version' % minuter_mellan(start, egen)) if egen else \
              'första bedömbara version i en tidigare körning' if fv else 'ingen bedömbar version'
+    klar = t.get('klar') if t.get('klar') and t['klar'] >= start else None  # en äldre körnings klar står kvar tills den här är klar
     return ['- tiderna ovan räknas från kedjans första start %s, med tidigare körningar och uppehåll inräknade; den här körningen' % t['start'],
-            '  startade %s: %s, %s minuter totalt; %d av %d kandidater går att välja.' % (
-                start, forsta, minuter_mellan(start, t.get('klar')) if t.get('klar') else '–', len(valbara), len(lista(slug)))]
+            '  startade %s: %s, %s; %d av %d kandidater går att välja.' % (
+                start, forsta, ('%s minuter totalt' % minuter_mellan(start, klar)) if klar else 'inte klar', len(valbara), len(lista(slug)))]
 
 
 def redovisa_skiss(slug, status):

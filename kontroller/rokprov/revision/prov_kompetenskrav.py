@@ -147,6 +147,33 @@ class Krav(unittest.TestCase):
         self.assertIn('session 1: .claude/skills/impeccable/reference/craft-floor.md (läst först efter första ändringen)', fel)
         self.assertIn('session 1: Skill aktiverades inte före första ändringen: frontend-design', fel)
 
+    def test_utanfor_skissen_och_fordjupningen_aktiveras_ett_valt_alternativ_fore_forsta_andringen(self):
+        # granskningen 2026-10-11: lättnaden gäller bara kompetens.BEHOVSSTYRDA; passen rörelse och helbygge som förut
+        for pass_ in ('rorelse', 'helbygge'):
+            with self.subTest(pass_=pass_):
+                kv = kvitto(pass_)
+                alt = [f for r in kompetens.for_pass(pass_) for f in r['valj']]
+                skills, _ = kompetens.aktiverbara(alt)
+                self.assertTrue(skills, 'passet har ett aktiverbart alternativ')
+                f = next(a for a in alt if a == '%s/SKILL.md' % skills[0])
+                p = kv['per_session'][0]
+                p['valda'] = [kompetens.vag(f)]
+                p['skill_anrop'] = p['skill_anrop'] + [skills[0]]
+                self.assertIn('session 1: Skill aktiverades inte före första ändringen: %s' % skills[0], kompetens.kravbrister(kv, pass_))
+
+    def test_underagentens_karna_och_val(self):
+        kv = kvitto('skapa')
+        karnskills, _ = kompetens.aktiverbara([f for r in kompetens.for_pass('skapa') for f in r['karna']])
+        filer = kompetens.lasfiler('skapa')
+        ua = {'agent': 'syntetisk', 'andrade': True, 'lasta': filer, 'fore_forsta_andring': filer,
+              'skill_anrop': karnskills + ['better-typography'], 'skill_fore': [], 'valda': ['.claude/skills/better-typography/SKILL.md']}
+        kv['per_session'][0]['underagenter'] = [ua]
+        fel = kompetens.kravbrister(kv, 'skapa')
+        self.assertIn('session 1, underagent syntetisk: Skill aktiverades inte före första ändringen: frontend-design', fel)
+        self.assertFalse(any('better-typography' in f for f in fel), 'en vald specialist får aktiveras efter första ändringen')
+        ua['skill_anrop'] = karnskills
+        self.assertIn('session 1, underagent syntetisk: Skill-aktivering saknas: better-typography', kompetens.kravbrister(kv, 'skapa'))
+
     def test_skissens_karna_ar_den_lilla_och_rorelsepasset_behaller_sin(self):
         karna = kompetens.lasfiler('skapa')
         for f in ('.claude/skills/frontend-design/SKILL.md', '.claude/skills/impeccable/reference/craft-floor.md',

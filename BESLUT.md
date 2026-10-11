@@ -5356,9 +5356,13 @@ elva körningar nått en skiss; varje stopp låg i en grind före renderingen.
   bild.md, typeset, copy-kontroll, redaktionellt-pass, layout och impeccables animate, som prövar om rörelse har ett
   syfte): 8 filer och omkring 43 000 tecken i stället för 18 och 159 956. Resten är specialister som väljs efter det
   problem renderingen visar och läses hela när de väljs; en vald specialist får aktiveras efter första ändringen.
-  Rörelsen har en egen roll i skissen (interaktion) och passet rörelse behåller hela kärnan. Ingen skill är borttagen.
+  Rörelsen har en egen roll i skissen (interaktion) och passet rörelse behåller hela kärnan. Fördjupningen får samma
+  regel (kärnan 10 filer i stället för 18), prövad mekaniskt men inte i en verklig fördjupning. Utanför skissen och
+  fördjupningen gäller kravet på valda alternativ före första ändringen som förut. Ingen skill är borttagen.
 - **Referensprofilen är underlag, inte en spärr** (`kandidater.referensprofil_klar`, `kunskap/referensprofil.md`):
-  bristen sparas i statusen och står i skaparens prompt; stoppet är fortfarande ett avbrott.
+  en rapport ur starten med en brist sparas i statusen och står i skaparens prompt; ingen rapport (tidsgränsen, en
+  fallen process, slugvaktens vägran) och ett uppdrag som ändrats under profileringen stoppar som förut, och stoppet är
+  ett avbrott.
 - **Granskarens kritik kastas inte för en redovisningsbrist** (`kandidater.skisskritik`): bristen sparas
   (`redovisningsbrister`); en granskare som inte läst sin kärna fälls som förut.
 - **Bevarat:** research och referenser före förslagen (ägarens beslut 2026-10-10), tio förslag, referenskontraktet,

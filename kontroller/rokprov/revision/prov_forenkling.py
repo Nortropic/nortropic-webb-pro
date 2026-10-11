@@ -466,9 +466,12 @@ class Kedjan(Grund):
         # försök, och bristen står i statusen och skaparens prompt (profil_rader)
         anrop, skissade = [], []
 
-        def falsk(slug, kid):
+        k = json.loads((self.r / 'KANDIDATPLAN.json').read_text())['kandidater']['k01']
+
+        def falsk(slug, kid):  # en rapport ur den här starten, bunden till uppdraget, med en brist
             anrop.append(kid)
-            return {'ok': False, 'brister': ['syntetisk brist']}
+            return {'ok': False, 'brister': ['syntetisk brist'], 'uppdrag': {kid: kd.uppdrag_sha(k)},
+                    'kandidater': {kid: {'tillstand': 'ofullstandig', 'profiler': [], 'brister': ['syntetisk brist']}}}
         import ab
         with patch.object(kd, 'profilrapport', falsk), patch.object(ab, 'skisskrav', lambda slug: None), \
                 patch.object(ab, 'skissavslutad', lambda slug, kid: kd.las_status(slug, kid)):
@@ -479,6 +482,24 @@ class Kedjan(Grund):
             self.assertEqual(st['referensprofil']['brister'], ['syntetisk brist'])
             self.assertIsNone(st.get('referensprofil_brister'))
             self.assertTrue(any('syntetisk brist' in r for r in kd.profil_rader(SLUG, 'k01')))
+
+    def test_ingen_rapport_eller_ett_andrat_uppdrag_stoppar_som_forut(self):
+        # granskningen 2026-10-11: tidsgränsen, en fallen process eller slugvaktens vägran ger ingen rapport, och ett uppdrag
+        # som ändrades under profileringen är inte prövat i sin nya version; där startar skaparen inte
+        k = json.loads((self.r / 'KANDIDATPLAN.json').read_text())['kandidater']['k01']
+        with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['profileringen nådde tidsgränsen 3600 s']}):
+            self.assertFalse(kd.referensprofil_klar(SLUG, 'k01'))
+        st = kd.las_status(SLUG, 'k01')
+        self.assertEqual(st['status'], 'fel')
+        self.assertEqual(st['referensprofil_brister']['brister'], ['profileringen nådde tidsgränsen 3600 s'])
+        self.assertEqual(kd.profil_rader(SLUG, 'k01'), [], 'ingen äldre profil eller brist till en skapare som inte startar')
+        kd.satt_status(SLUG, 'k01', 'planerad', 'uppdraget skrivet', ta_bort=('referensprofil_brister',))
+        annat = {'ok': True, 'brister': [], 'uppdrag': {'k01': 'ett-annat-uppdrag'}, 'kandidater': {'k01': {'tillstand': 'genomford', 'profiler': []}}}
+        with patch.object(kd, 'profilrapport', return_value=annat):
+            self.assertFalse(kd.referensprofil_klar(SLUG, 'k01'))
+        self.assertIn('uppdraget ändrades under profileringen', kd.las_status(SLUG, 'k01')['referensprofil_brister']['brister'])
+        self.assertTrue(kd.ska_skapas(kd.las_status(SLUG, 'k01')), 'nästa start gör om profileringen')
+        self.assertNotEqual(kd.uppdrag_sha(k), 'ett-annat-uppdrag')
 
     def test_en_aldre_starts_profilsparr_tas_upp_och_det_tekniska_omforsoket_forblir_ett(self):
         # granskningen 2026-10-10, fynd 1: en profilbrist i ett tekniskt omförsök fick kandidaten att fastna för alltid; en
@@ -501,12 +522,18 @@ class Kedjan(Grund):
         # genom fyra körningar och uppehåll, och ingen kandidat gick att välja
         status = {'startad': '2026-10-11T21:18:34Z', 'tider': {'start': '2026-10-11T00:21:28Z', 'klar': '2026-10-11T21:33:34Z'}}
         kd.satt_status(SLUG, 'k01', 'ofullstandig', 'syntetiskt')
-        rader = kd.denna_korningens_tider(SLUG, status, '2026-10-11T21:27:28Z')
+        with patch.object(kd, 'forsta_valbara', return_value='2026-10-11T21:27:28Z'):  # den här körningens bedömbara version
+            rader = kd.denna_korningens_tider(SLUG, status, '2026-10-11T21:27:28Z')
         self.assertIn('9 minuter till första bedömbara version, 15 minuter totalt; 0 av 1 kandidater går att välja', ' '.join(rader))
         self.assertIn('kedjans första start 2026-10-11T00:21:28Z', rader[0])
         self.assertEqual(kd.denna_korningens_tider(SLUG, {'startad': '2026-10-11T00:21:28Z', 'tider': status['tider']}, None), [],
                          'en körning som är kedjans första har inga egna rader')
-        self.assertIn('i en tidigare körning', ' '.join(kd.denna_korningens_tider(SLUG, status, '2026-10-11T05:00:00Z')))
+        kd.satt_status(SLUG, 'k01', 'ofullstandig', 'syntetiskt')  # ingen bedömbar version i den här körningens logg
+        self.assertIn('första bedömbara version i en tidigare körning', ' '.join(kd.denna_korningens_tider(SLUG, status, '2026-10-11T05:00:00Z')))
+        aldre = {'startad': '2026-10-11T21:18:34Z', 'tider': {'start': '2026-10-11T00:21:28Z', 'klar': '2026-10-11T06:43:34Z'}}
+        rad = ' '.join(kd.denna_korningens_tider(SLUG, aldre, None))
+        self.assertIn('inte klar', rad, 'en äldre körnings klar ger aldrig negativa minuter')
+        self.assertNotIn('-', rad.split('startade')[1].split(':', 1)[1].split(';')[0])
 
     def test_profilsteget_behaller_skalet_och_ett_stopp_ar_ett_avbrott(self):
         kd.satt_status(SLUG, 'k01', 'ofullstandig', 'förra försökets brister: menyn öppnar ingenting', forsok=1)

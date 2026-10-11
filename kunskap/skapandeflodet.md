@@ -176,7 +176,8 @@ kandidaterna och granskningarna.
    för i ett gemensamt steg före alla skapare (ägarens förenklingsuppdrag 2026-10-10, D). Olika sidor profileras
    samtidigt (högst så många som skissar samtidigt) och samma sida en gång. En ofullständig profil är underlag, inte en
    spärr (ägarens uppdrag 2026-10-11 om designflödet): skaparen startar, får bristen i sin prompt och arbetar från
-   referensbilderna och SEKTIONER.md. Profilerna når skaparen i uppdragets prompt (`kandidater.profil_rader`), bundna till
+   referensbilderna och SEKTIONER.md; ingen rapport eller ett uppdrag som ändrades under profileringen stoppar
+   kandidaten som förut, och nästa start profilerar en gång till. Profilerna når skaparen i uppdragets prompt (`kandidater.profil_rader`), bundna till
    uppdraget, så att UPPDRAG.md inte skrivs om. Skaparen läser kärnan före första ändringen och väljer specialisterna
    efter det problem renderingen visar (metodkartan, Kompetenserna: kärnan först, specialisten efter problemet).
    Försökets förutsättningar fryses när det startar (`underlag_vid_start`: uppdraget, materialet, profilerna och
