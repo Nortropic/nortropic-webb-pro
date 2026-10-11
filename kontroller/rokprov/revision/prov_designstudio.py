@@ -438,5 +438,23 @@ class Studio(unittest.TestCase):
             atelje.skriv_json_atomiskt(stfil, fore_st)
 
 
+class Exportskanning(unittest.TestCase):
+    """DS-U33: exportens byggprov fäller ett produktionsbygge som bär designstudions förhandsbyggesspår."""
+
+    def test_16_studions_spar_i_dist(self):
+        import exportera
+        import tempfile
+        with korregister.egen_tmp_med('nwp-studio-', 'exportskanningens prov') as d:
+            dist = Path(d)
+            (dist / 'index.html').write_text('<h1 class="r">Hej</h1>', encoding='utf-8')
+            (dist / '_astro').mkdir()
+            (dist / '_astro' / 'a.css').write_text('.r{color:red}', encoding='utf-8')
+            self.assertEqual(exportera.studions_spar(dist), [])
+            (dist / 'om.html').write_text('<h1 data-nwp-k="0123456789ab">Om</h1>', encoding='utf-8')
+            (dist / '_astro' / 'b.css').write_text('.x{--nwp-r:"abc";color:red}', encoding='utf-8')
+            (dist / 'c.html').write_text('<script src="/__nortropic/forhandsbrygga.js"></script>', encoding='utf-8')
+            self.assertEqual(exportera.studions_spar(dist), ['_astro/b.css', 'c.html', 'om.html'])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

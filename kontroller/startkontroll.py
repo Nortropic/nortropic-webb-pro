@@ -76,7 +76,6 @@ DOKUMENTATIONS_MCP = ('motion',)
 KOMPONENT_MCP = ('21st',)
 VANTA_INTAG = 1200  # s: ett intag i underhållet väntas ut högst så länge; sedan stoppas starten (fynd 2)
 DISKVAKT = 0.15  # under 15 % ledigt städas det före starten (städregeln, BESLUT.md 2026-10-06, punkt 6)
-EGNA_PROCESSKILLS = ('bygg-sajt', 'kirurg', 'backlog', 'writing-for-agents')
 # formuleringar som ersatta regler bar; en träff i ett aktivt uppdrag är en konflikt (BESLUT.md, Ersatta designregler)
 FORLEGADE = ('Inga skillskript, hookar, git eller MCP', 'inget Skill-verktyg', 'ingen JavaScript som inte behövs',
              'installeras inga paket utom typsnitt', 'Telefonnumret som tel-länk i sidhuvudet på varje sida',
@@ -638,14 +637,9 @@ def regler(servrar, slug=None):
     traffar = sorted({(f, x) for x in list(FORLEGADE) + ersatta_regler() for f, t in texter.items() if ' '.join(x.split()) in t})
     ut.append(post('regler', 'ersatta och förlegade regler i aktiva uppdrag', 'fel' if traffar else 'ok',
                    detalj='; '.join('%s: "%s"' % (f, x[:60]) for f, x in traffar[:6]) or 'inga träffar'))
-    import kompetens
-    k = kompetens.tolka()
-    tilldelade = {f.split('/')[0] for x in k.values() for f in x['karna'] + x['valj'] if not f.startswith(('kunskap/', 'kritik/', 'mall/'))}
+    import kompetens  # samma regel som kompetenskartan (kompetens.skillstatus)
     karta = (vl.ROOT / 'kunskap' / 'metodkarta.md').read_text(encoding='utf-8')
-    utan = karta.split('**Ingen uppgift i flödet**', 1)[-1].split('\n## ', 1)[0]
-    # hela namnet, inte en del av ett ord: "design" i en mening om design räknas inte som ett skäl för skillen design
-    oanvanda = sorted(p.name for p in vl.SKILLS.iterdir() if p.is_dir() and p.name not in tilldelade and p.name not in EGNA_PROCESSKILLS
-                      and not re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(p.name), utan))
+    oanvanda = sorted(n for n, x in kompetens.skillstatus(vl.SKILLS, kompetens.tolka(karta), karta).items() if x['plats'] == 'utan')
     # en ny skill utan beslut är "nytt, obedömt" med åtgärd, aldrig okänd, och gör inte kvittot begränsat (ägarens uppdrag
     # 2026-10-07, punkt 3)
     ut.append(post('möjlighet', 'skills utan roll eller skäl', 'nytt' if oanvanda else 'ok', tillstand='tillgangligt' if oanvanda else 'tilldelat',

@@ -225,6 +225,32 @@ class Kundrepo(unittest.TestCase):
         self.assertTrue(res['ok'], res.get('fel'))
         return res
 
+    def test_exportens_skydd_stoppar_ocommittat_och_varnar_for_genererade(self):
+        # granskningen 2026-10-11: ocommittat arbete i kundrepot stoppar exporten, som då inte skriver något kvitto; en
+        # fil som exporten själv genererar (CLAUDE.md) och som en commit ändrat skrivs över, och kvittot säger det
+        res = self.exportera_med_repo()
+        r = self.k / 'kundrepo'
+        kvitton = lambda: sorted(x.name for x in (self.k / 'exporter').iterdir() if x.is_dir())  # noqa: E731
+        fore = kvitton()
+        (r / 'utkast.txt').write_text('agentens ocommittade arbete')
+        with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
+            vagrad = exportera.exportera(self.slug, git=True, bygg=False)
+        self.assertFalse(vagrad['ok']); self.assertTrue(vagrad.get('vagrad'))
+        self.assertIn('utkast.txt (inte committad)', vagrad['skrivs_over'])
+        self.assertEqual(kvitton(), fore, 'en vägrad export skriver inget kvitto')
+        self.assertEqual((r / 'utkast.txt').read_text(), 'agentens ocommittade arbete', 'inget skrivs över')
+        self.assertEqual(exportera.aktuell(self.slug)['id'], res['id'], 'det senaste exportförsöket är fortfarande det förra')
+        self.assertEqual(json.loads((self.k / 'KUNDREPO.json').read_text())['senaste_export']['id'], res['id'])
+        (r / 'utkast.txt').unlink()
+        (r / 'CLAUDE.md').write_text('# ändrad av agenten\n')
+        for argv in (('add', 'CLAUDE.md'), ('-c', 'user.name=Prov', '-c', 'user.email=prov@example.invalid', 'commit', '-qm', 'Ändring: instruktionen')):
+            subprocess.run(['git', *argv], cwd=r, check=True, capture_output=True)
+        with patch.object(exportera, 'verifiera_bygge', return_value=(True, 'attrapp')):
+            res2 = exportera.exportera(self.slug, git=True, bygg=False)
+        self.assertTrue(res2['ok'], res2.get('fel'))
+        self.assertEqual(res2['genererade_skrivs_over'], ['CLAUDE.md'])
+        self.assertIn(res2['id'], (r / 'CLAUDE.md').read_text(), 'exporten skrev sin egen CLAUDE.md')
+
     def test_forhandsvisningen_vantar_pa_kontot_utan_cloudflare_env(self):
         self.exportera_med_repo()
         pv = self.forhandsvisa()

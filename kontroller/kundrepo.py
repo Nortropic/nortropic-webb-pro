@@ -102,6 +102,17 @@ def las_kvitto(slug, kund=None):
         return None
 
 
+def bunden_adress(slug, kv=None):
+    """Webbplatsens fjärrepo: det som kundens kvitto binder (ett repo i organisationen, skapat här eller kopplat i
+    repoväljaren), annars namnregelns kund-<slug>. Förkontrollen prövar arbetskopians origin mot den här adressen."""
+    kv = las_kvitto(slug) if kv is None else kv
+    f = (kv or {}).get('fjarr') or {}
+    a = str(f.get('adress') or '').rstrip('/')
+    if f.get('status') == 'skapat' and re.fullmatch(r'https://github\.com/%s/[A-Za-z0-9._-]{1,100}' % ORG, a):
+        return a
+    return identitet(slug)['fjarr_adress']
+
+
 def ar_repo(p):
     p = Path(p)
     return p.is_dir() and not p.is_symlink() and (p / '.git').is_dir()

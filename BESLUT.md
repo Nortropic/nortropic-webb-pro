@@ -5107,3 +5107,206 @@ en sajt i paketet kunde släppas igenom som huvudreferens utan profil genom plan
 frågor också när de föll i varv 1, att en registrering som föll lämnade försöket under arbete och att en komprimerad
 fortsättning skulle sakna kärnan; alla är rättade med prov som är röda utan rättelsen. Avslaget är anropet identiskt med
 före provet.
+
+## Tillägg 2026-10-11: designstudion i portalen (byggpaketet v1, DS1–DS5)
+
+**Status:** gäller.
+
+Ägarens ord, inklistrade, ordagrant (med byggpaketet `Nortropic-Designstudio-byggpaket-v1.zip`, som inte ligger i repot:
+BYGGPROMPT, BILDGUIDE, ACCEPTANSPROV, KALLOR-OCH-METODER och referensbilderna):
+
+> Läs BYGGPROMPT.md i den bifogade/angivna mappen nortropic-designstudio-byggpaket-v1.
+>
+> Läs BILDGUIDE.md och ACCEPTANSPROV.md. Använd KALLOR-OCH-METODER.md för berörda design- och teknikbeslut. Öppna
+> referenser/00-designstudio-hela-flodet.png och relevanta panelutsnitt visuellt.
+>
+> Detta är mitt genomförandeuppdrag för en egen designstudio i Nortropic-appen vi redan byggt. Behåll Astro,
+> kundportalen, integrations-/Cloudflare-basen och cirka tio riktningar.
+>
+> Claude Design och Lovable är förebilder, inte obligatoriska tjänster. Bygg inte om portalen eller integrationerna.
+>
+> Prioritera tidigare bedömbara förslag, källbunden visuell redigering, strukturell iteration, kandidatspecifik
+> återkoppling och bevarad godkänd kod genom helbygget. Bygg inte bara nya paneler.
+>
+> Kontrollera aktuellt arbete och bevara senare rättelser. Genomför DS1–DS5 och prova DS-U01–DS-U36 samt DS-J01–DS-J08.
+> Fortsätt inom befintligt mandat och samordna med pågående arbete.
+>
+> Redovisa kort utgångspunkten och fortsätt sedan med implementation, prov och dokumentation. Skilj implementerat,
+> provat i riktig app, mänskligt bedömt och aktiverat.
+
+Ägarens rättelser under arbetet, ordagrant: "Det du skickade bild på är ju gamla arbetsvyn och inte den nya" och "Ja,
+den gamla arbetsvyn ska inte existera längre, fixa detta, men säkerställ att allt finns i den nya."
+
+**Beslut och avvägningar** (genomförarens, för ägaren att rätta): studion ligger i portalen (`#/studio/<kund>`) och den
+gamla mörka arbetsytan finns inte längre som egen vy; varje funktion därifrån inventerades och finns i portalen eller
+studion. Källbunden redigering bara där källan är bevisad (källkartans id och motorns egen sond); annat går AI-vägen i
+stället för falska reglage. En kandidat är bedömbar så snart första fotograferingen klarat bedömbarheten, och varje
+kandidat har ett eget skrivlås, så att en ändring inte väntar på hela körningen. Studions markörer får aldrig nå den
+exporterade sajten. Beskrivningen: `kunskap/designstudio.md`.
+
+## Tillägg 2026-10-11: kompetenskartan
+
+**Status:** gäller.
+
+Ägarens ord, ordagrant: "tillägg: Ja vi har ju specialkompetens och verktyg, skills, mcps som vi nyttjar som
+"sterioder" till AI:n och detta tycker jag är otydligt vars de nyttjas samt vars luckor där vi kan förstärka AIns
+förståelse är, detta kanske vi kan visualisera bättre nu också. Think hard, iterate, best pratices,"
+
+**Beslut och avvägningar:** kartan (`#/kompetens` under Systemförbättring, `kontroller/kompetenskarta.py`) räknar inte
+fram något nytt om kompetensen: den ställer samman metodkartans tilldelning, skillsens plats (`kompetens.skillstatus`,
+samma regel som startkontrollens rad om skills utan roll eller skäl), tjänsternas verktygsbeslut och de sparade
+kompetenskvittona per roll med kvittots egna tillståndsord, och härleder luckorna med källa och förslag. Ett kvitto
+belägger läsning och anrop, inte kvalitet, och det som inte observerats står som inte observerat. Den ligger i
+portalen och inte i studion, eftersom den gäller hela flödet; studions och observationens kompetensrad länkar dit.
+Kartan visade en strukturell lucka direkt: ändringsagenten kunde inte läsa motorns regler för text och bygge (sandlådan
+nekar motorns `kunskap/`), och den får dem nu som versionerade kopior (`andringar.MOTORNS_REGLER`).
+
+## Tillägg 2026-10-11: fliken Ändringar med en webbplatsspecifik expertagent
+
+**Status:** gäller. Ersätter innehållsservice-/CMS-tillägget (`TILLAGG-Nortropic-innehallsservice-CMS-och-AI-v1.md`),
+dess IN-etapper och preciseringarna om ändringsfliken: de kraven är ersatta, inte levererade, och de registrerades
+aldrig i repot.
+
+Ägarens ord, inklistrade, ordagrant (med `PROMPT-Nortropic-Andringar-repoexpert-v2.md`, som inte ligger i repot):
+
+> Läs hela PROMPT-Nortropic-Andringar-repoexpert-v2.md.
+>
+> Detta är ett tillägg till ditt pågående Nortropic-arbete. Det ersätter det tidigare innehållsservice-/CMS-tillägget
+> och preciseringarna om ändringsfliken. Designstudioarbetet består.
+>
+> Registrera tillägget i den befintliga planen och samordna det vid nästa säkra arbetsgräns. Avbryt inte ett aktivt
+> skriv-/teststeg, nollställ inte planen och kasta inte bort redan genomfört arbete.
+>
+> Målet är fliken Ändringar med en verklig interaktiv agent som är expert på just kundens webbplats och arbetar i dess
+> befintliga repo. Jag beskriver kundens önskemål; agenten genomför, kontrollerar och redovisar ändringen genom
+> Nortropics befintliga arbetsvägar.
+>
+> Bekräfta kort hur tillägget passar in i det pågående arbetet och fortsätt sedan med implementation, prov och
+> dokumentation.
+
+**Beslut och avvägningar:**
+- **Terminalen** är en riktig PTY som dashboarden äger, med xterm.js i portalen; ingen ny agentmotor, ingen tokenproxy
+  och ingen modellrouter. Agenten är Claude Code som det är inloggat, med motorns gällande modellval.
+- **Behörigheterna** sitter i mekanik, inte i rollprompten: restricted-läge, motorns inställningar med sandlåda utan nät,
+  nekade git- och publiceringskommandon, krokar mot dashboarden och kundens lås per tur. Provat i Claude Code 2.1.290:
+  `strictAllowlist` gäller inte från `--settings` (ersatt av `deniedDomains: ['*']`), `--restricted` laddar ägarens
+  claude.ai-kopplingar utan `--strict-mcp-config`, och Remote Control ansluter av sig själv utan `disableRemoteControl`.
+- **Commitvägen:** sandlådan nekar agentens kommandon att skriva i `.git`, så en vanlig `git commit` går inte. Att
+  smalna av förbudet till krokarna och konfigurationen nekades som en säkerhetsförsvagning, och i stället committar
+  motorn de filer agenten namnger genom ett betrott kommando (`andringar.py committa`), med repots krokar och fsmonitor
+  avstängda. Motorns poster i den privata katalogen (kontrollernas logg, som kvittot litar på) är skrivskyddade för
+  agenten, så att den inte kan godkänna sitt eget arbete.
+- **Leveransen** går genom de befintliga vägarna: en prövad commit kvitteras som kundens leverabel och förhandsvisas och
+  släpps under Bygge med Johnnys mandat; en senare export skriver inte över repots nya innehåll.
+- **xterm.js i appen:** Nortropic.app fryser `Object.prototype` (`freezePrototype`), och en tilldelning i xterm.js kastar
+  då. Skyddet står kvar; den enda tilldelningen är skriven om i den vendrade kopian (`dashboard/vendor/xterm/KALLA.md`),
+  och webbprovet fryser prototypen som appen. Option-tangenten skriver tecken (svenskt tangentbord: @ [ ] { } | \ –).
+
+Beskrivningen: `kunskap/andringar.md` och `kunskap/andringsmetod.md`.
+
+## Tillägg 2026-10-11: repoväljaren i fliken Ändringar
+
+**Status:** gäller.
+
+Ägarens ord, inklistrade 2026-10-11 ~12:05Z, ordagrant (de två sista punkterna stod i det inklistrade; raden om
+standardgrenen stod kvar, så grenbyte ingår inte):
+
+> # Tillägg: Repoväljaren i fliken Ändringar (mellanvägen)
+>
+> Detta är ett tillägg till pågående Nortropic-arbete. Registrera det i den befintliga planen och samordna vid nästa
+> säkra arbetsgräns. Avbryt inte ett aktivt skriv- eller teststeg, nollställ inte planen och kasta inte bort genomfört
+> arbete. Designstudion och fliken Ändringar består; detta bygger vidare på Ändringar och ersätter inget av det.
+> Bekräfta kort hur tillägget passar in, och fortsätt sedan med implementation, prov och dokumentation.
+>
+> ## Mål
+>
+> Johnny ska kunna öppna valfritt kundrepo i organisationen Nortropic på GitHub direkt i appen och arbeta i det med
+> webbplatsens ändringsagent (Claude Code i terminalen), ungefär som "Clone Repository" och "Open Recent" i VS Code,
+> men begränsat till Nortropics kundrepon. Ingen fri mappväljare, ingen sökvägsruta och inget generiskt skal.
+>
+> ## Det Johnny ska kunna göra
+>
+> 1. Öppna repoväljaren från Ändringar och från kundens sida i portalen, med en knapp och ett kortkommando.
+> 2. Se en sökbar lista: först "Senast öppnade", sedan alla kundrepon i organisationen. Varje rad visar repo, kund
+>    (om kopplad), senaste push, om en lokal arbetskopia finns, gren och läge: i takt, efter, före eller lokala ändringar.
+> 3. Filtrera med tangentbordet (pilar, Enter, Esc), som VS Codes Quick Pick.
+> 4. Välja ett repo:
+>    - finns arbetskopian öppnas Ändringar för den kunden;
+>    - finns den inte klonas repot till kundens rätta plats (kunder/<slug>/kundrepo) efter Johnnys bekräftelse,
+>      och sedan öppnas Ändringar.
+> 5. Se tydligt när ett repo inte är kopplat till någon kund, och koppla det till en befintlig kund med ett aktivt val.
+>
+> ## Källor och bindning
+>
+> - Listan hämtas av det betrodda lagret genom den befintliga GitHub-integrationen (kundrepo-modulen och gh), aldrig
+>   av agenten. Agenten får ingen åtkomst till GitHub-inloggningen.
+> - Saknas inloggningen eller har den gått ut: visa vad som saknas och hur Johnny åtgärdar det. Be aldrig om token i appen.
+> - Bindningen repo–kund kommer från kundens kvitto (KUNDREPO.json och projekt-id). Repot gissas aldrig ur namnet; ett
+>   namnförslag får visas men kräver Johnnys bekräftelse, och förkontrollen i Ändringar prövar fjärradressen som i dag.
+> - Inget nytt kundregister. Ett repo utan kund kopplas till en befintlig kund eller genom det befintliga flödet för ny kund.
+> - Fiktiva kunder och testkunder får aldrig ett fjärrepo; testdata syns bara i provläget.
+>
+> ## Hämta och uppdatera säkert
+>
+> - Klonen går genom den befintliga inloggningsvägen för kundrepon, till rätt plats, aldrig utanför kunder/.
+> - "Hämta" gör fetch utan sammanfogning och visar före och efter.
+> - "Uppdatera" är bara fast-forward, bara på ren arbetskopia och under kundens lås. Ingen reset, stash, rebase,
+>   tvingad pull eller rensning. Vid konflikt eller lokala ändringar: visa läget och låt Johnny välja.
+> - Byte av repo medan en agentsession lever: fråga först. Sessionen stoppas med verklig processkontroll eller
+>   fortsätter i bakgrunden; aldrig två skrivare på samma repo.
+> - Första versionen arbetar på repots standardgren; andra grenar visas men byts inte till.
+>
+> ## Gränser
+>
+> Inga nya abonnemang, kvothöjningar, publiceringar eller domänändringar. Repot är publikt: inga hemligheter och inget ur
+> underlag/ eller kunder/ i git. Ändringsflikens sandlåda, krokar och lås gäller oförändrade för varje valt repo.
+> Komplexitetsbudget: väljaren återanvänder befintliga delar (kundrepo, förkontrollen, låsen, xterm-terminalen) och
+> lägger inte till en ny motor.
+>
+> ## Inspiration: VS Code
+>
+> Studera https://github.com/microsoft/vscode som förebild, inte som kod att kopiera; lånad kod kräver KALLA.md och
+> licens. Titta på Quick Pick (filtrering, beskrivning och detaljrad per val), Clone Repository med GitHub-listan, Open
+> Recent, Workspace Trust (begränsat läge tills mappen är betrodd), terminalens återanslutning (VS Codes terminal bygger
+> också på xterm.js) samt Source Control-vyns inkommande och utgående ändringar och statusraden med gren och synkläge.
+> Redovisa kort vad som togs därifrån, vad som valdes bort och varför.
+>
+> ## Acceptansprov
+>
+> 1. Listan med ett falskt gh: rätt repon i organisationen; främmande organisationer syns inte.
+> 2. Filter och tangentbord fungerar; axe utan fynd; inget sidledes spill i 390 och 1440 px.
+> 3. Repo med arbetskopia: Ändringar öppnas för rätt kund och förkontrollen är grön.
+> 4. Repo utan arbetskopia: bekräftelse, klon till rätt plats, kvittot stämmer, Ändringar öppnas.
+> 5. Ett repo kopplat till kund A går inte att öppna som kund B; ett okopplat repo kräver ett aktivt val.
+> 6. Repo som ligger efter fjärren: hämta visar läget; uppdatering bara fast-forward på ren arbetskopia; lokala
+>    ändringar står kvar.
+> 7. Utgången inloggning: tydligt besked, ingen tokenruta, inget trasigt läge.
+> 8. Byte av repo under levande session: ingen andra skrivare; stoppet är verklig processkontroll.
+> 9. "Senast öppnade" överlever en omstart.
+> 10. Samma flöde fungerar i Mac-appen (Tauri), inte bara i webbläsaren.
+>
+> ## Dokumentation och slutrapport
+>
+> Uppdatera kunskap/andringar.md, kunskap/desktop.md och BESLUT.md. Skilj implementerat, provat i riktig app, mänskligt
+> bedömt och aktiverat. Slutrapporten börjar med "Det här kan Johnny göra nu" och visar ett verkligt exempel.
+>
+> Två saker att känna till:
+> - VS Code-delen bygger på min allmänna kunskap om VS Code. Jag kan inte öppna repot härifrån. Huvudsessionen kan leta
+>   upp de konkreta delarna, som Quick Pick, git- och GitHub-tilläggen och terminalen.
+> - Grenbyte är medvetet utelämnat för att hålla väljaren liten. Vill du kunna byta gren, ändra raden om standardgrenen
+>   innan du skickar prompten.
+
+**Beslut och avvägningar:**
+- **Bindningen** kommer ur kvittona: kvittots bundna repo och projekt-id, som repots beskrivning bär som markör. Ett repo
+  utan markör binds aldrig, som när kundrepon skapas (`kundrepo.fjarr_skapa`), och ett okopplat repo med markör kopplas
+  bara till en befintlig kund utan kvitto och utan arbetskopia. Förkontrollen prövar arbetskopians konfigurerade origin
+  mot kvittots repo (`kundrepo.bunden_adress`), inte mot namnregeln ensam.
+- **Inloggningen** är gh som det är inloggat; klonen går med `gh repo clone` och hämtningen med gh som gits
+  inloggningshjälp, utan att någon token passerar appen. Listan läses om bara med ett skrivande anrop, så att en sida
+  aldrig kan få dashboarden att anropa GitHub upprepat.
+- **Uppdatera** är alltid `--ff-only` på en ren arbetskopia på standardgrenen, under kundens lås; VS Code har ingen ren
+  fast-forward-inställning, och dess Sync, pull med rebase och autostash valdes bort.
+- **VS Code som förebild** (källkoden, microsoft/vscode eef761e; ingen kod lånad): Quick Picks form, tangenter och
+  ARIA, Open Recents ordning, Source Controls läge ur senaste hämtningen. Mappväljaren, tokenrutan, GitHub-sökningen,
+  grenbytet och Workspace Trusts dialoger valdes bort; arbetskopian under `kunder/` är betrodd av konstruktion, och
+  Claude Codes egen förtroendedialog plus sandlådan står för begränsningen.

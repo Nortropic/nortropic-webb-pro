@@ -2763,6 +2763,15 @@ def skissa(slug, kid, fel=None):
         tidig = fotografera(slug, kid, skiss=True, tidig={'forsok': forsok})  # sessionerna bokförs vid slutfotograferingen (kvittot läser dem där)
         if tidig.get('status') == 'bedombar':
             lage = 'bedombar'
+            # skaparens kvitto för den bedömbara versionen: ett stopp i granskningen eller svaret lämnar versionen stående
+            # (ta_upp_bedombar), och återupptagningen prövar dess kompetenskrav som för en sparad skiss (skaparbrister);
+            # utan kvittot föll återupptagningen på "transkript saknas" (fullprovet 2026-10-11). Försökets slut skriver
+            # det hela kvittot, med svaret.
+            kv0 = kompetens.kvitto(sessioner, 'skapa', skrivprefix=rel(ksajt(slug, kid) / 'src') + '/')
+            k0 = dict(las_status(slug, kid).get('kompetens') or {})
+            k0['skiss:skapa'] = {'fas': 'skiss', 'pass': 'skapa', 'klar': nu(), 'tidig': True, 'kvitto': kompetens_kort(kv0),
+                                 'kompetenskravbrister': kompetens.kravbrister(kv0, 'skapa')}
+            satt_status(slug, kid, 'bedombar', tidig.get('skal') or '', kompetens=k0)
         else:
             satt_status(slug, kid, 'under_arbete', 'skaparens version är inte bedömbar än (%s); granskningen fortsätter' % str(tidig.get('skal') or '')[:200])
         if atelje.STOPP.is_set():

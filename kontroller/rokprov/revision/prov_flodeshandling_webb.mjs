@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 const root = resolve(process.argv[2] || '.');
 const html = await readFile(resolve(root, 'dashboard/index.html'));
-const filer = new Map(await Promise.all(['kundstart-agare.js', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'portal.js', 'portal.css'].map(async namn =>
+const filer = new Map(await Promise.all(['kundstart-agare.js', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'portal.js', 'portal.css',
+  'andringar.js', 'andringar.css', 'repovaljare.js', 'repovaljare.css', 'kompetenskarta.js', 'kompetenskarta.css', 'vendor/xterm/xterm.js', 'vendor/xterm/xterm.css', 'vendor/xterm/addon-fit.js'].map(async namn =>
   ['/' + namn, await readFile(resolve(root, 'dashboard', namn))])));
 const namn = ['Sessionen avslutades normalt', 'Tekniska kontroller', 'Designgranskning', 'Ägarens godkännande', 'Leverans inom angiven omfattning'];
 let fas = 'klar';

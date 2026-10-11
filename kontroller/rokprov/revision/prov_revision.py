@@ -5405,7 +5405,8 @@ try:
         omgang_gk(kritik=kd.FRIST_SKISSKRITIK + 220)
         assert [x_['schema'] is kd.SKISSKRITIK_SCHEMA for x_ in sess_gk].count(True) == 1 and not any('En kritisk granskare har sett' in x_['prompt'] for x_ in sess_gk)
         assert kd.las_status(sl_sk, 'k02')['skisskritik']['tid_kvar'] < kd.SVAR_MIN
-        # (4) ett stopp under granskningen går igenom: försöket står kvar under arbete
+        # (4) ett stopp under granskningen går igenom: skaparens version var redan bedömbar och står kvar som bedömbar
+        # (designstudion DS2, tidig publicering; kunskap/designstudio.md), och försöket tas upp vid återupptagningen
         try:
             omgang_gk(kritik_stopp=True)
             raise AssertionError('stoppet under granskningen skulle gå igenom')
@@ -5413,7 +5414,8 @@ try:
             pass
         finally:
             at_pt.STOPP.clear()
-        assert kd.las_status(sl_sk, 'k02')['status'] == 'under_arbete'
+        st4_gk = kd.las_status(sl_sk, 'k02')
+        assert st4_gk['status'] == 'bedombar' and st4_gk.get('bedombar'), (st4_gk.get('status'), st4_gk.get('skal'))
         # (5) svaret bryter bygget: skissen före svaret återställs och fotograferas, så att ägaren har en skiss att bedöma
         omgang_gk(svar_trasig=True)
         st5_gk = kd.las_status(sl_sk, 'k02')

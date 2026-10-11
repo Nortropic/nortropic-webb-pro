@@ -231,7 +231,9 @@ kandidaterna och granskningarna.
    hashen över koden och DESIGN.md, så en ny fotografering av samma kod ger samma version. Ett hinder (bygget föll,
    startsidan eller bilderna saknas) gör skissen ofullständig med skälen; bristerna (konsolfel, spill, axe, siffror utan
    belägg, menyn, fokus, huvudreferensraden) markeras, och skissen går ändå att bedöma. Ett omförsök ges bara vid ett
-   identifierat tekniskt fel.
+   identifierat tekniskt fel. Så snart första fotograferingen klarat bedömbarheten (ingen felsida, ingen tom sida, en
+   h1, inga brutna bilder i första vyn) står kandidaten som bedömbar och syns i Förslag och designstudion, också medan
+   kritiken och de andra kandidaterna arbetar; versionens bilder bevaras (designstudion, DS2: `kunskap/designstudio.md`).
 
    **Kontrollerna före valet och senare** (ägarens förenklingsuppdrag 2026-10-10, punkt 4). Före ägarens val görs det som
    behövs för ett rättvisande och användbart förslag: bygget och renderingen i fyra bredder, menyn i verkligt tillstånd,
@@ -459,7 +461,9 @@ Föll en körning tar `.venv/bin/python kontroller/atelje.py <slug> --fortsatt` 
 kandidatflödet: stycket efter stegen ovan). Körningens slutpost säger om den stoppades eller föll, i vilket steg och när
 (Körspåret nedan). Startlåset `underlag/<slug>/.atelje-start.las` tas aldrig bort av någon kod: en raderad låsfil
 skulle låta nästa start låsa en ny inod fritt (GR-20261008-r117-claude#B10). Ägarens stopp är `atelje.py <slug> --stoppa`: arbetaren får SIGTERM (SIGHUP och SIGINT är samma
-stopp), avslutar sina sessioner med deras processträd, märker kandidaterna under arbete och skriver posten; sessioner
+stopp), avslutar sina sessioner med deras processträd, märker kandidaterna under arbete (en kandidat som redan var
+bedömbar står kvar som bedömbar med `bedombar_avbruten`, och försöket tas upp vid återupptagningen;
+`kunskap/designstudio.md`) och skriver posten; sessioner
 som överlevt arbetaren (kandidaternas `session_pid`, och förteckningens poster utan slut, som skisskritikens) avslutas
 av `--stoppa` och får slut och utfall. Läget full prövar stoppet efter varje session, som skissa gör. Ett annat
 avbrott i arbetaren (SystemExit) slutar också som fel med sessionerna avslutade, så statusen säger aldrig att körningen

@@ -127,6 +127,20 @@ aarch64-apple-darwin -i <paket>` är tom): glib 0.18.5 (RUSTSEC-2024-0429, GHSA-
 `VariantStrIter`) och proc-macro-error 1.0.4 (RUSTSEC-2024-0370, ej underhållen), båda ur gtk-rs. Prövningen görs om
 vid varje beroendebyte tills underhållet tar in en sårbarhetsdatabas för Rust.
 
+## Dashboardens vendrade terminal (`dashboard/vendor/xterm/`)
+
+Ändringsflikens terminal (`kunskap/andringar.md`) visas med xterm.js, införd 2026-10-11 (ägarens tillägg om fliken
+Ändringar). Filerna är npm-paketens byggda UMD-filer, hämtade med integriteten prövad mot registret, utan npm-installation
+i repot; källa, licens, sha256 och granskning står i `dashboard/vendor/xterm/KALLA.md`.
+
+| Del | Version | Källa och datum | Licens | Granskning 2026-10-11 |
+|---|---|---|---|---|
+| `@xterm/xterm` (`xterm.js`, `xterm.css`) | 6.0.0 (npm 2025-12-22) | github.com/xtermjs/xterm.js | MIT | inga beroenden eller installationsskript; ingen `eval`; en ändring mot paketet: en tilldelning av `toString` skriven som `Object.defineProperty`, eftersom Nortropic.app fryser `Object.prototype` (`KALLA.md`) |
+| `@xterm/addon-fit` (`addon-fit.js`) | 0.11.0 (npm 2025-12-22) | samma | MIT | oförändrad |
+
+En ny version: samma granskning, sökningen efter tilldelningar som skuggar en prototypegenskap, och ändringsflikens
+webbprov (som fryser prototypen som appen) och appens prov (`desktop/prov/prov_repovaljaren_app.py`) gröna.
+
 ## Chrome DevTools MCP (låst verktyg för inspektionssessionen)
 
 Ägarens uppdrag 2026-10-07, punkt 7 och 5: MCP:n prövas i en egen inspektionssession (`kontroller/devtools.py`), aldrig i

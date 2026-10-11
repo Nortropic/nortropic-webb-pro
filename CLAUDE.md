@@ -24,7 +24,8 @@ besvarar en konkret fråga.
   `kunskap/metodkarta.md`, avsnittet Kompetenserna (ägarens ord 2026-10-05: alla skills och MCP:er ska användas).
   Obligatoriska arbetskrav prövas per session; kvitto på tillgång är aldrig bevis för användning eller designkvalitet.
   Refero, Mobbin och 21st undersöks före planeringen, och helbyggets MCP-väg använder samma kundvakt som ateljén. Var
-  och en har `KALLA.md` med källa, commit och licens. `writing-for-agents` är för sessioner som ändrar en skill,
+  och en har `KALLA.md` med källa, commit och licens. Kompetenskartan i portalen (`#/kompetens`, `kontroller/kompetenskarta.py`)
+  visar var de används, vad kvittona visar och var luckorna finns. `writing-for-agents` är för sessioner som ändrar en skill,
   `CLAUDE.md` eller `kunskap/`, inte för byggena.
 
 ## Var saker finns
@@ -33,7 +34,7 @@ besvarar en konkret fråga.
 `referenser-professionella.md`; designflödet för startsidan, ett för alla ingångar: `skapandeflodet.md`; den rena
 designstarten: `ren-designstart.md`; byggstandarden med verifierbara punkter: `byggstandard.md`; litteraturen och
 metoderna bakom den: `teoretisk-grund.md`) · `kontroller/` provet och verktygen · `backlog/` vilande poster · `dashboard/`
-ägarens vy (`./dashboard.sh start`, http://127.0.0.1:4771; arbetsytan är startvyn, meddelandebussen och pausen: `kunskap/arbetsyta.md`) · `desktop/` Nortropic.app, Tauri 2-skalet runt arbetsytan (`kunskap/desktop.md`) · `underlag/` och `kunder/` privat material och byggen,
+ägarens vy (`./dashboard.sh start`, http://127.0.0.1:4771; portalen, meddelandebussen och pausen: `kunskap/arbetsyta.md`; designstudion: `kunskap/designstudio.md`; fliken Ändringar med ändringsagenten och repoväljaren: `kunskap/andringar.md`) · `desktop/` Nortropic.app, Tauri 2-skalet runt portalen (`kunskap/desktop.md`) · `underlag/` och `kunder/` privat material och byggen,
 utanför git · `underlag/prospekt/` kampanjer och spärrlista (privat); reglerna för prospekt och utskick:
 `kunskap/prospekt-och-utskick.md`; spanarens källor: `kunskap/spaning-kallor.md` · var varje slag av information hör
 hemma, rapporthuvudet och arbetsregeln om dokumentation: `README.md`, Var information finns.

@@ -72,6 +72,7 @@
       ['forfining', 'Förfining', p && '#/granska/' + s, 'kommentera den bevarade bilden och samla till ett uppdrag', null],
       ['bygge', 'Bygge', p && p + '/flode', 'helbygget och sessionerna', null],
       ['granskning', 'Granskning', p && p + '/kod', 'förhandsvisning, kod och kontroller', null],
+      ['andringar', 'Ändringar', k.projekt || k.kundrepo ? '#/andringar/' + s : null, 'webbplatsens ändringsagent i kundrepot: du beskriver, agenten genomför, kontrollerar och redovisar', null],
       ['leverans', 'Leverans', '#/leverans-kund/' + s, 'publicering genom Cloudflare-vägen och leveransbeskedet', 'publicering'],
       ['forvaltning', 'Förvaltning', '#/leverans-kund/' + s, 'drift, ändringar och tillval', 'forvaltning'],
     ];
@@ -80,6 +81,7 @@
     if (h.startsWith('intervju/')) return 'kundstart';
     if (h.startsWith('kundstart/')) { try { return sessionStorage.getItem('nwp-portal:omrade') || 'kundstart'; } catch { return 'kundstart'; } }
     if (h.startsWith('studio/')) return 'designstudio';
+    if (h.startsWith('andringar/')) return 'andringar';
     if (/^arbetsyta\/[^/]+\/forslag/.test(h)) return 'forslag';
     if (/^arbetsyta\/[^/]+\/flode/.test(h)) return 'bygge';
     if (/^arbetsyta\/[^/]+\/kod/.test(h)) return 'granskning';
@@ -91,7 +93,7 @@
   }
   function kundFor(h, d) {
     if (!d || !Array.isArray(d.kunder)) return null;  // utan kundlista ritas ramen utan stegrad
-    let m = h.match(/^(?:arbetsyta|studio|kund|bygge|leverans-kund|granska)\/([^/]+)/);
+    let m = h.match(/^(?:arbetsyta|studio|andringar|kund|bygge|leverans-kund|granska)\/([^/]+)/);
     if (m) return d.kunder.find((k) => k.slug === decodeURIComponent(m[1])) || null;
     m = h.match(/^(?:kundstart|intervju)\/([a-f0-9]{32})/);
     if (m) return d.kunder.find((k) => (k.arenden || []).some((a) => a.id === m[1])) || null;
@@ -105,7 +107,7 @@
   const PRODUKTION = [['oversikt', 'Byggen och dina domar'], ['ab', 'Jämförelser'], ['kundstart', 'Kundstart'], ['leverans', 'Leverans och förvaltning'],
     ['prospekt', 'Prospekt', 'n-prospekt'], ['starta', 'Starta']];
   const SYSTEM = [['underhall', 'Underhåll och verktygslådan'], ['kirurgen', 'Kirurgen', 'n-kirurg'], ['backlog', 'Backlog', 'n-backlog'],
-    ['kalibrering', 'Kalibrering'], ['lardomar', 'Lärdomar'], ['designprov', 'Designprov']];
+    ['kompetens', 'Kompetenskartan'], ['kalibrering', 'Kalibrering'], ['lardomar', 'Lärdomar'], ['designprov', 'Designprov']];
   function delgrupp(id, namn, ik, delar, aktivDel) {
     const har = delar.some(([k]) => k === aktivDel);
     return `<details class="pt-delar" id="pt-${id}"${har || laddaOppen(id) ? ' open' : ''}><summary>${ikon(ik)}<span>${namn}</span><b class="pt-summa" id="pt-summa-${id}" hidden></b></summary>
@@ -116,7 +118,7 @@
     const forsta = h.split('/')[0];
     const aktiv = h === '' || h === 'start' ? 'start' : h.startsWith('ny-') ? 'ny-kund' : h.startsWith('testkunder') ? 'testkunder'
       : h.startsWith('studio') || /^arbetsyta\/[^/]+\/?$/.test(h) || h === 'arbetsyta' ? 'studio'
-      : h.startsWith('kunder') || h.startsWith('kund/') || h.startsWith('arbetsyta/') || h.startsWith('granska') || h.startsWith('intervju') || h.startsWith('leverans-kund') ? 'kunder'
+      : h.startsWith('kunder') || h.startsWith('kund/') || h.startsWith('arbetsyta/') || h.startsWith('andringar/') || h.startsWith('granska') || h.startsWith('intervju') || h.startsWith('leverans-kund') ? 'kunder'
       : forsta === 'dokumentation' ? 'dokumentation' : null;
     const aktivDel = [...PRODUKTION, ...SYSTEM].some(([k]) => k === forsta) ? forsta : forsta === 'bygge' ? 'oversikt' : null;
     let studio = '#/studio'; try { const s = localStorage.getItem('nwp-arbetsyta:senaste') || localStorage.getItem('nwp-portal:kund'); if (s) studio = '#/studio/' + encodeURIComponent(s); } catch { /* */ }
@@ -287,11 +289,12 @@
     const k = d.kunder.find((x) => x.slug === slug);
     if (!k) { yta(`<h1>Kunden finns inte</h1><p class="pt-tomt">Ingen kund med adressen ${e_(slug)} finns i motorn, eller så är den gallrad. <a href="#/kunder">Till kunderna</a></p>`); return fokus(); }
     ritaSteg('kund/' + slug);
-    yta(`<div class="pt-rubrikrad"><h1>${e_(k.namn || k.slug)}</h1>${k.test ? '<span class="pt-test">Testkund</span>' : ''}</div>
+    yta(`<div class="pt-rubrikrad"><h1>${e_(k.namn || k.slug)}</h1>${k.test ? '<span class="pt-test">Testkund</span>' : ''}${window.repovaljaren ? window.repovaljaren.knapp('Öppna kundrepo', 'pt-knapp pt-repoknapp') : ''}</div>
       <p class="pt-ingress">${e_(k.nasta || 'Ingen handling väntar just nu.')}</p>
       <div class="pt-tva">
         <section class="pt-panel"><h2>Uppdrag</h2><ul class="pt-lista">
           ${(k.arenden || []).map((a) => `<li><a href="#/kundstart/${encodeURIComponent(a.id)}">Kundstart</a> <span>${a.aktuell_bestallning ? 'omfattningen accepterad' : 'intervju och underlag'} · uppdaterad ${e_(tid(a.uppdaterad))}${a.fragor ? ' · ' + a.fragor + ' frågor att följa upp' : ''}</span></li>`).join('')}
+          ${k.kundrepo || k.projekt ? `<li><a href="#/andringar/${encodeURIComponent(k.slug)}">Ändringar</a> <span>webbplatsens ändringsagent i kundrepot</span></li>` : ''}
           ${k.projekt ? `<li><a href="#/studio/${encodeURIComponent(k.slug)}">Designstudion</a> <span>senast aktivt ${e_(tid(k.projekt.senast_andrad))}${(k.pagar || []).length ? ' · pågår: ' + e_(k.pagar.join(', ')) : ''}</span></li>` : ''}
           ${!(k.arenden || []).length && !k.projekt ? '<li class="pt-tomt">Inga uppdrag.</li>' : ''}</ul></section>
         <section class="pt-panel"><h2>Väntar på dig</h2>${(k.vantar || []).length ? `<ul class="pt-lista">${k.vantar.map((v) => `<li>${e_(v)}</li>`).join('')}</ul>` : '<p class="pt-tomt">Inget beslut väntar.</p>'}

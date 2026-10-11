@@ -719,6 +719,25 @@ echo "   designstudion (2026-10-11): källkartan, de fem områdena i rätt käll
   || { echo "FEL: designstudions prov"; tail -30 "$ROOT/kunder/rokprov-mall/designstudio-prov.log"; exit 1; }
 if grep -q 'skipped=' "$ROOT/kunder/rokprov-mall/designstudio-prov.log"; then echo "FEL: designstudions prov hoppade över fall, fast mallsajten finns i rökprovet"; tail -5 "$ROOT/kunder/rokprov-mall/designstudio-prov.log"; exit 1; fi
 echo "   designstudions prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/designstudio-prov.log" | tr '\n' ' '))"
+echo "   ändringsfliken (2026-10-11): förkontrollen, startvägen i restricted-läge, krokarna och skrivlåset, PTY-sessionen, HTTP-vägarna, provvägen, kvitteringen och exportens skydd"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_andringar.py" >"$ROOT/kunder/rokprov-mall/andringar-prov.log" 2>&1 \
+  || { echo "FEL: ändringsflikens prov"; tail -30 "$ROOT/kunder/rokprov-mall/andringar-prov.log"; exit 1; }
+if grep -q 'skipped=' "$ROOT/kunder/rokprov-mall/andringar-prov.log"; then echo "FEL: ändringsflikens prov hoppade över fall, fast mallsajten finns i rökprovet"; tail -5 "$ROOT/kunder/rokprov-mall/andringar-prov.log"; exit 1; fi
+echo "   ändringsflikens prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/andringar-prov.log" | tr '\n' ' '))"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_andringar_webb.py" >"$ROOT/kunder/rokprov-mall/andringar-webb-prov.log" 2>&1 \
+  || { echo "FEL: ändringsflikens webbläsarprov"; tail -30 "$ROOT/kunder/rokprov-mall/andringar-webb-prov.log"; exit 1; }
+echo "   ändringsflikens webbläsarprov ok (provagent i claudes ställe; xterm, svenska tecken, inklistring, storlek, avbrott, två vyer, stopp)"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_repovaljaren.py" >"$ROOT/kunder/rokprov-mall/repovaljaren-prov.log" 2>&1 \
+  || { echo "FEL: repoväljarens prov"; tail -30 "$ROOT/kunder/rokprov-mall/repovaljaren-prov.log"; exit 1; }
+echo "   repoväljarens prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/repovaljaren-prov.log" | tr '\n' ' '))"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_repovaljaren_webb.py" >"$ROOT/kunder/rokprov-mall/repovaljaren-webb-prov.log" 2>&1 \
+  || { echo "FEL: repoväljarens webbläsarprov"; tail -30 "$ROOT/kunder/rokprov-mall/repovaljaren-webb-prov.log"; exit 1; }
+echo "   repoväljarens webbläsarprov ok ($(tail -1 "$ROOT/kunder/rokprov-mall/repovaljaren-webb-prov.log"))"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_kompetenskarta.py" >"$ROOT/kunder/rokprov-mall/kompetenskarta-prov.log" 2>&1 \
+  || { echo "FEL: kompetenskartans prov"; tail -30 "$ROOT/kunder/rokprov-mall/kompetenskarta-prov.log"; exit 1; }
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_kompetenskarta_webb.py" >"$ROOT/kunder/rokprov-mall/kompetenskarta-webb-prov.log" 2>&1 \
+  || { echo "FEL: kompetenskartans webbläsarprov"; tail -30 "$ROOT/kunder/rokprov-mall/kompetenskarta-webb-prov.log"; exit 1; }
+echo "   kompetenskartan ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/kompetenskarta-prov.log" | tr '\n' ' '); webbläsaren $(tail -1 "$ROOT/kunder/rokprov-mall/kompetenskarta-webb-prov.log"))"
 echo "   Nortropic.app, motorns sida (desktop/1, 2026-10-10): identiteten, engångskoden, sessionen, Ny kund, översikten och det pågående arbetet"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_desktop.py" >"$ROOT/kunder/rokprov-mall/desktop-prov.log" 2>&1 \
   || { echo "FEL: desktopkontraktets prov"; tail -25 "$ROOT/kunder/rokprov-mall/desktop-prov.log"; exit 1; }

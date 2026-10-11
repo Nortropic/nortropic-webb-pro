@@ -120,10 +120,10 @@ Fönstrets plats sparas och används bara när den hamnar på en skärm som finn
 
 ## Portalen
 
-`dashboard/portal.js` och `portal.css`, samma frontend i appen och i webbläsaren. I appen bär varje vy portalens ram:
-mörk navigering (Hem, Kunder, Ny kund, Testkunder, Arbetsytan, Systemförbättring, Lås), topprad med sök och kundens
-stegrad. I webbläsaren ritas ramen bara på portalens egna vyer, så att arbetsytan där ser ut som förut. I ramen får
-arbetsytans variabler portalens ljusa värden (målbildens ljusa yta och mörka navigering), utan ett andra designsystem.
+`dashboard/portal.js` och `portal.css`, samma frontend i appen och i webbläsaren. Portalen är den enda ramen (den
+gamla arbetsytans egen vy är borttagen 2026-10-11; `kunskap/arbetsyta.md`): mörk navigering (Hem, Kunder, Ny kund,
+Testkunder, Designstudio, Kundproduktion, Systemförbättring med Kompetenskartan, Dokumentation, Lås), topprad med sök
+och kundens stegrad. Arbetsytans variabler har portalens ljusa värden, utan ett andra designsystem.
 
 - **Hem** (`#/start`, appens startvy): Ny kund, Kunder och Testkunder, Fortsätt där du slutade, Behöver din
   uppmärksamhet (bara riktiga kunder; testkunder räknas för sig) och det som pågår i motorn. Tomt läge utan
@@ -162,9 +162,13 @@ arbetsytans variabler portalens ljusa värden (målbildens ljusa yta och mörka 
   publicerat bara efter en klar release och en observation av kundens egen adress; ett läge som inte går att läsa står
   som det. Besök och förfrågningar står som ej anslutna. Releasen görs i Byggflöde med ditt klick som mandat.
 - **Arbetsområdena** i stegraden: Kundstart leder till intervjun, Underlag och Funktioner till kundens Kundstartärende,
-  Förslag, Bygge och Granskning till arbetsytans Förslagen, Byggflöde och Kod och preview, Förfining till kommentarerna
-  (arbetsytan med besluten nås därifrån), Leverans och Förvaltning till kundens leveransvy. Det är namn på befintliga
-  steg, ingen ny statusmaskin.
+  Designstudio till studion (`kunskap/designstudio.md`), Förslag, Bygge och Granskning till Förslagen, Byggflöde och
+  Kod och preview, Förfining till kommentarerna, Ändringar till webbplatsens ändringsagent (`kunskap/andringar.md`),
+  Leverans och Förvaltning till kundens leveransvy. Det är namn på befintliga steg, ingen ny statusmaskin.
+- **Ändringar och repoväljaren** (`#/andringar/<kund>`): terminalen med webbplatsens ändringsagent, och väljaren över
+  Nortropics kundrepon med knappen Öppna kundrepo eller ⌘O. Appens meny har ingen ⌘O, så tangenten når sidan även när
+  terminalen har fokus; väljaren fångar den före terminalen. Skrivningarna (klon, hämta, uppdatera, stopp) går med
+  appens session, aldrig med nyckeln i sidan. Provat i den riktiga appen (`desktop/prov/prov_repovaljaren_app.py`).
 
 ## Uppdatering
 
@@ -217,6 +221,7 @@ borttagningen i ägarens hem görs inte av ett prov, eftersom den skulle ta bort
 | `desktop/prov/prov_app.py` | den riktiga appen (provbygget) i riktig WKWebView mot en provinstans: lås och upplåsning, kakan osynlig, invoke från motorns sida nekas, Hem, listorna, Ny testkund med dubbelklick, Kundstart i ramen, stäng och öppna, lås och spärrad navigering, menyn, bilder av fönstret | för hand på en Mac; startar ingen modell |
 | `desktop/prov/prov_release.py` | användarbygget: ingen provsträng (`nwp-provstyrning`) i binären och ingen provport; arkitekturen arm64 | för hand efter `npm run bygg` |
 | `desktop/prov/prov_mac.py` | Mac-livet i den riktiga appen: krasch med SIGKILL (motorn lever, utkastet står kvar), vila (SIGSTOP/SIGCONT kortare och längre än låstiden; väggklockan går som under en riktig vila), helskärm, kopiera och klistra in genom Redigera-menyns åtgärder (urklippet återställs), en motor som slutar svara och kommer tillbaka, en fientlig förhandsvisning (`desktop/prov/fientlig_sida.html`) och resurserna i upplåst läge | för hand; startar ingen modell |
+| `desktop/prov/prov_repovaljaren_app.py` | Ändringar och repoväljaren i den riktiga appen mot en provinstans ur en worktree med repoväljarens provprojekt (prefixet `rvprov-`, provets gh, lokala nakna repon): listan, ⌘O med verklig tangent genom System Events (bara när provappen ligger främst; annars en syntetisk tangent, och provet säger det), klonen med appens session, byte med stopp av en levande agent (processen finns inte kvar), utgången inloggning, och kompetenskartan och designstudion i appens ram | för hand; startar ingen modell |
 | `desktop/prov/prov_redigering_app.py` | direktredigering i den levande förhandsvisningen med riktigt ombygge och riktig fotografering, och med `--partner`/`--genomfor` partnerns ström och Genomför i utkastet med en riktig modell (provinstansens `NWP_PARTNER_MODELL`) | för hand; `--partner` och `--genomfor` kostar modellanrop |
 
 **Provinstansen:** en dashboard ur en worktree på en egen port (`NWP_KORREGISTER=<egen katalog>

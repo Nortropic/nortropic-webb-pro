@@ -1,0 +1,62 @@
+/* Kompetenskartan (dashboard/kompetenskarta.js) i portalens ram: portalens ljusa yta och accent; kärnan fylld, alternativen
+   som kontur, luckorna i varningens och felets toner. */
+.kk { max-width: 1180px; color: var(--pt-text, #1b1d2a); }
+.kk h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: -.01em; }
+.kk-ingress { margin: 0 0 14px; max-width: 78ch; font-size: 14.5px; line-height: 1.55; color: var(--pt-dov, #5c5f72); }
+.kk-under { margin: 0 0 12px; max-width: 78ch; font-size: 13.5px; line-height: 1.5; color: var(--pt-dov, #5c5f72); }
+.kk-summa { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.kk-summa li { font-size: 13px; padding: 6px 12px; border-radius: 10px; background: var(--pt-kort, #fff); border: 1px solid var(--pt-linje, #e4e5ee); }
+.kk-flikar { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--pt-linje, #e4e5ee); margin-bottom: 16px; }
+.kk-flikar button { font: inherit; font-size: 14px; font-weight: 560; color: var(--pt-dov, #5c5f72); background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 9px 12px 10px; cursor: pointer; }
+.kk-flikar button[aria-selected="true"] { color: var(--pt-text, #1b1d2a); border-bottom-color: var(--pt-accent, #5b4fe0); }
+.kk-flikar button:focus-visible, .kk-tabell:focus-visible, .kk summary:focus-visible { outline: 3px solid var(--pt-accent, #5b4fe0); outline-offset: 1px; }
+.kk-antal { font-size: 11.5px; font-weight: 650; padding: 0 7px; border-radius: 99px; background: var(--pt-varn-mjuk, #fbf1dc); color: #6e4500; }
+.kk-h2 { margin: 18px 0 8px; font-size: 16px; }
+.kk-h3 { margin: 0 0 6px; font-size: 14.5px; }
+.kk-pass { font-size: 12px; font-weight: 500; color: var(--pt-dov, #5c5f72); }
+.kk-dov { color: var(--pt-dov, #5c5f72); }
+.kk-rod { color: #8a1c23; }
+.kk-fel { color: #8a1c23; }
+.kk-kalla { margin: 6px 0 0; font-size: 12px; color: var(--pt-dov, #5c5f72); overflow-wrap: anywhere; }
+.kk-kalla code, .kk code { font-size: 11.5px; background: var(--pt-yta, #f5f6fa); padding: 1px 5px; border-radius: 5px; }
+.kk-chips { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.kk-chip { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; background: #eceef5; color: #3a3d50; overflow-wrap: anywhere; margin: 1px 0; }
+.kk-chip.karna { background: var(--pt-accent-mjuk, #eeecfd); color: var(--pt-accent-text, #3d32b0); font-weight: 600; }
+.kk-chip.krav { background: #fbf1dc; color: #6e4500; font-weight: 600; }
+.kk-chip.ok { background: #e5f4ec; color: #165c39; }
+.kk-chip.varn { background: #fbf1dc; color: #6e4500; }
+.kk-chip.fel { background: #fbe9ea; color: #7d1820; }
+.kk-chip.dov { background: transparent; border: 1px solid var(--pt-linje, #e4e5ee); color: var(--pt-dov, #5c5f72); }
+.kk-luckor, .kk-rutnat, .kk-stegen { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.kk-lucka, .kk-kort, .kk-roll { background: var(--pt-kort, #fff); border: 1px solid var(--pt-linje, #e4e5ee); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.kk-lucka p { margin: 0 0 6px; font-size: 13.5px; line-height: 1.5; max-width: 90ch; }
+.kk-luckhuvud { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.kk-forslag { color: var(--pt-accent-text, #3d32b0); }
+.kk-rutnat { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.kk-kort p { margin: 0 0 6px; font-size: 13.5px; }
+.kk-steg { border-left: 2px solid var(--pt-linje, #e4e5ee); padding: 0 0 6px 14px; display: grid; gap: 8px; min-width: 0; }
+.kk-steg .kk-h2 { margin-top: 4px; }
+.kk-dl { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 13px; }
+.kk-dl dt { color: var(--pt-dov, #5c5f72); font-weight: 600; }
+.kk-dl dd { margin: 0; min-width: 0; }
+.kk details summary { cursor: pointer; color: var(--pt-accent-text, #3d32b0); font-size: 13px; }
+.kk details[open] summary { margin-bottom: 6px; }
+/* positionerad: de dolda skärmläsartexterna i cellerna (position: absolute) stannar i tabellens egen rullyta */
+.kk-tabell { position: relative; overflow-x: auto; border: 1px solid var(--pt-linje, #e4e5ee); border-radius: 12px; background: var(--pt-kort, #fff); max-width: 100%; }
+.kk-tabell table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; }
+.kk-tabell th, .kk-tabell td { border-bottom: 1px solid #f0f1f6; padding: 5px 6px; text-align: center; }
+.kk-tabell thead th { position: sticky; top: 0; background: var(--pt-kort, #fff); font-weight: 600; color: var(--pt-dov, #5c5f72); white-space: nowrap; }
+.kk-namnkol { text-align: left !important; font-weight: 500; min-width: 190px; max-width: 280px; overflow-wrap: anywhere; position: sticky; left: 0; background: var(--pt-kort, #fff); }
+.kk-plats { display: block; font-size: 11px; font-weight: 400; color: var(--pt-dov, #5c5f72); }
+.kk-rollkol span { display: inline-block; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+.kk-prick { color: var(--pt-dov, #5c5f72); font-size: 13px; }
+.kk-prick.karna { color: var(--pt-accent, #5b4fe0); }
+.kk-akt { color: #165c39; font-weight: 600; }
+.kk-utan-roll th { color: var(--pt-dov, #5c5f72); }
+.kk-grupprad th { text-align: left !important; background: var(--pt-yta, #f5f6fa); font-size: 12px; font-weight: 650; color: var(--pt-text, #1b1d2a); }
+.kk-tomt { font-size: 14px; color: var(--pt-dov, #5c5f72); }
+@media (max-width: 640px) {
+  .kk-dl { grid-template-columns: 1fr; }
+  .kk-namnkol { min-width: 150px; }
+}

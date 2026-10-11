@@ -114,14 +114,22 @@ def kor(g):
     d = kd.kdir(slug, 'k01')
     assert (d / 'SKISSKRITIK.json').is_file()
     fore = (d / 'SKISSKRITIK.json').read_bytes()
-    assert kd.las_status(slug, 'k01')['status'] == 'under_arbete'
+    # skaparens första version var redan bedömbar och står kvar som bedömbar efter stoppet (designstudion DS2, tidig
+    # publicering; kunskap/designstudio.md); återupptagningen nedan gör klart försöket
+    st_stopp = kd.las_status(slug, 'k01')
+    assert st_stopp['status'] == 'bedombar' and (st_stopp.get('bedombar') or {}).get('version') == st_stopp.get('version'), \
+        {k_: st_stopp.get(k_) for k_ in ('status', 'skal', 'bedombar', 'version')}
     kd.behandla_skiss(slug, 'k01')
     st = kd.las_status(slug, 'k01')
-    assert st['status'] == 'klar', st
-    assert (d / 'forsok-1/SKISSKRITIK.json').read_bytes() == fore
+    # återupptagningen lägger tillbaka den bedömbara versionen med skaparens kvitto för den; granskningen görs inte om och
+    # försöket görs inte om (före DS2: ett andra försök med en andra granskning)
+    assert (st['status'], st['version']) == ('klar', st_stopp['version']), {k_: st.get(k_) for k_ in ('status', 'skal', 'version')}
+    assert (st.get('kompetens') or {}).get('skiss:skapa', {}).get('tidig') and not st.get('kompetenskravbrister'), st.get('kompetens')
+    assert (d / 'SKISSKRITIK.json').read_bytes() == fore and not (d / 'forsok-1').exists()
     kritik = a.las_json(d / 'SKISSKRITIK.json')
-    assert kritik['identitet']['forsok'] == 2
-    assert len([s for s in g['SESSIONER'] if s['schema'] is kd.SKISSKRITIK_SCHEMA]) == 2
+    assert kritik['identitet']['forsok'] == 1
+    assert len([s for s in g['SESSIONER'] if s['schema'] is kd.SKISSKRITIK_SCHEMA]) == 1
+    assert anrop == 2, 'skaparen anropas inte igen för den bedömbara versionen'
     version = st['version']
     status = {'kandidatflode': True, 'steg': 'klar_for_bedomning', 'fas': 'skiss'}
     a.skriv_status(u / 'atelje', status)

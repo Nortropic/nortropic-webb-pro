@@ -547,7 +547,8 @@ class Bygget(Grund):
         self.rc = 0
 
         def kor(cmd, cwd=None, timeout=900):
-            if any('build' == str(x) for x in cmd):
+            # sajtens bygge är npm run build; en kandidat byggs med studions förhandsbygge (prova.STUDIOBYGGE, DS1)
+            if any(str(x) in ('build', str(prova.STUDIOBYGGE)) for x in cmd):
                 self.byggen += 1
                 (self.sajt / 'dist').mkdir(exist_ok=True)
                 (self.sajt / 'dist' / 'index.html').write_text((self.sajt / 'src' / 'pages' / 'index.astro').read_text())

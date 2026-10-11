@@ -218,7 +218,10 @@ def provets_kund():
 
 
 def provutfall(sajt):
-    m = re.search(r'<pre id="prov">(.*?)</pre>', (Path(sajt) / 'dist' / 'index.html').read_text(), re.S)
+    # en kandidat byggs med studions förhandsbygge, som ger elementen källkartans id (data-nwp-k; kunskap/designstudio.md):
+    # taggen kan bära fler attribut, i valfri ordning
+    m = re.search(r'<pre\b[^>]*\bid="prov"[^>]*>(.*?)</pre>', (Path(sajt) / 'dist' / 'index.html').read_text(), re.S)
+    assert m, 'provsidans utfall saknas i dist/index.html'
     return json.loads(html.unescape(m.group(1)))
 
 

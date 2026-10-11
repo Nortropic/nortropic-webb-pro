@@ -1289,7 +1289,8 @@
       <dl><dt>Erbjuden</dt><dd>${er.skills ?? 'okänt'} skills i sessionens lista${mcp ? '; MCP: ' + e_(mcp) : ''}</dd>
       <dt>Laddad</dt><dd>${(la.skills || []).length ? e_(la.skills.join(', ')) : 'inga skills aktiverade'}${la.skillfiler ? `; ${la.skillfiler} skillfiler lästa` : ''}</dd>
       <dt>Anropad</dt><dd>${an.mcp || 0} MCP-anrop${(an.mcp_tjanster || []).length ? ' (' + e_(an.mcp_tjanster.join(', ')) + ')' : ''}, ${an.skillanrop || 0} skillanrop</dd>
-      <dt>Påverkan</dt><dd>${e_(k.paverkan)}</dd></dl></details>`;
+      <dt>Påverkan</dt><dd>${e_(k.paverkan)}</dd></dl>
+      <p class="svag"><a href="#/kompetens">Kompetenskartan</a> visar var varje skill och tjänst används i flödet, vad kvittona visar och var luckorna finns.</p></details>`;
   }
   function sessionsknappar(s) {
     const st = s.styrning || {}, ut = [];

@@ -224,6 +224,37 @@ def tolka(text=None):
     return ut
 
 
+PROCESSKILLS = ('bygg-sajt', 'kirurg', 'backlog', 'writing-for-agents')  # flödets och systemarbetets egna skills, ingen designroll
+
+
+def skillstatus(skills=None, k=None, karta=None):
+    """Varje installerad skill och dess plats: roll (kärna eller alternativ i ett kompetensblock, med rollerna), process
+    (flödets och systemarbetets egna skills), skäl (namnet står under "Ingen uppgift i flödet" i metodkartan) eller utan
+    (varken roll eller skäl: ny och obedömd). Startkontrollens rad "skills utan roll eller skäl" och kompetenskartan
+    läser samma regel."""
+    skills = Path(skills) if skills else metod.KARTA.parents[1] / '.claude' / 'skills'
+    k = tolka() if k is None else k
+    karta = metod.KARTA.read_text(encoding='utf-8') if karta is None else karta
+    utan = karta.split('**Ingen uppgift i flödet**', 1)[-1].split('\n## ', 1)[0]
+    roller = {}
+    for kid, x in k.items():
+        for f in x['karna'] + x['valj']:
+            if f.startswith(('kunskap/', 'kritik/', 'mall/')):
+                continue
+            r = roller.setdefault(f.split('/')[0], {})
+            r[kid] = 'karna' if f in x['karna'] or r.get(kid) == 'karna' else 'valj'
+    ut = {}
+    for d in sorted(skills.iterdir()) if skills.is_dir() else []:
+        if not d.is_dir() or d.is_symlink():
+            continue
+        n = d.name
+        # hela namnet, inte en del av ett ord: "design" i en mening om design räknas inte som ett skäl för skillen design
+        plats = ('roll' if n in roller else 'process' if n in PROCESSKILLS
+                 else 'skal' if re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(n), utan) else 'utan')
+        ut[n] = {'plats': plats, 'roller': roller.get(n, {})}
+    return ut
+
+
 def tjanstverktyg(text=None):
     """Besluten om tjänsternas upptäckta verktyg ur kartans block ```tjanstverktyg <tjänst>```: {tjänst: {verktyg:
     {'beslut': 'uppgift' eller 'ingen uppgift', 'text', 'provat'}}}, verktyget utan tjänstens prefix (refero_search_apps,

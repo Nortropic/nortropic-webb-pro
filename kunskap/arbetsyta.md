@@ -17,19 +17,23 @@ kompletta arbetsplatsen. Arbetet: `backlog/B-20261009-visuella-arbetsytan-samtal
 Ägarens vanliga väg in är Nortropic.app (`kunskap/desktop.md`): samma arbetsyta i appens eget fönster, inne i portalens
 ram med Hem (Ny kund, Kunder, Testkunder) och kundens arbetsområden. Vägarna nedan gäller som förut och är reserven.
 
-Arbetsytan öppnas på dashboardens rot (`#/`) och är dashboardens enda ram (ägarens besked 2026-10-09 ~17:11Z: "allt
-ska ju in i det här nya vyn"). Bredvid projektets fyra vyer står arbetsytans delar i två menyer, kundproduktionen skild
-från systemförbättringen:
-- **Kundproduktion:** Byggen och dina domar, Jämförelser, Kundstart, Prospekt och Starta. Prototyp är projektets flik
-  Förslagen, och `#/prototyp/<kund>` leder dit (se nedan). Flöde är en del av
-  Byggflöde: beskedet med version, omfattning och starterna, stegen i detalj (underlag, utfall, kontroller, beslut och
-  brister), startmiljön, det tänkta flödet med det som saknas i dag och Figma-piloten. `#/flode/<kund>` leder dit.
-- **Systemförbättring:** Underhåll och verktygslådan, Kirurgen, Backlog, Kalibrering, Lärdomar och Designprov.
+Portalen är dashboardens enda ram (`dashboard/portal.js`; ägarens besked 2026-10-11: "den gamla arbetsvyn ska inte
+existera längre, fixa detta, men säkerställ att allt finns i den nya"). Den mörka arbetsytan med eget huvud, flikrad och
+menyer finns inte längre som vy; varje funktion därifrån finns i portalen och designstudion. Navigeringen:
+- **Hem, Kunder, Ny kund, Testkunder och Designstudio.** En kunds sida har stegraden Kundstart, Underlag, Funktioner,
+  Designstudio, Förslag, Förfining, Bygge, Granskning, Ändringar, Leverans och Förvaltning, och knappen Öppna kundrepo
+  (⌘O, repoväljaren i `kunskap/andringar.md`).
+- **Kundproduktion:** Byggen och dina domar, Jämförelser, Kundstart, Leverans och förvaltning, Prospekt och Starta.
+  Prototyp är kundens steg Förslag, och `#/prototyp/<kund>` leder dit. Flöde är en del av Bygge: beskedet med version,
+  omfattning och starterna, stegen i detalj (underlag, utfall, kontroller, beslut och brister), startmiljön, det tänkta
+  flödet med det som saknas i dag och Figma-piloten. `#/flode/<kund>` leder dit.
+- **Systemförbättring:** Underhåll och verktygslådan, Kirurgen, Backlog, Kompetenskartan, Kalibrering, Lärdomar och
+  Designprov. Kompetenskartan (`#/kompetens`, `kontroller/kompetenskarta.py`) visar var flödets skills, kunskapstexter,
+  MCP:er och verktyg används, vad kompetenskvittona faktiskt visar och var luckorna finns, var och en med källa.
 - **Dokumentation och rapporter** står för sig.
 
 Varje del behåller sin adress (`#/backlog`, `#/kundstart/<id>`, `#/bygge/<slug>` …) och sina funktioner, skrivvägar och
-skydd. Den ritas i arbetsytans ram med huvudet, kunden och arbetsytans färger (`arbetsytaSektion` i
-`dashboard/arbetsyta.js`). Startgenvägen startar inga modellsessioner. Mac-appen kör `dashboard.sh start` genom
+skydd. Den ritas i portalens ram (`arbetsytaSektion` i `dashboard/arbetsyta.js` lägger vyn där). Startgenvägen startar inga modellsessioner. Mac-appen kör `dashboard.sh start` genom
 inloggningsskalet (`/bin/zsh -l`), så att claude och node hittas som i terminalen; ett dubbelklick startar en tjänst,
 och den andra starten öppnar den körande med dess nyckel. Genvägen skapas från huvudutcheckningen, eftersom appen pekar
 på den utcheckning där den skapades. Appens logg: `~/Library/Logs/nortropic-arbetsyta-app.log`. Dashboardens timklocka kör i huvudutcheckningen som
@@ -47,12 +51,12 @@ Fyra vyer över samma läge och samma identiteter (kund, körning, kandidat och 
 direkt är läget, nästa handling och det som väntar på dig; resten ligger ett steg ned bakom etiketter som säger vad de
 visar (successiv fördjupning, högst två nivåer).
 
-- **Arbetsyta**: projekthuvudet (kund med testmärkning, körningen, kandidaten och versionen, momentet, anslutningen),
-  till vänster **Samtal** med flikarna Partnern och Meddelanden (med antalet meddelanden som väntar på ditt beslut),
-  huvudmaterialet i mitten och rollsessionerna till höger, med Kontroller, Senast observerat och Nästa beslut under
-  materialet. Huvudmaterialet: Förhandsvisning (arbetsversionen), Ögonblicksbild (den bevarade versionen, med
-  beslutsraden när körningen väntar på dig), Jämför, Kandidater och Underlag. Panelerna fälls ihop och dras i bredd;
-  under 900 px visas ett område i taget (Samtal, Resultat, Sessioner).
+- **Designstudion** (`#/studio/<kund>`; `#/arbetsyta/<kund>` leder dit; `kunskap/designstudio.md`): riktningarna, duken
+  med den levande förhandsvisningen och lägena Visa, Markera, Kommentera och Redigera, och flikarna **Ändra** (de
+  källbundna kontrollerna), **Samtal** (Partnern och Meddelanden, med antalet meddelanden som väntar på ditt beslut) och
+  **Arbete** (rollsessionerna, Kontroller, Senast observerat och Nästa beslut). Duken visar arbetsversionen,
+  ögonblicksbilden med beslutsraden när körningen väntar på dig, Jämför, Kandidater och Underlag. Panelerna fälls ihop;
+  under 900 px visas ett område i taget.
 - **Förslagen** (förr vyn Prototyp, `#/arbetsyta/<kund>/forslag`; `#/prototyp/<kund>` leder dit): alla förslag i
   körningen med neutrala etiketter, i mobil och dator bredvid varandra eller en bredd i taget (768 och 1280 när de
   finns), första vyn eller hela sidan, bilderna i full storlek, prototypen och dess undersidor klickbara, markerade

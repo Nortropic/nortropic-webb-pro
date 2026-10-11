@@ -6,22 +6,26 @@ domare. Varför repot finns och vad som beslutades: `BESLUT.md`.
 ## Dashboarden
 
 **Nortropic.app** (Tauri 2, `desktop/`) är ägarens vanliga väg in: öppna Nortropic från Program eller Dock, lås upp med
-Touch ID eller lösenordet, och arbeta med Hem (Ny kund, Kunder, Testkunder), kundens arbetsområden och hela arbetsytan i
-appens eget fönster, mot den här motorn. Byggs och installeras med `desktop/installera.sh` (en gång; Rust behövs bara för
+Touch ID eller lösenordet, och arbeta med Hem (Ny kund, Kunder, Testkunder), kundens arbetsområden, designstudion och
+fliken Ändringar i appens eget fönster, mot den här motorn. Byggs och installeras med `desktop/installera.sh` (en gång; Rust behövs bara för
 att bygga). Första starten, identiteten mellan app och motor, låset, livscykeln och proven: `kunskap/desktop.md`.
 
 ```sh
-./dashboard.sh start [kund]   # tjänsten i bakgrunden och arbetsytan (startvyn); startar inget arbete; Mac-appen: ./dashboard.sh genvag
+./dashboard.sh start [kund]   # tjänsten i bakgrunden och portalen; startar inget arbete; Mac-appen: ./dashboard.sh genvag
 ./dashboard.sh        # http://127.0.0.1:4771 i terminalen (öppnar sidan med dashboardnyckeln: ägarens domar och flödets
                       # handlingar skrivs bara av ett anrop med nyckeln, som ingen annan lokal process har; dashboard/server.py NYCKEL)
 ```
 
-Arbetsytan är dashboardens startvy och ägarens arbetsplats: samtalet med Nortropic-partnern, meddelanden till och från
+Portalen är dashboardens enda ram och ägarens arbetsplats: samtalet med Nortropic-partnern, meddelanden till och från
 sessionerna som arbetar (med paus och återupptagning), kundens riktiga förhandsvisning, besluten bundna till den bild och
 version som visas, byggflödet och koden över samma läge. Hur den fungerar, meddelandebussen, den externa granskarens väg,
-dess gränser och Claude-panelen (`mod/nortropic-arbetsyta`): `kunskap/arbetsyta.md`.
+dess gränser och Claude-panelen (`mod/nortropic-arbetsyta`): `kunskap/arbetsyta.md`. Designstudion (riktningarna, den
+levande förhandsvisningen och källbunden visuell redigering): `kunskap/designstudio.md`. Fliken Ändringar, där
+webbplatsens ändringsagent arbetar i kundrepot i en riktig terminal, och repoväljaren över Nortropics kundrepon (⌘O):
+`kunskap/andringar.md`. Kompetenskartan under Systemförbättring visar var skills, MCP:er och verktyg används och var
+luckorna finns.
 
-Allt på ett ställe: arbetsytans Förslagen (förr vyn Prototyp), där du väljer bland förslagen och godkänner en
+Allt på ett ställe: kundens Förslag (förr vyn Prototyp), där du väljer bland förslagen och godkänner en
 startsida (besluten skrivs i domloggen `underlag/<slug>/DESIGNDOMAR.jsonl`), byggena (steg, grindar, före och efter, skärmbilder, rapport, underlag,
 körningens händelser), frågeformuläret där du dömer ett bygge, Starta, de blinda jämförelserna, kalibreringen,
 designprovet, backloggen, kirurgen (klistra in en länk) och lärdomarna. Vyn Dokumentation och rapporter börjar med en

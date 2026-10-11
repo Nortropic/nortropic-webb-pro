@@ -30,6 +30,8 @@ import shutil
 import signal
 import subprocess
 import sys
+import tarfile
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,6 +46,15 @@ LEVERANS = ROOT / 'mall' / 'leverans'
 MALL = ROOT / 'mall' / 'astro'
 KALLOR = ('astro.config.mjs', 'tsconfig.json', 'DESIGN.md')
 KATALOGER = ('src', 'public')
+GENERERADE_I_KATALOGER = ('public/_headers', 'src/verifiering.json')  # skrivs av exporten fast de ligger i katalogerna
+
+
+def fran_sajten(rel):
+    """Om exporten tar filen ur sajten (källorna och katalogerna) i stället för att skriva den själv (README, CLAUDE.md,
+    paketen, Workern, migreringarna, wrangler.jsonc, _headers, verifieringen, licenserna, .gitignore och .env.example).
+    Funktionssidorna (felsidan, mottagen-sidan) räknas som sajtens: en sida sajten har skrivs aldrig över."""
+    delar = Path(rel).parts
+    return bool(delar) and (rel in KALLOR or delar[0] in KATALOGER) and rel not in GENERERADE_I_KATALOGER
 TEXTFILER = ('.astro', '.js', '.mjs', '.ts', '.tsx', '.jsx', '.css', '.json', '.md', '.html', '.svg', '.txt', '.example', '.yml', '.yaml')
 # en fil i kundrepot får aldrig nämna en lokal sökväg, Nortropics privata underlag (referenser, intervjuer, domar,
 # råmaterial) eller en nyckel; det fäller exporten. En hänvisning till Nortropics publika verktyg (kontroller/design.py i
@@ -233,6 +244,17 @@ def hanvisningar(mal):
                    and HANVISNINGAR.search(p.read_text(encoding='utf-8', errors='replace'))})
 
 
+# designstudions förhandsbygge (kontroller/studio/karta.mjs, forhandsbrygga.js): källkartans id, regel-id och bryggans väg
+# hör bara till kandidaternas förhandsvisning, aldrig till ett produktionsbygge (designstudion 2026-10-11, DS-U33)
+STUDIOSPAR = re.compile(rb'data-nwp-k=|--nwp-r\s*:|/__nortropic/')
+
+
+def studions_spar(dist):
+    """[fil] i dist/ som bär designstudions förhandsbyggesspår; tom lista när bygget är ett rent produktionsbygge."""
+    return sorted(str(p.relative_to(dist)) for p in Path(dist).rglob('*')
+                  if p.is_file() and p.suffix.lower() in ('.html', '.css', '.js', '.mjs', '.json', '.xml', '.txt') and STUDIOSPAR.search(p.read_bytes()))
+
+
 def lackor(mal):
     """[(fil, skäl)] för varje textfil i kundrepot som nämner en lokal sökväg, Nortropics privata underlag eller en nyckel."""
     ut = []
@@ -271,7 +293,8 @@ def verifiera_bygge(mal, logg=None):
         statiskt = (dist / 'index.html').is_file()
         huvuden = (dist / '_headers').is_file()
         brister = publika_brister(dist) if dist.is_dir() else ['dist/ saknas']
-        rader.append('dist/index.html: %s; dist/_headers: %s; filer som inte får bli publika: %s' % (
+        brister += ['%s (designstudions förhandsbyggesspår)' % f for f in (studions_spar(dist) if dist.is_dir() else [])]
+        rader.append('dist/index.html: %s; dist/_headers: %s; filer som inte får bli publika eller bär studions spår: %s' % (
             'finns' if statiskt else 'saknas', 'finns' if huvuden else 'saknas', ', '.join(brister) or 'inga'))
         # Workern paketeras som vid en driftsättning, men inget skickas: --dry-run kräver varken konto eller nät
         rc, ut = processgrans.kor_i_katalog(repo, [repo / 'node_modules' / '.bin' / 'wrangler', 'deploy', '--dry-run', '--outdir', 'paket'],
@@ -476,6 +499,14 @@ def _exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
                         res['helbygge']['text'] = 'historiskt eller saknar koppling mellan källor och granskat dist'
                 undan = None
                 staged_id = (stage.stat().st_dev, stage.stat().st_ino)
+                over = andringar_som_skrivs_over(slug, stage, mal) if bestandigt else {'stoppar': [], 'genereras': []}
+                if over['genereras']:  # exportens egna filer som agenten ändrat: skrivs över, och det står i kvittot
+                    res['genererade_skrivs_over'] = over['genereras'][:40]
+                if over['stoppar']:  # kundrepots nyare innehåll skrivs aldrig över (kunskap/andringar.md)
+                    res['skrivs_over'], res['vagrad'] = over['stoppar'][:40], True
+                    raise ValueError('kundrepot har ändringar som den nya exporten skulle skriva över: %s. Låt agenten committa det '
+                                     'som inte är committat, ta in sajtens filer i sajten (Ändringar, fliken Historik) eller gör ändringen '
+                                     'i sajten; inget exporterades' % ', '.join(over['stoppar'][:8]))
                 if bestandigt:
                     c = kundrepo.synka_export(slug, stage, res['id'], 'kandidat %s' % kandidat if kandidat else 'sajten', rot=mal)
                     res['commit'], res['kundrepo'] = c['commit'], {'lokal': str(mal), 'oforandrad': c['oforandrad']}
@@ -511,7 +542,168 @@ def _exportera(slug, kandidat=None, ut=None, git=False, bygg=True):
             try:
                 shutil.rmtree(tmp)
             finally:
-                atelje.skriv_json_atomiskt(kvitto, res)
+                if res.get('vagrad'):  # ingen export gjordes: inget kvitto som kunde bli det senaste exportförsöket
+                    shutil.rmtree(postrot, ignore_errors=True)
+                else:
+                    atelje.skriv_json_atomiskt(kvitto, res)
+        return res
+    finally:
+        os.close(las)
+
+
+SAKER_GIT = ('-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false')  # i ett repo som ändringsagenten skriver i
+
+
+def andringar_som_skrivs_over(slug, stage, repo):
+    """Det i kundrepot som en export över det skulle tappa: {'stoppar': [...], 'genereras': [...]}. Stoppar: det som inte
+    är committat (synka_export tar bort allt utom .git och node_modules) och filer ur sajten som ändringsflikens commits
+    ändrat efter den senaste exporten (KUNDREPO.json:s senaste_export) och som stagen skulle ge ett annat innehåll.
+    Genereras: filer som exporten själv skriver (fran_sajten) och som commits ändrat; de skrivs över, med en varning."""
+    import kundrepo
+    ut = {'stoppar': [], 'genereras': []}
+    st = kundrepo.git(repo, *SAKER_GIT, 'status', '--porcelain=v1', '-z', '--untracked-files=all')
+    if st.returncode:
+        ut['stoppar'].append('(arbetskopians läge går inte att läsa)')
+        return ut
+    poster, i = [x for x in st.stdout.split('\0') if x], 0
+    while i < len(poster):
+        x = poster[i]
+        ut['stoppar'].append('%s (inte committad)' % x[3:])
+        i += 2 if x[:1] in 'RC' else 1  # en flytt eller kopia har den gamla sökvägen som nästa post
+    kv = kundrepo.las_kvitto(slug, Path(repo).parent) or {}
+    bas = (kv.get('senaste_export') or {}).get('commit')
+    huvud = kundrepo.huvud(repo)
+    if not bas or not huvud or bas == huvud:
+        return ut
+    r = kundrepo.git(repo, *SAKER_GIT, 'diff', '--name-only', '-z', bas, huvud)
+    if r.returncode:
+        ut['stoppar'].append('(historiken efter exporten %s går inte att läsa)' % bas[:12])
+        return ut
+    for rel in [x for x in r.stdout.split('\0') if x]:
+        visa = subprocess.run(['git', *SAKER_GIT, 'show', '%s:%s' % (huvud, rel)], cwd=str(repo), capture_output=True, timeout=60)
+        i_repo = visa.stdout if visa.returncode == 0 else None
+        p = Path(stage) / rel
+        i_stage = p.read_bytes() if p.is_file() and not p.is_symlink() else None
+        if i_repo != i_stage:
+            ut['stoppar' if fran_sajten(rel) else 'genereras'].append(rel)
+    return ut
+
+
+def fran_klon(slug):
+    """Kvittot för ett kundrepo som repoväljaren klonat (kunskap/andringar.md, Repoväljaren): den klonade commiten är det
+    senast levererade (exporterat och pushat från en annan dator), så den blir grunden som ändringsflikens kvitteringar
+    bygger vidare på, med samma frysta manifest som en ändring. Skrivs bara när kunden saknar ett eget exportkvitto.
+    Ger kvittot."""
+    import atelje
+    import korregister
+    import kundrepo
+    if not re.fullmatch(r'[a-z0-9-]{2,60}', slug):
+        raise ValueError('ogiltig slug')
+    kund = KUNDER / slug
+    r = kund / 'kundrepo'
+    atelje.saker_vag(r, kund)
+    if not kundrepo.ar_repo(r):
+        raise ValueError('kundrepot finns inte')
+    if aktuell(slug):
+        raise ValueError('kunden har redan ett exportkvitto; klonen blir ingen ny grund')
+    huvud = kundrepo.huvud(r)
+    if not huvud:
+        raise ValueError('klonen har ingen commit')
+    rot = kund / 'exporter'
+    atelje.saker_vag(rot, kund)
+    rot.mkdir(exist_ok=True)
+    las = os.open(rot / '.las', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(las, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as ex:
+            raise ValueError('en export pågår redan för kunden') from ex
+        nummer = 1 + max((int(p.name[:12]) for p in rot.iterdir() if re.match(r'^\d{12}-', p.name)), default=0)
+        id_ = '%012d-%s-klon' % (nummer, nu().replace(':', ''))
+        with korregister.egen_tmp_med('nwp-andring-', 'klonens frysta commit') as tmp:
+            try:
+                filer = exportmanifest(kundrepo.fryst_underlag(r, huvud, tmp))
+            except tarfile.TarError as ex:
+                raise ValueError('klonens filer går inte att frysa säkert: %s' % ex) from ex
+        (rot / id_).mkdir()
+        res = {'schema': 1, 'id': 'EXPORT-' + id_, 'typ': 'exportkvitto', 'titel': 'Klonat kundrepo', 'kalla': 'klon', 'slug': slug,
+               'kandidat': None, 'tid': nu(), 'ut': str(r), 'ok': True, 'commit': huvud, 'kvitto': str(rot / id_ / 'EXPORT.json'),
+               'kallor_sha256': None, 'filer': filer, 'export_sha256': manifest_sha(filer), 'klart_for_leverans': False,
+               'tillstand': {'klart_for_leverans': {'varde': False, 'text': 'en klon är ingen verifierad driftsättning'}}}
+        atelje.skriv_json_atomiskt(rot / id_ / 'EXPORT.json', res)
+        return res
+    finally:
+        os.close(las)
+
+
+def fran_andring(slug, push=False):
+    """En verifierad ändring i kundrepots arbetskopia (ändringsfliken, kunskap/andringar.md) som kundens senaste leverabel:
+    HEAD med agentens provväg godkänd för exakt det trädet får ett exportkvitto (kalla andring) med samma manifest som
+    förhandsvisningen prövar, så att förhandsvisningen och releasen (kundrepo.preview, release) gäller den som en export.
+    Kräver ett rent träd, en commit som bygger på den senaste exporten och ingen läcka i det som skickas. push: commiten
+    pushas till det bundna fjärrepot (Johnnys kvittering; den automatiska efter turen pushar aldrig). Ger kvittot."""
+    import andringar
+    import atelje
+    import kundrepo
+    if not re.fullmatch(r'[a-z0-9-]{2,60}', slug):
+        raise ValueError('ogiltig slug')
+    kund = KUNDER / slug
+    r = kund / 'kundrepo'
+    atelje.saker_vag(r, kund)
+    if not kundrepo.ar_repo(r):
+        raise ValueError('kundrepot finns inte')
+    if kundrepo.git(r, *SAKER_GIT, 'status', '--porcelain').stdout.strip():
+        raise ValueError('arbetskopian har ändringar som inte är committade: committa ändringen, eller låt främmande ändringar stå utanför')
+    huvud = kundrepo.huvud(r)
+    e = aktuell(slug) or {}
+    bas = e.get('commit')
+    if not bas or not e.get('ok'):
+        raise ValueError(e.get('fel') or 'ingen lyckad export finns att bygga vidare på')
+    if huvud == bas:
+        raise ValueError('ingen ny commit efter den senaste exporten')
+    if kundrepo.git(r, 'merge-base', '--is-ancestor', bas, huvud).returncode:
+        raise ValueError('HEAD bygger inte på den senaste exporten (%s)' % bas[:12])
+    trad = kundrepo.git(r, 'rev-parse', 'HEAD^{tree}').stdout.strip()
+    k = andringar.senaste_kontroll(slug) or {}
+    if not k.get('ok') or k.get('tillstand') != trad:
+        raise ValueError('ingen godkänd kontroll av exakt den här versionen: kör provvägen efter den sista ändringen')
+    lackor = kundrepo.historikens_lackor(r, huvud)
+    if lackor:
+        raise ValueError('läckagekontrollen fäller historiken: %s' % kundrepo.besked(lackor))
+    rot = kund / 'exporter'
+    rot.mkdir(exist_ok=True)
+    las = os.open(rot / '.las', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(las, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as ex:
+            raise ValueError('en export pågår redan för kunden') from ex
+        nummer = 1 + max((int(p.name[:12]) for p in rot.iterdir() if re.match(r'^\d{12}-', p.name)), default=0)
+        id_ = '%012d-%s-andring' % (nummer, nu().replace(':', ''))
+        import korregister
+        with korregister.egen_tmp_med('nwp-andring-', 'kvitteringens frysta commit') as tmp:
+            try:
+                fryst = kundrepo.fryst_underlag(r, huvud, tmp)
+            except tarfile.TarError as ex:  # till exempel en länk till en absolut sökväg i commiten
+                raise ValueError('commitens filer går inte att frysa säkert: %s' % ex) from ex
+            filer = exportmanifest(fryst)  # leverabeln är commiten: arbetskopians ignorerade filer (.DS_Store) hör inte dit
+        (rot / id_).mkdir()  # först när kvittot kan skrivas: ett avbrutet försök lämnar ingen tom katalog
+        commits = kundrepo.git(r, 'log', '--format=%H%x1f%s', '%s..%s' % (bas, huvud)).stdout.splitlines()
+        res = {'schema': 1, 'id': 'EXPORT-' + id_, 'typ': 'exportkvitto', 'titel': 'Ändring i kundrepot', 'kalla': 'andring', 'slug': slug,
+               'kandidat': None, 'tid': nu(), 'ut': str(r), 'ok': True, 'commit': huvud, 'bas': bas,
+               'commits': [dict(zip(('commit', 'text'), x.split('\x1f', 1))) for x in commits][:100],
+               'kvitto': str(rot / id_ / 'EXPORT.json'), 'kallor_sha256': None, 'filer': filer, 'export_sha256': manifest_sha(filer),
+               'kontroll': {'tid': k.get('tid'), 'katalog': k.get('katalog'), 'tillstand': trad},
+               'klart_for_leverans': False, 'kontroller': {'andringskontroll': {'varde': True, 'text': 'agentens provväg godkänd för trädet %s' % trad[:12]}},
+               'tillstand': {'klart_for_leverans': {'varde': False, 'text': 'en ändring är ingen verifierad driftsättning'}}}
+        atelje.skriv_json_atomiskt(rot / id_ / 'EXPORT.json', res)
+        kv = kundrepo.las_kvitto(slug, kund)
+        if kv:
+            kv['senaste_andring'] = {'id': res['id'], 'commit': huvud, 'tid': res['tid']}
+            atelje.skriv_json_atomiskt(kundrepo.kvittofil(slug, kund), kv)
+            if push and (kv.get('fjarr') or {}).get('status') == 'skapat':
+                res['push'] = kundrepo.pusha_granskad(r, huvud)  # den kvitterade commiten till det bundna fjärrepot (ingen publicering)
+                atelje.skriv_json_atomiskt(rot / id_ / 'EXPORT.json', res)
         return res
     finally:
         os.close(las)
@@ -531,12 +723,22 @@ def aktuell(slug):
     if not poster:
         return None
     try:
-        if poster[0].is_symlink():
-            raise ValueError('länkat exportkvitto')
-        post = json.loads(poster[0].read_text(encoding='utf-8'))
+        post = None
+        for f in poster:  # ett försök som skyddet vägrade (äldre kvitton bär vagrad) exporterade inget och räknas inte
+            if f.is_symlink():
+                raise ValueError('länkat exportkvitto')
+            post = json.loads(f.read_text(encoding='utf-8'))
+            if not post.get('vagrad'):
+                break
+        else:
+            return None
         kandidat = post.get('kandidat')
         sajt = KUNDER / slug / ('kandidater/%s/sajt' % kandidat if kandidat else 'sajt')
         mal = Path(post['ut'])
+        if post.get('kalla') in ('andring', 'klon'):  # en kvitterad ändring eller en klon: aktuell så länge repot står på commiten
+            import kundrepo
+            post['aktuell'] = bool(post.get('ok') and mal.is_dir() and not mal.is_symlink() and kundrepo.huvud(mal) == post.get('commit'))
+            return post
         post['aktuell'] = bool(post.get('ok') and mal.is_dir() and not mal.is_symlink()
                                and skapande.kallversion(sajt) == post.get('kallor_sha256')
                                and manifest_sha(exportmanifest(mal)) == post.get('export_sha256'))

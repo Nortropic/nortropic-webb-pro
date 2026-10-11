@@ -210,6 +210,9 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 <link rel="stylesheet" href="/kundstart-agare.css">
 <link rel="stylesheet" href="/arbetsyta.css">
 <link rel="stylesheet" href="/studio.css">
+<link rel="stylesheet" href="/andringar.css">
+<link rel="stylesheet" href="/repovaljare.css">
+<link rel="stylesheet" href="/kompetenskarta.css">
 <link rel="stylesheet" href="/portal.css">
 </head>
 <body>
@@ -220,6 +223,9 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 <script src="/kirurg-forbattring.js"></script>
 <script src="/arbetsyta.js"></script>
 <script src="/studio.js"></script>
+<script src="/andringar.js"></script>
+<script src="/repovaljare.js"></script>
+<script src="/kompetenskarta.js"></script>
 <script src="/portal.js"></script>
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -1401,7 +1407,7 @@ function dokSaknatKort(d, kort) {
 
 function dokSenare(d) {
   return `<div class="kort"><p style="margin:0">Här visas kompetenskedjan per steg och kandidat (uppgift → tillgång → observerad användning → tillämpning → resultat → bedömning) och varje körnings slutpost (uppdrag, versioner, kontroller, granskning, ditt beslut, slutkod och nästa steg).</p>
-    <p class="not">De visas här när datakällan finns. Inget visas i förväg, och inget gissas.</p></div>`;
+    <p class="not">De visas här när datakällan finns. Inget visas i förväg, och inget gissas. Tilldelningen per steg, det kvittona observerat och luckorna står redan i <a href="#/kompetens">Kompetenskartan</a>.</p></div>`;
 }
 
 function dokSammanfattning(d) {
@@ -1580,6 +1586,8 @@ async function route() {
       return await arbetsytavy(s ? encodeURIComponent(s) + '/studio' : '');
     }
     if (h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
+    // Ändringar (kunskap/andringar.md): webbplatsens ändringsagent i kundrepot, en riktig terminal i portalens ram
+    if (h.startsWith('andringar/') && typeof andringarvy === 'function') return await andringarvy(decodeURIComponent(h.slice(10)));
     if (h === 'flode' || h.startsWith('flode/') || h === 'prototyp' || h.startsWith('prototyp/')) {
       // Flöde är en del av Byggflöde (ägarens mandat 2026-10-09 ~18:28Z) och Prototyp är arbetsytans Förslagen (samma
       // mandat, b3:s och 97:s delning): de gamla adresserna leder dit, för samma kund
@@ -1596,6 +1604,7 @@ async function route() {
     if (h === 'lardomar') return await lardomvy();
     if (h === 'ab') return await abvy();
     if (h === 'kalibrering') return await kalibreringvy();
+    if (h === 'kompetens' && typeof kompetenskartavy === 'function') return await kompetenskartavy();
     if (h === 'designprov' || h.startsWith('designprov/')) return await designprovvy(decodeURIComponent(h.slice(11)));
     if (h.startsWith('prospekt')) { const d = h.split('/'); return d[2] ? await prospektkortvy(decodeURIComponent(d[1]), decodeURIComponent(d[2])) : d[1] ? await kampanjvy(decodeURIComponent(d[1])) : await prospektvy(); }
     if (h === 'dokumentation' || h.startsWith('dokumentation/')) return await dokumentationsvy(h.slice(14));

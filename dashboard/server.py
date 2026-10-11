@@ -12,6 +12,7 @@ I telefonen startar en statisk server för kunder/<slug>/sajt/dist på datorns a
 den som QR-kod (dashboard/qr.py, ritad lokalt). Den servern visar bara sajten; --utan-lan stänger av den.
 """
 import argparse
+import base64
 import hmac
 import secrets
 import hashlib
@@ -1532,6 +1533,9 @@ import threading  # noqa: E402
 
 VISNING = {}
 VISNING_LAN = {}
+# gränssnittets statiska filer, samma lista som desktop.ui_version hashar (Nortropic.app läser om dem vid en ny version)
+STATISKA = ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js', '/arbetsyta.js', '/arbetsyta.css', '/studio.js', '/studio.css',
+            '/andringar.js', '/andringar.css', '/repovaljare.js', '/repovaljare.css', '/kompetenskarta.js', '/kompetenskarta.css', '/portal.js', '/portal.css', '/vendor/xterm/xterm.js', '/vendor/xterm/xterm.css', '/vendor/xterm/addon-fit.js')
 LAN = {'pa': True, 'tid': 2 * 3600}  # visningen i telefonen stängs efter två timmar; knappen startar den igen
 LAN_LAS = threading.Lock()
 VARD = {'tillatna': set()}  # Host-värden dashboarden svarar på (sätts i main); annat är DNS-rebinding eller fel adress
@@ -1617,6 +1621,21 @@ def lan_klocka():
         except Exception as e:  # noqa: BLE001 — underhållet får aldrig ta med sig tråden
             print('kunde inte stänga visningen: %s' % e, flush=True)
         time.sleep(60)
+
+
+def visa_andring(slug):
+    """Ändringsflikens förhandsvisning: arbetskopians dist (agentens provväg bygger den) på en egen lokal adress, utan
+    brygga; en ombyggnad syns vid nästa laddning."""
+    dist = KUNDER / slug / 'kundrepo' / 'dist'
+    # agenten skriver i arbetskopian: dist ska vara en katalog i den, inte en länk ut (serverns rot sätts vid starten)
+    if dist.is_symlink() or not os.path.realpath(dist).startswith(os.path.realpath(dist.parent) + os.sep) or not (dist / 'index.html').is_file():
+        return None
+    nyckel = 'andring:%s' % slug
+    if nyckel not in VISNING:
+        srv = Server(dist)
+        srv.__enter__()
+        VISNING[nyckel] = srv
+    return VISNING[nyckel].url + '/'
 
 
 def visa(slug):
@@ -3305,6 +3324,80 @@ class H(BaseHTTPRequestHandler):
                 STROMMAR['antal'] -= 1
         self.close_connection = True
 
+    def andringar_get(self, vag):
+        """Ändringsflikens läsvägar: läget, terminalens ström (med biljett), kontrollens bilder och arbetskopians diff."""
+        import andringsflik
+        m = re.fullmatch(r'/api/andringar/([a-z0-9-]{2,60})(?:/(terminal|diff|kontroll/(\d{8}T\d{6}Z)/([a-z0-9-]{1,80})/(vy-(?:390|1440)-forsta\.png)))?', vag)
+        if not m or not (KUNDER / m.group(1)).is_dir() or m.group(1).endswith('-forhandsvisning'):
+            return self.skicka(404, {'fel': 'ingen sådan webbplats'})
+        slug, del_ = m.group(1), m.group(2)
+        if not del_:
+            return self.skicka(200, andringsflik.lage(slug))
+        if del_ == 'terminal':
+            return self.andringar_strom(slug)
+        if del_ == 'diff':
+            return self.skicka(200, andringsflik.diff(slug))
+        import andringar
+        p = andringar.privat(slug) / 'kontroller' / m.group(3) / m.group(4) / m.group(5)
+        if p.is_file() and not p.is_symlink():
+            return self.skicka(200, p.read_bytes(), 'image/png', {'Cache-Control': 'no-store'})
+        return self.skicka(404, {'fel': 'bilden finns inte'})
+
+    def andringar_strom(self, slug):
+        """Terminalens utdata som en ström: händelsen ut bär bytes (base64) med sin offset, så att en återanslutning
+        fortsätter där vyn var; slut när agenten avslutats. Kräver en biljett ur ett skrivande anrop."""
+        import andringsflik
+        q = dict(parse_qsl(urlsplit(self.path).query))
+        if not self.strom_ursprung_ok():
+            return self.skicka(403, {'fel': 'fel ursprung för strömmen'})
+        if not andringsflik.biljett_ok(slug, q.get('biljett')):
+            return self.skicka(403, {'fel': 'strömmen kräver en biljett från fliken'})
+        try:
+            fran = max(0, int(q.get('fran') or 0))
+        except ValueError:
+            return self.skicka(400, {'fel': 'ogiltig offset'})
+        with STROM_LAS:
+            if STROMMAR['antal'] >= STROMMAR['max']:
+                return self.skicka(503, {'fel': 'för många öppna strömmar; stäng en flik'}, extra={'Retry-After': '10'})
+            STROMMAR['antal'] += 1
+
+        def handelse(namn, data):
+            self.wfile.write(('event: %s\ndata: %s\n\n' % (namn, json.dumps(data, ensure_ascii=False))).encode())
+        try:
+            self.send_response(200)
+            for k, v in (('Content-Type', 'text/event-stream; charset=utf-8'), ('Cache-Control', 'no-store'), ('X-Content-Type-Options', 'nosniff'),
+                         ('X-Accel-Buffering', 'no')):
+                self.send_header(k, v)
+            self.end_headers()
+            self.connection.settimeout(30)
+            self.wfile.write(b'retry: 1500\n\n')
+            start = time.time()
+            sid_kaka = desktop.kaka_sid(self.headers.get('Cookie'), self.port())
+            while True:
+                r = andringsflik.las_fran(slug, fran, vanta=10)
+                if r is None:
+                    handelse('ingen', {'tid': nu()})
+                    break
+                sid, f, data, slut = r
+                if data:
+                    handelse('ut', {'sid': sid, 'o': f, 'd': base64.b64encode(data).decode('ascii')})
+                    fran = f + len(data)
+                elif slut:
+                    handelse('slut', {'sid': sid, 'tid': nu()})
+                    break
+                else:
+                    handelse('puls', {'sid': sid, 'o': fran})
+                self.wfile.flush()
+                if time.time() - start > STROMMAR['livslangd'] or (sid_kaka and not desktop.giltig(sid_kaka, rora=False)):
+                    break
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            with STROM_LAS:
+                STROMMAR['antal'] -= 1
+        self.close_connection = True
+
     def strom(self, slug):
         """Läget som en ström (text/event-stream): ett nytt läge när signaturen över källorna ändrats, en puls med tiden var
         tionde sekund och ett fel som en egen händelse. Återanslutningen är webbläsarens (retry 3 s); varje ny anslutning får
@@ -3376,9 +3469,23 @@ class H(BaseHTTPRequestHandler):
             if vag in ('/', '/index.html'):  # aldrig inramad av en annan sida, som en förhandsvisad sajt (arbetsytan, 2026-10-09)
                 return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8',
                                    {'X-Frame-Options': 'DENY', 'Content-Security-Policy': "frame-ancestors 'none'"})
-            if vag in ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js', '/arbetsyta.js', '/arbetsyta.css', '/studio.js', '/studio.css', '/portal.js', '/portal.css'):
+            if vag in STATISKA:
                 typ = 'text/javascript; charset=utf-8' if vag.endswith('.js') else 'text/css; charset=utf-8'
                 return self.skicka(200, (Path(__file__).parent / vag[1:]).read_bytes(), typ)
+            if vag.startswith('/api/andringar/'):  # ändringsfliken (dashboard/andringsflik.py)
+                return self.andringar_get(vag)
+            if vag == '/api/kompetenskarta':  # kompetenskartan: tilldelningen, det observerade och luckorna (kontroller/kompetenskarta.py)
+                import kompetenskarta
+                return self.skicka(200, kompetenskarta.karta(underlag=UNDERLAG))  # skills och metodkartan ur motorns repo, kvittona ur underlaget
+            if vag == '/api/repovaljaren':  # repoväljaren: organisationens kundrepon, kunderna och arbetskopiornas läge
+                import repovaljare
+                return self.skicka(200, repovaljare.lista())  # högst ett gh-anrop per listtid; "Läs om" är ett skrivande anrop
+            m = re.match(r'^/visa-andring/([a-z0-9-]{2,60})$', vag)
+            if m:  # arbetskopians byggda sajt på en egen lokal adress (ett annat ursprung än dashboardens)
+                url = visa_andring(m.group(1))
+                if url:
+                    return self.skicka(302, '', extra={'Location': url})
+                return self.skicka(404, '<p>Arbetskopian är inte byggd än: agentens provväg bygger den.</p>', 'text/html; charset=utf-8')
             if vag == '/api/kundstart':
                 import kundstart_agare
                 return self.skicka(200, kundstart_agare.lista(ROOT))
@@ -3532,6 +3639,17 @@ class H(BaseHTTPRequestHandler):
         vard = (self.headers.get('Host') or '').strip().lower()
         if ursprung.scheme != 'http' or ursprung.netloc.lower() != vard:
             return self.skicka(403, {'fel': 'fel ursprung'})
+        m_krok = re.fullmatch(r'/api/andringar/([a-z0-9-]{2,60})/krok', vag)
+        if m_krok:  # ändringsagentens krokar: sessionens token i stället för nyckeln, bara för den levande sessionen
+            import andringsflik
+            try:
+                n = int(self.headers.get('Content-Length') or 0)
+                d = json.loads(self.rfile.read(min(n, 256 * 1024)) or b'{}')
+                return self.skicka(200, andringsflik.krok(m_krok.group(1), self.headers.get('X-Andringar-Token'), (d or {}).get('handling'), (d or {}).get('data')))
+            except PermissionError as e:
+                return self.skicka(403, {'fel': str(e)})
+            except (ValueError, json.JSONDecodeError) as e:
+                return self.skicka(400, {'fel': str(e)})
         nyckel_ok = not NYCKEL['varde'] or hmac.compare_digest(str(self.headers.get('X-Nyckel') or ''), NYCKEL['varde'])
         self._kropp = None
         if not nyckel_ok and vag in ('/api/desktop/session', '/api/desktop/las') and self.headers.get('X-Desktop-Bevis'):
@@ -3608,6 +3726,59 @@ class H(BaseHTTPRequestHandler):
                                               'Begäran är registrerad. Läs aktuellt läge och körningens besked.' if rc == 5 else
                                               'Handlingen är klar; läs det aktuella beskedet.' if rc in (0, 4) else
                                               'Ingen ny körning startades. Läs aktuellt läge och dess begränsningar.'})
+            if vag == '/api/repovaljaren':  # repoväljaren: öppna (klona, koppla), hämta och uppdatera (dashboard/repovaljare.py)
+                import repovaljare
+                if not isinstance(data, dict):
+                    raise ValueError('kroppen ska vara ett objekt')
+                h = data.get('handling')
+                try:
+                    if h == 'las_om':
+                        svar = repovaljare.lista(las_om=True)
+                    elif h == 'oppna':
+                        svar = repovaljare.oppna(data.get('namn'), data.get('slug') or None, bekraftat=data.get('bekraftat') is True)
+                    elif h == 'hamta':
+                        svar = repovaljare.hamta(data.get('slug'))
+                    elif h == 'uppdatera':
+                        svar = repovaljare.uppdatera(data.get('slug'))
+                    else:
+                        raise ValueError('okänd handling')
+                except repovaljare.Upptagen as e:
+                    return self.skicka(409, {'fel': str(e), 'slag': 'Upptagen'})
+                return self.skicka(200, svar)
+            m = re.fullmatch(r'/api/andringar/([a-z0-9-]{2,60})/(terminal|bilaga)', vag)
+            if m:  # ändringsfliken: agentens start, inmatning, storlek, ägarskap, stopp, strömmens biljett och bilagor
+                import andringsflik
+                slug = m.group(1)
+                if not (KUNDER / slug).is_dir() or slug.endswith('-forhandsvisning') or not isinstance(data, dict):
+                    return self.skicka(404, {'fel': 'ingen sådan webbplats'})
+                try:
+                    if m.group(2) == 'bilaga':
+                        return self.skicka(200, andringsflik.bilaga(slug, data.get('namn'), data.get('data')))
+                    h, sid, klient = data.get('handling'), data.get('sid'), data.get('klient')
+                    if h == 'starta':
+                        svar = andringsflik.starta(slug, self.port(), klient, ateruppta=bool(data.get('ateruppta')),
+                                                   cols=int(data.get('cols') or 120), rows=int(data.get('rows') or 34))
+                    elif h == 'in':
+                        svar = andringsflik.skriv(slug, sid, klient, data.get('data'))
+                    elif h == 'storlek':
+                        svar = andringsflik.storlek(slug, sid, klient, data.get('cols'), data.get('rows'))
+                    elif h == 'ta_over':
+                        svar = andringsflik.ta_over(slug, sid, klient)
+                    elif h == 'stoppa':
+                        svar = andringsflik.stoppa(slug, sid, klient)
+                    elif h == 'biljett':
+                        svar = andringsflik.biljett(slug)
+                    elif h == 'kvittera':
+                        svar = andringsflik.kvittera(slug)
+                    elif h == 'ta_in':
+                        svar = andringsflik.ta_in(slug)
+                    else:
+                        raise ValueError('okänd handling')
+                except (andringsflik.Inaktuell, andringsflik.Upptagen) as e:
+                    return self.skicka(409, {'fel': str(e), 'slag': type(e).__name__})
+                except (ProcessLookupError, TimeoutError) as e:
+                    return self.skicka(409, {'fel': str(e), 'slag': 'Inaktuell'})
+                return self.skicka(200, svar)
             m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(meddelande|mandat|paus|foljdfraga|beslut)(?:/([A-Za-z0-9_-]{8,80})/(beslut|aterkalla))?', vag)
             if m:  # samverkan: ägarens meddelanden, beslut över förslag, mandat, paus, följdfrågor och beslut (dashboard/samverkan.py)
                 import arbetsyta
@@ -3799,6 +3970,11 @@ def main():
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
+        try:  # ändringsflikens agenter stoppas med processkontrollen, och kundernas lås släpps
+            import andringsflik
+            andringsflik.stang_alla()
+        except Exception:  # noqa: BLE001
+            pass
         pass
 
 

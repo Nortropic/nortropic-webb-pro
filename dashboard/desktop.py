@@ -17,6 +17,7 @@ Kundstarts ärenden, flödets kundlägen och körregistret). Ingen egen status, 
 import hashlib
 import hmac
 import json
+import re
 import os
 import secrets
 import subprocess
@@ -57,8 +58,9 @@ def ui_version(dashkatalog):
     """Hash över gränssnittets filer så som de serveras nu (servern läser dem från disk vid varje anrop): samma lista som
     serverns statiska filer, så att en ändring i studion eller kirurgens vy också ger appen en ny version."""
     h = hashlib.sha256()
-    for namn in ('index.html', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'kundstart-agare.js', 'kundstart-agare.css',
-                 'kirurg-forbattring.js', 'portal.js', 'portal.css'):
+    for namn in ('index.html', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'andringar.js', 'andringar.css', 'repovaljare.js', 'repovaljare.css', 'kompetenskarta.js', 'kompetenskarta.css', 'kundstart-agare.js',
+                 'kundstart-agare.css', 'kirurg-forbattring.js', 'portal.js', 'portal.css', 'vendor/xterm/xterm.js', 'vendor/xterm/xterm.css',
+                 'vendor/xterm/addon-fit.js'):
         p = Path(dashkatalog) / namn
         try:
             h.update(namn.encode() + b'\0' + p.read_bytes())
@@ -249,7 +251,17 @@ def oversikt(dash):
         k['projekt'] = {'senast_andrad': p.get('senast_andrad')}
         k['namn'] = p.get('namn') or k['namn']
         k['test'] = bool(p.get('testdata')) or (k['test'] and not k['arenden'] == [])
+    # en levererad webbplats med kundrepo (kunder/<slug>/KUNDREPO.json) är en kund också utan ärende eller projekt: dess
+    # ändringar görs i fliken Ändringar (kunskap/andringar.md)
+    for p in sorted(dash.KUNDER.glob('*/KUNDREPO.json')) if dash.KUNDER.is_dir() else []:
+        s = p.parent.name
+        if p.is_symlink() or not re.fullmatch(r'[a-z0-9-]{2,60}', s) or s.endswith('-forhandsvisning'):
+            continue
+        v = dash.las_json(dash.UNDERLAG / s / 'VERKSAMHET.json') or {}
+        k = kunder.setdefault(s, {'slug': s, 'namn': None, 'test': bool(v.get('fiktiv')) if isinstance(v, dict) else False, 'arenden': [], 'projekt': None})
+        k['kundrepo'] = True
     for s, k in kunder.items():
+        k.setdefault('kundrepo', False)
         if not k['namn']:
             v = dash.las_json(dash.UNDERLAG / s / 'VERKSAMHET.json') or {}
             k['namn'] = v.get('namn') if isinstance(v, dict) else None
@@ -268,7 +280,7 @@ def oversikt(dash):
             k['nasta'] = 'Kundintervjun' if not any(a['aktuell_bestallning'] for a in k['arenden']) else 'Omfattningen är accepterad'
         else:
             k['nasta'] = None
-        k['vy'] = '#/arbetsyta/' + s if k['projekt'] else ('#/kundstart/' + k['arenden'][0]['id'] if k['arenden'] else '#/arbetsyta/' + s)
+        k['vy'] = '#/arbetsyta/' + s if k['projekt'] else ('#/kundstart/' + k['arenden'][0]['id'] if k['arenden'] else '#/andringar/' + s if k['kundrepo'] else '#/arbetsyta/' + s)
         k['senaste'] = k['nasta'] or ''
     lista = sorted(kunder.values(), key=lambda k: (k['senast'] or '', k['slug']), reverse=True)
     return {'tid': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'kunder': lista,

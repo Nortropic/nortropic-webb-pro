@@ -16,7 +16,9 @@ const sov = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // --- dashboardens filer, som server.py serverar dem ---
 const TYP = { js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', html: 'text/html; charset=utf-8' };
-const filer = new Map(await Promise.all([['/', 'index.html'], ...['kundstart-agare.js', 'kundstart-agare.css', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'portal.js', 'portal.css']
+// gränssnittets filer som servern serverar dem (server.py STATISKA); en fil som saknas här blir ett 404 i konsolen
+const filer = new Map(await Promise.all([['/', 'index.html'], ...['kundstart-agare.js', 'kundstart-agare.css', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'portal.js', 'portal.css',
+  'andringar.js', 'andringar.css', 'repovaljare.js', 'repovaljare.css', 'kompetenskarta.js', 'kompetenskarta.css', 'vendor/xterm/xterm.js', 'vendor/xterm/xterm.css', 'vendor/xterm/addon-fit.js']
   .map((n) => ['/' + n, n])].map(async ([vag, n]) => [vag, { data: await readFile(resolve(root, 'dashboard', n)), typ: TYP[n.split('.').pop()] }])));
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
@@ -524,10 +526,12 @@ try {
       const d = nav.locator('details.pt-delar').filter({ has: page.locator('summary', { hasText: namn }) });
       if (!(await d.evaluate((x) => x.open))) await d.locator('summary').click();
       const traffar = [];
+      // en halv pixels marginal: inrullad till kanten kan länken sluta en bråkdels pixel utanför (900,03 i 900, uppmätt
+      // 2026-10-11), fast den syns hel och träffas
       for (const a of await d.locator('.pt-dellista a').all()) {
         await a.scrollIntoViewIfNeeded();
         traffar.push(await a.evaluate((x) => { const r = x.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-          return [x.textContent.trim(), !!e && (e === x || x.contains(e)) && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight]; }));
+          return [x.textContent.trim(), !!e && (e === x || x.contains(e)) && r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5]; }));
       }
       assert.deepEqual(traffar.filter(([, ok]) => !ok).map(([t]) => t), [], `${namn} vid ${w} px: varje länk ska synas och gå att klicka`);
     }
