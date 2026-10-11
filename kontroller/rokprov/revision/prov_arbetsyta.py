@@ -27,6 +27,7 @@ tidigare); saknas den hoppas det som kräver sajten över med skälet. I rökpro
 import contextlib
 import http.client
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -787,7 +788,9 @@ class Arbetsyta(unittest.TestCase):
         # tillåtelselistan och argumenten
         regler = partner.tillatet(dash, SLUG)
         self.assertTrue(all(r.startswith('Read(//') for r in regler), regler)
-        self.assertFalse([r for r in regler if '/atelje' in r or '/kunder/' in r], regler)
+        # ur ateljén och kunder/ bara kandidaternas kod och bevarade bilder (ägarens besked 2026-10-11), aldrig bedömningar
+        self.assertFalse([r for r in regler if ('/atelje' in r and not re.search(r'/atelje/kandidater/k\d\d/bilder/.+\.png\)$', r))
+                          or ('/kunder/' in r and not re.search(r'/kunder/%s/kandidater/k\d\d/sajt/(src/.+|DESIGN\.md)\)$' % SLUG, r))], regler)
         self.assertIn('Read(/%s/underlag/%s/BRIEF.md)' % (self.root, SLUG), regler)
         self.assertIn('Read(/%s/kunskap/**)' % self.root, regler)
         args = partner.args(dash, SLUG, sid, True, partner.profil())
@@ -795,6 +798,32 @@ class Arbetsyta(unittest.TestCase):
             self.assertEqual(args[args.index(par[0]) + 1], par[1], args)
         self.assertIn('--strict-mcp-config', args)
         self.assertEqual(args[args.index('--allowedTools') + 1:args.index('--append-system-prompt')], regler)
+
+    def test_partnern_laser_kandidaternas_kod_och_bilder_som_agaren_ser_dem(self):
+        # ägarens besked 2026-10-11: partnern ska kunna läsa kandidaternas kod och bilder; samma som vyn, i samma blindläge
+        if self.sajt is None:
+            self.skipTest(utan_sajt())
+        k = kandidater.kdir(SLUG, 'k01')
+        (k / 'bilder' / 'start' / 'INSPEKTION.json').write_text('{}', encoding='utf-8')
+        (k / 'granskning').mkdir(exist_ok=True)
+        (k / 'granskning' / 'BEDOMNING.md').write_text('dold bedömning', encoding='utf-8')
+        os.symlink('/etc/hosts', kandidater.ksajt(SLUG, 'k01') / 'src' / 'lank.astro')
+        blind = partner.tillatet(dash, SLUG)
+        filer = partner.kandidatfiler(dash, SLUG)['k01']
+        self.assertTrue(any(str(p).endswith('kod/index.astro') or p.name == 'index.astro' for p in filer['kod']), filer['kod'])
+        self.assertEqual([p.name for p in filer['bilder']], ['vy-390-forsta.png'])
+        self.assertTrue(any(r.endswith('/bilder/start/vy-390-forsta.png)') for r in blind), 'ögonblicksbilden')
+        self.assertTrue(any('/sajt/src/pages/index.astro)' in r for r in blind), 'arbetsversionens startsida')
+        for dolt in ('DESIGN.md', 'BEDOMNING.md', 'INSPEKTION.json', '/lank.astro', '/sessioner', 'KANDIDATPLAN', 'svar-'):
+            self.assertFalse([r for r in blind if dolt in r], (dolt, 'före ditt första val, och aldrig bedömningar, länkar eller sessioner'))
+        text, _ = partner.kontexttext(dash, SLUG, {})
+        self.assertIn('Repots rot: %s' % Path(dash.ROOT).resolve(), text)
+        self.assertRegex(text, r'Kandidat Förslag [AB] \(k01\) som du får läsa: \d+ kodfiler')
+        self.agarens_val()
+        efter = partner.tillatet(dash, SLUG)
+        if (kandidater.ksajt(SLUG, 'k01') / 'DESIGN.md').is_file():
+            self.assertTrue(any(r.endswith('/sajt/DESIGN.md)') for r in efter), 'DESIGN.md efter ditt första val, som i Kod och preview')
+        self.assertFalse([r for r in efter if 'BEDOMNING.md' in r or '/lank.astro' in r])
 
     # --- partnerns ström (U26, 2026-10-10) ---
 

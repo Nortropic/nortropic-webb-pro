@@ -298,7 +298,12 @@ finns under Kod och preview.
   jämförelse ger varken samtal eller tur (409), på partnerns egna vägar som på läsvägen.
 - **Arbetskatalog och läsrätt:** en egen tom katalog, Read med dontAsk och en tillåtelselista (repots `README.md`,
   `CLAUDE.md`, `BESLUT.md`, `kunskap/`, `kritik/`, `backlog/` och kundens underlag); dontAsk nekar inte läsningar inom
-  arbetskatalogen, därför är den tom. Inga MCP:er, inget Bash, inget Write.
+  arbetskatalogen, därför är den tom. Inga MCP:er, inget Bash, inget Write. Sedan ägarens besked 2026-10-11 läser
+  partnern också kandidaternas arbetsversion, samma som du ser i samma blindläge (`partner.kandidatfiler`): koden som Kod
+  och preview listar den (DESIGN.md först efter ditt första val) och de bevarade ögonblicksbilderna (PNG under
+  kandidatens `bilder/`), med en regel per fil och inga länkar. Ateljéns bedömningar, sessioner, svar och granskarnas
+  kataloger står utanför. Läget i meddelandet säger repots rot (Read kräver absoluta sökvägar) och listar varje kandidats
+  filer.
 - **Läget i varje meddelande:** arbetsytans läge ur samma läsväg som vyn, blindat, och din markering.
 - **Strömningen (2026-10-10):** turen körs med `--output-format stream-json --verbose --include-partial-messages`
   (Claude Code 2.1.290, prövat med ett riktigt anrop) till `partner/strom-<id>.jsonl`, och turens slutpost skrivs som

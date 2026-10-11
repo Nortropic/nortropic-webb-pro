@@ -58,8 +58,10 @@ med mandat formuleras som en överlämning. När ägaren ber om en ändring, avs
 Är läget blindat ("blind: ja") har ägaren inte fattat sitt första beslut i körningen: bedömningar, skäl och granskning är
 dolda för ägaren. Försök inte ta reda på dem och spekulera inte om vilken kandidat som är bäst.
 
-Du får läsa: repots README.md, CLAUDE.md, BESLUT.md, kunskap/, kritik/ och backlog/ och kundens underlag i listan
-nedan. Allt annat nekas. Svara på svenska, kort och konkret."""
+Du får läsa: repots README.md, CLAUDE.md, BESLUT.md, kunskap/, kritik/ och backlog/, kundens underlag i listan nedan och
+kandidaternas arbetsversion: koden och de bevarade ögonblicksbilderna som läget listar per kandidat (samma som ägaren ser
+i Kod och preview och under Ögonblicksbild; bilderna läser du med Read). Allt annat nekas, också ateljéns bedömningar,
+sessioner och svar. Svara på svenska, kort och konkret."""
 
 
 def profil():
@@ -313,10 +315,39 @@ def _rum(dash, slug):
     return _katalog(dash, slug) / 'partner' / 'rum'
 
 
+def kandidatfiler(dash, slug, blind=None):
+    """Det partnern får läsa ur kandidaterna (ägarens besked 2026-10-11: partnern ska kunna läsa kandidaternas kod och
+    bilder): samma som ägaren ser i samma blindläge. Arbetsversionens kod som Kod och preview listar den
+    (arbetsyta._arbetsfiler: sidorna och resten av src/ utan kundens bilder, och DESIGN.md först efter ditt första val)
+    och de bevarade ögonblicksbilderna (PNG under kandidatens bilder/, fotograferingens). Inga länkar, och inget annat ur
+    ateljén: bedömningar, sessioner, svar och granskarnas kataloger står utanför. {kid: {'kod': [sökväg], 'bilder': [sökväg]}}."""
+    _kontroller_in()
+    import arbetsyta
+    import kandidater
+    if blind is None:
+        blind = bindning(dash, slug)['blind']
+    ut = {}
+    for kid in kandidater.lista(slug):
+        kod = sorted(p for p in arbetsyta._arbetsfiler(slug, kid, blind).values() if not p.is_symlink())
+        b = kandidater.kdir(slug, kid) / 'bilder'
+        bilder = []
+        if b.is_dir() and not b.is_symlink():
+            for katalog, kataloger, filer in os.walk(b, followlinks=False):
+                kataloger[:] = sorted(x for x in kataloger if not (Path(katalog) / x).is_symlink())
+                bilder += [Path(katalog) / f for f in sorted(filer) if f.lower().endswith('.png') and not (Path(katalog) / f).is_symlink()]
+        ut[kid] = {'kod': kod, 'bilder': bilder}
+    return ut
+
+
 def tillatet(dash, slug):
     root = str(Path(dash.ROOT).resolve()).strip('/')
     regler = ['Read(//%s/%s)' % (root, x) for x in ('README.md', 'CLAUDE.md', 'BESLUT.md', 'kunskap/**', 'kritik/**', 'backlog/**')]
     regler += ['Read(//%s/underlag/%s/%s)' % (root, slug, f) for f in KUNDFILER]
+    try:  # kandidaternas kod och bilder, en regel per fil (ingen katalogregel som en länk i projektet kunde vidga)
+        for filer in kandidatfiler(dash, slug).values():
+            regler += ['Read(//%s)' % str(Path(p).resolve()).strip('/') for p in filer['kod'] + filer['bilder']]
+    except Exception:  # noqa: BLE001 — utan kandidaterna läser partnern det övriga, som förut
+        pass
     return regler
 
 
@@ -344,7 +375,21 @@ def kontexttext(dash, slug, markering):
     rader.append('Nästa tillåtna handlingar: %s' % (', '.join(h['text'] for h in l.get('handlingar') or []) or 'inga'))
     if l.get('ofullstandig'):
         rader.append('Ofullständigt i läget: %s' % '; '.join(l['ofullstandig'])[:600])
+    rader.append('Repots rot: %s (sökvägarna nedan är relativa till den; Read kräver den absoluta sökvägen, rot + sökväg)' % Path(dash.ROOT).resolve())
     rader.append('Kundens underlag du får läsa: %s' % ', '.join('underlag/%s/%s' % (slug, f) for f in KUNDFILER if (dash.UNDERLAG / slug / f).is_file()))
+    try:
+        rot = Path(dash.ROOT).resolve()
+        etiketter = {x['id']: x.get('etikett') for x in l.get('kandidater') or []}
+        for kid, filer in kandidatfiler(dash, slug, bool(l.get('blind'))).items():
+            if not filer['kod'] and not filer['bilder']:
+                continue
+            rel = lambda p: str(Path(p).resolve().relative_to(rot)) if str(Path(p).resolve()).startswith(str(rot) + '/') else str(p)  # noqa: E731
+            forsta = [rel(p) for p in filer['bilder'] if p.name.endswith('-forsta.png')][:4]
+            rader.append('Kandidat %s (%s) som du får läsa: %d kodfiler (%s%s); ögonblicksbilder: %s' % (
+                etiketter.get(kid) or kid, kid, len(filer['kod']), ', '.join(rel(p) for p in filer['kod'][:12]),
+                ', …' if len(filer['kod']) > 12 else '', ', '.join(forsta) or 'inga än'))
+    except Exception as e:  # noqa: BLE001
+        rader.append('Kandidaternas filer kunde inte listas: %s' % type(e).__name__)
     mk = {k: v for k, v in (markering or {}).items() if v}
     rader.append('Ägarens markering: %s' % (', '.join('%s %s' % (k, v) for k, v in mk.items()) or 'ingen'))
     return '\n'.join(rader), l
