@@ -26,6 +26,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import zlib
 from pathlib import Path
@@ -278,6 +279,28 @@ class Provlaget(unittest.TestCase):
             self.assertTrue(set(schema.get('required') or []) <= set(svar), schema.get('required'))
 
 
+def verktygsfel(dump):
+    """De verktygsanrop som CLI:n svarade fel på, ur den falska modellens dumpar: [session, verktyg, indata, svar]."""
+    ut = []
+    for f in sorted(Path(dump).rglob('*.json')) if Path(dump).is_dir() else []:
+        try:
+            body = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        body = body.get('body', body) if isinstance(body, dict) else {}
+        msgs = body.get('messages') or [] if isinstance(body, dict) else []
+        anrop = {b.get('id'): (b.get('name'), b.get('input')) for m in msgs if isinstance(m, dict) and m.get('role') == 'assistant'
+                 for b in (m.get('content') or []) if isinstance(b, dict) and b.get('type') == 'tool_use'}
+        for m in msgs:
+            for b in (m.get('content') or []) if isinstance(m, dict) and m.get('role') == 'user' and isinstance(m.get('content'), list) else []:
+                if isinstance(b, dict) and b.get('type') == 'tool_result' and b.get('is_error'):
+                    namn, indata = anrop.get(b.get('tool_use_id'), (None, None))
+                    rad = [str(f.parent.name), namn, json.dumps(indata, ensure_ascii=False)[:160], str(b.get('content'))[:240]]
+                    if rad not in ut:
+                        ut.append(rad)
+    return ut
+
+
 def kopiera_repo(fran, till):
     """Repots spårade och ospårade (ej ignorerade) filer, med beroendena som länkar: provläget gäller aldrig i
     huvudutcheckningen, så rollerna körs här."""
@@ -314,7 +337,15 @@ class Rollerna(unittest.TestCase):
                                 '--i-kopian', str(ut)], cwd=str(kopia), capture_output=True, text=True, timeout=900,
                                env=env)
             sys.stderr.write(p.stderr[-6000:])
-            self.assertEqual(p.returncode, 0, p.stdout[-3000:] + p.stderr[-3000:])
+            if p.returncode != 0:
+                # ett tillfälligt fel (2026-10-10: "kärnan saknas" för en enda skill i ett fullprov, grönt för sig och i
+                # omkörningen) går inte att utreda när provets katalog är borta: dumparna och FAKTA sparas, och de verktygsanrop
+                # som CLI:n svarade fel på står i beskedet
+                spar = ROT / 'kunder' / 'rokprov-mall' / ('prov_dyad-fel-%s' % time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()))
+                with contextlib.suppress(OSError):
+                    shutil.copytree(ut, spar, dirs_exist_ok=True)
+                self.fail('%s\nverktygsfel i dumparna: %s\nsparat: %s' % (p.stdout[-3000:] + p.stderr[-3000:],
+                                                                         json.dumps(verktygsfel(ut / 'dump'), ensure_ascii=False)[:3000], spar))
             fakta = json.loads((ut / 'FAKTA.json').read_text(encoding='utf-8'))
             sys.stderr.write('Dyad-provet: %s\n' % json.dumps(fakta['sammanfattning'], ensure_ascii=False))
 
