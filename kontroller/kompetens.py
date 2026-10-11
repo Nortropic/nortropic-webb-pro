@@ -615,6 +615,45 @@ MED_INNEHALL = ('bild returnerad', 'anrop lyckades')  # observatörens utfall f�
 UTAN_FORM = 'svar utan känd form'  # ett textsvar som varken är fel, tomt eller en läsbar lista: innehållet är inte observerat (C6:s rest)
 
 
+def arvet(sid, filer, vy=None):
+    """Det en återupptagen konversation (bildkedja.fortsattning) bär med sig ur sitt ursprung, eller None för en vanlig
+    session (ägarens godkännande 2026-10-11 av ett avgränsat prov). Giltigt bara när ursprunget inte komprimerats, när
+    fortsättningen inte komprimerats före sin första ändring, och när flödet vid återupptagningen såg att rollens
+    kompetensfiler var oförändrade sedan ursprunget startade (avtryck_lika). Ger {'fran', 'giltigt', 'skal', 'lasta':
+    filerna ursprunget läste hela, 'skill_anrop': ursprungets aktiveringar}; kvittot räknar dem för sig, aldrig som
+    fortsättningens egna läsningar eller anrop."""
+    import bildkedja
+    f_ = bildkedja.fortsattning(sid)
+    if not f_:
+        return None
+    u_ = bildkedja.transkript_hel(f_.get('ursprung'))
+    skal = ('ursprungets transkript saknas' if u_ is None else
+            'ursprunget komprimerades: den lästa kärnan finns inte längre i kontexten' if bildkedja.komprimerad(u_) else
+            'fortsättningen komprimerades' if vy is not None and bildkedja.komprimerad(vy) else
+            'kompetensfilerna ändrades mellan ursprunget och fortsättningen' if f_.get('avtryck_lika') is not True else None)
+    arv = {'fran': f_.get('ursprung'), 'giltigt': skal is None, 'skal': skal or 'samma konversation, oförändrade kompetensfiler, ingen komprimering',
+           'lasta': [], 'skill_anrop': []}
+    if skal is None:
+        mu = bildkedja.metodlasning(f_.get('ursprung'), filer)
+        if mu.get('verifierad'):
+            arv['lasta'] = sorted(set((mu.get('fore') or []) + (mu.get('efter') or [])) & set(filer))
+            arv['skill_anrop'] = sorted(set(mu.get('skill_anrop') or []))
+        else:
+            arv.update(giltigt=False, skal='ursprungets läsning kunde inte prövas')
+    return arv
+
+
+def avtryck(pass_, k=None):
+    """sha256 över rollens kärna och alternativ (vägarna och innehållet) för passet: en fortsättning ärver läsningen bara
+    när avtrycket är detsamma som när ursprunget startade."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in sorted({f for x in for_pass(pass_, k) for f in x['karna'] + x['valj']}):  # rollernas egna vägar (metod.kalla)
+        p = metod.kalla(f)
+        h.update(f.encode() + b'\0' + (hashlib.sha256(p.read_bytes()).digest() if p.is_file() else b'-'))
+    return h.hexdigest()
+
+
 def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     """Kvittot ur transkripten: kärnan som lästs hel före första ändringen (eller alls), alternativen som lästs,
     skillverktygets lyckade anrop och MCP-anropen som gav svar (ett nekat eller stoppat anrop räknas inte; granskning 4,
@@ -651,8 +690,15 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
             continue
         sedda += 1
         las_s, fore_s = set((ml.get('fore') or []) + (ml.get('efter') or [])), set(ml.get('fore') or [])
-        t = bildkedja.transkript(sid)
+        t = bildkedja.transkript(sid)  # för en fortsättning bara dess egna rader (bildkedja.transkript)
         h = bildkedja.handelser(t) if t else []
+        arv = arvet(sid, filer + val, t)
+        skill_s, skill_fore_s = set(ml.get('skill_anrop') or []), set(ml.get('skill_fore') or [])
+        if arv and arv['giltigt']:  # ärvt i samma konversation: läst före allt i fortsättningen, och redovisat för sig
+            las_s |= set(arv['lasta'])
+            fore_s |= set(arv['lasta'])
+            skill_s |= set(arv['skill_anrop'])
+            skill_fore_s |= set(arv['skill_anrop'])
         # Underagenterna (lucka 1 i GR-20261010-kompetens-integration): varje Task/Agent har en egen kontext som inte
         # ser huvudsessionens skills eller läsningar. Deras egna transkript läses med samma metodkvitto; en underagent
         # som ändrar i koden prövas som en egen session (kravbrister), och en underagent utan transkript är okänd.
@@ -666,13 +712,13 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
                        'lasta': [f for f in filer if f in lu], 'fore_forsta_andring': [f for f in filer if f in fu],
                        'skill_anrop': sorted(set(mu.get('skill_anrop') or [])), 'skill_fore': sorted(set(mu.get('skill_fore') or [])),
                        'valda': [f for f in val if f in lu and f not in (mu.get('via_metod') or [])]})
-        per.append({'session': str(sid), 'lasta': [f for f in filer if f in las_s], 'saknas': [f for f in filer if f not in las_s],
-                    'fore_forsta_andring': [f for f in filer if f in fore_s], 'andrade': bool(ml.get('forsta_skrivning')),
-                    'forsta_via': ml.get('forsta_via'), 'bash': ml.get('bash'),
-                    'skill_anrop': sorted(set(ml.get('skill_anrop') or [])),
-                    'skill_fore': sorted(set(ml.get('skill_fore') or [])),
-                    'valda': [f for f in val if f in las_s and f not in (ml.get('via_metod') or [])],
-                    'underagenter': ua, 'underagentuppdrag': bildkedja.uppdragsanrop(h)})
+        per.append(dict({'session': str(sid), 'lasta': [f for f in filer if f in las_s], 'saknas': [f for f in filer if f not in las_s],
+                         'fore_forsta_andring': [f for f in filer if f in fore_s], 'andrade': bool(ml.get('forsta_skrivning')),
+                         'forsta_via': ml.get('forsta_via'), 'bash': ml.get('bash'),
+                         'skill_anrop': sorted(skill_s),
+                         'skill_fore': sorted(skill_fore_s),
+                         'valda': [f for f in val if f in las_s and f not in (ml.get('via_metod') or [])],
+                         'underagenter': ua, 'underagentuppdrag': bildkedja.uppdragsanrop(h)}, **({'arv': arv} if arv else {})))
         fore.update(ml.get('fore') or [])
         lasta.update((ml.get('fore') or []) + (ml.get('efter') or []))
         egna.update(set((ml.get('fore') or []) + (ml.get('efter') or [])) - set(ml.get('via_metod') or []))

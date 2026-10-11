@@ -518,15 +518,23 @@ class Stoppad(Exception):
 
 
 def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None,
-            blind=None, arbetsslug=None, webb=False):
+            blind=None, arbetsslug=None, webb=False, aterupptag=None, fortsattning=None):
     """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger).
     vid_start(pid) får sessionens pid (kandidatens status bär den, så att en återupptagning kan avsluta en session som
     överlevt arbetaren). Vid tidsgräns avslutas hela processträdet, också Bash-kommandon i egna processgrupper.
     blind: tillåtelselistan för en blind session (session_args); den startar alltid i en egen tom arbetskatalog
     (blind_arbetsyta), också när växeln står på kundrepo. arbetsslug: kunden vars kundrepo blir arbetsrot med växeln
-    NWP_ARBETSROT=kundrepo, för de äldre vägarna som inte skickar slug (och därför inte får kundvakten och MCP:erna; R06)."""
+    NWP_ARBETSROT=kundrepo, för de äldre vägarna som inte skickar slug (och därför inte får kundvakten och MCP:erna; R06).
+    aterupptag: session-id för en konversation som fortsätts (claude -p --resume <id> --fork-session; ägarens godkännande
+    2026-10-11 av ett avgränsat prov): fortsättningen får ett eget session-id och exakt samma argument som en ny session
+    (verktyg, nekanden, kundvakten, MCP-konfigurationen, modell och effort), eftersom -p --resume inte återställer dem;
+    ursprunget skrivs aldrig om. fortsattning: anroparens prövning (avtrycket, komprimeringen, rollen), som registreras med
+    fortsättningens id (bildkedja.registrera_fortsattning) före starten när id:t är känt, annars ur svaret, så att varje
+    kvitto läser bara fortsättningens egna rader."""
     if STOPP.is_set():
         raise Stoppad('arbetaren stoppas: ingen ny session')
+    if aterupptag and (blind or not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', str(aterupptag))):
+        raise ValueError('bara en icke-blind session med ett giltigt session-id kan fortsättas')
     rot, kundrot = (blind_arbetsyta(('blind session %s' % (slug or arbetsslug or '')).strip()), False) if blind else arbetsrot(slug or arbetsslug)
     args = session_args(verktyg, schema, max_turer, modell, effort, nekas, slug, kundrot=kundrot, blind=blind, kundrepo=rot if kundrot else None,
                         webb=webb)
@@ -547,6 +555,11 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                             kundrepo=rot if kundrot else None, strom=True, roll=roll, webb=webb)
     if sid:  # sessionens id från start: observatören hittar transkriptet medan sessionen arbetar
         args[2:2] = ['--session-id', sid]
+    if aterupptag:  # en kopia av konversationen med eget id; ursprungets fil rörs inte
+        args[2:2] = ['--resume', str(aterupptag), '--fork-session']
+        if sid:
+            import bildkedja
+            bildkedja.registrera_fortsattning(sid, str(aterupptag), **(fortsattning or {}))
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
     # krockar med fotograferingens bygge i samma katalog; granskningen av r59, punkt 2)
     utfall = 'avbruten'
@@ -609,6 +622,9 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                 if sid:
                     observera('uppdatera', oslug, sid, slut=nu(), utfall=utfall)
     svar = las_json(ut) or {}
+    if aterupptag and not sid and svar.get('session_id'):
+        import bildkedja
+        bildkedja.registrera_fortsattning(str(svar['session_id']), str(aterupptag), **(fortsattning or {}))
     if p.returncode or svar.get('is_error'):
         raise RuntimeError('sessionen föll (kod %s, %s): %s' % (p.returncode, svar.get('subtype'),
                                                                 (fel or b'').decode(errors='replace')[-400:] or str(svar.get('result'))[:400]))

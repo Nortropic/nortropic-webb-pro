@@ -85,14 +85,110 @@ def las_json(p):
         return None
 
 
-def transkript(session_id):
-    """Sessionens transkript, eller None (okänt id, eller Claude Code sparade inget)."""
+def transkript_hel(session_id):
+    """Sessionens hela transkriptfil som Claude Code skrev den, eller None."""
     if not isinstance(session_id, str) or not SESSION.match(session_id) or not PROJEKT.is_dir():
         return None
     for p in PROJEKT.glob('*/%s.jsonl' % session_id):
         if p.is_file() and not p.is_symlink():
             return p
     return None
+
+
+# Återupptagna konversationer (ägarens godkännande 2026-10-11 av ett avgränsat prov): en fortsättning startas med
+# claude -p --resume <ursprung> --fork-session och får ett eget session-id, men Claude Code kopierar ursprungets rader in i
+# fortsättningens transkript med samma uuid och utan hänvisning till ursprunget (prövat 2026-10-11, Claude Code 2.1.290).
+# Flödet registrerar därför varje fortsättning här, bredvid transkripten, och kvittot läser bara fortsättningens egna
+# rader; det ärvda redovisas för sig (kompetens.kvitto). Inget skrivs i Claude Codes transkript.
+def fortsattningsregister():
+    return PROJEKT.parent / 'nortropic-fortsattningar.jsonl'
+
+
+def registrera_fortsattning(session_id, ursprung, **info):
+    """Fortsättningen session_id av konversationen ursprung, med flödets prövning (info: avtryck, komprimering, roll)."""
+    if not (isinstance(session_id, str) and SESSION.match(session_id) and isinstance(ursprung, str) and SESSION.match(ursprung)):
+        raise ValueError('fortsättningen och ursprunget ska vara session-id')
+    fortsattningsregister().parent.mkdir(parents=True, exist_ok=True)
+    with open(fortsattningsregister(), 'a', encoding='utf-8') as f:
+        f.write(json.dumps(dict(info, session=session_id, ursprung=ursprung), ensure_ascii=False) + '\n')
+
+
+def fortsattning(session_id):
+    """Registrets post för en fortsättning ({'session', 'ursprung', …}), eller None för en vanlig session."""
+    try:
+        with open(fortsattningsregister(), encoding='utf-8') as f:
+            for rad in f:
+                try:
+                    r = json.loads(rad)
+                except ValueError:
+                    continue
+                if isinstance(r, dict) and r.get('session') == session_id:
+                    return r
+    except OSError:
+        return None
+    return None
+
+
+def uuider(fil):
+    """Radernas uuid i ett transkript."""
+    ut = set()
+    try:
+        with open(fil, encoding='utf-8', errors='replace') as f:
+            for rad in f:
+                try:
+                    r = json.loads(rad)
+                except ValueError:
+                    continue
+                if isinstance(r, dict) and isinstance(r.get('uuid'), str):
+                    ut.add(r['uuid'])
+    except OSError:
+        pass
+    return ut
+
+
+def komprimerad(fil):
+    """Har konversationen komprimerats (compact_boundary, eller en sammanfattning i stället för historiken)?"""
+    try:
+        with open(fil, encoding='utf-8', errors='replace') as f:
+            for rad in f:
+                if 'compact_boundary' in rad or '"isCompactSummary"' in rad:
+                    try:
+                        r = json.loads(rad)
+                    except ValueError:
+                        continue
+                    if isinstance(r, dict) and (r.get('subtype') == 'compact_boundary' or r.get('isCompactSummary')):
+                        return True
+    except OSError:
+        return False
+    return False
+
+
+def transkript(session_id):
+    """Sessionens transkript, eller None (okänt id, eller Claude Code sparade inget). För en registrerad fortsättning:
+    en vy med bara fortsättningens egna rader (de som inte finns i ursprunget), så att inget ur den ärvda historiken räknas
+    två gånger; hela filen nås med transkript_hel."""
+    p = transkript_hel(session_id)
+    if p is None:
+        return None
+    f_ = fortsattning(session_id)
+    u_ = transkript_hel(f_.get('ursprung')) if f_ else None
+    if not f_ or u_ is None:
+        return p
+    arvda = uuider(u_)
+    vy = fortsattningsregister().parent / 'nortropic-fortsattningar' / ('%s.jsonl' % session_id)
+    vy.parent.mkdir(parents=True, exist_ok=True)
+    tmp = vy.with_name('.%s.%d.tmp' % (vy.name, os.getpid()))
+    with open(p, encoding='utf-8', errors='replace') as inn, open(tmp, 'w', encoding='utf-8') as ut:
+        for rad in inn:
+            try:
+                r = json.loads(rad)
+            except ValueError:
+                continue
+            if isinstance(r, dict) and r.get('uuid') in arvda:
+                continue
+            ut.write(rad if rad.endswith('\n') else rad + '\n')
+    os.replace(tmp, vy)
+    return vy
 
 
 def lasta(fil):
@@ -428,10 +524,14 @@ def underagenter(session_id, fil=None):
     if t is None:
         return []
     ut = []
-    katalog = t.parent / t.stem / 'subagents'
+    hel = transkript_hel(session_id) if not fil else None  # en fortsättnings underagenter ligger vid dess riktiga fil
+    katalog = (hel or t).parent / (hel or t).stem / 'subagents'
+    f_ = fortsattning(session_id) if not fil else None
+    u_ = transkript_hel(f_.get('ursprung')) if f_ else None
+    arvda_agenter = {p.stem[len('agent-'):] for p in (u_.parent / u_.stem / 'subagents').glob('agent-*.jsonl')} if u_ else set()
     if katalog.is_dir():
         for p in sorted(katalog.glob('agent-*.jsonl')):
-            if p.is_file() and not p.is_symlink():
+            if p.is_file() and not p.is_symlink() and p.stem[len('agent-'):] not in arvda_agenter:
                 ut.append({'agent': p.stem[len('agent-'):], 'fil': p, 'kedja': 'alla'})
     sedda, inline = {u['agent'] for u in ut}, []
     try:

@@ -1016,7 +1016,7 @@ def forska(slug, n, skiss=False):
     fore_tj = (atelje.las_json(u / 'referenser' / 'tjanster' / 'TJANSTER.json') or {}).get('tid')
     import referenskontrakt as rk
     fel, plan, res, slappta, sessioner_, kravbrister = None, {}, {}, [], [], []
-    logg, kontraktsbrister, proveniens, kompetensomforsok = [], [], {}, None
+    logg, kontraktsbrister, proveniens, kompetensomforsok, luckor = [], [], {}, None, None
     fangst = {'frist': min(FRIST_HAMTA, FRIST_FANGST_SKISS) if skiss else FRIST_HAMTA, 'sidor_per_sajt': SIDOR_SKISS if skiss else skapande.MAX_SIDOR_PER}
     webb = any('webbsok' in x['verktyg'] for x in kompetens.for_pass('forska'))  # rollens webbupptäckt (metodkartan)
     for forsok in (1, 2):
@@ -1042,6 +1042,12 @@ def forska(slug, n, skiss=False):
         plan = svar.get('structured_output') or {}
         sajter, fragor, slappta = [], [], []
         for s in plan.get('sajter') or []:
+            if luckor and isinstance(s, dict) and ((s.get('roll') == 'bransch' and not luckor['bransch'])
+                                                   or (s.get('roll') == 'hantverk' and not luckor['inspiration']) or s.get('roll') == 'ux'):
+                # ett andra varv hämtar bara den roll som saknas; det redan fångade ärvs (körprovet 2026-10-11: varv 2
+                # fångade sju sajter, två av dem branschsajter fast branschtäckningen räckte, för en enda saknad galleriförebild)
+                slappta.append('sajten %s: rollen %s har redan sin täckning; varv 2 hämtar bara det som saknas' % (str(s.get('adress'))[:80], s.get('roll')))
+                continue
             if isinstance(s, dict):  # upptäcktsvägen prövad mot loggen: en påstådd sökning som aldrig gjordes står som kunskap
                 proveniens[str(s.get('namn'))] = rk.verifiera_upptackt(s, logg)
                 s = dict(s, upptackt={'vag': proveniens[str(s.get('namn'))]['vag'], 'kalla': proveniens[str(s.get('namn'))]['kalla']})
@@ -1050,6 +1056,9 @@ def forska(slug, n, skiss=False):
             f_ = skapande.kanal_fel({'referens': {'kandidater': [s]}}, bred=True)
             (slappta.append('sajten %s: %s' % (str((s or {}).get('adress'))[:80], f_)) if f_ else sajter.append(s))
         for q in plan.get('fragor') or []:
+            if luckor:  # tjänsternas frågor besvarades i första varvet; ett varv för täckningen frågar inte om dem
+                slappta.append('frågan "%s": tjänsterna frågades redan i första varvet; varv 2 hämtar bara det som saknas' % str((q or {}).get('fraga'))[:80])
+                continue
             f_ = skapande.kanal_fel({'tjanster': {'fragor': [q]}}, bred=True, forbjudna=forbjudna)
             (slappta.append('frågan "%s": %s' % (str((q or {}).get('fraga'))[:80], f_)) if f_ else fragor.append(q))
         begaran = {'varfor': str(plan.get('varfor') or 'research före kandidatplanen')[:1000]}
@@ -1076,6 +1085,14 @@ def forska(slug, n, skiss=False):
         if not kontraktsbrister:
             break
         fel = 'referenskontraktet uppfylls inte än (%s); komplettera det som saknas' % '; '.join(kontraktsbrister)
+        # bara när täckningen per roll är det enda som saknas (sökningen, Awwwards, upptäckten och urvalsfrågorna håller)
+        luckor = rk.researchluckor(slug, atelje.UNDERLAG, skapande.senaste_paket(slug, atelje.UNDERLAG)) if all(
+            b_.startswith(('branschgenomgången har', 'inspirationsgenomgången har')) for b_ in kontraktsbrister) else None
+        if luckor and (luckor['bransch'] or luckor['inspiration']):
+            fel += ('. Det som saknas är bara %s; det redan fångade ärvs. Föreslå bara sådana sajter (gärna en eller två extra, '
+                    'eftersom en sida kan falla i fångsten); sajter med en roll som redan har sin täckning hämtas inte i det här varvet') % ' och '.join(
+                x for x in (('%d fångade branschsajter till' % luckor['bransch']) if luckor['bransch'] else '',
+                            ('%d galleriförebilder (roll hantverk, upptäckt i ett galleri) till' % luckor['inspiration']) if luckor['inspiration'] else '') if x)
         if isinstance(res.get('referens'), dict) and res['referens'].get('rc') is None and res['referens'].get('tidsgrans'):
             fel += ('; fångsten nådde sin tidsgräns (%d s) och paketet bär bara de sajter som hann fångas helt: de ärvs, så begär '
                     'bara sajterna som saknas, med färre sidor per sajt' % res['referens']['tidsgrans'])
@@ -2526,6 +2543,46 @@ def aterstall_fore_svaret(slug, kid, mal):
         shutil.copy2(mal / 'RIKTNING.md', d / 'RIKTNING.md')
 
 
+SVAR_ATERUPPTAG = (os.environ.get('NWP_SVAR_ATERUPPTAG') or 'av') == 'pa'  # avgränsat prov (ägaren 2026-10-11); inte standard
+
+
+def svar_aterupptag(slug, kid, sessioner, avtryck_start, pass_='skapa'):
+    """(ursprungets session-id, None) när skaparens svar på kritiken kan fortsätta skaparens egen konversation, annars
+    (None, skälet). Villkoren (ägarens godkännande 2026-10-11): samma kandidat och försök (skaparens senaste session i
+    det här försöket, avslutad utan avbrott), transkriptet finns och har inte komprimerats, och rollens kompetensfiler är
+    oförändrade sedan försöket startade (kompetens.avtryck). Behörigheter och MCP får fortsättningen som en ny svarssession."""
+    egna = [x for x in sessioner if isinstance(x, dict) and x.get('session_id')]
+    if not egna:
+        return None, 'skaparens session har inget session-id'
+    sista = egna[-1]
+    if sista.get('avbruten'):
+        return None, 'skaparens senaste session avbröts (%s)' % str(sista['avbruten'])[:120]
+    t = bildkedja.transkript_hel(sista['session_id'])
+    if t is None:
+        return None, 'skaparens transkript saknas'
+    if bildkedja.komprimerad(t):
+        return None, 'skaparens konversation har komprimerats: den lästa kärnan finns inte kvar i kontexten'
+    if kompetens.avtryck(pass_) != avtryck_start:
+        return None, 'rollens kompetensfiler har ändrats sedan försöket startade'
+    return sista['session_id'], None
+
+
+def svar_fortsattning_prompt(slug, kid, kr, minuter):
+    """Uppdraget till skaparens egen konversation när den fortsätts för svaret på kritiken: kritiken och svarsreglerna som
+    i en ny session, men inget nytt uppdrag och ingen ny läsning av en oförändrad kärna (den finns i konversationen)."""
+    rader = [r for r in skisskritik_rader(kr) if not r.startswith('"Kvarvarande svagheter". Kompetensen aktiveras')]
+    forhand = '.venv/bin/python kontroller/forhandsvisa.py %s --kandidat %s' % (slug, kid)
+    return '\n'.join([
+        'Fortsättning av din egen konversation om skissen %s (samma kandidat och försök). Uppdraget, underlaget och metoden är' % kid,
+        'desamma som tidigare i konversationen.', '', *rader,
+        '"Kvarvarande svagheter".', '',
+        'Kompetensen: det du läste hela och aktiverade tidigare i den här konversationen finns kvar, och rollens kompetensfiler',
+        'är oförändrade sedan dess (flödet har kontrollerat det). Läs inte om kärnan. Väljer du ett alternativ som du inte läst',
+        'eller aktiverat i konversationen, aktiverar du skillen eller läser filen hel innan du ändrar något.',
+        'Rendera med `%s --mellan` (tidsgräns 600000 ms) och titta på bilderna efter ändringarna.' % forhand,
+        'Tiden: högst %d minuter, verktygen inräknade; sedan stoppas sessionen.' % minuter, atelje.MATERIAL])
+
+
 def gatt(start, paus0):
     """Stegets tid sedan start (time.monotonic), utan tiden i ägarens pauser sedan paus0 (atelje.pausad_tid)."""
     return time.monotonic() - start - (atelje.pausad_tid() - paus0)
@@ -2556,6 +2613,7 @@ def skissa(slug, kid, fel=None):
     frist = FRIST_SKISS_OMFORSOK if fel else FRIST_SKISS
     start, startad = time.monotonic(), nu()  # försöket räknas från början, förberedelsen och fotograferingen inräknade (S8)
     paus0 = atelje.pausad_tid()  # ägarens pauser räknas inte (arbetsytan, A10)
+    avtryck_start = kompetens.avtryck('skapa') if SVAR_ATERUPPTAG else None  # en återupptagning ärver bara oförändrad kompetens
     forbered_projekt(slug, kid)
     stilpaket_i_projekt(slug, kid)
     fryst = fryst_underlag(slug, kid)  # försökets förutsättningar; en senare ändring står i statusen, aldrig tyst
@@ -2640,18 +2698,24 @@ def skissa(slug, kid, fel=None):
         if kr and kvar >= SVAR_MIN:
             fore_svaret = spara_fore_svaret(slug, kid)
             ut = d / ('svar-skiss-%d-granskning.json' % forsok)
+            ursprung, ater_skal = svar_aterupptag(slug, kid, sessioner, avtryck_start) if SVAR_ATERUPPTAG else (None, 'återupptagningen är inte påslagen')
             try:
-                svar = atelje.session(skiss_prompt(slug, kid, None, None, erbjud=False, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60, kritik=kr),
+                svar = atelje.session(svar_fortsattning_prompt(slug, kid, kr, max(2, -(-kvar // 60))) if ursprung else
+                                      skiss_prompt(slug, kid, None, None, erbjud=False, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60, kritik=kr),
                                       verktyg(slug, kid, komplettering=False) + kompetens.verktyg('skapa', slug, kid), ut,
                                       max_turer=400, **installningar, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
-                                      vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen', session_pid=pid))
+                                      vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen', session_pid=pid),
+                                      **({'aterupptag': ursprung,  # avslaget: samma anrop som före provet
+                                          'fortsattning': {'avtryck_lika': True, 'komprimerad': False, 'roll': 'skiss-svar', 'slug': slug,
+                                                           'kandidat': kid, 'forsok': forsok, 'tid': nu()}} if ursprung else {}))
             except subprocess.TimeoutExpired:
                 svar = {'avbruten': 'svarets tid räckte inte', 'tidsgrans': True}  # försöket räknas inte som tidsgräns: skissen före svaret är hel
             except RuntimeError as e:
                 svar = {'avbruten': 'RuntimeError: %s' % str(e)[:300]}
                 sessionsfel.append(str(e)[:200])
             svar_avbrutet = svar.get('avbruten')
-            sessioner.append({'svar': ut.name, **{x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd', 'avbruten')}})
+            sessioner.append(dict({'svar': ut.name, **{x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd', 'avbruten')}},
+                                  **({'fortsattning_av': ursprung} if ursprung else {'aterupptag_ej': ater_skal} if SVAR_ATERUPPTAG else {})))
             if atelje.STOPP.is_set():
                 raise atelje.Stoppad('försöket avbröts av stoppet')
     tidigare = las_status(slug, kid)
@@ -4099,7 +4163,9 @@ def referensens_namn(text):
     (tekt.com.au)"), gemener och utan diakriter, så att "Östra" och en katalog "ostra" möts (granskningen av r73, A1, och
     r74, M2)."""
     import referensval
-    return skapande.vik(re.sub(r'\s*\([^)]*\)', '', referensval.rubriknamn(text or ''))).strip()
+    # parentesen tas bort före kapningen vid kolon och tankstreck: "norwegian-crafts (fångad i paket-v05: 01-start och
+    # 02-about)" blev annars "norwegian-crafts (fangad i paket-v05" (körprovet 2026-10-11)
+    return skapande.vik(re.sub(r'\s*\([^)]*\)?', '', referensval.rubriknamn(re.sub(r'\s*\([^)]*\)', '', text or '')))).strip()
 
 
 def fangad(d):

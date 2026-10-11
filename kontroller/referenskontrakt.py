@@ -232,6 +232,22 @@ def uppgiftstackning(post, uppgifter):
 
 # --- researchen ---
 
+def researchluckor(slug, underlag, paket=None):
+    """Det som saknas i paketets täckning mot arbetsregeln, per roll: {'bransch': saknade fångade branschsajter,
+    'inspiration': saknade fångade galleriförebilder}, räknat som researchbrister räknar (samma värd en gång). Ett andra
+    researchvarv hämtar bara det som saknas (ägarens besked 2026-10-11: minskat omarbete före fler obligatoriska steg)."""
+    paket = paket if paket is not None else senaste_paket(slug, underlag)
+    if not paket:
+        return {'bransch': ARBETSREGEL['bransch_sajter'], 'inspiration': ARBETSREGEL['inspiration_sajter']}
+    rader = paket_rad(paket)
+
+    def antal(xs):
+        return len({vard(k.get('adress')) for k in xs if vard(k.get('adress'))})
+    bransch = antal([k for k in rader.values() if k.get('roll') == 'bransch' and fangad_bransch(k)])
+    insp = antal([k for k in rader.values() if k.get('roll') == 'hantverk' and k['sidor_ok'] and str((k.get('upptackt') or {}).get('vag')) == 'galleri'])
+    return {'bransch': max(0, ARBETSREGEL['bransch_sajter'] - bransch), 'inspiration': max(0, ARBETSREGEL['inspiration_sajter'] - insp)}
+
+
 def researchbrister(slug, underlag, post, paket=None):
     """Bristerna mot kontraktet i en research (FORSKNING.json) och dess paket; tom lista när det obligatoriska finns."""
     if not isinstance(post, dict):

@@ -126,6 +126,53 @@ class Research(Grund):
         self.assertEqual(klara, ['referens'], 'fångsten fick bli klar innan felet kastades vidare')
 
 
+class Researchvarvet(Grund):
+    """Ägarens besked 2026-10-11: researchens andra varv (kandidatprovet: en enda saknad galleriförebild gav en ny session
+    och sju nya fångster) hämtar bara det som saknas, och en inspektion faller inte på ett kasserat svar."""
+
+    def test_ett_kasserat_svar_faller_inte_inspektionen(self):
+        js = ("import { fullborda } from '%s';\n"
+              "const logg = [];\n"
+              "const route = { abort: async (r) => { logg.push('abort:' + r); }, fulfill: async () => { logg.push('fulfill'); } };\n"
+              "await fullborda(route, { headers: () => ({}), status: () => 200, body: async () => { throw new Error('Response has been disposed'); } });\n"
+              "await fullborda({ abort: async () => {}, fulfill: async () => { throw new Error('Target page has been closed'); } },"
+              " { headers: () => ({}), status: () => 200, body: async () => Buffer.from('abc') });\n"
+              "console.log(JSON.stringify(logg));\n") % (ROOT / 'kontroller' / 'webblasare' / 'gemensamt.mjs')
+        r = subprocess.run(['node', '--input-type=module', '-e', js], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        self.assertEqual(json.loads(r.stdout.strip().splitlines()[-1]), ['abort:failed'])
+
+    def test_varv_tva_hamtar_bara_den_saknade_rollen(self):
+        import bildkedja
+        import referenskontrakt as rk
+        kd.rot(SLUG).mkdir(parents=True, exist_ok=True)
+        svar = {'varfor': 'v', 'riktningar': 'r', 'antaganden': [], 'galleri': {}, 'sallning': [], 'urvalsfragor': {}, 'tackning': {},
+                'sajter': [{'namn': 'bransch-a', 'adress': 'https://bransch-a.se/', 'roll': 'bransch', 'varfor': 'x', 'sidor': ['/']},
+                           {'namn': 'galleri-a', 'adress': 'https://galleri-a.se/', 'roll': 'hantverk', 'varfor': 'x', 'sidor': ['/']},
+                           {'namn': 'ux-a', 'adress': 'https://ux-a.se/', 'roll': 'ux', 'varfor': 'x', 'sidor': ['/']}],
+                'fragor': [{'tjanst': 'refero', 'fraga': 'typografisk riktning', 'typ': 'stil', 'syfte': 'x'}]}
+        begaranden = []
+
+        def komplettera(slug, f, r, underlag, **k):
+            begaranden.append(json.loads(Path(f).read_text()))
+            return {'referens': {'rc': 0}, 'tjanster': {'rc': 0}}
+        with patch.object(atelje, 'session', return_value={'session_id': None, 'structured_output': svar}), \
+                patch.object(skapande, 'komplettera', komplettera), patch.object(skapande, 'kanal_fel', return_value=None), \
+                patch.object(skapande, 'senaste_paket', return_value=None), \
+                patch.object(kompetens, 'kravbrister', return_value=[]), patch.object(kompetens, 'kvitto', return_value={}), \
+                patch.object(kd, 'forska_prompt', lambda *a, **k: 'PROMPT'), patch.object(bildkedja, 'transkript', return_value=None), \
+                patch.object(rk, 'sokningar', return_value=[]), patch.object(rk, 'verifiera_upptackt', return_value={'vag': 'galleri', 'kalla': 'x'}), \
+                patch.object(rk, 'researchbrister', side_effect=[['inspirationsgenomgången har 1 fångade sajter ur gallerierna (arbetsregeln: minst 2)'], [], []]), \
+                patch.object(rk, 'researchluckor', return_value={'bransch': 0, 'inspiration': 1}):
+            post = kd.forska(SLUG, 2, skiss=True)
+        self.assertEqual(len(begaranden), 2)
+        self.assertEqual(sorted(s_['namn'] for s_ in begaranden[0]['referens']['kandidater']), ['bransch-a', 'galleri-a', 'ux-a'])
+        self.assertIn('tjanster', begaranden[0])
+        self.assertEqual([s_['namn'] for s_ in begaranden[1]['referens']['kandidater']], ['galleri-a'], 'bara den saknade rollen')
+        self.assertNotIn('tjanster', begaranden[1], 'tjänsterna frågas inte om')
+        self.assertTrue(any('varv 2 hämtar bara det som saknas' in x for x in post['slappta']))
+
+
 class Material(Grund):
     """C: materialet efter planprövningen, bundet till sina indata."""
 
@@ -310,6 +357,45 @@ class Profiler(unittest.TestCase):
         andra.write_bytes('ändrad'.encode())
         self.assertTrue(self.kor({'kandidater': {'k01': a}})['ok'])
         self.assertEqual(len(self.calls), 2)
+
+    def ofullstandig(self, namn, adress):
+        k = self.paket(namn, adress)
+        f = self.ref / 'paket-v01' / 'PAKET.json'
+        pk = json.loads(f.read_text())
+        for c in pk['kandidater']:
+            if c['namn'] == namn:
+                c['ok'] = c['sidor'][0]['ok'] = False
+        f.write_text(json.dumps(pk))
+        return k
+
+    def test_en_annan_referens_ofullstandiga_sida_stoppar_inte_huvudreferensen(self):
+        # körprovet 2026-10-11 (k01): huvudreferensen var en Refero-stil, och en annan referens sida med kakdialog i
+        # bilderna stoppade profileringen fast bara huvudreferensens sidor profileras
+        palet = self.ofullstandig('palet', 'https://palet.example.com/')
+        alpha = self.paket('alpha', 'https://alpha.example.com/')
+        stil = {'huvudreferens': 'Referos stil FORA – Color-blocked gallery walls', 'utgangspunkt': {'slag': 'refero_stil'},
+                'referensbilder': palet['referensbilder'] + alpha['referensbilder']}
+        res = self.kor({'kandidater': {'k01': stil}})
+        self.assertTrue(res['ok'], res)
+        self.assertEqual(res['kandidater']['k01']['profiler'], [])
+        self.assertEqual(self.calls, [])
+        res = self.kor({'kandidater': {'k01': dict(alpha, referensbilder=palet['referensbilder'] + alpha['referensbilder'])}})
+        self.assertTrue(res['ok'], res)
+        self.assertEqual(self.calls, ['https://alpha.example.com/'], 'bara huvudreferensens sida profileras')
+        res = self.kor({'kandidater': {'k01': palet}})
+        self.assertFalse(res['ok'], 'huvudreferensens egen ofullständiga sida stoppar som förut')
+        self.assertIn('inte fullständigt fångad', res['kandidater']['k01']['brister'][0])
+
+    def test_huvudreferens_med_parentes_och_kolon(self):
+        # körprovet 2026-10-11 (k02): "norwegian-crafts (fångad i paket-v05: 01-start och 02-about)" lästes som
+        # "norwegian-crafts (fangad i paket-v05", eftersom namnet kapades vid kolonet före parentesen
+        alpha = self.paket('alpha', 'https://alpha.example.com/')
+        res = self.kor({'kandidater': {'k01': dict(alpha, huvudreferens='alpha (fångad i paket-v01: 01-sida och 02-om)')}})
+        self.assertTrue(res['ok'], res)
+        self.assertEqual(self.calls, ['https://alpha.example.com/'])
+        self.assertEqual(kd.referensens_namn('alpha (fångad i paket-v01: 01-sida och 02-om) — bär typografin'), 'alpha')
+        self.assertEqual(kd.referensens_namn('Tekt (tekt.com.au) — rubrikerna'), 'tekt')
+        self.assertEqual(kd.referensens_namn('Snick: snickeri i Umeå'), 'snick')
 
     def test_kandidatens_rapport_ar_isolerad_och_bunden(self):
         a = self.paket('alpha', 'https://alpha.example.com/')
@@ -615,6 +701,126 @@ class Planen(Grund):
         bas = {x: self.plan.get(x) for x in ('bransch', 'forebilder_utanfor')}
         _bas, ids = self.kor([dict(bas, variation='v', kandidater=[self.uppdrag(i) for i in range(1, 11)])])
         self.assertEqual((len(self.anrop), len(ids)), (1, 10))
+
+
+class Aterupptag(Grund):
+    """Ägarens godkännande 2026-10-11: skaparens svar på kritiken kan fortsätta skaparens egen konversation (samma kandidat
+    och konversation, separat kvitto per fortsättning, bevarad historik, oförändrad kritiker). Prövat mekaniskt med
+    syntetiska transkript i Claude Codes radformat; det verkliga provet görs separat."""
+
+    def setUp(self):
+        super().setUp()
+        import bildkedja
+        self.bk = bildkedja
+        self.stack.enter_context(patch.object(bildkedja, 'PROJEKT', self.tmp / 'projekt'))
+        self.prefix = 'kunder/%s/kandidater/k01/sajt/src/' % SLUG
+
+    def skriv(self, sid, handelser, kopia=None, komprimera=False):
+        import uuid as uuid_
+        rader = [dict(r, sessionId=sid) for r in (kopia or [])]
+        if not kopia:
+            rader.append({'type': 'user', 'uuid': str(uuid_.uuid4()), 'sessionId': sid, 'message': {'role': 'user', 'content': 'uppdraget'}})
+        for i, (namn, inp) in enumerate(handelser, 1):
+            tid = '%s-%d' % (sid[:8], i)
+            rader.append({'type': 'assistant', 'uuid': str(uuid_.uuid4()), 'sessionId': sid,
+                          'message': {'role': 'assistant', 'content': [{'type': 'tool_use', 'id': tid, 'name': namn, 'input': inp}]}})
+            rader.append({'type': 'user', 'uuid': str(uuid_.uuid4()), 'sessionId': sid,
+                          'message': {'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': tid, 'content': [{'type': 'text', 'text': 'ok'}]}]}})
+        if komprimera:
+            rader.append({'type': 'system', 'subtype': 'compact_boundary', 'uuid': str(uuid_.uuid4()), 'sessionId': sid, 'content': 'Conversation compacted'})
+        d = self.bk.PROJEKT / 'p'
+        d.mkdir(parents=True, exist_ok=True)
+        (d / (sid + '.jsonl')).write_text('\n'.join(json.dumps(r) for r in rader) + '\n')
+        return rader
+
+    def kompetens_steg(self):
+        roller = kompetens.for_pass('skapa')
+        skills, _ = kompetens.aktiverbara([f for roll in roller for f in roll['karna']])
+        return [('Skill', {'skill': self.bk.skillkommando(s) or s}) for s in skills] + [
+            ('Read', {'file_path': str(atelje.ROOT / f)}) for f in kompetens.lasfiler('skapa')]
+
+    def par(self, komprimera=False, avtryck_lika=True):
+        import uuid as uuid_
+        a, b = str(uuid_.uuid4()), str(uuid_.uuid4())
+        andring = ('Write', {'file_path': str(atelje.ROOT / self.prefix / 'pages' / 'index.astro'), 'content': 'x'})
+        ra = self.skriv(a, self.kompetens_steg() + [andring], komprimera=komprimera)
+        self.skriv(b, [andring], kopia=ra)
+        self.bk.registrera_fortsattning(b, a, avtryck_lika=avtryck_lika, roll='skiss-svar')
+        return a, b
+
+    def test_fortsattningens_vy_har_bara_egna_rader_och_historiken_bevaras(self):
+        a, b = self.par()
+        hel, vy = self.bk.transkript_hel(b), self.bk.transkript(b)
+        self.assertNotEqual(hel, vy)
+        self.assertEqual(self.bk.uuider(vy) & self.bk.uuider(self.bk.transkript_hel(a)), set(), 'inget ärvt i vyn')
+        self.assertGreater(len(hel.read_text().splitlines()), len(vy.read_text().splitlines()), 'fortsättningens hela fil står kvar')
+        ml = self.bk.metodlasning(b, kompetens.lasfiler('skapa'), skrivprefix=self.prefix)
+        self.assertEqual((ml.get('fore'), ml.get('efter')), ([], []), 'ursprungets läsningar räknas aldrig som fortsättningens')
+        self.assertEqual(self.bk.fortsattning(a), None)
+        self.assertEqual(self.bk.fortsattning(b)['ursprung'], a)
+
+    def test_separat_kvitto_med_giltigt_arv(self):
+        a, b = self.par()
+        kv = kompetens.kvitto([{'session_id': a}, {'session_id': b}], 'skapa', skrivprefix=self.prefix)
+        p2 = kv['per_session'][1]
+        self.assertTrue(p2['arv']['giltigt'], p2['arv'])
+        self.assertEqual(p2['arv']['fran'], a)
+        self.assertEqual(sorted(p2['lasta']), sorted(kompetens.lasfiler('skapa')))
+        self.assertNotIn('arv', kv['per_session'][0])
+        self.assertEqual(kompetens.kravbrister(kv, 'skapa'), [])
+
+    def test_komprimering_eller_andrade_filer_ger_inget_arv(self):
+        for kw, ord_ in (({'komprimera': True}, 'komprimerades'), ({'avtryck_lika': False}, 'ändrades')):
+            with self.subTest(**kw):
+                a, b = self.par(**kw)
+                kv = kompetens.kvitto([{'session_id': a}, {'session_id': b}], 'skapa', skrivprefix=self.prefix)
+                arv = kv['per_session'][1]['arv']
+                self.assertFalse(arv['giltigt'])
+                self.assertIn(ord_, arv['skal'])
+                self.assertTrue(any(x.startswith('session 2: kärnan saknas') for x in kompetens.kravbrister(kv, 'skapa')))
+
+    def test_villkoren_for_att_ateruppta(self):
+        import uuid as uuid_
+        a = str(uuid_.uuid4())
+        self.skriv(a, self.kompetens_steg())
+        avtryck = kompetens.avtryck('skapa')
+        self.assertEqual(kd.svar_aterupptag(SLUG, 'k01', [], avtryck)[0], None)
+        self.assertIn('avbröts', kd.svar_aterupptag(SLUG, 'k01', [{'session_id': a, 'avbruten': 'tog slut'}], avtryck)[1])
+        self.assertIn('ändrats', kd.svar_aterupptag(SLUG, 'k01', [{'session_id': a}], 'annat-avtryck')[1])
+        self.assertEqual(kd.svar_aterupptag(SLUG, 'k01', [{'session_id': a}], avtryck), (a, None))
+        k_ = str(uuid_.uuid4())
+        self.skriv(k_, self.kompetens_steg(), komprimera=True)
+        self.assertIn('komprimerats', kd.svar_aterupptag(SLUG, 'k01', [{'session_id': k_}], avtryck)[1])
+        text = kd.svar_fortsattning_prompt(SLUG, 'k01', {'varv': 2, 'storsta_problem': 'rubriken', 'rekommendation': 'fortsätt'}, 12)
+        self.assertIn('Fortsättning av din egen konversation', text)
+        self.assertIn('Läs inte om kärnan', text)
+        self.assertNotIn('Detta är en ny session', text)
+        self.assertFalse(kd.SVAR_ATERUPPTAG, 'avslaget som standard')
+
+    def test_session_far_samma_argument_och_registreras(self):
+        import uuid as uuid_
+        a = str(uuid_.uuid4())
+        self.skriv(a, [])
+        logg = self.tmp / 'args.json'
+        falsk = self.tmp / 'claude'
+        falsk.write_text('#!/usr/bin/env python3\nimport json, sys, uuid\nargs = sys.argv[1:]\n'
+                         'open(%r, "a").write(json.dumps(args) + "\\n")\n'
+                         'sid = args[args.index("--session-id") + 1] if "--session-id" in args else str(uuid.uuid4())\n'
+                         'print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "session_id": sid, "result": "ok"}))\n' % str(logg))
+        falsk.chmod(0o700)
+        with patch.object(atelje, 'claude', return_value=str(falsk)), patch.object(atelje, 'observerad', return_value=(None, None)):
+            ny = atelje.session('svara', ['Read'], self.tmp / 'svar-ny.json', modell='claude-opus-5-5', effort='high')
+            ater = atelje.session('svara', ['Read'], self.tmp / 'svar-ater.json', modell='claude-opus-5-5', effort='high',
+                                  aterupptag=a, fortsattning={'avtryck_lika': True, 'roll': 'skiss-svar'})
+        args = [json.loads(x) for x in logg.read_text().splitlines()]
+        i = args[1].index('--resume')
+        self.assertEqual(args[1][i:i + 3], ['--resume', a, '--fork-session'])
+        self.assertEqual(args[1][:i] + args[1][i + 3:], args[0], 'samma behörigheter, MCP-konfiguration, modell och effort som en ny session')
+        self.assertEqual(self.bk.fortsattning(ater['session_id'])['ursprung'], a)
+        self.assertIsNone(self.bk.fortsattning(ny['session_id']))
+        self.assertTrue((self.tmp / 'svar-ny.json').is_file(), 'ursprungets svar och metadata skrivs aldrig om')
+        with self.assertRaises(ValueError):
+            atelje.session('x', ['Read'], self.tmp / 'svar-blind.json', aterupptag=a, blind=str(self.tmp / 'tillat.json'))
 
 
 class Kontrollerna(unittest.TestCase):

@@ -85,7 +85,7 @@ def valda_sidor(slug, k, underlag, root):
         return [], 'egen riktning: ingen vald referenssajt att profilera'
     if not namn:
         raise ValueError('huvudreferensen saknas')
-    grupper = {}
+    sidor = []
     for text in k.get('referensbilder') or []:
         if not isinstance(text, str):
             raise ValueError('referensbildens sökväg är ogiltig')
@@ -104,7 +104,15 @@ def valda_sidor(slug, k, underlag, root):
                  for s in c.get('sidor') or [] if isinstance(s, dict) and str(p.relative_to(paket)) in (s.get('filer') or [])]
         if len(match) != 1:
             raise ValueError('referensbilden saknar en entydig deklarerad sida i paketet')
-        c, s = match[0]
+        sidor.append((p, paket, match[0]))
+    namn_s = {referensens_namn(c['namn']) for _, _, (c, _) in sidor}
+    krav = {referensens_namn(hr)} if referensens_namn(hr) in namn_s else {referensens_namn(n) for n in namn}  # "och" i namnet
+    grupper = {}
+    for p, paket, (c, s) in sidor:
+        if referensens_namn(c['namn']) not in krav:
+            # en annan referens bild profileras inte, och dess fångst stoppar inte huvudreferensens profil (körprovet
+            # 2026-10-11: en kakdialog hos en typografiförebild stoppade k01, vars huvudreferens var en Refero-stil)
+            continue
         if s.get('ok') is not True:
             raise ValueError('den valda referenssidan är inte fullständigt fångad')
         adress = devtools.profiladress(s.get('adress'))
@@ -128,10 +136,6 @@ def valda_sidor(slug, k, underlag, root):
         g = grupper[nyckel]
         g['bilder'][str(p.relative_to(ref))] = _sha(p, ref)
     namn_g = {referensens_namn(g['namn']) for g in grupper.values()}
-    if referensens_namn(hr) in namn_g:  # ett namn som självt innehåller "och" etc
-        krav = {referensens_namn(hr)}
-    else:
-        krav = {referensens_namn(n) for n in namn}
     if not grupper and (k.get('utgangspunkt') or {}).get('slag') in EJ_WEBB:
         return [], 'vald tjänsteskärm, stil eller kodkälla saknar fångad webbsida; DevTools är inte tillämpligt'
     if not krav <= namn_g:

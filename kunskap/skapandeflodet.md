@@ -120,7 +120,11 @@ kandidaterna och granskningarna.
    branschsajter och, i varje ny designomgång, gallerierna med Awwwards; det sållar med urval och bortval, och varje sajt
    bär sin upptäcktsväg, prövad mot sökloggen ur transkriptet. Sajterna omfattar både starka sajter i branschen och
    visuella förebilder ur gallerierna. Researchen är klar först när referenskontraktet är uppfyllt (fångade branschsajter och
-   galleriförebilder, en lyckad webbsökning, Awwwards prövat; ett omförsök med bristerna, annars stopp). Referenssteget hämtar dem med
+   galleriförebilder, en lyckad webbsökning, Awwwards prövat; ett omförsök med bristerna, annars stopp). Saknas bara
+   täckningen för en roll, hämtar omförsöket bara den rollen: sajter med en roll som redan har sin täckning och
+   tjänsternas frågor (besvarade i första varvet) släpps med skälet, och det redan fångade ärvs (körprovet 2026-10-11: ett
+   andra varv på 32 minuter fångade sju sajter, två av dem branschsajter fast branschtäckningen räckte, för en enda saknad
+   galleriförebild). Referenssteget hämtar dem med
    belägg: `referens.py` ger en ny paketversion, `referenstjanster.py` sparar per körning
    tjänsternas svar ordagrant, varje Refero-stils hela dokument och skärmarnas hela bilder. En sajt eller fråga utanför
    kanalens form släpps med skälet, och resten körs; ingen fråga får nämna kundens namn, orter eller nummer.
@@ -195,6 +199,17 @@ kandidaterna och granskningarna.
    aldrig som sedd) och kompetenskvittot, och skaparen svarar i en egen session ("Svar på granskningen" i RIKTNING.md).
    Den sessionen är ny, som en fortsättning är: den får kompetensens rader och steg 0 igen och sägs aldrig ha läst
    kärnan i en tidigare session; kvittot räknar sessionerna var för sig (motorinventeringen 2026-10-08, K06).
+   Ett avgränsat prov (ägarens godkännande 2026-10-11; `NWP_SVAR_ATERUPPTAG=pa`, inte standard förrän tid och förbrukning
+   har jämförts med en ny svarssession) låter svaret i stället fortsätta skaparens egen konversation (`claude -p --resume
+   <skaparens session> --fork-session`, https://code.claude.com/docs/en/sessions): bara när skaparens senaste session i
+   försöket slutade utan avbrott, dess transkript finns och inte har komprimerats och rollens kompetensfiler är oförändrade
+   sedan försöket startade (`kandidater.svar_aterupptag`, `kompetens.avtryck`). Fortsättningen får samma verktyg,
+   behörigheter, MCP-konfiguration, modell och effort som en ny svarssession, ett eget session-id och en post med sitt
+   ursprung (`bildkedja.registrera_fortsattning`); dess kvitto räknar bara de egna raderna (`bildkedja.transkript` ger en
+   vy utan ursprungets kopierade rader), och kärnan som ursprunget läste ärvs bara när villkoren håller också när kvittot
+   skrivs (`kompetens.arvet`). Ett alternativ som fortsättningen väljer och inte läst i konversationen aktiveras eller
+   läses helt där. Ursprungets transkript, svar och metadata skrivs aldrig om, förbrukningen räknas per process, och
+   kritikern är oförändrad.
    Klar är skissen när den är byggd och
    renderad i 390, 1280 och 1440 och RIKTNING.md har huvudreferensen, idén, referenserna, det överförda och
    avvikelserna, de kvarvarande svagheterna, varven, materialet och kompetensernas synliga bidrag. Formulären postar

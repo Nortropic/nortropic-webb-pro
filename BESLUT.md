@@ -5054,3 +5054,48 @@ mekaniken med attrapper. Tidsvinsten är uppmätt bara för tjänsterna i resear
 fångstens tid); att profilerna per kandidat ger en tidigare första skiss, att återanvända byggen kortar kön och att
 kritikerns färdiga bilder kortar dess session är hypoteser tills ett verkligt körprov har mätt dem. Skaparpoolens tak
 (tre samtidigt) och kundvakterna är oförändrade.
+
+## Tillägg 2026-10-11: tvåförslagsprovet med Opus 5.5, researchens andra varv och återupptagen skaparkonversation
+
+**Status:** gäller; genomfört av Claude i grenen `claude/forenkla-skapandet-20261010`. Återupptagningen är ett avgränsat
+prov bakom ett eget val och inte standard.
+
+Ägarens besked (session 06, efter `/model`, ~03:10Z), ordagrant: "Fortsätt det befintliga tvåförslagsprovet med opus 5.5.
+Återanvänd den godkända researchen." Inklistrat i samma meddelande, ordagrant:
+
+> Ändra inte provets metod under fortsättningen.
+> Nästa leverans ska vara två faktiskt bedömbara riktningar med bilder och tidsredovisning. Därefter bedömer vi kvaliteten innan vi skalar till tio.
+> Jag godkänner ett avgränsat införande och prov av återupptagen skaparkonversation för svaret på kritiken. Behåll kompetenskraven och spårbarheten: samma kandidat och konversation, separat kvitto per fortsättning, bevarad historik och oförändrat separat kritiker. Kontrollera behörigheter, MCP-konfiguration, kontextkomprimering, ändrade kompetensfiler och korrekt läsordning för nytillkomna skills. Återupptagning får inte skriva över tidigare metadata eller dubbelräkna användning.
+> Gör detta separat från det redan påbörjade körprovet och jämför faktisk tid och förbrukning innan det blir standard.
+> Redovisa dessutom varför researchens andra omgång behövdes och vilka infångade sidor som användes i planen. Börja med befintliga loggar. Prioritera minskat omarbete och återanvändning där framför fler obligatoriska steg.
+> Källa för återupptagningen: https://code.claude.com/docs/en/sessions
+> Rapportera separat: mekaniskt prövat, verkligt genomfört, tidsvinst uppmätt och designkvalitet bedömd.
+
+**Researchens andra varv** (befintliga loggar, `underlag/kompetensprov-lerverket/atelje/`): första varvet (session
+00:22–00:36Z, fångst och tjänster till 01:00Z) gav en galleriförebild av två (caiyawen-art). Av de andra fem föll
+union-boulangerie bara på ett beställt hover-tillstånd (76 av 76 bilder laddade), art-in-dumbo på hover och elva
+resurser, kevala-ceramics, vessel-magazine och palet-shops startsida på kakdialoger och resurser, och palet-shops andra
+sida gav ingen rapport alls ("Response has been disposed" i `fullborda`). Det andra varvet (01:00–01:32Z, 32 minuter av
+researchens 71) frågade tjänsterna igen och fångade sju sajter, två av dem branschsajter fast branschtäckningen räckte;
+kraschen slog till på två sidor till. Rättat: `fullborda` avbryter ett kasserat svar som ett misslyckat anrop, och ett
+varv för täckningen hämtar bara den roll som saknas, utan tjänsternas frågor (`kandidater.forska`,
+`referenskontrakt.researchluckor`). Inga nya obligatoriska steg.
+
+**Fortsättningen stoppades av profilsteget, och det rättades.** Med Opus 5.5 gav planen två giltiga uppdrag (13 minuter,
+det andra genom planens komplettering) och prövningen godkände dem, men båda kandidaterna stannade i referensprofilen
+(06:43Z) på två fel i `referensprofil.valda_sidor`, ingen metodfråga: en annan referens ofullständiga sida (palet-shop,
+kakdialog) stoppade k01, vars huvudreferens var en Refero-stil utan webbsida, och namnet "norwegian-crafts (fångad i
+paket-v05: 01-start och 02-about)" kapades vid kolonet före parentesen (k02). Profilen gäller nu bara huvudreferensens
+sidor, och parentesen tas bort före kapningen; samma uppdrag, samma research och samma modell tas upp igen med
+`--fortsatt`. Beskrivningen i `kunskap/referensprofil.md` följer efter proven: filen är ett valbart alternativ för
+skaparrollen (metodkartan), så en ändring där vore en ändring av provets metod.
+
+**Återupptagen skaparkonversation** (`NWP_SVAR_ATERUPPTAG=pa`; mekaniken: `kunskap/skapandeflodet.md`, steg 4): svaret
+på kritiken fortsätter skaparens konversation med `--resume <skaparens session> --fork-session` när skaparens session
+slutade utan avbrott, transkriptet inte har komprimerats och rollens kompetensfiler är oförändrade. Fortsättningen får
+exakt samma argument som en ny svarssession utöver de två, ett eget session-id, en post med sitt ursprung och ett eget
+kvitto över bara sina egna rader; ärvd läsning gäller bara när villkoren håller när kvittot skrivs. Källan
+(code.claude.com/docs/en/sessions och CLI-referensen) säger att `--fork-session` ger ett nytt session-id och lämnar
+originalet orört. Prövat lokalt: forken kopierar ursprungets rader med samma uuid, därav vyn utan dem. Behörigheter,
+`--mcp-config`, inställningar och kataloger anges igen exakt som i en ny svarssession, så att fortsättningen inte beror
+på vad en återupptagning återställer. Avslaget är anropet identiskt med före provet.

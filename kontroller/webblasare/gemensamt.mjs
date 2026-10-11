@@ -334,10 +334,15 @@ export async function lasvakt(ctx, tillat = []) {
   return logg;
 }
 // Svaret lämnas till webbläsaren med kroppen redan avkodad: kodnings- och längdhuvuden tas bort.
-async function fullborda(route, svar) {
+// Ett svar som redan kasserats (sidan navigerade vidare eller stängdes medan kroppen hämtades: "Response has been
+// disposed") avbryts som ett misslyckat anrop i stället för att fälla hela inspektionen (körprovet 2026-10-11: fem
+// sidor i researchens två varv gav ingen rapport alls, tre av dem hos galleriförebilder).
+export async function fullborda(route, svar) {
   const headers = {};
   for (const [k, v] of Object.entries(svar.headers())) if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(k.toLowerCase())) headers[k] = v;
-  return route.fulfill({ status: svar.status(), headers, body: await svar.body() });
+  let body;
+  try { body = await svar.body(); } catch (e) { return route.abort('failed').catch(() => {}); }
+  return route.fulfill({ status: svar.status(), headers, body }).catch(() => {});
 }
 
 /** Samma delegeringsvillkor som webbtjanst.delegeras: sandlådans proxy satt eller stoppkrokens processgräns
