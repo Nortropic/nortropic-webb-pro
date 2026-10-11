@@ -197,11 +197,19 @@ class Repovaljaren(Bas):
         # GitHub svarar men ger inga kundrepon (oftast en inloggning utan åtkomst till organisationen): ett besked i stället
         # för en tom lista, och arbetskopian på datorn står kvar (granskningen 2026-10-11)
         f = self.root / 'fejkgh.json'
-        f.write_text(json.dumps(dict(json.loads(f.read_text(encoding='utf-8')), lage='ok', repon=[]), ensure_ascii=False), encoding='utf-8')
+        cfg = json.loads(f.read_text(encoding='utf-8'))
+        f.write_text(json.dumps(dict(cfg, lage='ok', repon=[]), ensure_ascii=False), encoding='utf-8')
         d = repovaljare.lista(las_om=True)
         self.assertEqual(d['inloggning']['slag'], 'tom')
         self.assertIn('gh auth status', d['inloggning']['atgard'])
         self.assertEqual([(p['namn'], p.get('ur_kvittot')) for p in d['repon']], [('kund-alfa', True)])
+        # organisationen syns men har bara motorns repo (läget i Nortropic 2026-10-11): ett läge, inget inloggningsfel
+        motorn = [x for x in cfg['repon'] if x['name'] == 'nortropic-webb-pro']
+        f.write_text(json.dumps(dict(cfg, lage='ok', repon=motorn), ensure_ascii=False), encoding='utf-8')
+        d = repovaljare.lista(las_om=True)
+        self.assertEqual(d['inloggning']['slag'], 'inga_kundrepon')
+        self.assertIn('inga kundrepon', d['inloggning']['besked'])
+        self.assertNotIn('gh auth', d['inloggning']['atgard'])
 
     def test_09_senast_overlever_en_omstart(self):
         repovaljare.oppna('kund-alfa')

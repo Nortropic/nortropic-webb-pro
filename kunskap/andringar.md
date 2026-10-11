@@ -145,8 +145,9 @@ terminalen och når aldrig agenten. `dashboard/repovaljare.py` är motorn, `dash
   har slutat); Låt den arbeta låter den fortsätta i sitt eget repo. Två skrivare på samma repo uppstår inte: en session
   per webbplats, och ett repo binds till en kund.
 - **Inloggningen**: saknas, gått ut, saknar `read:org`, SAML eller nätfel ger ett besked med åtgärden (till exempel
-  `gh auth login` i Terminal), och det gör också en lista utan kundrepon från en inloggning som inte ser
-  organisationen. Appen frågar aldrig efter en token, och arbetskopiorna ur kvittona står i listan och går att öppna ändå.
+  `gh auth login` i Terminal), och det gör också en tom lista från en inloggning som inte ser organisationen. En
+  organisation som syns men inte har några kundrepon än säger just det, utan att peka på inloggningen. Appen frågar
+  aldrig efter en token, och arbetskopiorna ur kvittona står i listan och går att öppna ändå.
 - **Senast öppnade** står i `underlag/repovaljaren/SENAST.json` (högst tolv, senast först, utan dubbletter) och överlever
   en omstart; en agentstart räknas också.
 

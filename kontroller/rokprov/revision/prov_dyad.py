@@ -340,10 +340,14 @@ class Rollerna(unittest.TestCase):
             if p.returncode != 0:
                 # ett tillfälligt fel (2026-10-10: "kärnan saknas" för en enda skill i ett fullprov, grönt för sig och i
                 # omkörningen) går inte att utreda när provets katalog är borta: dumparna och FAKTA sparas, och de verktygsanrop
-                # som CLI:n svarade fel på står i beskedet
+                # som CLI:n svarade fel på står i beskedet. 2026-10-11 igen (better-layout): dumpen visade att CLI:n startade
+                # skillen, men kvittot såg inte aktiveringen; sessionernas transkript, som kvittot läser, sparas därför också
                 spar = ROT / 'kunder' / 'rokprov-mall' / ('prov_dyad-fel-%s' % time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()))
                 with contextlib.suppress(OSError):
                     shutil.copytree(ut, spar, dirs_exist_ok=True)
+                with contextlib.suppress(OSError):
+                    if (Path(env['CLAUDE_CONFIG_DIR']) / 'projects').is_dir():
+                        shutil.copytree(Path(env['CLAUDE_CONFIG_DIR']) / 'projects', spar / 'transkript', dirs_exist_ok=True)
                 self.fail('%s\nverktygsfel i dumparna: %s\nsparat: %s' % (p.stdout[-3000:] + p.stderr[-3000:],
                                                                          json.dumps(verktygsfel(ut / 'dump'), ensure_ascii=False)[:3000], spar))
             fakta = json.loads((ut / 'FAKTA.json').read_text(encoding='utf-8'))

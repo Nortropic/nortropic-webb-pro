@@ -128,7 +128,10 @@ def _org_repon(las_om=False):
                     arkiverade += 1
                     continue
                 repon.append(x)
-            svar = {'ok': True, 'repon': repon, 'hamtad': _nu(), 'arkiverade': arkiverade, 'inloggning': {'slag': 'ok'}}
+            # synliga: organisationens repon som inloggningen ser, kundrepon eller inte (en tom lista skiljs från en
+            # organisation utan kundrepon än)
+            synliga = sum(1 for x in data if isinstance(x, dict) and str(x.get('nameWithOwner') or '').split('/')[0].lower() == kundrepo.ORG.lower())
+            svar = {'ok': True, 'repon': repon, 'hamtad': _nu(), 'arkiverade': arkiverade, 'synliga': synliga, 'inloggning': {'slag': 'ok'}}
     with LAS:
         CACHE.update(tid=time.time(), svar=svar)
     return svar
@@ -318,8 +321,12 @@ def lista(las_om=False):
             p['ur_kvittot'] = True
             poster.append(p)
     inloggning = org['inloggning']
-    if org['ok'] and not org['repon']:  # GitHub svarade, men inga kundrepon: oftast en inloggning utan åtkomst till organisationen
-        inloggning = {'slag': 'tom', 'besked': 'GitHub gav inga kundrepon i %s.' % kundrepo.ORG,
+    if org['ok'] and not org['repon'] and org.get('synliga'):  # inloggningen ser organisationen, som inte har några kundrepon än
+        inloggning = {'slag': 'inga_kundrepon', 'besked': '%s har inga kundrepon på GitHub än.' % kundrepo.ORG,
+                      'atgard': 'En verklig kunds repo skapas när kundens projekt startar; testkunder och fiktiva kunder får aldrig '
+                                'något. Arbetskopiorna på datorn visas ändå.'}
+    elif org['ok'] and not org['repon']:  # GitHub svarade utan ett enda repo i organisationen: oftast en inloggning utan åtkomst
+        inloggning = {'slag': 'tom', 'besked': 'GitHub gav inga repon i %s.' % kundrepo.ORG,
                       'atgard': 'Har inloggningen åtkomst till organisationens privata repon? Kör `gh auth status` i Terminal; '
                                 'arbetskopiorna på datorn visas ändå.'}
     return {'org': kundrepo.ORG, 'inloggning': inloggning, 'hamtad': org.get('hamtad'), 'arkiverade': org.get('arkiverade', 0),

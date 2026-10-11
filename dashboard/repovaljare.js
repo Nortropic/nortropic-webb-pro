@@ -145,7 +145,8 @@
     const d = S.d, ut = [];
     if (S.besked) ut.push(`<p class="rv-rad ${S.besked.slag || ''}">${e_(S.besked.text)}</p>`);
     if (d && d.inloggning && d.inloggning.slag !== 'ok' && S.steg === 'lista') {
-      ut.push(`<div class="rv-rad fel"><b>${e_(d.inloggning.besked)}</b> ${e_(d.inloggning.atgard)}${d.repon.length ? ' Under tiden visas arbetskopiorna som redan finns på datorn.' : ''}</div>`);
+      const lage = d.inloggning.slag === 'inga_kundrepon';  // organisationen har inga kundrepon än: ett läge, inget fel
+      ut.push(`<div class="rv-rad${lage ? '' : ' fel'}"><b>${e_(d.inloggning.besked)}</b> ${e_(d.inloggning.atgard)}${d.repon.length && !lage ? ' Under tiden visas arbetskopiorna som redan finns på datorn.' : ''}</div>`);
     }
     if (S.arbetar) ut.push(`<p class="rv-rad">${e_(S.arbetar)}</p>`);
     return ut.join('');
