@@ -884,6 +884,7 @@ def spara_designprov(slug, bokstav, data, omgang=None, minuter=None):
 # --- prototypen: skapandeflödets startsida före och efter bredvid huvudreferensen, ägarens dom i domloggen ---
 # (kunskap/skapandeflodet.md; Codex via ägaren 2026-10-05: ägarens dom förs vidare automatiskt till nästa körning)
 PR_LAS = threading.Lock()
+STUDIO_SONDER = threading.BoundedSemaphore(2)  # studions karta och sparande startar motorns sond, en webbläsare per anrop (kontroller/studio.py)
 PR_BILDER = (('390-forsta', 'vy-390-forsta.png'), ('390-hela', 'vy-390-hela.png'), ('1440-forsta', 'vy-1440-forsta.png'), ('1440-hela', 'vy-1440-hela.png'))
 PR_BESLUT = ('godkand', 'putsa', 'ny_riktning')
 
@@ -1828,7 +1829,9 @@ def flode(slug):
                 kontroller.append({'text': 'referensprofilerna i förslagens kedjor: %d klara%s' % (
                     klara_p, ('; stoppade av en profilbrist (görs om vid nästa start): %s' % ', '.join(brist_p)) if brist_p else '')})
         if kand:
-            kontroller.append({'text': '%d av %d förslag klara att bedöma' % (sum(1 for x in kand if x.get('status') in kandidater.VISBARA), len(kand))})
+            kontroller.append({'text': '%d av %d förslag klara att bedöma%s' % (sum(1 for x in kand if x.get('status') in kandidater.VISBARA), len(kand),
+                               (', %d till bedömbara medan granskningen pågår' % sum(1 for x in kand if x.get('status') == 'bedombar'))
+                               if any(x.get('status') == 'bedombar' for x in kand) else '')})
         brister = []
         if stegnamn == 'fel' and st.get('fel'):
             brister.append(str(st['fel'])[:300])
@@ -3029,7 +3032,7 @@ class H(BaseHTTPRequestHandler):
         dash = sys.modules[__name__]
         if vag == '/api/arbetsyta':
             return self.skicka(200, {'tid': nu(), 'projekt': arbetsyta.projekt(dash), 'lagen': arbetsyta.LAGEN})
-        m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})(?:/(strom|partner|partner/strom|redigera/karta|kod|logg|meddelanden|grenar|historik/[0-9a-f-]{36}))?', vag)
+        m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})(?:/(strom|partner|partner/strom|redigera/karta|studio/karta|kod|logg|meddelanden|grenar|historik/[0-9a-f-]{36}))?', vag)
         if not m or m.group(1) not in {p['slug'] for p in arbetsyta.projekt(dash)}:
             return self.skicka(404, {'fel': 'ingen kund som arbetsytan känner till'})
         slug, del_ = m.groups()
@@ -3056,6 +3059,13 @@ class H(BaseHTTPRequestHandler):
             import direktredigering
             try:
                 return self.skicka(200, direktredigering.karta(dash, slug, q.get('kandidat'), q.get('text')))
+            except ValueError as e:
+                return self.skicka(404, {'fel': str(e)})
+        if del_ == 'studio/karta':  # studions kontroller för det markerade elementet, med källa och räckvidd (kontroller/studio.py; ändrar ingenting)
+            import studio
+            try:
+                with STUDIO_SONDER:  # varje karta startar motorns sond (en webbläsare): högst två samtidigt
+                    return self.skicka(200, studio.karta(dash, slug, q.get('kandidat'), q))
             except ValueError as e:
                 return self.skicka(404, {'fel': str(e)})
         if del_ == 'kod':
@@ -3366,7 +3376,7 @@ class H(BaseHTTPRequestHandler):
             if vag in ('/', '/index.html'):  # aldrig inramad av en annan sida, som en förhandsvisad sajt (arbetsytan, 2026-10-09)
                 return self.skicka(200, (Path(__file__).parent / 'index.html').read_bytes(), 'text/html; charset=utf-8',
                                    {'X-Frame-Options': 'DENY', 'Content-Security-Policy': "frame-ancestors 'none'"})
-            if vag in ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js', '/arbetsyta.js', '/arbetsyta.css', '/portal.js', '/portal.css'):
+            if vag in ('/kundstart-agare.js', '/kundstart-agare.css', '/kirurg-forbattring.js', '/arbetsyta.js', '/arbetsyta.css', '/studio.js', '/studio.css', '/portal.js', '/portal.css'):
                 typ = 'text/javascript; charset=utf-8' if vag.endswith('.js') else 'text/css; charset=utf-8'
                 return self.skicka(200, (Path(__file__).parent / vag[1:]).read_bytes(), typ)
             if vag == '/api/kundstart':
@@ -3616,7 +3626,7 @@ class H(BaseHTTPRequestHandler):
                     return self.skicka(404, {'fel': 'finns inte'})
                 return self.skicka(200, {'meddelande': samverkan.skicka, 'mandat': samverkan.mandat, 'paus': samverkan.paus,
                                          'foljdfraga': samverkan.foljdfraga, 'beslut': samverkan.beslut}[del_](dash, slug, data))
-            m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(partner|partner/vantande|andring|oppna|redigera)', vag)
+            m = re.fullmatch(r'/api/arbetsyta/([a-z0-9-]{2,60})/(partner|partner/vantande|andring|oppna|redigera|studio)', vag)
             if m:  # arbetsytans skrivningar: ett meddelande till partnern, ägarens ändring och öppning i editorn (dashboard/arbetsyta.py)
                 import arbetsyta
                 import partner
@@ -3633,6 +3643,13 @@ class H(BaseHTTPRequestHandler):
                     return self.skicka(200, partner.starta_vantande(dash, m.group(1), str(data.get('meddelande_id') or '')) or {'fel': 'ingen väntande instruktion'})
                 if m.group(2) == 'andring':
                     return self.skicka(200, arbetsyta.skicka_andring(dash, m.group(1), data))
+                if m.group(2) == 'studio':  # en bestående ändring i studion: flödeshandlingen studio (kontroller/studio.py)
+                    import studio
+                    try:
+                        with STUDIO_SONDER:
+                            return self.skicka(200, studio.begar(dash, m.group(1), data))
+                    except studio.EjMappbar as e:
+                        return self.skicka(422, {'fel': str(e), 'slag': 'EjMappbar', 'alternativ': 'uppdrag'})
                 if m.group(2) == 'redigera':  # ägarens direktredigering: flödeshandlingen redigera (kontroller/direktredigering.py)
                     import direktredigering
                     try:

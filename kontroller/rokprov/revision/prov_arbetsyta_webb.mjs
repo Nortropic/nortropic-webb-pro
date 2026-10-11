@@ -1,5 +1,6 @@
-// Arbetsytans UI-prov (dashboard/arbetsyta.js och arbetsyta.css, ägarens uppdrag 2026-10-09; kunskap/arbetsyta.md) med
-// riktiga klick och syntetiska HTTP-svar: en node:http-server med index.html, dashboardens separata skript och ett påhittat
+// Arbetsytans UI-prov i portalens ram (dashboard/arbetsyta.js, studio.js och portal.js; ägarens uppdrag 2026-10-09 och
+// beskedet 2026-10-11: den gamla arbetsvyn finns inte längre, allt finns i den nya; kunskap/arbetsyta.md och
+// kunskap/designstudio.md) med riktiga klick och syntetiska HTTP-svar: en node:http-server med index.html, dashboardens separata skript och ett påhittat
 // läge i samma form som arbetsyta.lage() och partner.lage(). Strömmen styrs av provet: nya lägen, ett tappat svar och
 // nekade återanslutningar. Läsvägen och skrivvägarna på den riktiga servern prövas separat; ingen claude-process startas
 // och inget anrop lämnar provets egen server.
@@ -15,7 +16,7 @@ const sov = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // --- dashboardens filer, som server.py serverar dem ---
 const TYP = { js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', html: 'text/html; charset=utf-8' };
-const filer = new Map(await Promise.all([['/', 'index.html'], ...['kundstart-agare.js', 'kundstart-agare.css', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'portal.js', 'portal.css']
+const filer = new Map(await Promise.all([['/', 'index.html'], ...['kundstart-agare.js', 'kundstart-agare.css', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'portal.js', 'portal.css']
   .map((n) => ['/' + n, n])].map(async ([vag, n]) => [vag, { data: await readFile(resolve(root, 'dashboard', n)), typ: TYP[n.split('.').pop()] }])));
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
@@ -244,7 +245,10 @@ const srv = createServer(async (req, res) => {
     return json({ fel: 'finns inte' }, 404);
   }
   if (filer.has(vag)) { const f = filer.get(vag); res.writeHead(200, { 'Content-Type': f.typ }); return res.end(f.data); }
-  if (vag === '/api/desktop/lage') return json({ kontrakt: 'desktop/1', session: false });  // webbläsaren, inte Nortropic.app: portalens ram ritas inte
+  if (vag === '/api/desktop/lage') return json({ kontrakt: 'desktop/1', session: false });  // webbläsaren, inte Nortropic.app: portalens ram ritas ändå
+  // portalens kundlista (desktop.oversikt): kunden i skapandeflödet, så att stegraden, kundvalet och studion ritas
+  if (vag === '/api/desktop/oversikt') return json({ kunder: [{ slug: SLUG, namn: NAMN, test: true, projekt: true, arenden: [], vy: `#/studio/${SLUG}`, senast: T(10) },
+    { slug: 'prov-andra', namn: 'Provföretaget Två', test: true, projekt: true, arenden: [], vy: '#/studio/prov-andra', senast: T(-600) }], uppmarksamhet: [] });
   if (vag === '/api/arbetsyta') return json({ tid: new Date().toISOString(), lagen: LAGEN, projekt: [{ slug: SLUG, namn: NAMN, testdata: true, senast_andrad: T(10) },
     { slug: 'prov-andra', namn: 'Provföretaget Två', testdata: true, senast_andrad: T(-600) }] });
   if (vag === `/api/arbetsyta/${SLUG}`) { if (hallLage) { lageHalls++; await hallLage; } return json(lage()); }
@@ -361,22 +365,28 @@ try {
   };
   const spill = async () => page.evaluate(() => ({ bredd: document.documentElement.scrollWidth, fonster: innerWidth }));
 
-  // 1. Nyckeln ur adressen, kunden och vyernas flikar
+  // 1. Nyckeln ur adressen, kunden, portalens stegrad och studions flikar; den gamla arbetsvyn finns inte (ägarens besked 2026-10-11)
+  const flik = async (namn) => { const f = page.locator(`[data-st-flik="${namn}"]`); await f.click(); await page.locator(`#st-flik-${namn}`).waitFor(); };
+  const omradeLank = (namn) => page.locator('.pt-stegrad a').filter({ hasText: namn });
   await page.goto(`${origin}/#nyckel=${NYCKEL}&till=arbetsyta/${SLUG}`);
-  await page.locator('#ay-roller').getByRole('heading', { name: 'Granskning' }).waitFor();
+  await page.locator('#st-rot .st-riktning').first().waitFor();
   await page.locator('#ay-anslutning[data-lage="ansluten"]').waitFor();
-  assert.equal(await page.evaluate(() => location.hash), `#/arbetsyta/${SLUG}`, 'efter laddningen ska adressen vara arbetsytans, utan nyckeln');
+  assert.equal(await page.evaluate(() => location.hash), `#/studio/${SLUG}`, 'efter laddningen ska adressen vara studions (arbetsytans adress leder dit), utan nyckeln');
   assert(!page.url().includes(NYCKEL), 'nyckeln får aldrig stanna i adressen');
   assert.equal(await page.evaluate(() => localStorage.getItem('nwp-dashboardnyckel')), NYCKEL, 'nyckeln ska sparas i webbläsaren');
-  assert.deepEqual(await page.evaluate(() => [typeof kundstartvy, typeof kirurgForbattring, typeof arbetsytavy]), ['function', 'function', 'function'],
+  assert.deepEqual(await page.evaluate(() => [typeof kundstartvy, typeof kirurgForbattring, typeof arbetsytavy, typeof NortropicStudio]), ['function', 'function', 'function', 'object'],
     'dashboardens separata skript ska laddas som riktig JavaScript');
-  assert.equal((await page.locator('#ay-kund option:checked').textContent()).trim(), `${NAMN} (testdata)`, 'huvudet ska visa kundens namn, märkt som testdata');
-  assert(await page.locator('#ay-huvud .ay-testdata').filter({ hasText: 'Testdata' }).isVisible(), 'huvudet ska visa märket Testdata');
-  const flikar = page.getByRole('navigation', { name: 'Arbetsytans vyer' }).getByRole('link');
-  assert.deepEqual(await flikar.allTextContents(), ['Arbetsyta', 'Förslagen', 'Byggflöde', 'Kod och preview'], 'arbetsytan ska ha fyra vyer: Förslagen är förra vyn Prototyp');
-  assert.deepEqual(await flikar.evaluateAll((a) => a.map((x) => x.getAttribute('aria-current'))), ['page', null, null, null], 'aria-current ska stå på Arbetsyta');
-  assert.equal(posts.length, 0, 'att läsa arbetsytan skickar inget');
+  assert.equal(await page.locator('.ay-huvud, .ay-flikrad, .ay-meny, #ay-ytan, .ay-omraden').count(), 0, 'den gamla arbetsvyns huvud, flikrad, menyer och yta finns inte');
+  assert.equal((await page.locator('#pt-lage #ay-kund option:checked').textContent()).trim(), `${NAMN} (testdata)`, 'stegradens läge ska visa kundens namn, märkt som testdata');
+  assert(await page.locator('.pt-steg .pt-test').filter({ hasText: 'Testkund' }).isVisible(), 'stegraden ska märka testkunden');
+  assert.equal((await page.locator('.pt-stegrad a[aria-current="step"]').textContent()).trim(), '4Designstudio', 'stegraden ska stå på Designstudio');
+  assert.deepEqual(await page.locator('.pt-stegrad a').evaluateAll((a) => a.map((x) => x.getAttribute('href')).filter((h) => h.startsWith('#/arbetsyta') || h.startsWith('#/studio'))),
+    [`#/studio/${SLUG}`, `#/arbetsyta/${SLUG}/forslag`, `#/arbetsyta/${SLUG}/flode`, `#/arbetsyta/${SLUG}/kod`], 'Designstudio, Förslag, Bygge och Granskning står i stegraden');
+  assert.deepEqual(await page.getByRole('tablist', { name: 'Ändra, samtal och arbete' }).getByRole('tab').allTextContents().then((l) => l.map((x) => x.trim())), ['Ändra', 'Samtal', 'Arbete'],
+    'studions panel har flikarna Ändra, Samtal och Arbete');
+  assert.equal(posts.length, 0, 'att läsa studion skickar inget');
   // partnerns användningsrad: cache-siffrorna och listpriset som Claude Code rapporterar det, aldrig som en faktura
+  await flik('samtal');
   const anv = page.locator('#ay-samtal .ay-msg.partnern .meta').first();
   await anv.waitFor();
   const anvText = (await anv.textContent()).replace(/\s+/g, ' ');
@@ -384,11 +394,13 @@ try {
   assert.match(anvText, /listpris enligt Claude Code 0\.12 USD, inte fakturerat/, 'listpriset ska stå som Claude Codes siffra, inte fakturerat');
   assert.equal(await page.locator('#ay-partnerchip .ay-lage').getAttribute('data-lage'), 'avslutad', 'partnerns svarade tur ska stå som avslutad');
 
-  // 4. Läget står i text, aldrig bara i färg
-  sammanfattning.lagen_med_text = { arbetsyta: await statustexter('Arbetsyta') };
+  // 4. Läget står i text, aldrig bara i färg (sessionerna under Arbete)
+  await flik('arbete');
+  sammanfattning.lagen_med_text = { studio: await statustexter('Designstudio') };
 
-  // 5. Förhandsvisningen: sandlåda utan toppnavigering och popup-fönster, ingen referent; Mobil byter bara ramen
-  const ram_ = page.locator('#ay-material iframe');
+  // 5. Förhandsvisningen i studions duk: sandlåda utan toppnavigering och popup-fönster, ingen referent; bredden byter bara
+  // ramens bredd och skala, aldrig sidan (sajtens egna brytpunkter svarar på ramens bredd)
+  const ram_ = page.locator('#st-duk iframe');
   await ram_.waitFor();
   const sandbox = (await ram_.getAttribute('sandbox')).split(/\s+/).filter(Boolean);
   assert(sandbox.length > 0, 'förhandsvisningen ska ha attributet sandbox');
@@ -399,16 +411,17 @@ try {
   assert.equal(src, `/visa/${SLUG}/k01`, 'förhandsvisningen ska visa den valda kandidatens arbetsversion');
   await vantaPa(() => forhandsvisningar >= 1, 'förhandsvisningen ska laddas');
   const laddningarFore = forhandsvisningar;
-  await page.locator('#ay-material').getByRole('button', { name: 'Mobil', exact: true }).click();
-  await page.locator('#ay-material .ay-scen[data-enhet="mobil"]').waitFor();
-  assert.equal(await page.locator('#ay-material iframe').getAttribute('src'), src, 'Mobil ska byta ramens bredd, inte förhandsvisningens adress');
-  assert.equal(await page.locator('#ay-material').getByRole('button', { name: 'Mobil', exact: true }).getAttribute('aria-pressed'), 'true');
+  await page.locator('#st-verktyg').getByRole('button', { name: 'Mobil', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('#st-duk iframe')?.style.width === '390px');
+  assert.equal(await page.locator('#st-duk iframe').getAttribute('src'), src, 'Mobil ska byta ramens bredd, inte förhandsvisningens adress');
+  assert.equal(await page.locator('#st-verktyg').getByRole('button', { name: 'Mobil', exact: true }).getAttribute('aria-pressed'), 'true');
   await ram();
-  await page.locator('#ay-material').getByRole('button', { name: 'Dator', exact: true }).click();
-  await page.locator('#ay-material .ay-scen[data-enhet="dator"]').waitFor();
+  await page.locator('#st-verktyg').getByRole('button', { name: 'Dator', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('#st-duk iframe')?.style.width === '1280px');
   await sov(150);
-  assert.equal(forhandsvisningar - laddningarFore, 0, 'Mobil och Dator byter bredden, de laddar inte om förhandsvisningen');
-  sammanfattning.forhandsvisning = { sandbox: sandbox.join(' '), referrerpolicy: 'no-referrer', omladdningar_vid_enhetsbyte: forhandsvisningar - laddningarFore };
+  assert.equal(forhandsvisningar - laddningarFore, 0, 'bredderna byter ramen, de laddar inte om förhandsvisningen');
+  assert.match(await page.locator('#st-dukrad').textContent(), /Förslag A, version .* · 1280 px/, 'raden under duken säger version och bredd');
+  sammanfattning.forhandsvisning = { sandbox: sandbox.join(' '), referrerpolicy: 'no-referrer', omladdningar_vid_breddbyte: forhandsvisningar - laddningarFore };
 
   // 12. Rörelsen följer prefers-reduced-motion
   const animation = () => page.locator('.ay-lage[data-lage="aktiv"] svg').first().evaluate((e) => getComputedStyle(e).animationName);
@@ -418,57 +431,65 @@ try {
   assert.equal(await animation(), 'none', 'med prefers-reduced-motion: reduce får inget läge animeras');
   await page.emulateMedia({ reducedMotion: null });
 
-  // 2. Inget sidledes spill; på smala skärmar ett område åt gången
-  const synliga = () => page.evaluate(() => ['ay-dialog', 'ay-mitten', 'ay-roller'].filter((k) => {
-    const el = document.querySelector('#ay-ytan > .' + k); return el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0; }));
-  const omrade = (namn) => page.locator('.ay-omraden').getByRole('button', { name: namn, exact: true });
-  sammanfattning.spill = { arbetsyta: {}, byggflode: {}, kod: {} };
+  // 2. Inget sidledes spill; studions tre delar står bredvid varandra i bred vy och under varandra i smal, och panelens flikar
+  // visar en sak åt gången (förr arbetsytans områden Samtal, Resultat och Sessioner)
+  const delarna = () => page.evaluate(() => ['st-vanster', 'st-mitten', 'st-hoger'].map((k) => {
+    const el = document.querySelector('#st-rot > .' + k); const r = el?.getBoundingClientRect();
+    return el && getComputedStyle(el).display !== 'none' && r.width > 0 ? { k, x: Math.round(r.left), y: Math.round(r.top) } : null; }).filter(Boolean));
+  sammanfattning.spill = { studio: {}, byggflode: {}, kod: {} };
   for (const w of sammanfattning.bredder) {
     await page.setViewportSize({ width: w, height: 900 }); await ram();
-    const s = await spill(); sammanfattning.spill.arbetsyta[w] = s.bredd - s.fonster;
-    assert(s.bredd <= s.fonster, `Arbetsyta: sidledes spill vid ${w} px (${s.bredd} > ${s.fonster})`);
-    if (w < 900) {
-      assert.deepEqual(await synliga(), ['ay-mitten'], `vid ${w} px ska bara Resultat synas från början`);
-      for (const [knapp, klass] of [['Samtal', 'ay-dialog'], ['Sessioner', 'ay-roller'], ['Resultat', 'ay-mitten']]) {
-        await omrade(knapp).click(); await ram();
-        assert.deepEqual(await synliga(), [klass], `vid ${w} px ska ${knapp} visa ett område åt gången`);
-        assert.equal(await omrade(knapp).getAttribute('aria-pressed'), 'true', `${knapp} ska vara markerad`);
-        const s2 = await spill();
-        assert(s2.bredd <= s2.fonster, `Arbetsyta, ${knapp}: sidledes spill vid ${w} px (${s2.bredd} > ${s2.fonster})`);
-      }
-    } else assert.deepEqual(await synliga(), ['ay-dialog', 'ay-mitten', 'ay-roller'], `vid ${w} px ska samtal, resultat och sessioner synas samtidigt`);
-    // klippt inuti panelerna, inte spill på sidan: rubriken Resultat och Kontrollers knappar (sett med verklig data vid 1440)
+    const s = await spill(); sammanfattning.spill.studio[w] = s.bredd - s.fonster;
+    assert(s.bredd <= s.fonster, `Designstudio: sidledes spill vid ${w} px (${s.bredd} > ${s.fonster})`);
+    const d = await delarna();
+    assert.deepEqual(d.map((x) => x.k), ['st-vanster', 'st-mitten', 'st-hoger'], `vid ${w} px ska riktningarna, duken och panelen synas`);
+    if (w < 960) assert(d[0].y < d[1].y && d[1].y < d[2].y, `vid ${w} px står delarna under varandra: ${JSON.stringify(d)}`);
+    else assert(d[0].x < d[1].x && d[1].x < d[2].x, `vid ${w} px står delarna bredvid varandra: ${JSON.stringify(d)}`);
+    for (const f of ['andra', 'samtal', 'arbete']) {
+      await flik(f); await ram();
+      const s2 = await spill();
+      assert(s2.bredd <= s2.fonster, `Designstudio, fliken ${f}: sidledes spill vid ${w} px (${s2.bredd} > ${s2.fonster})`);
+      assert.deepEqual(await page.evaluate(() => ['andra', 'samtal', 'arbete'].filter((x) => !document.getElementById('st-flik-' + x).hidden)), [f], `vid ${w} px visar panelen en flik åt gången`);
+    }
+    // klippt inuti panelerna, inte spill på sidan: Kontrollers knappar och verktygsraden
     const klippt = await page.evaluate(() => {
-      const ut = [], h = document.getElementById('ay-material-rubrik');
-      if (!h || h.scrollWidth > h.clientWidth) ut.push('rubriken ' + (h ? h.textContent : 'saknas'));
+      const ut = [];
       const k = document.getElementById('ay-ktl')?.closest('.ay-panel');
       if (!k) ut.push('Kontroller saknas');
       else for (const b of k.querySelectorAll('.ay-knapp')) {
         const r = b.getBoundingClientRect(), p = k.getBoundingClientRect();
         if (r.right > p.right + 0.5 || b.scrollWidth > b.clientWidth + 0.5) ut.push('knappen ' + b.textContent.trim());
       }
+      for (const b of document.querySelectorAll('#st-verktyg button')) { const r = b.getBoundingClientRect(); if (r.right > innerWidth + 0.5 || r.left < -0.5) ut.push('verktyget ' + b.textContent.trim()); }
       return ut;
     });
-    assert.deepEqual(klippt, [], `Arbetsyta vid ${w} px: klippt innehåll i panelerna`);
-    if ([390, 1440].includes(w)) await bild('arbetsyta', w);
+    assert.deepEqual(klippt, [], `Designstudio vid ${w} px: klippt innehåll i panelerna`);
+    if ([390, 1440].includes(w)) await bild('studio', w);
   }
-  sammanfattning.ett_omrade_at_gangen = true;
+  sammanfattning.studions_delar_i_alla_bredder = true;
 
-  // 3. axe i Arbetsyta (bred och smal)
+  // 3. axe i studion (bred och smal), varje flik
+  for (const w of [1440, 390]) {
+    await page.setViewportSize({ width: w, height: 900 }); await ram();
+    for (const f of ['andra', 'samtal', 'arbete']) { await flik(f); await axeKor(`Designstudio ${w}, ${f}`); }
+  }
   await page.setViewportSize({ width: 1440, height: 900 }); await ram();
-  await axeKor('Arbetsyta 1440');
-  await page.setViewportSize({ width: 390, height: 900 }); await ram();
-  await axeKor('Arbetsyta 390');
-  await omrade('Sessioner').click(); await axeKor('Arbetsyta 390, Sessioner');
-  await omrade('Samtal').click(); await axeKor('Arbetsyta 390, Samtal');
-  await omrade('Resultat').click();
-  await page.setViewportSize({ width: 1440, height: 900 }); await ram();
+  // panelerna: avdelarna har sitt värde och flyttas med piltangenterna; en hopfälld panel visas igen från verktygsraden
+  const delare = page.locator('[data-st-delare="hoger"]');
+  const fore_bredd = Number(await delare.getAttribute('aria-valuenow'));
+  await delare.focus(); await page.keyboard.press('ArrowLeft');
+  assert.equal(Number(await delare.getAttribute('aria-valuenow')), fore_bredd + 24, 'pil vänster breddar panelen till höger med 24 px');
+  await page.locator('[data-st-fall="vanster"]').click();
+  assert(await page.locator('#st-rot > .st-vanster').isHidden(), 'riktningarna fälls ihop');
+  await page.locator('[data-st-visa-panel="vanster"]').click();
+  await page.locator('#st-rot > .st-vanster').waitFor();
+  sammanfattning.panelerna = { avdelare_tangentbord: true, fall_och_visa: true };
 
-  // 11. Byggflödet: nio steg, blindningen, systemförbättringen för sig och Fler vyer
-  await flikar.filter({ hasText: 'Byggflöde' }).click();
+  // 11. Byggflödet: nio steg, blindningen, systemförbättringen för sig; delarna i portalens navigering
+  await omradeLank('Bygge').click();
   await page.locator('ol.ay-stegrad').waitFor();
   assert.equal(await page.evaluate(() => location.hash), `#/arbetsyta/${SLUG}/flode`);
-  assert.deepEqual(await flikar.evaluateAll((a) => a.map((x) => x.getAttribute('aria-current'))), [null, null, 'page', null], 'aria-current ska stå på Byggflöde');
+  assert.equal((await page.locator('.pt-stegrad a[aria-current="step"]').textContent()).trim(), '7Bygge', 'stegraden ska stå på Bygge');
   assert.deepEqual(await page.locator('ol.ay-stegrad > li .namn').allTextContents(), STEGNAMN, 'stegraden ska visa README:s nio steg');
   assert.equal(await page.locator('ol.ay-stegrad > li[data-pagar]').count(), 1, 'ett steg pågår');
   assert(await page.locator('.ay-grupper .ay-notis').filter({ hasText: 'Ditt första val i körningen är inte gjort' }).isVisible(), 'blindningen ska stå i Byggflöde');
@@ -480,54 +501,52 @@ try {
   await system.locator('.ay-bevakning, .ay-notis, .svag').first().waitFor({ timeout: 10000 });  // bevakningens läge ritas, eller varför det inte gick
   assert.equal(await system.locator('.ay-stegrad, .ay-grupp, a[href^="#/flode"], a[href^="#/prototyp"], a[href^="#/kundstart"]').count(), 0,
     'systemförbättringen ska stå skild från kundproduktionen');
-  // allt i arbetsytan (ägarens besked 2026-10-09 ~17:11Z): ingen klassisk vy och inga Fler vyer; delarna står i arbetsytans
-  // egen navigering, kundproduktionen skild från systemförbättringen, och en del ritas i arbetsytans ram
+  // allt i den nya vyn (ägarens besked 2026-10-11): ingen klassisk vy och ingen gammal arbetsvy; delarna står i portalens
+  // navigering, kundproduktionen skild från systemförbättringen, och en del ritas i ramens yta
   assert.equal(await page.locator('header.topp').count(), 0, 'den klassiska topplisten ska vara borta');
   assert.equal(await page.getByRole('link', { name: 'Klassisk vy' }).count(), 0, 'knappen Klassisk vy ska vara borta');
-  assert.equal(await page.locator('.ay-meny summary').filter({ hasText: 'Fler vyer' }).count(), 0, 'Fler vyer ska vara borta');
-  const delar = page.getByRole('navigation', { name: 'Arbetsytans delar' });
-  const grupper = await delar.locator('details.ay-meny').evaluateAll((ds) => ds.map((d) => [d.querySelector('summary').firstChild.textContent.trim(),  // gruppens namn, utan räknarna
-    [...d.querySelectorAll('.ay-menylista a')].map((a) => a.querySelector('span').firstChild.textContent.trim())]));
+  const nav = page.locator('#pt-nav');
+  const grupper = await nav.locator('details.pt-delar').evaluateAll((ds) => ds.map((d) => [d.querySelector('summary span').textContent.trim(),
+    [...d.querySelectorAll('.pt-dellista a')].map((a) => a.querySelector('span').textContent.trim())]));
   const grupp = (text) => (grupper.find(([, l]) => l.includes(text)) || [])[0];
-  assert.equal(grupp('Flöde'), undefined, 'Flöde är en del av Byggflöde, inte en egen post i menyn');
-  assert.equal(grupp('Prototyp'), undefined, 'Prototyp är projektets flik Förslagen, inte en egen post i menyn');
-  for (const [text, g] of [['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'], ['Leverans och förvaltning', 'Kundproduktion'],
-    ['Underhåll och verktygslådan', 'Systemförbättring'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring']])
-    assert.equal(grupp(text), g, `arbetsytans delar ska ha ${text} under ${g}`);
-  assert.equal(await delar.getByRole('link', { name: 'Dokumentation och rapporter' }).count(), 1, 'Dokumentation och rapporter ska stå i delarna');
-  // menyerna går att använda i varje bredd: flikraden rullar i sidled under 900 px och klippte förut hela listan (0 av 13 nåbara)
+  assert.equal(grupp('Flöde'), undefined, 'Flöde är en del av Bygge, inte en egen post i navigeringen');
+  assert.equal(grupp('Prototyp'), undefined, 'Prototyp är kundens Förslag, inte en egen post i navigeringen');
+  for (const [text, g] of [['Byggen och dina domar', 'Kundproduktion'], ['Kundstart', 'Kundproduktion'], ['Jämförelser', 'Kundproduktion'], ['Leverans och förvaltning', 'Kundproduktion'],
+    ['Prospekt', 'Kundproduktion'], ['Starta', 'Kundproduktion'], ['Underhåll och verktygslådan', 'Systemförbättring'], ['Kirurgen', 'Systemförbättring'], ['Backlog', 'Systemförbättring'],
+    ['Kalibrering', 'Systemförbättring'], ['Lärdomar', 'Systemförbättring'], ['Designprov', 'Systemförbättring']])
+    assert.equal(grupp(text), g, `navigeringen ska ha ${text} under ${g}`);
+  assert.equal(await nav.getByRole('link', { name: 'Dokumentation och rapporter' }).count(), 1, 'Dokumentation och rapporter ska stå i navigeringen');
+  assert.equal(await nav.getByRole('link', { name: 'Designstudio' }).getAttribute('href'), `#/studio/${SLUG}`, 'Designstudio leder till den senaste kunden');
+  // grupperna går att använda i varje bredd: varje länk syns och går att klicka när gruppen är öppen
   for (const w of [1440, 390, 320]) {
     await page.setViewportSize({ width: w, height: 900 }); await ram();
     for (const namn of ['Kundproduktion', 'Systemförbättring']) {
-      const knapp = delar.locator('summary').filter({ hasText: namn });
-      await knapp.scrollIntoViewIfNeeded();
-      await knapp.click();
-      const lista = delar.locator('.ay-meny[open] .ay-menylista');
-      await lista.waitFor();
-      // utan att rulla något: en länk som bara syns när flikraden själv rullas på höjden är inte nåbar
-      const traffar = await lista.evaluate((n) => [...n.querySelectorAll('a')].map((a) => {
-        const r = a.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-        return [a.textContent.trim(), !!e && (e === a || a.contains(e)) && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight];
-      }));
+      const d = nav.locator('details.pt-delar').filter({ has: page.locator('summary', { hasText: namn }) });
+      if (!(await d.evaluate((x) => x.open))) await d.locator('summary').click();
+      const traffar = [];
+      for (const a of await d.locator('.pt-dellista a').all()) {
+        await a.scrollIntoViewIfNeeded();
+        traffar.push(await a.evaluate((x) => { const r = x.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return [x.textContent.trim(), !!e && (e === x || x.contains(e)) && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight]; }));
+      }
       assert.deepEqual(traffar.filter(([, ok]) => !ok).map(([t]) => t), [], `${namn} vid ${w} px: varje länk ska synas och gå att klicka`);
-      await page.keyboard.press('Escape');
-      assert.equal(await delar.locator('.ay-meny[open]').count(), 0, `Escape ska stänga ${namn}`);
     }
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `navigeringen spiller i sidled vid ${w} px`);
   }
   await page.setViewportSize({ width: 1440, height: 900 }); await ram();
-  await delar.locator('summary').filter({ hasText: 'Kundproduktion' }).click();
-  await delar.locator('.ay-menylista a').filter({ hasText: 'Byggen och dina domar' }).click();
+  await page.evaluate(() => scrollTo(0, 0));
+  await nav.locator('.pt-dellista a').filter({ hasText: 'Byggen och dina domar' }).click();
   await page.locator('#vy h1').filter({ hasText: 'Byggen och dina domar' }).waitFor();
   assert.equal(await page.evaluate(() => location.hash), '#/oversikt', 'delen behåller sin adress');
-  assert.equal(await page.locator('.ay #vy.ay-sektion').count(), 1, 'delen ritas i arbetsytans ram');
-  assert.equal(await delar.locator('.ay-meny[open]').count(), 0, 'menyn stängs när en del öppnas');
-  assert.equal((await delar.locator('summary[data-aktiv]').textContent()).trim(), 'Kundproduktion: Byggen och dina domar', 'navigeringen visar var du är');
-  assert.equal((await page.locator('#ay-kund option:checked').textContent()).trim(), `${NAMN} (testdata)`, 'huvudet behåller kunden i en del');
-  assert.equal(await page.evaluate(() => document.activeElement?.tagName + ':' + document.activeElement?.textContent), 'H1:Byggen och dina domar', 'efter ett val i menyn har delens rubrik fokus');
-  // räknarna ur översikten står kvar i menyn och på gruppens knapp, också i en annan del
-  await delar.locator('summary').filter({ hasText: 'Systemförbättring' }).locator('.ay-summa').first().waitFor();
-  assert.deepEqual(await delar.locator('summary').filter({ hasText: 'Systemförbättring' }).locator('.ay-summa').allTextContents(), ['1 pågår', '3'], 'räknarna på Systemförbättring');
-  // Leverans och förvaltning (M18): migreringsläget per kund och de äldre Vercel-sajterna, ritat i arbetsytans ram
+  assert.equal(await page.locator('.ay #vy.ay-sektion').count(), 1, 'delen ritas i ramens yta');
+  assert.equal(await nav.locator('.pt-dellista a[aria-current="page"]').textContent().then((x) => x.trim()), 'Byggen och dina domar', 'navigeringen visar var du är');
+  await page.waitForFunction(() => document.activeElement?.tagName === 'H1');
+  assert.equal(await page.evaluate(() => document.activeElement?.tagName + ':' + document.activeElement?.textContent), 'H1:Byggen och dina domar', 'efter ett val i navigeringen har delens rubrik fokus');
+  // räknarna ur översikten står i navigeringen och på gruppens rubrik, också i en annan del
+  await page.locator('#pt-summa-system:not([hidden])').waitFor();
+  assert.deepEqual([await page.locator('#n-kirurg').textContent(), await page.locator('#n-backlog').textContent(), await page.locator('#pt-summa-system').textContent()],
+    ['1 pågår', '3', '4'], 'räknarna i Systemförbättring');
+  // Leverans och förvaltning (M18): migreringsläget per kund och de äldre Vercel-sajterna, ritat i ramens yta
   await page.evaluate(() => { location.hash = '#/leverans'; });
   await page.locator('#vy h1').filter({ hasText: 'Leverans och förvaltning' }).waitFor();
   await page.locator('#leverans h2').filter({ hasText: 'Äldre sajter på Vercel' }).waitFor();
@@ -539,14 +558,14 @@ try {
   await page.evaluate(() => { location.hash = '#/underhall'; });
   await page.locator('#vy h1').filter({ hasText: 'Underhåll och verktygslådan' }).waitFor();
   await page.locator('#verktygslada .chip').filter({ hasText: '2 uppdaterade' }).waitFor();
-  assert.deepEqual(await delar.locator('summary').filter({ hasText: 'Systemförbättring' }).locator('.ay-summa').allTextContents(), ['1 pågår', '3'], 'räknarna står kvar efter bytet');
+  assert.equal(await page.locator('#pt-summa-system').textContent(), '4', 'räknarna står kvar efter bytet');
   await axeKor('Underhåll 1440');
-  // i smal bredd: navigeringen står kvar när delen rullas, och varje del i raden nås utan att raden rullas i sidled
+  // i smal bredd: navigeringen står överst, och varje del nås utan sidledes rullning
   for (const w of [390, 320]) {
     await page.setViewportSize({ width: w, height: 800 }); await ram();
-    await page.evaluate(() => scrollTo(0, 400)); await ram();
-    const doc = await delar.getByRole('link', { name: /^Dokumentation/ }).boundingBox();
-    assert(doc && doc.x >= 0 && doc.x + doc.width <= w && doc.y >= 0 && doc.y + doc.height <= 800, `Dokumentation ska synas i navigeringen vid ${w} px: ${JSON.stringify(doc)}`);
+    await page.evaluate(() => scrollTo(0, 0)); await ram();
+    const doc = await nav.getByRole('link', { name: /^Dokumentation/ }).boundingBox();
+    assert(doc && doc.x >= 0 && doc.x + doc.width <= w, `Dokumentation ska synas i navigeringen vid ${w} px: ${JSON.stringify(doc)}`);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `spill i delen vid ${w} px`);
   }
   await page.setViewportSize({ width: 1440, height: 900 }); await ram();
@@ -563,9 +582,9 @@ try {
     if (w === 390) { await axeKor('Byggflöde 390'); await bild('byggflode', 390); }
   }
 
-  // Kod och preview
+  // Kod och preview (stegradens Granskning)
   await page.setViewportSize({ width: 1440, height: 900 }); await ram();
-  await flikar.filter({ hasText: 'Kod och preview' }).click();
+  await omradeLank('Granskning').click();
   await page.locator('#ay-filvy pre.ay-kodtext').waitFor();
   assert.equal(await page.locator('#ay-fil-rubrik').textContent(), 'src/components/Hero.astro', 'kodvyn ska öppna den första ändrade filen');
   await page.locator('#ay-filer').getByRole('button', { name: /src\/pages\/index\.astro/ }).click();
@@ -581,7 +600,9 @@ try {
     if (w === 390) { await axeKor('Kod och preview 390'); await bild('kod', 390); }
   }
   await page.setViewportSize({ width: 1440, height: 900 }); await ram();
-  await flikar.filter({ hasText: 'Arbetsyta' }).click();
+  await omradeLank('Designstudio').click();
+  await page.locator('#st-rot .st-riktning').first().waitFor();
+  await flik('arbete');
   await page.locator('#ay-remsa').getByRole('heading', { name: 'Kontroller' }).waitFor();
   assert.equal(posts.length, 0, 'att byta vy skickar inget');
 
@@ -645,10 +666,12 @@ try {
     s.on('pageerror', (e) => sidfel.push('andra fliken: ' + e.message));
     s.on('console', (m) => { if (m.type() === 'error') konsolfel.push({ text: m.text(), url: m.location()?.url || '' }); });
     await s.route((u) => u.origin !== origin, (route) => { externa.push(route.request().url()); return route.abort(); });
-    await s.goto(`${origin}/#/arbetsyta/${SLUG}`);
+    await s.goto(`${origin}/#/arbetsyta/${SLUG}`);  // arbetsytans adress leder till studion
+    await s.locator('[data-st-flik="samtal"]').click();
     await s.locator('#ay-skriv [data-avsikt="andring"]').waitFor();
     return s;
   };
+  await flik('samtal');
   await skickaFraga(page, 'Vad saknas i första vyn för Förslag A?');
   await page.locator('#ay-skrivsvar').filter({ hasText: 'Skickat' }).waitFor();
   let pp = partnerPosts();
@@ -656,7 +679,7 @@ try {
   assert.match(String(pp[0].meddelande_id), /^m[0-9a-f]{40}$/, 'meddelande-id:t ska vara en hash (m och 40 hex)');
   assert.equal(pp[0].avsikt, 'fraga'); assert.equal(pp[0].text, 'Vad saknas i första vyn för Förslag A?');
   assert.equal(pp[0].kontext?.kandidat, 'k01', 'markeringen ska följa med: kandidaten som visas');
-  assert.equal(pp[0].kontext?.version, V1K); assert.equal(pp[0].kontext?.vy, 'Arbetsyta');
+  assert.equal(pp[0].kontext?.version, V1K); assert.equal(pp[0].kontext?.vy, 'Designstudio');
   assert.equal(await markLagret(), null, 'en fråga fryser ingen markering');
   besvara(S.partner.at(-1), 'Första vyn saknar ett tydligt nästa steg.'); skickaLage();
   await kanSkicka(page);
@@ -688,7 +711,7 @@ try {
   await page.locator('#ay-skriv .ay-notis').filter({ hasText: 'ditt val av kandidaten' }).waitFor();
   let mark = await markLagret();
   assert.deepEqual([mark?.kandidat, mark?.version_hel, mark?.korning, mark?.beslut], ['k01', V1, T(0), 'uppdrag'], 'Ändring ska frysa kandidat, version, körning och beslut');
-  assert.match(await gallerText(), new RegExp(`Förslag A.* version ${V1K}, körningen .*, vy Arbetsyta`), 'raden Gäller ska visa den frysta markeringen');
+  assert.match(await gallerText(), new RegExp(`Förslag A.* version ${V1K}, körningen .*, vy Designstudio`), 'raden Gäller ska visa den frysta markeringen');
   const rensa = galler.getByRole('button', { name: 'Rensa markeringen' });
   await rensa.click();
   assert.equal(await markLagret(), null, 'Rensa markeringen ska ta bort markeringen');
@@ -699,8 +722,9 @@ try {
   await rensa.waitFor({ timeout: 2000 });
   await rensa.click();
   await rensa.waitFor({ state: 'detached', timeout: 2000 });
-  await page.locator('#ay-material').getByRole('button', { name: 'Kandidater', exact: true }).click();
+  await page.locator('#st-verktyg [data-st-visa="kandidater"]').click();  // studions Visa: Kandidater (arbetsytans material)
   await page.locator('#ay-material [data-kandidat="k01"]').click();
+  await page.locator('#st-duk iframe').waitFor();  // valet visar riktningen i duken igen
   mark = await markLagret();
   assert.deepEqual([mark?.kandidat, mark?.version_hel, mark?.korning], ['k01', V1, T(0)], 'en kandidat som väljs medan Ändring är vald ska frysas');
   await rensa.waitFor();
@@ -756,7 +780,7 @@ try {
   assert.match(String(ap[0].andring_id), /^a[0-9a-f]{40}$/, 'ändrings-id:t ska vara innehållets hash (a och 40 hex)');
   assert.equal(ap[1].andring_id, ap[0].andring_id, 'samma ändring ska ge samma id vid omförsöket');
   assert.deepEqual([ap[1].kandidat, ap[1].version, ap[1].beslut, ap[1].vy, ap[1].sida, ap[1].del, ap[1].korning, ap[1].fil],
-    ['k01', V2, 'uppdrag', 'Arbetsyta', '/', 'första vyn', T(0), null], 'ändringen ska vara bunden till kandidat, version, körning och markering');
+    ['k01', V2, 'uppdrag', 'Designstudio', '/', 'första vyn', T(0), null], 'ändringen ska vara bunden till kandidat, version, körning och markering');
   assert.deepEqual(ap[1].uppdrag, { typ: 'ratta', resultat: 'En kortare rubrik i första vyn.', omfattning: ['första vyns rubrik'], bevara: ['kompositionen'] },
     'uppdraget ska bära typ, resultat, omfattning och det som bevaras');
   assert.equal(await markLagret(), null, 'en sparad ändring släpper markeringen');
@@ -808,8 +832,8 @@ try {
   S.utanKandidater = false; skickaLage();
   await page.waitForFunction(() => (window.__arbetsyta.lage?.kandidater || []).length === 2);
 
-  // 2. En markering i kodvyn följer med till Arbetsyta: raden Gäller visar filen och ändringen bär den
-  await flikar.filter({ hasText: 'Kod och preview' }).click();
+  // 2. En markering i kodvyn (Granskning) följer med till studions samtal: raden Gäller visar filen och ändringen bär den
+  await omradeLank('Granskning').click();
   await page.locator('#ay-filvy pre.ay-kodtext').waitFor();
   await page.locator('#ay-filer').getByRole('button', { name: /src\/pages\/index\.astro/ }).click();
   await page.locator('#ay-fil-rubrik').filter({ hasText: 'src/pages/index.astro' }).waitFor();
@@ -817,7 +841,8 @@ try {
   await meddelat('Filen är markerad');
   mark = await markLagret();
   assert.deepEqual([mark?.kandidat, mark?.version_hel, mark?.vy, mark?.fil], ['k01', V3, 'Kod och preview', 'src/pages/index.astro'], 'kodvyns markering ska binda kandidat, version och fil');
-  await flikar.filter({ hasText: 'Arbetsyta' }).click();
+  await omradeLank('Designstudio').click();
+  await flik('samtal');
   await galler.filter({ hasText: 'fil src/pages/index.astro' }).waitFor();
   assert.match(await gallerText(), /vy Kod och preview, fil src\/pages\/index\.astro/, 'raden Gäller ska visa kodvyns markering');
   assert.equal(await page.locator('#ay-skriv [data-avsikt="andring"]').getAttribute('aria-pressed'), 'true', 'en markering i kodvyn ska välja Ändring');
@@ -833,7 +858,8 @@ try {
     utan_markering_ingen_post: true, rensa: true, inaktuell_utan_post: true, stam_av_ny_version: true, andring_409_utan_eget_omforsok: true, samma_id_omforsok: true,
     samma_id_andra_fliken_efter_statusbyte: true, beslut_ur_markeringen: true, beslut_utanfor_id: true, kodvyns_fil: true };
 
-  // 6. Starten: dubbelklick och ett extra klick ger en begäran; ett förlorat svar ger samma start-id vid omförsöket
+  // 6. Starten (under Arbete): dubbelklick och ett extra klick ger en begäran; ett förlorat svar ger samma start-id vid omförsöket
+  await flik('arbete');
   const forfina = page.getByRole('button', { name: 'Starta uppdraget: Rätta Förslag A' });
   await forfina.click({ clickCount: 2 });
   await page.locator('[data-handling="valda"]').dispatchEvent('click');
@@ -873,9 +899,9 @@ try {
   skickaLage();
   const nyText = await meddelat('En ny körning har startat');
   assert.match(nyText, /Utförare för Förslag A startade/);
-  // K6: en arbetsversion som kan vara äldre än arbetet märks i rubriken, inte bara i ramens title
-  await page.locator('#ay-material .ay-adress b').filter({ hasText: 'Arbetsversion, kan vara äldre' }).waitFor({ timeout: 3000 });
-  assert.match(await page.locator('#ay-material .ay-adress').textContent(), /kan vara äldre än arbetet/, 'märkningen ska säga varför');
+  // K6: en riktning som arbetar visas med sin bevarade bild, och raden under duken säger att arbetsversionen kan vara äldre
+  await page.locator('#st-duk img.st-bild').waitFor({ timeout: 3000 });
+  assert.match(await page.locator('#st-dukrad').textContent(), /arbetsversionen kan vara äldre än arbetet/, 'märkningen ska säga varför');
   sammanfattning.forhandsvisning.osaker_markt = true;
 
   // 7. Stoppa kräver två steg; Avbryt återgår; bekräftelsen nås och trycks med tangentbordet
@@ -931,7 +957,7 @@ try {
   forfinaren.aktivitet.antal = forfinaren.aktivitet.handelser.length;
   skickaLage();
   await page.locator('#ay-roller .ay-ansvar').first().waitFor();
-  await flikar.filter({ hasText: 'Kod och preview' }).click();
+  await omradeLank('Granskning').click();
   await page.locator('#ay-logg pre.ay-logg').first().waitFor();
   await page.locator('#ay-kodaktivitet li').nth(13).waitFor();
   await axeKor('Kod och preview efter valet 1440');
@@ -951,7 +977,8 @@ try {
   assert.equal(await page.locator('#ay-kodmot').inputValue(), V3K, 'kodvyn ska laddas om med den aktuella versionen');
   assert.equal(await page.locator('#ay-filer .ay-notis.fel').count(), 0, 'kodvyn får inte fastna på felet');
   sammanfattning.kodvyn_osynlig_version_laddas_om = true;
-  await flikar.filter({ hasText: 'Arbetsyta' }).click();
+  await omradeLank('Designstudio').click();
+  await flik('arbete');
   await page.locator('#ay-remsa').getByRole('heading', { name: 'Kontroller' }).waitFor();
 
   // 14. Samverkan (2026-10-09): meddelandefliken, agentens text blindad, ett meddelande till sessionen som arbetar med samma id
@@ -962,6 +989,7 @@ try {
   S.medd.push({ id: 'a-' + '1'.repeat(30), tid: T(4), avsandare: { typ: 'session', session_id: 'x', ansvar: 'granskning', kandidat: 'k01' }, mottagare: { typ: 'agare' },
     syfte: 'granskningsfynd', syfte_text: 'Granskningsfynd', text: 'HEMLIG-BEDOMNING: rubriken bryts på fyra rader.', belagg: ['vy-390'], kandidat: 'k01', version: S.k01v, agent: true, lage: 'sparat' });
   skickaLage();
+  await flik('samtal');
   await page.getByRole('tab', { name: /Meddelanden/ }).click();
   await page.locator('#ay-samtal .ay-msg.agent').first().waitFor({ timeout: 5000 });
   const agenttext = await page.locator('#ay-samtal .ay-msg.agent').first().innerText();
@@ -978,12 +1006,14 @@ try {
   const mp = posts.at(-1);
   assert.equal(mp.vag, `/api/arbetsyta/${SLUG}/meddelande`);
   assert.deepEqual([mp.body.syfte, mp.body.mottagare.typ, mp.body.version, mp.body.korning], ['andringsinstruktion', 'session', S.k01v, S.korning.startad], 'meddelandet bär syfte, mottagare, hel version och körning');
+  await page.locator('#ay-msvar').filter({ hasText: 'Sparat' }).waitFor();  // svaret har kommit: fältet töms av det, inte av provet
   await page.locator('#ay-mtext').fill('Korta rubriken till två rader.');
   await page.locator('#ay-skriv').getByRole('button', { name: 'Skicka' }).click();
   await vantaPa(() => posts.length > forePosts + 1, 'omförsöket skickas');
   assert.equal(posts.at(-1).body.id, mp.body.id, 'samma meddelande vid omförsök: samma id');
   sammanfattning.samverkan = { meddelande_id: 'o+hash', omforsok_samma_id: true, agenttext_blindad: S.blind };
-  // pausen: bekräftelsen säger omfattningen
+  // pausen (under Arbete): bekräftelsen säger omfattningen
+  await flik('arbete');
   await page.locator('[data-paus-session]').first().click();
   const bekr = await page.locator('.ay-bekraftruta').filter({ hasText: 'Pausa bara den här sessionen' }).innerText();
   assert(/resten av körningen fortsätter/.test(bekr) && /står kvar/.test(bekr), 'bekräftelsen säger omfattningen och att filändringar står kvar');
@@ -1006,6 +1036,7 @@ try {
   assert.deepEqual([bp.beslut, bp.kandidater[0].version, bp.sedd[0].bild_sha, bp.sedd[0].version], ['valj', S.k01v, BILDSHA, S.k01v], 'beslutet bär den version och bild som visas');
   S.korning = forraKorning; S.sessioner.splice(S.sessioner.indexOf(s14), 1); skickaLage();
   sammanfattning.samverkan.beslut = 'bundet till bildens hash';
+  await flik('samtal');
   await page.getByRole('tab', { name: /Partnern/ }).click();
 
   // 12b. Förslagen (förr vyn Prototyp; ägarens besked 2026-10-09 ~17:11Z: allt in i arbetsytan): den gamla adressen leder
@@ -1016,7 +1047,7 @@ try {
   await page.goto(origin + `/#/prototyp/${SLUG}`);
   await forslag().waitFor();
   assert.equal(await page.evaluate(() => location.hash), `#/arbetsyta/${SLUG}/forslag`, '#/prototyp/<kund> ska leda till Förslagen för samma kund');
-  assert.equal(await page.getByRole('navigation', { name: 'Arbetsytans vyer' }).locator('a[aria-current="page"]').textContent(), 'Förslagen');
+  assert.equal((await page.locator('.pt-stegrad a[aria-current="step"]').textContent()).trim(), '5Förslag', 'stegraden ska stå på Förslag');
   assert.equal(await page.locator('.kkort').count(), 2, 'de två klara förslagen står i Förslagen');
   assert.equal(await page.locator('details summary').filter({ hasText: 'Förslag som inte blev klara (1)' }).count(), 1, 'förslaget som föll står med skälet');
   assert.equal(await page.locator('.kkort[data-k="k01"] a[href$="?sida=%2Fom%2F"]').count(), 1, 'undersidan öppnas från förslaget');
@@ -1042,7 +1073,7 @@ try {
   assert.deepEqual([fb.beslut, fb.avsandare, fb.belagg], ['jamfor', 'kunden', 'Kundens mejl 2026-10-09 kl. 21.40'], 'kundens eget beslut bär belägget');
   // godkännandet av det förfinade förslaget binds till ögonblicksbilderna och deras hash ur arbetsytans läge
   S.forslagK01 = 'forfinad'; S.forslagFas = 'forfining';
-  await flikar.filter({ hasText: 'Arbetsyta' }).click(); await flikar.filter({ hasText: 'Förslagen' }).click();
+  await omradeLank('Designstudio').click(); await omradeLank('Förslag').click();
   await page.locator('.kkort[data-k="k01"] .chip').filter({ hasText: 'förfinad' }).waitFor();
   await page.locator('[data-markera="k02"]').uncheck();
   fore_ = beslutPosts().length;
@@ -1056,7 +1087,7 @@ try {
   S.forslagK01 = undefined; S.forslagFas = undefined;
   // en kund utan körning: Förslagen säger det, inget fel
   S.utanPrototyp = true;
-  await flikar.filter({ hasText: 'Arbetsyta' }).click(); await flikar.filter({ hasText: 'Förslagen' }).click();
+  await omradeLank('Designstudio').click(); await omradeLank('Förslag').click();
   await page.locator('#vy .ay-tom').filter({ hasText: 'Inga förslag än för kunden' }).waitFor();
   assert.equal(await page.locator('#vy .ay-notis.varn').count(), 0, 'en kund utan körning är inget läsfel');
   S.utanPrototyp = false;
@@ -1066,7 +1097,8 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   S.blind = false; S.k01 = 'klar'; S.korning = korning('valda', START2, T(40), 'klar_for_bedomning', false);
   S.handlingar = [{ id: 'valda', text: 'Starta uppdraget: Rätta Förslag A' }];
-  await flikar.filter({ hasText: 'Arbetsyta' }).click();
+  await omradeLank('Designstudio').click();
+  await flik('samtal');
   await page.locator('#ay-skriv').waitFor(); skickaLage();
   if (await page.locator('[data-vflik="partner"]').count()) await page.locator('[data-vflik="partner"]').click();
   await page.locator('#ay-skriv [data-avsikt="fraga"]').click();
@@ -1125,27 +1157,33 @@ try {
   assert.deepEqual([ga[0].uppdrag.typ, ga[0].uppdrag.resultat, ga[0].uppdrag.bevara, ga[0].kandidat, ga[0].version], ['ratta', 'En rubrik på fyra ord', ['bilden och färgerna', 'knappens text'], 'k01', S.k01v]);
   assert.deepEqual([gs[0].handling, gs[0].start_id], ['valda', ga[0].andring_id], 'samma operations-id för uppdraget och starten');
   await page.locator('#ay-samtal').getByText(/Begäran är registrerad\. Operations-id g/).waitFor();
-  // förhandsvisningens brygga: kandidatens sida på ett eget ursprung, lägena Besök, Markera och Redigera text
+  // förhandsvisningens brygga i studions duk: kandidatens sida på ett eget ursprung, lägena Besök och Markera
   await page.route((u) => u.origin === forhandOrigin, (r) => r.continue());
   S.bryggaPreview = true; S.k01Byggd = T(41); skickaLage();
-  await page.locator('[data-material="forhandsvisning"]').click();  // körningen väntar på dig: vyn visar först den bevarade bilden
-  const scen = page.frameLocator('#ay-material iframe');
+  await page.locator('#st-verktyg [data-st-visa="arbetsversion"]').click();  // beslutet visade den bevarade bilden; tillbaka till arbetsversionen
+  const scen = page.frameLocator('#st-duk iframe');
   await scen.locator('h1').waitFor();
   await page.waitForFunction((x) => window.__arbetsyta.forhandsUrsprung === x, forhandOrigin);
-  const ramen = page.frames().find((f) => f.url().startsWith(forhandOrigin));
+  await page.locator('#st-verktyg [data-st-lage="besok"]').click();
+  let ramen = page.frames().find((f) => f.url().startsWith(forhandOrigin));
   await ramen.evaluate(() => parent.postMessage({ nwp: 'forhandsbrygga/1', typ: 'markerat', tagg: 'h1', text: 'Förfalskad', selektor: 'h1', sida: '/' }, '*'));
   await sov(150);
   assert(!/Förfalskad/.test(await page.evaluate(() => window.__arbetsyta.mark?.del || '')), 'i Besök tas ingen markering emot, inte heller en förfalskad');
-  await page.locator('[data-forhandslage="markera"]').click();
+  await page.locator('#st-verktyg [data-st-lage="markera"]').click();
   await scen.locator('h1').click();
   await page.waitForFunction(() => /Surdeg som får ta tid/.test(window.__arbetsyta.mark?.del || ''));
   const mk = await page.evaluate(() => window.__arbetsyta.mark);
-  assert.deepEqual([mk.kandidat, mk.sida, mk.version_hel], ['k01', '/', S.k01v], 'markeringen bär kandidaten, sidan och den hela versionen');
+  assert.deepEqual([mk.kandidat, mk.sida, mk.version_hel, mk.vy], ['k01', '/', S.k01v, 'Designstudio'], 'markeringen bär kandidaten, sidan, den hela versionen och vyn');
   await meddelat('Markerat i förhandsvisningen');
+  // Redigera text i förhandsvisningen (direktredigeringen) står i Granskningen, med samma brygga
+  await omradeLank('Granskning').click();
+  const scen2 = page.frameLocator('#ay-material iframe');
+  await scen2.locator('h1').waitFor();
+  await page.waitForFunction((x) => window.__arbetsyta.forhandsUrsprung === x, forhandOrigin);
   await page.locator('[data-forhandslage="redigera"]').click();
-  await scen.locator('#ingress').click();
+  await scen2.locator('#ingress').click();
   await page.locator('#ay-redigering').filter({ hasText: 'Redigera i förhandsvisningen' }).waitFor();
-  await scen.locator('#ingress[contenteditable]').waitFor();
+  await scen2.locator('#ingress[contenteditable]').waitFor();
   await page.keyboard.type('Vi bakar varje natt, även söndagar.');
   await page.keyboard.press('Enter');
   await page.locator('#ay-redigering').filter({ hasText: 'Ändra i källan?' }).waitFor();
@@ -1160,15 +1198,20 @@ try {
     skal: 'texten står i källan (src/pages/index.astro), sajten är ombyggd och fotograferad' }]; skickaLage();
   await page.locator('#ay-redigering').filter({ hasText: 'Direktredigering klar' }).waitFor();
   await page.locator('#ay-redigering').getByRole('button', { name: 'Stäng', exact: true }).click();
-  await scen.locator('a').first().click();
+  await scen2.locator('a').first().click();
   await page.locator('#ay-redigering').filter({ hasText: 'står på 2 ställen' }).waitFor();
   assert.equal(page.frames().find((f) => f.url().startsWith(forhandOrigin)).url(), forhandOrigin + '/', 'ett klick i Redigera text navigerar inte på sajten');
+  // den ärliga vägen: ett uppdrag med texten, som fortsätter i studions samtal (Granskningen har inget samtal)
   await page.getByRole('button', { name: 'Gör ett uppdrag i stället', exact: true }).click();
+  await page.waitForFunction((s) => location.hash === '#/studio/' + s, SLUG);
+  await page.locator('#ay-text').waitFor();
   assert.match(await page.locator('#ay-text').inputValue(), /^Byt texten «Boka tid»/, 'den ärliga vägen: ett uppdrag med texten');
-  await page.locator('[data-forhandslage="besok"]').click();
-  await axeKor('Arbetsyta med strömmen, genomförandet och redigeringen');
+  assert.equal(await page.locator('#ay-skriv [data-avsikt="andring"]').getAttribute('aria-pressed'), 'true', 'samtalet står på Ändring');
+  assert.match(await page.locator('#ay-omfattning').inputValue(), /på \//, 'omfattningen följer med');
+  await page.locator('#ay-text').fill(''); await page.evaluate((s) => { sessionStorage.removeItem('nwp-arbetsyta-utkast:' + s); localStorage.removeItem('nwp-arbetsyta-utkast:' + s); }, SLUG);
+  await axeKor('Designstudio med strömmen, genomförandet och markeringen');
   sammanfattning.nortropic_app = { strom_delsvar_skilt_fran_svar: true, vantande_instruktion: true, avbrott_utan_pahittat_svar: true, genomfor_samma_operations_id: true,
-    brygga_markering: true, direktredigering_efter_klick: true, ej_mappbar_blir_uppdrag: true, forfalskad_markering_nekad: true };
+    brygga_markering_i_studion: true, direktredigering_i_granskningen_efter_klick: true, ej_mappbar_blir_uppdrag_i_studions_samtal: true, forfalskad_markering_nekad: true };
 
   // 13. Inga sidfel; konsolfelen är bara de nätfel provet självt framkallar
   const avsiktliga = [/\/api\/prototyp\/prov-kund$/, /\/api\/flode\/prov-kund\/start$/, /\/api\/arbetsyta\/prov-kund\/andring$/, /\/api\/arbetsyta\/prov-kund\/strom$/, /\/api\/arbetsyta\/prov-kund\/kod$/];

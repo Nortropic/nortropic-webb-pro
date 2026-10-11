@@ -1,0 +1,10 @@
+---
+interface Props { href: string; variant?: 'primar' | 'sekundar' }
+const { href, variant = 'primar' } = Astro.props;
+---
+<a class:list={['knapp', `knapp--${variant}`]} href={href}><slot /></a>
+<style>
+  .knapp { display: inline-block; padding: 0.8rem 1.4rem; border-radius: var(--radie-m); font-weight: 600; text-decoration: none; }
+  .knapp--primar { background: var(--farg-accent); color: var(--farg-accent-text); }
+  .knapp--sekundar { border: 2px solid var(--farg-accent); color: var(--farg-accent); }
+</style>

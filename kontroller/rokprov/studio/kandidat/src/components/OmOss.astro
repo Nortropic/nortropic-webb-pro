@@ -1,0 +1,17 @@
+---
+import { Image } from 'astro:assets';
+import detalj from '../assets/atelje/detalj.jpg';
+---
+<section class="om" id="om-oss" aria-labelledby="om-rubrik">
+  <div class="om__text">
+    <h2 id="om-rubrik" class="om__rubrik">Från ritning till sista list</h2>
+    <p>Fiktiv Snickeri är en provkund i Nortropics designstudio. Texten är ett tydligt märkt utkast.</p>
+  </div>
+  <Image src={detalj} alt="Detalj av en handhyvlad list" class="om__bild" widths={[480, 960]} sizes="(min-width: 48rem) 40vw, 100vw" />
+</section>
+<style>
+  .om { display: grid; gap: var(--avstand-l); padding: var(--avstand-xl) var(--avstand-m); max-width: var(--spalt-maxbredd); margin-inline: auto; }
+  .om__rubrik { font-family: var(--typ-rubrik-familj); font-size: 2rem; margin: 0 0 var(--avstand-m); }
+  .om__bild { width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radie-m); }
+  @media (min-width: 48rem) { .om { grid-template-columns: 3fr 2fr; align-items: center; } }
+</style>

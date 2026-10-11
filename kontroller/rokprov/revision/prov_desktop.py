@@ -563,7 +563,13 @@ class Desktop(unittest.TestCase):
         (kat / 'index.html').write_text('a', encoding='utf-8')
         v1 = desktop.ui_version(kat)
         (kat / 'portal.js').write_text('b', encoding='utf-8')
-        self.assertNotEqual(v1, desktop.ui_version(kat), 'en ändrad portalfil ger en ny UI-version')
+        v2 = desktop.ui_version(kat)
+        self.assertNotEqual(v1, v2, 'en ändrad portalfil ger en ny UI-version')
+        (kat / 'studio.js').write_text('c', encoding='utf-8')
+        self.assertNotEqual(v2, desktop.ui_version(kat), 'en ändrad studiofil ger en ny UI-version (designstudion 2026-10-11)')
+        self.assertIn('<script src="/studio.js"></script>', index)
+        self.assertEqual(self.anropa('GET', '/studio.js')[0], 200)
+        self.assertEqual(self.anropa('GET', '/studio.css')[0], 200)
 
 
 def dash_lista(root):

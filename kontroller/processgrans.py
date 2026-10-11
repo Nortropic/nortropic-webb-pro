@@ -27,12 +27,14 @@ import argparse
 import os
 import re
 import shutil
+import stat
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 ROOT = Path(__file__).resolve().parents[1]
+STUDIO = Path(__file__).resolve().parent / 'studio'
 SANDBOX_EXEC = '/usr/bin/sandbox-exec'
 
 
@@ -191,7 +193,9 @@ def lasgrans(root, slug, kid, projekt, tmp, delad, verkliga):
     root = Path(os.path.abspath(root))
     kand = root / 'kunder' / slug / 'kandidater'
     egna = verkliga([projekt, tmp] + ([delad] if delad else []))
-    tillatna = verkliga(SYSTEMETS) + egna
+    # studions förhandsbygge (kontroller/studio/bygg.mjs och karta.mjs, designstudion 2026-10-11): motorns egen kod utan
+    # hemligheter, som bygget läser för att ge mallens element och stilregler källkartans id
+    tillatna = verkliga(SYSTEMETS) + egna + verkliga([STUDIO])
     forfader = sorted({str(a) for p in tillatna for a in Path(p).parents} | {'/etc', '/tmp', '/var'})  # och rotens länkar
     # Tailwinds källsökning läser repots .gitignore och .git (filen i en worktree, katalogen i huvudutcheckningen; bara
     # själva posten, inte det som ligger i katalogen). Utan dem blir kandidatens CSS en annan än sajtens bygge ger (mätt:
@@ -217,6 +221,31 @@ def utanfor_lasgransen(kmd, projekt, root, slug, path):
         if v and not any(os.path.realpath(v) == p or os.path.realpath(v).startswith(p + os.sep) for p in inom):
             return os.path.realpath(v)
     return None
+
+
+def stdio_utanfor(tillatna):
+    """[(fd, väg)] för stdout och stderr som är vanliga filer utanför det kandidatens läsgräns släpper (projektet och dess
+    temp). Node prövar fd 0–2 med fstat när den startar och avbryter när svaret är något annat än EBADF; innanför
+    läsgränsen ger fstat på en sådan fil EPERM, och den avbrutna processen fastnar i kärnan (tillståndet UE) tills datorn
+    startas om (designstudion 2026-10-11, ett bygge med stdout omdirigerat till en fil). Rör, terminaler och /dev/null går
+    bra; stdin ersätts med /dev/null före starten. Vägen läses med fcntl F_GETPATH (macOS)."""
+    import fcntl
+    ratt = [os.path.realpath(p) for p in tillatna]
+    ut = []
+    for fd in (1, 2):
+        try:
+            s = os.fstat(fd)
+        except OSError:
+            continue
+        if not stat.S_ISREG(s.st_mode):
+            continue
+        try:
+            vag = os.path.realpath(fcntl.fcntl(fd, fcntl.F_GETPATH, bytes(1024)).split(b'\0', 1)[0].decode())
+        except (OSError, AttributeError, UnicodeDecodeError):
+            vag = None
+        if not vag or not any(vag == p or vag.startswith(p + os.sep) for p in ratt):
+            ut.append((fd, vag))
+    return ut
 
 
 def lasforbud(fs, verkliga):
@@ -344,8 +373,15 @@ def main(argv=None):
         print('processgräns: %s ligger utanför byggets läsgräns (SYSTEMETS); bygget körs inte' % fel, file=sys.stderr)
         return 2
     os.makedirs(miljo['TMPDIR'], exist_ok=True)
+    if kid and (fel := stdio_utanfor([os.path.abspath(a.skrivbar), miljo['TMPDIR']])):
+        print('processgräns: fd %s är en fil utanför byggets läsgräns (%s); kör bygget med rör, bygget körs inte'
+              % (', '.join(str(fd) for fd, _ in fel), ', '.join(v or '?' for _, v in fel)), file=sys.stderr)
+        return 2
     if kid:  # en kandidats bygge startar i sitt projekt: utanför läsgränsen kan processen inte läsa sin arbetskatalog (getcwd ger EPERM)
         os.chdir(os.path.abspath(a.skrivbar))
+        noll = os.open('/dev/null', os.O_RDONLY)  # bygget läser aldrig stdin; en ärvd fil där skulle stoppa node (se stdio_utanfor)
+        os.dup2(noll, 0)
+        os.close(noll)
     os.execve(SANDBOX_EXEC, ['sandbox-exec', '-p', prof, *kmd], miljo)
     return 2
 

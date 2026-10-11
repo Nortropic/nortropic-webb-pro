@@ -70,18 +70,19 @@
     A.projekt = lista.projekt || [];
     if (!slug) {
       if (!A.projekt.length) { tomtLage(); return; }
-      location.replace('#/arbetsyta/' + encodeURIComponent((A.projekt.find((p) => p.slug === localStorageSenaste()) || A.projekt[0]).slug));
+      location.replace('#/studio/' + encodeURIComponent((A.projekt.find((p) => p.slug === localStorageSenaste()) || A.projekt[0]).slug));
       return;
     }
-    if (!A.projekt.some((p) => p.slug === slug)) { visaFel(`Arbetsytan känner inte till kunden ${slug}. Välj en kund i listan.`); return; }
+    if (!A.projekt.some((p) => p.slug === slug)) { visaFel(`Det finns ingen kund ${slug} i skapandeflödet. Välj en kund under Kunder.`); return; }
+    // den gamla arbetsvyn finns inte längre (ägarens besked 2026-10-11): kundens huvudvy är Designstudion
+    if (!['flode', 'kod', 'forslag', 'studio'].includes(vy)) { location.replace('#/studio/' + encodeURIComponent(slug)); return; }
     const byte = A.slug !== slug;
-    A.vy = ['flode', 'kod', 'forslag'].includes(vy) ? vy : '';
+    A.vy = vy;
     if (byte) { stangStrom(); Object.assign(A, { mark: undefined, slug, lage: null, valdKandidat: null, folj: null, partner: null, partnerNyckel: null, material: null, logg: null, loggNyckel: null, svar: '', kod: { kandidat: null, fil: null, mot: null, visning: 'diff', data: null, fildata: null } }); }
     try { localStorage.setItem('nwp-arbetsyta:senaste', slug); } catch { /* bekvämlighet */ }
     const l = layout(slug);
     A.enhet = l.enhet === 'mobil' ? 'mobil' : 'dator';
     ram();
-    ritaRaknare();
     if (A.lage) rita(); else {
       let d;
       try { d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); } catch (err) { if (gen === A.generation) visaFel('Läget kunde inte läsas: ' + err.message); return; }
@@ -95,17 +96,15 @@
 
   function tomtLage() {
     A.vy = ''; A.sektion = null;
-    document.getElementById('rot').innerHTML = `<div class="ay">${huvudTom()}${flikrad()}<main class="ay-tom" style="padding:40px 18px">Inga kunder med underlag än. Starta ett ärende i <a href="#/kundstart">Kundstart</a> eller förbered en kund under <a href="#/starta">Starta</a>.</main></div>`;
-    ritaRaknare();
+    document.getElementById('rot').innerHTML = `<div class="ay"><main class="ay-tom" style="padding:40px 18px">Inga kunder med underlag än. Starta ett ärende i <a href="#/kundstart">Kundstart</a> eller förbered en kund under <a href="#/starta">Starta</a>.</main></div>`;
   }
   function visaFel(text) {
     const v = document.getElementById('rot');
-    if (A.vy === 'sektion' || !v.querySelector('.ay')) { A.vy = ''; A.sektion = null; v.innerHTML = `<div class="ay">${huvudTom()}${flikrad()}</div>`; }
+    if (A.vy === 'sektion' || !v.querySelector('.ay')) { A.vy = ''; A.sektion = null; v.innerHTML = '<div class="ay"></div>'; }
     const ruta = v.querySelector('.ay-felruta') || Object.assign(document.createElement('div'), { className: 'ay-felruta' });
     ruta.innerHTML = `<div class="ay-notis fel" role="alert" style="margin:12px 18px">${e_(text)}</div>`;
     v.querySelector('.ay').prepend(ruta);
   }
-  const huvudTom = () => `<header class="ay-huvud"><div class="ay-marke">${SVG.marke}Nortropic arbetsyta</div></header>`;
 
   // --- strömmen ---
   function oppnaStrom(slug) {
@@ -157,6 +156,13 @@
       if (!g && s.session_id) ut.push(`${vem} startade`);
       else if (g && g.lage !== s.lage && ['avslutad', 'avbruten', 'beslut'].includes(s.lage)) ut.push(`${vem}: ${LAGEN[s.lage]}`);
     }
+    // en riktning som blir bedömbar eller klar medan de andra arbetar (designstudion 2026-10-11, DS-U07): sägs, och vyn byter inte
+    const fk = Object.fromEntries((f.kandidater || []).map((k) => [k.id, k]));
+    for (const k of n.kandidater || []) {
+      const g = fk[k.id];
+      if (g && g.status !== k.status && ['bedombar', 'klar'].includes(k.status)) ut.push(`${k.etikett} är ${k.status === 'bedombar' ? 'bedömbar (granskningen pågår)' : 'klar att bedöma'}`);
+      else if (g && g.version_hel && k.version_hel && g.version_hel !== k.version_hel && g.status === k.status) ut.push(`${k.etikett} har en ny version`);
+    }
     if (!f.korning?.vantar_pa_agaren && n.korning?.vantar_pa_agaren) ut.push('Körningen väntar på ditt beslut');
     if (f.korning?.startad !== n.korning?.startad && n.korning?.startad) ut.push('En ny körning har startat');
     if (ut.length) meddela(ut.slice(0, 3).join('. ') + '.');
@@ -165,45 +171,20 @@
   // --- ramen ---
   function ram() {
     const v = document.getElementById('rot');
-    const l = layout(A.slug);
     v.innerHTML = `<div class="ay" data-vy="${e_(A.vy)}"${A.vy === 'sektion' ? ` data-sektion="${e_(A.sektion)}"` : ''}>
-      <header class="ay-huvud" id="ay-huvud">${huvudTom().replace(/^<header[^>]*>|<\/header>$/g, '')}</header>
-      ${flikrad()}
       <p id="ay-meddelande" class="dolt" role="status" aria-live="polite" aria-atomic="true"></p>
       <main id="ay-innehall">${A.vy === 'sektion' ? '<div id="vy" class="ay-sektion"><p class="under">Laddar …</p></div>'
-        : A.vy === 'forslag' ? '<div id="ay-forslagsnotis"></div><div id="vy" class="ay-sektion ay-forslagen"><p class="under">Laddar förslagen …</p></div>' : A.vy === 'flode' ? '<div class="ay-flode" id="ay-flode"></div>' : A.vy === 'kod' ? kodRam() : ytRam(l)}</main>
+        : A.vy === 'forslag' ? '<div id="ay-forslagsnotis"></div><div id="vy" class="ay-sektion ay-forslagen"><p class="under">Laddar förslagen …</p></div>' : A.vy === 'flode' ? '<div class="ay-flode" id="ay-flode"></div>' : A.vy === 'kod' ? kodRam() : '<div class="st" id="st-rot"></div>'}</main>
     </div>`;
-    if (A.vy === '') kopplaDelare();
     if (A.vy === 'kod') laddaKod();
     if (A.vy === 'forslag') A.forslagNyckel = undefined;  // vyn är inte ritad än
   }
-  // Arbetsytans delar utöver projektets tre vyer (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan). Adresserna
-  // är desamma som förut (#/backlog, #/kundstart/<id> …), så länkar, bokmärken och vyernas egna kontroller av adressen
-  // gäller; varje del ritas i arbetsytans ram med samma funktioner och skrivvägar som förut. Kundproduktionen och
-  // systemförbättringen hålls isär (uppdraget 2026-10-09 ~07:24Z).
-  const DELAR = [
-    ['Kundproduktion', [['oversikt', 'Byggen och dina domar', 'helbyggena, deras prov och din dom'], ['ab', 'Jämförelser', 'blinda par: välj utan att veta vilket som är vilket'],
-      ['kundstart', 'Kundstart', 'kundens ärende, underlag och överlämning'], ['leverans', 'Leverans och förvaltning', 'migreringsläget per kund och de äldre sajterna på Vercel'],
-      ['prospekt', 'Prospekt', 'kampanjer, analyser och utskick', false, 'n-prospekt'],
-      ['starta', 'Starta', 'kommandona för helbygge, backlog och prov']]],
-    ['Systemförbättring', [['underhall', 'Underhåll och verktygslådan', 'det dagliga underhållet och versionerna'], ['kirurgen', 'Kirurgen', 'intag, spaningen och förbättringsarbetet', false, 'n-kirurg'],
-      ['backlog', 'Backlog', 'vilande, pågående och klara poster', false, 'n-backlog'], ['kalibrering', 'Kalibrering', 'externa sajter att döma blint'],
-      ['lardomar', 'Lärdomar', 'dina domar och granskarnas samstämmighet'], ['designprov', 'Designprov', 'ateljéns förslag per bygge, blint']]],
-  ];
-  const DELNAMN = Object.fromEntries([...DELAR.flatMap(([, d]) => d), ['dokumentation', 'Dokumentation och rapporter'], ['bygge', 'Bygget och din dom']].map(([k, n]) => [k, n]));
-  function flikrad() {
-    const del = A.vy === 'sektion' ? (A.sektion === 'bygge' ? 'oversikt' : A.sektion) : null;
-    const sl = A.slug ? encodeURIComponent(A.slug) : '';
-    const href = (k, projekt) => `#/${k}${projekt && sl ? '/' + sl : ''}`;
-    const post = ([k, n, om, projekt, raknare]) => `<a href="${href(k, projekt)}" data-v="${k}"${del === k ? ' aria-current="page"' : ''}><span>${n}${raknare ? ` <b id="${raknare}" hidden></b>` : ''}</span><span class="ay-menyom">${om}</span></a>`;
-    return `<div class="ay-flikrad">
-        <nav aria-label="Arbetsytans vyer" class="ay-projektflikar">${[['', 'Arbetsyta'], ['forslag', 'Förslagen'], ['flode', 'Byggflöde'], ['kod', 'Kod och preview']].map(([k, n]) =>
-          `<a href="#/arbetsyta${sl ? '/' + sl : ''}${k && sl ? '/' + k : ''}"${A.vy === k ? ' aria-current="page"' : ''}>${n}</a>`).join('')}</nav>
-        <nav aria-label="Arbetsytans delar" class="ay-delar">${DELAR.map(([grupp, delar]) => { const har = delar.some(([k]) => k === del);
-          return `<details class="ay-meny"><summary${har ? ' data-aktiv' : ''}>${grupp}${har ? `<span class="ay-meny-val">: ${e_(DELNAMN[A.sektion])}</span>` : ''}</summary>
-          <div class="ay-menylista">${delar.map(post).join('')}</div></details>`; }).join('')}<a href="#/dokumentation" data-v="dokumentation"${del === 'dokumentation' ? ' aria-current="page"' : ''}>Dokumentation<span class="ay-lang"> och rapporter</span></a></nav>
-      </div>`;
-  }
+  // Delarna (förr menyerna i arbetsytans huvud) ligger i portalens navigering (portal.js, Kundproduktion och
+  // Systemförbättring); adresserna är desamma som förut (#/backlog, #/kundstart/<id> …), och varje del ritas i ramens yta
+  // med samma funktioner och skrivvägar som förut
+  const DELNAMN = { oversikt: 'Byggen och dina domar', ab: 'Jämförelser', kundstart: 'Kundstart', leverans: 'Leverans och förvaltning', prospekt: 'Prospekt',
+    starta: 'Starta', underhall: 'Underhåll och verktygslådan', kirurgen: 'Kirurgen', backlog: 'Backlog', kalibrering: 'Kalibrering', lardomar: 'Lärdomar',
+    designprov: 'Designprov', dokumentation: 'Dokumentation och rapporter', bygge: 'Bygget och din dom' };
   window.arbetsytaSektion = function arbetsytaSektion(h) {
     const [forsta, andra] = String(h || '').split('/');
     const sektion = DELNAMN[forsta] ? forsta : 'oversikt';
@@ -215,7 +196,6 @@
     A.vy = 'sektion'; A.sektion = sektion;
     ram();
     rita();
-    ritaRaknare();
     if (A.fokusDel) { A.fokusDel = false; fokuseraDel(); }
     lasHuvud(gen);
   };
@@ -232,14 +212,13 @@
       if (gen !== A.generation) return;
       A.projekt = lista;
       if (A.slug && !A.projekt.some((p) => p.slug === A.slug)) bytKund(null);
-      ritaFlikrad(); rita();
+      rita();
       if (!A.slug) return;
       const slug = A.slug;
       if (!A.lage) { const d = await hamta('/api/arbetsyta/' + encodeURIComponent(slug)); if (gen !== A.generation || A.slug !== slug) return; tillampa(d, true); }
       if (gen === A.generation && A.slug === slug && !A.strom && !A.pollTimer) oppnaStrom(slug);
     } catch { /* utan kundens läge visas huvudet utan det; delen påverkas inte */ }
   }
-  function ritaFlikrad() { const f = document.querySelector('.ay > .ay-flikrad'); if (f && !f.contains(document.activeElement)) { f.outerHTML = flikrad(); ritaRaknare(); } }
   // efter ett val i menyn: fokus på delens rubrik när den ritats, så att tangentbordet fortsätter i delen
   function fokuseraDel() {
     const vy = document.getElementById('vy'); if (!vy) return;
@@ -248,54 +227,9 @@
     const mo = new MutationObserver(() => { if (fokus()) mo.disconnect(); });
     mo.observe(vy, { childList: true, subtree: true }); setTimeout(() => mo.disconnect(), 10000);
   }
-  // räknarna (vilande i backloggen, intag som pågår, prospekt som väntar): de sista kända från /api/oversikt, i menyn och
-  // på gruppens knapp; läses om när de är äldre än en minut, och varje del som läser översikten uppdaterar dem (raknare)
-  window.arbetsytaRaknare = function arbetsytaRaknare(o) { A.raknare = { tid: Date.now(), backlog: o.backlog_vilande || 0, kirurg: o.intag_pagar || 0, prospekt: o.prospekt_vantar || 0 }; ritaRaknare(); };
-  async function ritaRaknare() {
-    const r = A.raknare;
-    const satt = (id, n, text) => { const b = document.getElementById(id); if (b) { b.hidden = !n; b.textContent = n ? text : ''; } };
-    if (r) {
-      satt('n-backlog', r.backlog, String(r.backlog)); satt('n-kirurg', r.kirurg, r.kirurg + ' pågår'); satt('n-prospekt', r.prospekt, String(r.prospekt));
-      document.querySelectorAll('.ay-meny').forEach((m) => {
-        const s = m.querySelector('summary'); if (!s) return;
-        s.querySelectorAll('.ay-summa').forEach((b) => b.remove());
-        for (const b of m.querySelectorAll('.ay-menylista b:not([hidden])')) {
-          const namn = b.closest('a')?.querySelector('span')?.firstChild?.textContent.trim() || '';
-          s.insertAdjacentHTML('beforeend', `<b class="ay-summa" title="${e_(namn + ': ' + b.textContent)}">${e_(b.textContent)}</b>`);
-        }
-      });
-    }
-    if (r && Date.now() - r.tid < 60000) return;
-    if (A.raknareLaser) return;
-    A.raknareLaser = true;
-    try { window.arbetsytaRaknare(await hamta('/api/oversikt')); } catch { /* räknarna är en bekvämlighet; utan dem visas inga */ } finally { A.raknareLaser = false; }
-  }
-  function ytRam(l) {
-    return `<div class="ay-omraden"><div class="ay-segment" role="group" aria-label="Visa område">${[['samtal', 'Samtal'], ['resultat', 'Resultat'], ['sessioner', 'Sessioner']].map(([k, n]) =>
-        `<button type="button" data-omrade="${k}" aria-pressed="${(l.omrade || 'resultat') === k}">${n}</button>`).join('')}</div></div>
-      <div class="ay-ytan" id="ay-ytan" data-omrade="${e_(l.omrade || 'resultat')}"${l.vansterDold ? ' data-vanster-dold' : ''}${l.hogerDold ? ' data-hoger-dold' : ''}
-        style="${l.vanster ? `--ay-vanster:${Number(l.vanster)}px;` : ''}${l.hoger ? `--ay-hoger:${Number(l.hoger)}px;` : ''}">
-        <section class="ay-panel ay-dialog" aria-labelledby="ay-dialog-rubrik">
-          <div class="ay-panelhuvud"><h2 id="ay-dialog-rubrik">Samtal</h2>
-            <div class="ay-segment ay-flikar" role="tablist" aria-label="Samtal och meddelanden">${[['partner', 'Partnern'], ['meddelanden', 'Meddelanden']].map(([k, n]) =>
-              `<button type="button" role="tab" data-vflik="${k}" data-fokus="vf-${k}" aria-selected="${(A.vflik || 'partner') === k}" aria-controls="ay-samtal">${n}${k === 'meddelanden' ? ' <span class="ay-rakning" id="ay-oppna"></span>' : ''}</button>`).join('')}</div>
-            <span id="ay-partnerchip"></span>
-            <button class="ay-ikon" type="button" data-falla="vanster" aria-label="Fäll ihop samtalet">${SVG.vanster}</button></div>
-          <div class="ay-panelkropp" id="ay-samtal" aria-live="off"></div>
-          <form class="ay-skriv" id="ay-skriv" autocomplete="off"></form>
-        </section>
-        <div class="ay-delare" data-delare="vanster" role="separator" aria-orientation="vertical" aria-label="Samtalets bredd" tabindex="0"></div>
-        <div class="ay-mitten">
-          <section class="ay-panel ay-material" aria-labelledby="ay-material-rubrik" id="ay-material"></section>
-          <div class="ay-remsa" id="ay-remsa"></div>
-        </div>
-        <div class="ay-delare" data-delare="hoger" role="separator" aria-orientation="vertical" aria-label="Sessionernas bredd" tabindex="0"></div>
-        <section class="ay-panel ay-roller" aria-labelledby="ay-roller-rubrik" id="ay-roller"></section>
-      </div>
-      <div style="position:fixed;left:8px;bottom:8px;display:flex;gap:6px;z-index:5">
-        <button class="ay-knapp liten ay-fallknapp ay-fall-vanster" type="button" data-visa="vanster">Visa samtalet</button>
-        <button class="ay-knapp liten ay-fallknapp ay-fall-hoger" type="button" data-visa="hoger">Visa sessionerna</button></div>`;
-  }
+  // räknarna (vilande i backloggen, intag som pågår, prospekt som väntar) står i portalens navigering, som läser dem själv;
+  // en del som läser översikten ger dem vidare dit (index.html raknare)
+  window.arbetsytaRaknare = function arbetsytaRaknare(o) { if (typeof window.portalRaknare === 'function') window.portalRaknare(o); };
   function kodRam() {
     return `<div class="ay-kod">
       <section class="ay-panel ay-filer" aria-labelledby="ay-filer-rubrik"><div class="ay-panelhuvud"><h2 id="ay-filer-rubrik">Projektets filer</h2></div><div class="ay-panelkropp" id="ay-filer"></div></section>
@@ -316,7 +250,7 @@
   }
   function rita() {
     if (!document.querySelector('.ay')) return;
-    const h = document.getElementById('ay-huvud');
+    const h = document.getElementById('pt-lage');  // portalens lägesrad i kundens stegrad (dashboard/portal.js)
     if (!A.lage) { if (h && !h.contains(document.activeElement)) h.innerHTML = huvud(); return; }
     if (h && !h.contains(document.activeElement)) h.innerHTML = huvud();
     else ritaAnslutning();
@@ -328,6 +262,13 @@
     }
     if (A.vy === 'kod') { ritaMaterial(); ritaKodaktivitet(); laddaLogg(); if (A.kod.kandidat !== kodKandidat()) laddaKod(); }
     if (A.vy === 'forslag') ritaForslagsnotis();
+    if (A.vy === 'studio') {  // Designstudion: studions egna delar och, i samma vy, allt som förr stod i arbetsytans huvudvy
+      window.NortropicStudio?.rita(A);
+      ritaMaterial(); ritaRedigering();
+      behallFokus(document.getElementById('ay-remsa'), () => { const r = document.getElementById('ay-remsa'); if (r) r.innerHTML = remsa(); });
+      behallFokus(document.getElementById('ay-roller'), () => { const r = document.getElementById('ay-roller'); if (r) r.innerHTML = roller(); });
+      ritaVanster();
+    }
   }
   // Förslagen (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan): kandidatflödets hela vy, förr Prototyp, i
   // arbetsytans ram: bilderna i alla bredder, förslagen sida vid sida, referensen bredvid, det du gillar per förslag,
@@ -363,16 +304,17 @@
   }
   // det ägaren ser i Förslagen, ur arbetsytans läge: kandidatens fotograferade version och ögonblicksbildernas hash. Ett
   // godkännande binds till dem, och samverkan.beslut prövar dem mot filerna nu (som raden under ögonblicksbilden).
+  // studions del (dashboard/studio.js) använder arbetsytans läge, skrivväg och brygga i stället för egna
+  window.NortropicArbetsyta = { A, e_, hamta, postJson, innehallsId, meddela, brygga, behallFokus, kort, markera: (x) => markera(x), ritaMaterial: () => ritaMaterial() };
   window.arbetsytaSett = function arbetsytaSett(slug) {
     if (!A.lage || A.slug !== slug) return null;
     return Object.fromEntries((A.lage.kandidater || []).map((k) => [k.id, { version: k.version_hel, sedd: ['390', '1440']
       .filter((b) => k.snapshot?.[b] && k.snapshot?.sha?.[b]).map((b) => ({ kandidat: k.id, version: k.version_hel, bild: k.snapshot[b], bild_sha: k.snapshot.sha[b] })) }]));
   };
   function huvud() {
-    if (!A.lage) return `<div class="ay-marke">${SVG.marke}<span>Nortropic</span></div>${A.projekt.length ? `<div class="ay-falt"><span><label for="ay-kund">Kund</label></span><select id="ay-kund" data-fokus="kund">${A.slug ? '' : '<option value="" selected>Välj kund</option>'}${A.projekt.map((x) => `<option value="${e_(x.slug)}"${x.slug === A.slug ? ' selected' : ''}>${e_(x.namn || x.slug)}</option>`).join('')}</select></div>` : ''}`;
+    if (!A.lage) return A.projekt.length ? `<div class="ay-falt"><span><label for="ay-kund">Kund</label></span><select id="ay-kund" data-fokus="kund">${A.slug ? '' : '<option value="" selected>Välj kund</option>'}${A.projekt.map((x) => `<option value="${e_(x.slug)}"${x.slug === A.slug ? ' selected' : ''}>${e_(x.namn || x.slug)}</option>`).join('')}</select></div>` : '';
     const l = A.lage, p = l.projekt || {}, k = l.korning || {}, kand = (l.kandidater || []).find((x) => x.id === A.valdKandidat);
-    return `<div class="ay-marke">${SVG.marke}<span>Nortropic</span></div>
-      <div class="ay-falt"><span><label for="ay-kund">Kund</label></span><select id="ay-kund" data-fokus="kund">${A.projekt.map((x) => `<option value="${e_(x.slug)}"${x.slug === A.slug ? ' selected' : ''}>${e_(x.namn || x.slug)}${x.testdata && !/testdata/i.test(x.namn || '') ? ' (testdata)' : ''}</option>`).join('')}</select></div>
+    return `<div class="ay-falt"><span><label for="ay-kund">Kund</label></span><select id="ay-kund" data-fokus="kund">${A.projekt.map((x) => `<option value="${e_(x.slug)}"${x.slug === A.slug ? ' selected' : ''}>${e_(x.namn || x.slug)}${x.testdata && !/testdata/i.test(x.namn || '') ? ' (testdata)' : ''}</option>`).join('')}</select></div>
       ${p.testdata ? '<span class="ay-testdata" title="Fiktiv verksamhet: testdata, aldrig en riktig kund">Testdata</span>' : ''}
       <div class="ay-falt mindre"><span>Uppdrag</span><span>${k.startad ? `Körning ${e_(kort(k.startad))}, ${e_(LAGESNAMN[k.lage] || k.lage || 'läge okänt')}${A.fokusStart && k.start_id === A.fokusStart ? ' (din start)' : ''}` : 'Ingen körning'}</span></div>
       <div class="ay-falt mindre"><span>Kandidat och version</span><span>${kand ? `${e_(kand.etikett)} · ${kand.version ? 'version ' + e_(kand.version) : 'ingen version'}` : 'ingen vald'}</span></div>
@@ -397,6 +339,8 @@
   }
   function ritaMaterial() {
     const el = document.getElementById('ay-material'); if (!el) return;
+    // i Designstudion visas arbetsversionen i studions egen duk (dashboard/studio.js); här bara det bevarade och underlaget
+    if (A.vy === 'studio' && !['snapshot', 'jamfor', 'kandidater', 'underlag'].includes(A.material)) { if (el.innerHTML) { el.innerHTML = ''; el.dataset.nyckel = ''; } return; }
     const val = A.vy === 'kod' ? 'forhandsvisning' : materialval();
     const pv = previewFor(), nyckel = JSON.stringify([val, pv?.url, ['snapshot', 'jamfor'].includes(val) ? A.enhet : '', A.valdKandidat, pv?.byggd, pv?.osaker, A.lage.blind, val === 'jamfor' ? A.jamforMed : '', val === 'jamfor' ? (A.lage.kandidater || []).map((k) => k.version).join() : '', Boolean(A.lage.korning?.vantar_pa_agaren)]);  // osaker: ombygget ändrar inte byggd
     const huvud_ = `<div class="ay-panelhuvud"><h2 id="ay-material-rubrik">${A.vy === 'kod' ? 'Förhandsvisning' : 'Resultat'}</h2>
@@ -462,19 +406,36 @@
   // förhandsvisning) skickar markeringar och textval hit och tar bara emot lägen härifrån. Det den skickar är data, aldrig
   // ett beslut: en markering fyller samtalets kontext, och en redigering sparas först när du klickar Spara i källan.
   const BRYGGA = 'forhandsbrygga/1';
+  // förhandsvisningens ram: arbetsytans material eller studions duk (studio.js), den som visas
+  const bryggram = () => document.querySelector('#st-duk iframe') || document.querySelector('#ay-material iframe');
   function brygga(m) {
-    const f = document.querySelector('#ay-material iframe');
-    if (f?.contentWindow && A.forhandsUrsprung) f.contentWindow.postMessage(Object.assign({ nwp: BRYGGA }, m), A.forhandsUrsprung);
+    const f = bryggram();
+    if (f?.contentWindow && A.forhandsUrsprung && A.bryggNonce) f.contentWindow.postMessage(Object.assign({ nwp: BRYGGA, nonce: A.bryggNonce }, m), A.forhandsUrsprung);
+  }
+  // en nonce per laddning av ramen (designstudion 2026-10-11): bryggan tar bara meddelanden med den, och det den skickar
+  // räknas bara med den, så att ett sent meddelande från en äldre laddning eller en annan ram aldrig gäller
+  function nyNonce() {
+    const b = new Uint8Array(16); crypto.getRandomValues(b);
+    return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
   }
   const delText = (d) => `${d.tagg} "${String(d.text || '').slice(0, 60)}"${d.rubrik ? ' under "' + d.rubrik + '"' : ''}`;
   function bryggmeddelande(ev) {
-    const f = document.querySelector('#ay-material iframe');
+    const f = bryggram();
     if (!f || ev.source !== f.contentWindow) return;  // bara förhandsvisningens egen ram, aldrig ett annat fönster
     if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(ev.origin) || ev.origin === location.origin) return;
-    const d = ev.data; if (!d || d.nwp !== BRYGGA || typeof d.typ !== 'string') return;
+    const d = ev.data; if (!d || d.nwp !== BRYGGA || typeof d.typ !== 'string' || d.typ.length > 40) return;
+    if (d.typ === 'redo') {  // en ny laddning: ny nonce, och det som gällde den förra laddningen gäller inte längre
+      A.forhandsUrsprung = ev.origin; A.bryggNonce = nyNonce(); A.bryggKartad = null;
+      f.contentWindow.postMessage({ nwp: BRYGGA, typ: 'hej', nonce: A.bryggNonce }, ev.origin);
+      if (f.closest('#st-duk')) { window.NortropicStudio?.redo(d); return; }
+      const pv = previewFor(); if (!pv?.kandidat) return;
+      brygga({ typ: 'lage', lage: A.forhandslage }); if (A.markSelektor && A.mark?.kandidat === pv.kandidat) brygga({ typ: 'visa-markering', selektor: A.markSelektor });
+      return;
+    }
+    if (ev.origin !== A.forhandsUrsprung || !A.bryggNonce || d.nonce !== A.bryggNonce) return;
+    if (d.typ === 'kartad') { A.bryggKartad = !!d.kartad; window.NortropicStudio?.kartad(!!d.kartad); return; }
+    if (f.closest('#st-duk')) { window.NortropicStudio?.meddelande(d); return; }
     const pv = previewFor(); if (!pv?.kandidat) return;
-    A.forhandsUrsprung = ev.origin;
-    if (d.typ === 'redo') { brygga({ typ: 'lage', lage: A.forhandslage }); if (A.markSelektor && A.mark?.kandidat === pv.kandidat) brygga({ typ: 'visa-markering', selektor: A.markSelektor }); return; }
     if (d.typ === 'markerat' && A.forhandslage === 'markera') {
       markera({ kandidat: pv.kandidat, sida: String(d.sida || '').slice(0, 200), del: delText(d) }); A.markSelektor = String(d.selektor || '');
       ritaGaller(); const f_ = document.getElementById('ay-skriv'); if (f_) { f_.dataset.ritad = ''; ritaSkriv(); }
@@ -780,7 +741,7 @@
     } finally { A.pagar = null; }
     if (A.genomforOppen !== mid) { document.activeElement?.blur(); ritaPartner(); document.querySelector(`[data-fokus="g-oppna-${CSS.escape(mid)}"]`)?.focus(); }
   }
-  const VYNAMN = { '': 'Arbetsyta', flode: 'Byggflöde', kod: 'Kod och preview' };
+  const VYNAMN = { '': 'Arbetsyta', studio: 'Designstudio', flode: 'Byggflöde', kod: 'Kod och preview' };
   function levande(kid) {
     const k = (A.lage?.kandidater || []).find((x) => x.id === (kid ?? A.valdKandidat));
     return { kandidat: k?.id || null, version: k?.version || null, version_hel: k?.version_hel || null, vy: VYNAMN[A.vy], korning: A.lage?.korning?.startad || null };
@@ -841,6 +802,8 @@
     if (behall.del && f.querySelector('[data-falt="del"]')) f.querySelector('[data-falt="del"]').value = behall.del;
     if (behall.svar) document.getElementById('ay-skrivsvar').textContent = behall.svar;
     Object.entries(falt).forEach(([k, v]) => { const x = f.querySelector(`[data-uppdrag="${k}"]`); if (x) x.value = v; });
+    // ett uppdrag som började i en annan vy (Granskningens "Gör ett uppdrag i stället"): fälten fylls en gång här
+    if (A.forifyll && A.avsikt === 'andring') { Object.entries(A.forifyll).forEach(([k, v]) => { const x = f.querySelector(`[data-uppdrag="${k}"]`); if (x && v) x.value = v; }); A.forifyll = null; }
     visaUppdragstext();
     uppdateraSkrivstatus();
   }
@@ -951,7 +914,8 @@
       A.fokusStart = startId;
       if (d) tillampa(d);
       A.svar = (r.besked || 'Begäran är registrerad.') + ` (start-id ${startId.slice(0, 8)})`;
-      if (A.vy !== '' && !STOPP.includes(id)) { location.hash = '#/arbetsyta/' + encodeURIComponent(slug); return; }
+      // efter en start ur Byggflöde, Kod eller Förslagen: studion, där sessionerna syns under Arbete (förr arbetsytans huvudvy)
+      if (!['', 'studio'].includes(A.vy) && !STOPP.includes(id)) { location.hash = '#/studio/' + encodeURIComponent(slug); return; }
     } catch (err) { if (A.slug === slug) A.svar = 'Svaret gick inte att bekräfta: ' + err.message + '. Läs läget eller försök igen; samma start-id används.'; } finally { A.pagar = null; }
     rita();
   }
@@ -1159,29 +1123,6 @@
   }
 
   // --- panelerna: fälla ihop och dra ---
-  function kopplaDelare() {
-    document.querySelectorAll('.ay-delare').forEach((d) => {
-      const sida = d.dataset.delare, ytan = document.getElementById('ay-ytan');
-      const satt = (px) => { px = Math.max(240, Math.min(560, Math.round(px))); ytan.style.setProperty(sida === 'vanster' ? '--ay-vanster' : '--ay-hoger', px + 'px'); d.setAttribute('aria-valuenow', px); sparaLayout({ [sida]: px }); };
-      d.setAttribute('aria-valuemin', 240); d.setAttribute('aria-valuemax', 560);
-      // en fokuserbar avdelare ska säga sitt värde från början, inte först efter ett drag (WAI-ARIA separator; axe aria-required-attr)
-      d.setAttribute('aria-valuenow', parseInt(getComputedStyle(ytan).getPropertyValue(sida === 'vanster' ? '--ay-vanster' : '--ay-hoger')) || (sida === 'vanster' ? 360 : 320));
-      d.addEventListener('pointerdown', (ev) => {
-        ev.preventDefault(); d.setPointerCapture(ev.pointerId);
-        const rect = ytan.getBoundingClientRect();
-        const flytta = (e2) => satt(sida === 'vanster' ? e2.clientX - rect.left - 18 : rect.right - e2.clientX - 18);
-        d.addEventListener('pointermove', flytta);
-        d.addEventListener('pointerup', () => d.removeEventListener('pointermove', flytta), { once: true });
-      });
-      d.addEventListener('keydown', (ev) => {
-        if (!['ArrowLeft', 'ArrowRight'].includes(ev.key)) return;
-        ev.preventDefault();
-        const nu = parseInt(getComputedStyle(ytan).getPropertyValue(sida === 'vanster' ? '--ay-vanster' : '--ay-hoger')) || 320;
-        satt(nu + ((ev.key === 'ArrowRight') === (sida === 'vanster') ? 24 : -24));
-      });
-    });
-  }
-
   // --- meddelanden: ägaren och sessionerna genom bussen (kontroller/meddelanden.py, dashboard/samverkan.py) ---
   async function laddaSamverkan() {
     if (!A.slug) return;
@@ -1488,9 +1429,6 @@
     if (d.laddaOm !== undefined) { const f = ay.querySelector('#ay-material iframe'); if (f) f.src = f.src; return; }
     if (d.folj !== undefined) { A.folj = d.folj || null; if (A.vy === 'kod') ritaKodaktivitet(); else rita(); document.querySelector('[data-fokus="folj-slut"]')?.focus(); return; }
     if (d.foljSlut !== undefined) { const id = A.folj; A.folj = null; rita(); document.querySelector(`[data-fokus="f-${CSS.escape(id || '')}"]`)?.focus(); return; }
-    if (d.falla) { const ytan = document.getElementById('ay-ytan'); ytan.toggleAttribute(d.falla === 'vanster' ? 'data-vanster-dold' : 'data-hoger-dold', true); sparaLayout({ [d.falla === 'vanster' ? 'vansterDold' : 'hogerDold']: true }); document.querySelector(`[data-visa="${d.falla}"]`)?.focus(); return; }
-    if (d.visa) { const ytan = document.getElementById('ay-ytan'); ytan.removeAttribute(d.visa === 'vanster' ? 'data-vanster-dold' : 'data-hoger-dold'); sparaLayout({ [d.visa === 'vanster' ? 'vansterDold' : 'hogerDold']: false }); return; }
-    if (d.omrade) { const ytan = document.getElementById('ay-ytan'); ytan.dataset.omrade = d.omrade; sparaLayout({ omrade: d.omrade }); ay.querySelectorAll('[data-omrade]').forEach((b) => b.tagName === 'BUTTON' && b.setAttribute('aria-pressed', String(b.dataset.omrade === d.omrade))); return; }
     if (d.avsikt) { A.avsikt = d.avsikt; if (d.avsikt === 'andring' && !A.mark && markering().kandidat) markera(); const f = document.getElementById('ay-skriv'); utkastSpara(A.slug, f.querySelector('textarea').value); f.dataset.ritad = ''; ritaSkriv(); document.querySelector(`[data-fokus="a-${d.avsikt}"]`)?.focus(); return; }
     if (d.skicka === 'andring') { ev.preventDefault(); skickaAndring(); return; }
     if (d.forhandslage) { A.forhandslage = d.forhandslage; if (A.redigering && ['kontroll', 'redigerar'].includes(A.redigering.steg)) A.redigering = null; brygga({ typ: 'lage', lage: A.forhandslage }); ritaMaterial(); ritaRedigering(); document.querySelector(`[data-fokus="fl-${d.forhandslage}"]`)?.focus(); return; }
@@ -1500,7 +1438,15 @@
     if (d.redUppdrag !== undefined) {  // den ärliga vägen: ett uppdrag med texten, i samtalets ändringsform
       const r = A.redigering || {}; A.redigering = null; ritaRedigering();
       markera({ kandidat: r.kid || A.valdKandidat, sida: r.sida || undefined, del: r.del || undefined });
-      A.avsikt = 'andring'; A.vflik = 'partner'; const ytan = document.getElementById('ay-ytan'); if (ytan) { ytan.dataset.omrade = 'samtal'; ytan.removeAttribute('data-vanster-dold'); }
+      A.avsikt = 'andring'; A.vflik = 'partner';
+      if (!document.getElementById('ay-skriv')) {  // Granskningen har inget samtal: uppdraget fortsätter i studions samtal, med texten
+        utkastSpara(A.slug, `Byt texten «${r.gammal || ''}»${r.ny ? ' mot «' + r.ny + '»' : ' mot: '}`);
+        A.forifyll = { resultat: r.ny ? `texten «${r.ny}» där det nu står «${r.gammal}»` : '', omfattning: `${r.del || 'texten'} på ${r.sida || '/'}` };
+        try { const k = 'nwp-studio:' + A.slug; localStorage.setItem(k, JSON.stringify(Object.assign(JSON.parse(localStorage.getItem(k) || '{}') || {}, { flik: 'samtal' }))); } catch { /* bekvämlighet */ }
+        location.hash = '#/studio/' + encodeURIComponent(A.slug);
+        return;
+      }
+      window.NortropicStudio?.visaFlik('samtal');
       ritaVanster(); const f = document.getElementById('ay-skriv'); if (f) { f.dataset.ritad = ''; ritaSkriv(); }
       const t = document.getElementById('ay-text'); if (t) { t.value = `Byt texten «${r.gammal || ''}»${r.ny ? ' mot «' + r.ny + '»' : ' mot: '}`; t.focus(); }
       const res = document.querySelector('#ay-skriv [data-uppdrag="resultat"]'); if (res && r.ny) res.value = `texten «${r.ny}» där det nu står «${r.gammal}»`;
@@ -1534,7 +1480,7 @@
     if (d.loggLas !== undefined) { laddaLogg(true); return; }
     if (d.vflik) { A.vflik = d.vflik; const f = document.getElementById('ay-skriv'); if (f) f.dataset.ritad = ''; ritaVanster(); document.querySelector(`[data-fokus="vf-${d.vflik}"]`)?.focus(); if (d.vflik === 'meddelanden') laddaSamverkan(); return; }
     if (d.syfte) { A.syfte = d.syfte; const f = document.getElementById('ay-skriv'); const t = f?.querySelector('textarea')?.value; f.dataset.ritad = ''; ritaMeddelandeform(); const nt = document.getElementById('ay-mtext'); if (nt && t) nt.value = t; document.querySelector(`[data-fokus="sy-${d.syfte}"]`)?.focus(); return; }
-    if (d.skrivTill) { A.vflik = 'meddelanden'; A.mottagareVald = 'session:' + d.skrivTill; const f = document.getElementById('ay-skriv'); if (f) f.dataset.ritad = ''; const ytan = document.getElementById('ay-ytan'); if (ytan) { ytan.dataset.omrade = 'samtal'; ytan.removeAttribute('data-vanster-dold'); } ritaVanster(); laddaSamverkan(); document.getElementById('ay-mtext')?.focus(); return; }
+    if (d.skrivTill) { A.vflik = 'meddelanden'; A.mottagareVald = 'session:' + d.skrivTill; const f = document.getElementById('ay-skriv'); if (f) f.dataset.ritad = ''; window.NortropicStudio?.visaFlik('samtal'); ritaVanster(); laddaSamverkan(); document.getElementById('ay-mtext')?.focus(); return; }
     if (d.beslutOm) { A.beslutOm = d.beslutOm; A.beslutVal = d.val; ritaVanster(); document.getElementById('ay-bt-' + d.beslutOm)?.focus(); return; }
     if (d.beslutaAvbryt !== undefined) { A.beslutOm = null; ritaVanster(); return; }
     if (d.besluta) { besluta(d.besluta, d.val); return; }
@@ -1562,7 +1508,7 @@
       A.material = 'snapshot'; A.beslutSvar = ''; rita(); document.querySelector('[data-fokus="beslut-ja"]')?.focus(); return; }
     if (d.beslutJa !== undefined) { fattaBeslut(); return; }
     if (d.beslutNej !== undefined) { A.beslutBekrafta = null; A.beslutSvar = ''; rita(); return; }
-    if (d.visaBeslut !== undefined) { A.material = 'snapshot'; const ytan = document.getElementById('ay-ytan'); if (ytan) ytan.dataset.omrade = 'resultat'; ritaMaterial(); document.querySelector('[data-fokus="b-valj"]')?.focus(); return; }
+    if (d.visaBeslut !== undefined) { A.material = 'snapshot'; rita(); document.querySelector('[data-fokus="b-valj"]')?.focus(); return; }
   });
   document.addEventListener('submit', (ev) => {
     if (ev.target.id === 'ay-skriv') { ev.preventDefault(); A.vflik === 'meddelanden' ? skickaMeddelande() : skickaPartner(); }
@@ -1571,8 +1517,8 @@
   });
   document.addEventListener('change', (ev) => {
     if (ev.target.id === 'ay-kund' && ev.target.value) {
-      if (A.vy !== 'sektion') location.hash = '#/arbetsyta/' + encodeURIComponent(ev.target.value) + (A.vy ? '/' + A.vy : '');
-      else { bytKund(ev.target.value); const gen = ++A.generation; ritaFlikrad(); rita(); lasHuvud(gen); }
+      if (A.vy !== 'sektion') location.hash = A.vy === 'studio' || !A.vy ? '#/studio/' + encodeURIComponent(ev.target.value) : '#/arbetsyta/' + encodeURIComponent(ev.target.value) + '/' + A.vy;
+      else { bytKund(ev.target.value); const gen = ++A.generation; rita(); lasHuvud(gen); }
     }
     if (ev.target.id === 'ay-kodkand') { A.valdKandidat = ev.target.value; A.kod.fil = null; A.kod.mot = null; laddaKod(); ritaMaterial(); }
     if (ev.target.id === 'ay-kodmot') laddaKod(undefined, ev.target.value || null);
@@ -1584,14 +1530,8 @@
     if (ev.target.dataset?.g) { const r = ev.target.closest('[data-genomfor-ruta]'), id = r?.dataset.genomforRuta, m = (A.partner?.meddelanden || []).find((x) => x.id === id); if (m) { A.genomfor[id] = Object.assign(A.genomfor[id] || standardGenomfor(m), { [ev.target.dataset.g]: ev.target.value }); A.genomforSvar[id] = ''; } }
     if (ev.target.dataset?.falt && A.mark) { A.mark[ev.target.dataset.falt] = ev.target.value; sparaMark(A.mark); } if (ev.target.id === 'ay-text') utkastSpara(A.slug, ev.target.value); });
   document.addEventListener('keydown', (ev) => { if (ev.target.id === 'ay-text' && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); A.avsikt === 'andring' ? skickaAndring() : skickaPartner(); } });
-  // delarnas menyer: en öppen åt gången; ett klick utanför eller Escape stänger, och fokus går tillbaka till knappen
-  document.addEventListener('toggle', (ev) => { if (ev.target.classList?.contains('ay-meny') && ev.target.open) document.querySelectorAll('.ay-meny[open]').forEach((m) => { if (m !== ev.target) m.open = false; }); }, true);
-  document.addEventListener('click', (ev) => {
-    if (ev.target.closest?.('.ay-flikrad a')) A.fokusDel = true;  // delen som öppnas får fokus på sin rubrik
-    document.querySelectorAll('.ay-meny[open]').forEach((m) => { if (!m.contains(ev.target) || ev.target.closest('.ay-menylista a')) m.open = false; });
-  });
-  document.addEventListener('focusout', (ev) => { const m = ev.target.closest?.('.ay-meny[open]'); if (m && ev.relatedTarget && !m.contains(ev.relatedTarget)) m.open = false; });
-  document.addEventListener('keydown', (ev) => { if (ev.key !== 'Escape') return; const m = document.querySelector('.ay-meny[open]'); if (m) { const inne = m.contains(document.activeElement); m.open = false; if (inne) m.querySelector('summary')?.focus(); } });
+  // en del som öppnas ur portalens navigering får fokus på sin rubrik, så att tangentbordet fortsätter i delen
+  document.addEventListener('click', (ev) => { if (ev.target.closest?.('#pt-nav .pt-dellista a, #pt-nav a[href="#/dokumentation"]')) A.fokusDel = true; });
   window.addEventListener('message', bryggmeddelande);
   window.__arbetsyta = A;  // för proven: läget i vyn, aldrig något att skriva i
 })();

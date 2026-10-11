@@ -196,16 +196,17 @@ def _dold(dash, slug):
 
 
 def _villkor(slug, kid, version, korning):
-    """Körningen väntar på ägaren och ingen arbetare lever; kandidatens version är den ägaren såg, och projektet står i
-    den versionen (ingen ofotograferad ändring). Inaktuell med skälet annars."""
+    """Kandidaten står vid sin gräns: körningen är den ägaren såg, kandidatens kedja är klar (status bland VISBARA, så att
+    körningen inte skriver i den), versionen är den ägaren såg och projektet står i den (ingen ofotograferad ändring).
+    Andra kandidater kan arbeta under tiden (designstudion 2026-10-11, DS4); en skrivare per kandidat håller kandidatens
+    skrivlås (kandidater.skrivlas), som arbetaren tar innan den prövar villkoren igen och skriver. Inaktuell med skälet annars."""
     st = atelje.las_json(atelje.UNDERLAG / slug / 'atelje' / 'STATUS.json') or {}
     if korning != str(st.get('startad') or ''):
         raise Inaktuell('körningen har bytts sedan du såg texten (din %s, nu %s)' % (korning, st.get('startad')))
-    if st.get('pid') and atelje.lever(st['pid']) and st.get('steg') not in atelje.AVSLUTADE:
-        raise Inaktuell('en arbetare skriver i kandidaterna just nu; vänta tills körningen väntar på dig')
-    if st.get('steg') not in ('klar_for_bedomning', 'fel'):
-        raise Inaktuell('körningen väntar inte på ditt beslut (steg %s); texten ändras inte' % st.get('steg'))
-    nu_v = str(kandidater.las_status(slug, kid).get('version') or '')
+    kst = kandidater.las_status(slug, kid)
+    if kst.get('status') not in kandidater.VISBARA:
+        raise Inaktuell('kandidaten är inte vid en säker gräns (%s); ändringen väntar tills dess kedja är klar' % kandidater.statustext(kst))
+    nu_v = str(kst.get('version') or '')
     if version != nu_v:
         raise Inaktuell('kandidaten har en ny version sedan du såg texten (din %s, nu %s)' % (version[:12], nu_v[:12]))
     if kandidater.projektets_version(slug, kid) != nu_v:
@@ -331,6 +332,16 @@ def kor(slug, rid):
         return 0 if status == 'klar' else 3
     kid, k = post['kandidat'], post['karta']
     try:
+        with kandidater.skrivlas(slug, kid, vem='direktredigeringen %s' % rid):
+            return _kor_last(slug, rid, post, kid, k, slut)
+    except kandidater.Upptagen as e:
+        return slut('konflikt', '%s; ändringen gjordes inte' % e)
+
+
+def _kor_last(slug, rid, post, kid, k, slut):
+    """kor under kandidatens skrivlås: villkoren prövas igen, och kandidatens kategori (vald, förfinad, jämförs) står kvar."""
+    fore_st = kandidater.las_status(slug, kid)
+    try:
         _villkor(slug, kid, post['fran_version'], post['korning'])
         sajt = kandidater.ksajt(slug, kid)
         p = atelje.saker_vag(sajt / k['fil'], sajt)
@@ -350,6 +361,9 @@ def kor(slug, rid):
     v = str(st.get('version') or '')
     bygget_foll = 'bygget föll' in str(st.get('skal') or '')
     if v == forvantad and not bygget_foll and i_dist(slug, kid, k, post['ny']):
+        fore = fore_st.get('status')  # en vald eller förfinad kandidat är fortfarande det, i sin nya version (DS-U30)
+        if st.get('status') == 'klar' and fore in ('vald', 'forfinad', 'jamfors', 'godkand'):
+            st = kandidater.satt_status(slug, kid, 'forfinad' if fore == 'godkand' else fore, 'direktredigering %s; ny version %s' % (rid, v[:12]))
         return slut('klar', 'texten står i källan (%s), sajten är ombyggd och fotograferad: version %s (kandidatens status: %s)' % (
             k['fil'], v[:12], st.get('status')), till_version=v, kandidatstatus=st.get('status'))
     # bygget föll eller den nya texten syns inte: den ursprungliga texten tillbaka, och kandidaten fotograferas om
@@ -358,6 +372,8 @@ def kor(slug, rid):
     t.write_text(innehall, encoding='utf-8')
     os.replace(t, p)
     st2 = kandidater.fotografera(slug, kid)
+    if fore_st.get('status') in ('vald', 'forfinad', 'jamfors') and st2.get('status') == 'klar':
+        kandidater.satt_status(slug, kid, fore_st['status'], 'direktredigering %s återställd' % rid)
     return slut('aterstalld', '%s; den ursprungliga texten är tillbaka (version %s)' % (skal, str(st2.get('version') or '?')[:12]),
                 till_version=st2.get('version'))
 

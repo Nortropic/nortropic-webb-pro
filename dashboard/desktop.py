@@ -54,9 +54,11 @@ def konfigurera(rot, port):
 
 
 def ui_version(dashkatalog):
-    """Hash över arbetsytans filer så som de serveras nu (servern läser dem från disk vid varje anrop)."""
+    """Hash över gränssnittets filer så som de serveras nu (servern läser dem från disk vid varje anrop): samma lista som
+    serverns statiska filer, så att en ändring i studion eller kirurgens vy också ger appen en ny version."""
     h = hashlib.sha256()
-    for namn in ('index.html', 'arbetsyta.js', 'arbetsyta.css', 'kundstart-agare.js', 'kundstart-agare.css', 'portal.js', 'portal.css'):
+    for namn in ('index.html', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'kundstart-agare.js', 'kundstart-agare.css',
+                 'kirurg-forbattring.js', 'portal.js', 'portal.css'):
         p = Path(dashkatalog) / namn
         try:
             h.update(namn.encode() + b'\0' + p.read_bytes())
@@ -511,19 +513,36 @@ def kommentar(dash, slug, data):
             k = kand.get(str(data.get('kandidat') or ''))
             if not k or not k.get('version_hel'):
                 raise ValueError('välj en kandidat med en bevarad version')
-            bredd = str(data.get('bredd') or '')
-            if bredd not in ('390', '1440'):
-                raise ValueError('bredden ska vara 390 eller 1440')
+            el = data.get('element')
             if data.get('version') != k['version_hel']:
                 raise Inaktuell('kandidaten har en annan version nu än den du kommenterade; se den nya versionen först')
-            snap = k.get('snapshot') or {}
-            if not snap.get(bredd) or snap.get(bredd) != data.get('bild') or (snap.get('sha') or {}).get(bredd) != data.get('bild_sha'):
-                raise Inaktuell('bilden du kommenterade är inte kandidatens ögonblicksbild nu; läs om')
             x, y = data.get('x'), data.get('y')
             if (x is None) != (y is None) or (x is not None and not all(isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1 for v in (x, y))):
                 raise ValueError('punkten anges som x och y mellan 0 och 1, eller utelämnas för hela sidan')
-            post = {'id': cid, 'kandidat': k['id'], 'etikett': k.get('etikett'), 'version': k['version_hel'], 'bredd': bredd, 'bild': snap[bredd],
-                    'bild_sha': snap['sha'][bredd], 'x': x, 'y': y, 'text': text()}
+            if el is not None:
+                # studions kommentar på ett element i den levande versionen (designstudion 2026-10-11): bunden till
+                # källkartans id, förekomsten, sidan och bredden i samma version; punkten gäller elementets ruta
+                if not isinstance(el, dict) or not re.fullmatch(r'[0-9a-f]{12}', str(el.get('k') or '')) \
+                        or not re.fullmatch(r'/(?:[a-z0-9][a-z0-9-]{0,60}/){0,3}', str(el.get('sida') or '')):
+                    raise ValueError('elementet anges med källkartans id och sidan')
+                try:
+                    ebredd, instans = int(el.get('bredd')), int(el.get('instans') or 0)
+                except (TypeError, ValueError) as e:
+                    raise ValueError('elementets bredd och förekomst är heltal') from e
+                if not 280 <= ebredd <= 2560 or not 0 <= instans < 200 or (el.get('barn') is not None and not re.fullmatch(r'(img|video):\d{1,2}', str(el.get('barn')))):
+                    raise ValueError('ogiltig bredd, förekomst eller barnelement')
+                post = {'id': cid, 'kandidat': k['id'], 'etikett': k.get('etikett'), 'version': k['version_hel'], 'bredd': str(ebredd), 'bild': None,
+                        'bild_sha': None, 'element': {'k': el['k'], 'instans': instans, 'barn': el.get('barn'), 'sida': el['sida'],
+                                                      'del': str(el.get('del') or '')[:200]}, 'x': x, 'y': y, 'text': text()}
+            else:
+                bredd = str(data.get('bredd') or '')
+                if bredd not in ('390', '1440'):
+                    raise ValueError('bredden ska vara 390 eller 1440')
+                snap = k.get('snapshot') or {}
+                if not snap.get(bredd) or snap.get(bredd) != data.get('bild') or (snap.get('sha') or {}).get(bredd) != data.get('bild_sha'):
+                    raise Inaktuell('bilden du kommenterade är inte kandidatens ögonblicksbild nu; läs om')
+                post = {'id': cid, 'kandidat': k['id'], 'etikett': k.get('etikett'), 'version': k['version_hel'], 'bredd': bredd, 'bild': snap[bredd],
+                        'bild_sha': snap['sha'][bredd], 'x': x, 'y': y, 'text': text()}
             if cid in efter:
                 if any(efter[cid].get(f) != v for f, v in post.items()):
                     raise Inaktuell('kommentarens id har redan använts för en annan kommentar')

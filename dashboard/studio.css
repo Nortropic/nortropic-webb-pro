@@ -1,0 +1,177 @@
+/* Designstudion (designstudion 2026-10-11; kunskap/designstudio.md) i portalens ram (dashboard/portal.css): portalens ljusa
+   paneler och accent, och den mörka duken runt kandidatens ljusa sida (målbildens relation, inget eget tema). Kundsajternas
+   designsystem påverkas inte. */
+.ay[data-vy="studio"] { min-height: 0; }
+.ay[data-vy="studio"] > main#ay-innehall { display: flex; min-height: 0; min-width: 0; flex: 1; }
+/* duken bär en ram i full viewport-bredd (förminskad med transform, som inte ändrar layouten): studion får aldrig växa efter den */
+.st { min-width: 0; }
+.st-mitten, .st-dukram, .st-duk { min-width: 0; max-width: 100%; }
+.st { --st-vanster: 236px; --st-hoger: 360px; display: grid; grid-template-columns: var(--st-vanster) 6px minmax(0, 1fr) 6px var(--st-hoger);
+  flex: 1; height: calc(100vh - var(--st-ovanfor, 118px)); min-height: 560px; }
+/* fasta kolumner: en hopfälld panel (display: none) tar ingen cell, och utan dem flyttar resten ett steg åt vänster */
+.st > .st-vanster { grid-column: 1; } .st > [data-st-delare="vanster"] { grid-column: 2; } .st > .st-mitten { grid-column: 3; }
+.st > [data-st-delare="hoger"] { grid-column: 4; } .st > .st-hoger { grid-column: 5; }
+.st > * { grid-row: 1; }
+/* avdelarna och de hopfällda panelerna (förr arbetsytans avdelare) */
+.st-delare { cursor: col-resize; background: var(--ay-linje); width: 6px; touch-action: none; }
+.st-delare:hover, .st-delare:focus-visible { background: var(--ay-accent); outline: none; }
+.st[data-vanster-dold] { grid-template-columns: 0 0 minmax(0, 1fr) 6px var(--st-hoger); }
+.st[data-hoger-dold] { grid-template-columns: var(--st-vanster) 6px minmax(0, 1fr) 0 0; }
+.st[data-vanster-dold][data-hoger-dold] { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
+.st[data-vanster-dold] > .st-vanster, .st[data-vanster-dold] > [data-st-delare="vanster"],
+.st[data-hoger-dold] > .st-hoger, .st[data-hoger-dold] > [data-st-delare="hoger"] { display: none; }
+.st-fall { margin-left: auto; font-size: 16px; line-height: 1; }
+.st-flikrad .st-fall { align-self: center; }
+.st-dukbesked:empty { display: none; }
+.st-dukbesked { padding: 8px 14px 0; background: var(--ay-bg); }
+.st-dukbesked .ay-notis { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.st-gilla { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.st-gilla .svag { font-size: 12px; }
+.st-gilla [aria-pressed="true"] { background: var(--ay-accent-mjuk); border-color: var(--ay-accent); }
+.st-vanster, .st-hoger { display: flex; flex-direction: column; min-height: 0; background: var(--ay-yta); }
+.st-vanster { border-right: 1px solid var(--ay-linje); }
+.st-hoger { border-left: 1px solid var(--ay-linje); }
+.st-panelhuvud { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 14px 14px 8px; }
+.st-panelhuvud h2 { font-size: 14px; }
+
+/* riktningarna */
+.st-remsa { list-style: none; margin: 0; padding: 0 8px 8px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.st-riktning { display: grid; grid-template-columns: 72px 1fr; gap: 10px; width: 100%; padding: 6px; text-align: left; font: inherit; color: inherit;
+  background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; }
+.st-riktning:hover { background: var(--ay-yta2); }
+.st-riktning[aria-current="true"] { background: var(--ay-accent-mjuk); border-color: color-mix(in srgb, var(--ay-accent) 40%, transparent); }
+.st-riktning[aria-current="true"] .svag { color: var(--ay-dampad); }  /* 4,5:1 mot den markerade ytan */
+.st-tumme { width: 72px; aspect-ratio: 16 / 10; border-radius: 5px; overflow: hidden; background: var(--ay-yta3); display: block; border: 1px solid var(--ay-linje); }
+.st-tumme img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.st-riktningstext { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.st-riktningstext strong { font-size: 13.5px; font-weight: 620; }
+.st-status { font-size: 12.5px; color: var(--ay-dampad); }
+.st-status:is([data-status="bedombar"], [data-status="klar"], [data-status="forfinad"], [data-status="vald"], [data-status="godkand"]) { color: var(--ay-ok); }
+.st-status:is([data-status="under_arbete"], [data-status="planerad"]) { color: var(--ay-varn); }
+.st-status:is([data-status="ofullstandig"], [data-status="fel"], [data-status="avbruten"]) { color: var(--ay-fel); }
+.st-ref { border-top: 1px solid var(--ay-linje); padding: 8px 14px 12px; max-height: 45%; overflow-y: auto; }
+.st-ref summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 4px 0; }
+.st-ref img { width: 100%; border-radius: 5px; display: block; margin-top: 8px; background: #fff; border: 1px solid var(--ay-linje); }
+.st-ref p { margin: 6px 0 0; font-size: 12.5px; }
+
+/* mitten: verktygsraden, duken och materialet */
+.st-mitten { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--ay-bg); }
+.st-verktyg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--ay-linje); background: var(--ay-yta); }
+.st-dukram { position: relative; flex: 1; min-height: 0; display: flex; }
+.st-dukram[hidden], .st-material[hidden] { display: none !important; }
+.st-duk { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 14px; background: var(--ay-scen); }
+.st-duk iframe { display: block; border: 0; background: #fff; border-radius: 4px; transform-origin: 0 0; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+.st-duk .st-bild { max-width: 100%; display: block; margin: 0 auto; border-radius: 4px; }
+.st-duk .ay-tom { color: #c9cbe0; }
+.st-material { flex: 1; min-height: 0; margin: 12px; display: flex; flex-direction: column; }
+.st-dukrad { margin: 0; padding: 6px 14px; border-top: 1px solid var(--ay-linje); font-size: 12px; min-height: 28px; background: var(--ay-yta); }
+.st-struktur { width: 300px; border-left: 1px solid var(--ay-linje); background: var(--ay-yta); overflow-y: auto; padding: 10px 8px; }
+.st-struktur h3 { font-size: 13px; margin: 0 6px 8px; }
+.st-struktur ul { list-style: none; margin: 0; padding: 0; }
+.st-struktur li { padding-left: calc(var(--djup, 0) * 10px); }
+.st-struktur button { display: block; width: 100%; text-align: left; font: inherit; font-size: 12.5px; color: var(--ay-text); background: none; border: 0;
+  border-radius: 4px; padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.st-struktur button:hover, .st-struktur button:focus-visible { background: var(--ay-yta3); }
+.st-tagg { color: var(--ay-info); font-family: var(--ay-mono); font-size: 11.5px; }
+
+/* höger: flikarna Ändra, Samtal och Arbete */
+.st-flikrad { display: flex; align-items: center; gap: 4px; padding: 8px 10px 0; border-bottom: 1px solid var(--ay-linje); }
+.st-flikar { display: flex; gap: 2px; flex: 1; min-width: 0; }
+.st-flikar button { font: inherit; font-size: 13.5px; font-weight: 560; color: var(--ay-dampad); background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 8px 12px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.st-flikar button[aria-selected="true"] { color: var(--ay-text); border-bottom-color: var(--ay-accent); }
+.st-flik { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.st-flik[hidden] { display: none; }
+.st-dialog { border: 0; border-radius: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.st-dialog .ay-panelkropp { flex: 1; min-height: 200px; }
+.st-arbete { display: grid; gap: 10px; padding: 10px; }
+.st-arbete .ay-panel { border-radius: 8px; }
+#st-flik-arbete .ay-roller { margin: 0 10px 12px; border-radius: 8px; }
+
+/* kontextpanelen */
+.st-kontext { padding: 12px 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+.st-galler { margin: 0; display: grid; gap: 6px; padding: 10px 12px; background: var(--ay-yta2); border: 1px solid var(--ay-linje); border-radius: 8px; }
+.st-galler div { display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 12.5px; }
+.st-galler dt { color: var(--ay-svag); }
+.st-galler dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.st-omraden { display: flex; flex-direction: column; gap: 6px; }
+.st-omrade { border: 1px solid var(--ay-linje); border-radius: 8px; background: var(--ay-yta); }
+.st-omrade > summary { cursor: pointer; padding: 9px 10px; font-weight: 620; font-size: 13.5px; display: flex; gap: 8px; align-items: baseline; }
+.st-omrade[open] > summary { border-bottom: 1px solid var(--ay-linje); }
+.st-falt { padding: 9px 10px; display: grid; gap: 4px; border-bottom: 1px solid color-mix(in srgb, var(--ay-linje) 70%, transparent); }
+.st-falt:last-of-type { border-bottom: 0; }
+.st-falt > label { font-size: 12.5px; color: var(--ay-dampad); font-weight: 560; }
+.st-falt input[type="text"], .st-falt input[type="number"], .st-falt select, .st-falt textarea, .st-kommentar textarea, .st-uppdrag textarea, .st-uppdrag select {
+  font: inherit; font-size: 13px; color: var(--ay-text); background: var(--ay-yta); border: 1px solid var(--ay-linje2); border-radius: 6px; padding: 5px 7px; min-width: 0; width: 100%; }
+.st-falt :is(input, select, textarea):focus-visible { outline: 2px solid var(--ay-accent); outline-offset: 1px; }
+.st-falt textarea { resize: vertical; }
+.st-langd { display: grid; grid-template-columns: minmax(84px, 1fr) 1.4fr; gap: 8px; align-items: center; }
+.st-langd input[type="range"] { width: 100%; accent-color: var(--ay-accent); }
+.st-farg { display: grid; grid-template-columns: 34px 1fr; gap: 6px; align-items: center; }
+.st-farg input[type="color"] { width: 34px; height: 30px; padding: 0; border: 1px solid var(--ay-linje2); border-radius: 6px; background: none; }
+.st-fokus { display: flex; gap: 10px; }
+.st-fokus label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ay-dampad); }
+.st-fokus input { width: 72px; }
+.st-faltinfo { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 11.5px; }
+.st-kalla { color: var(--ay-svag); font-family: var(--ay-mono); font-size: 11px; overflow-wrap: anywhere; }
+.st-rackvidd { border-radius: 99px; padding: 0 7px; font-size: 11px; font-weight: 620; background: var(--ay-yta3); color: var(--ay-dampad); }
+.st-rackvidd[data-slag="objekt"], .st-rackvidd[data-slag="forekomster"] { background: var(--ay-accent-mjuk); color: var(--ay-info); }
+.st-rackvidd:is([data-slag="designgrund"], [data-slag="arvd"], [data-slag="regel"]) { background: #fbf1dc; color: var(--ay-varn); }
+.st-rvtext { margin: 0; }
+.st-osparat { box-shadow: inset 3px 0 0 var(--ay-varn); }
+.st-osparad { color: var(--ay-varn); font-weight: 620; font-size: 11.5px; }
+.st-ejstod { margin: 0; padding: 8px 10px 8px 26px; font-size: 12px; color: var(--ay-dampad); display: grid; gap: 4px; }
+.st-omrade .ay-knapprad { padding: 6px 10px 10px; }
+.st-alt { margin: 0 10px 8px; border-left: 2px solid var(--ay-linje2); }
+.st-alt > summary { cursor: pointer; font-size: 12px; color: var(--ay-dampad); padding: 4px 8px; }
+.st-alt > summary .svag { display: block; font-size: 11.5px; }
+.st-alt .st-falt { border-bottom: 0; }
+.st-ordning ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.st-ordning li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.st-flytta { display: flex; gap: 4px; }
+.st-sparrad { padding: 10px 12px; border-radius: 8px; background: #fbf1dc; border: 1px solid color-mix(in srgb, var(--ay-varn) 35%, transparent); position: sticky; bottom: 0; }
+.st-sparrad p { margin: 0 0 8px; font-size: 12.5px; }
+.st-foljning h3 { font-size: 13px; margin: 0 0 6px; }
+.st-foljning ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.st-foljning li { padding: 8px 10px; border-radius: 8px; background: var(--ay-yta2); border-left: 3px solid var(--ay-linje2); }
+.st-foljning li[data-status="klar"] { border-left-color: var(--ay-ok); }
+.st-foljning li:is([data-status="aterstalld"], [data-status="konflikt"], [data-status="fel"], [data-status="nekad"]) { border-left-color: var(--ay-fel); }
+.st-foljning li:is([data-status="koad"], [data-status="pagar"]) { border-left-color: var(--ay-varn); }
+.st-kommentar, .st-uppdrag { display: grid; gap: 6px; }
+.st-kommentar h3, .st-uppdrag h3 { font-size: 13.5px; margin: 0; }
+.st-kommentar label, .st-uppdrag label { font-size: 12.5px; color: var(--ay-dampad); }
+
+/* portalens stegrad: arbetsytans läge (förr arbetsytans huvud) */
+.pt-lage { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 12.5px; color: var(--pt-dov, #5c5f72); }
+.pt-lage .ay-falt { display: flex; flex-direction: column; min-width: 0; }
+.pt-lage .ay-falt > span:first-child { font-size: 11.5px; }
+.pt-lage .ay-falt > span:last-child, .pt-lage .ay-falt select { font-weight: 600; color: var(--pt-text, #1b1d2a); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt-lage select { font: inherit; border: 0; background: transparent; padding: 0; cursor: pointer; }
+.pt-lage .ay-testdata { display: none; }  /* stegraden märker redan testkunden */
+.pt-lage .ay-anslutning { display: inline-flex; align-items: center; gap: 6px; }
+.pt-lage .ay-anslutning i { width: 8px; height: 8px; border-radius: 50%; background: var(--pt-ok, #1d7a4c); }
+.pt-lage .ay-anslutning[data-lage="ateransluter"] i, .pt-lage .ay-anslutning[data-lage="ansluter"] i { background: #8f5a00; }
+.pt-lage .ay-anslutning[data-lage="inaktuellt"] i { background: #b3232c; }
+
+@media (max-width: 1240px) {
+  .st { --st-vanster: 200px; --st-hoger: 320px; }
+  .st-riktning { grid-template-columns: 1fr; }
+  .st-tumme { width: 100%; }
+}
+/* smal vy: duken först, riktningarna som en rad och flikarna under */
+@media (max-width: 960px) {
+  .st { display: flex; flex-direction: column; height: auto; min-height: 0; }
+  .st .st-delare, .st .st-fall { display: none; }
+  .st-vanster { border-right: 0; border-bottom: 1px solid var(--ay-linje); order: 1; }
+  .st-remsa { flex-direction: row; overflow-x: auto; }
+  .st-remsa > li { flex: 0 0 168px; }
+  .st-ref { max-height: none; }
+  /* en bestämd höjd: ramens höjd räknas ur dukens, så duken får aldrig följa ramen (annars växer de i en slinga) */
+  .st-mitten { order: 2; height: 78vh; min-height: 420px; }
+  .st-hoger { order: 3; border-left: 0; border-top: 1px solid var(--ay-linje); }
+  .st-struktur { position: absolute; inset: 0 0 0 auto; width: min(300px, 80vw); z-index: 2; }
+}
+@media (prefers-reduced-motion: reduce) { .st * { transition: none !important; scroll-behavior: auto !important; } }
+/* Arbete-fliken: Kontroller, Senast observerat och Nästa beslut staplade i panelens bredd */
+.st-arbete.ay-remsa { display: grid; grid-template-columns: minmax(0, 1fr); }
+.st-arbete .ay-panel { min-width: 0; }

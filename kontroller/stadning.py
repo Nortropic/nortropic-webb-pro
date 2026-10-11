@@ -148,6 +148,7 @@ TMP_PREFIX = (
     'nwp-meddelanden-', 'nwp-bevakning-',                                                               # prov_meddelanden.py
     'nwp-pilotsession-',                                                              # kundstart_modell.py (Kundstarts pilotsession)
     'nwp-blind-',                                                                     # atelje.py (de blinda sessionernas arbetskatalog)
+    'nwp-studio-',                                                                    # prov_designstudio.py (designstudions prov)
 )
 # fasta kataloger i /tmp som aldrig är tillfälliga: körregistret och intagslåset, läget när underlag/ är låst, och
 # granskarnas och byggenas arbetsrötter (deras verktyg städar dem)

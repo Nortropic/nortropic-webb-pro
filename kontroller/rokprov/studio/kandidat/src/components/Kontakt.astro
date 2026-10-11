@@ -1,0 +1,13 @@
+---
+import Forfragan from './Forfragan.astro';
+---
+<section class="kontakt" id="kontakt" aria-labelledby="kontakt-rubrik">
+  <h2 id="kontakt-rubrik" class="kontakt__rubrik">Begär offert</h2>
+  <p class="kontakt__text">Berätta vad du vill bygga, så hör vi av oss inom två arbetsdagar.</p>
+  <Forfragan />
+</section>
+<style>
+  .kontakt { padding: var(--avstand-xl) var(--avstand-m); max-width: 40rem; margin-inline: auto; }
+  .kontakt__rubrik { font-family: var(--typ-rubrik-familj); font-size: 2rem; margin: 0 0 var(--avstand-s); }
+  .kontakt__text { color: var(--farg-dampad); }
+</style>

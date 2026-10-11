@@ -617,6 +617,13 @@ def lage(dash, slug):
     except Exception as e:  # noqa: BLE001
         ut['redigeringar'] = []
         ut['ofullstandig'].append('direktredigeringarna: %s: %s' % (type(e).__name__, str(e)[:160]))
+    try:  # studions bestående ändringar (kontroller/studio.py): köad, pågår, klar, återställd, konflikt, fel, stoppad, nekad
+        _kontroller()
+        import studio
+        ut['studio'] = studio.lista(slug, korning=korning.get('startad')) if korning else []
+    except Exception as e:  # noqa: BLE001
+        ut['studio'] = []
+        ut['ofullstandig'].append('studions ändringar: %s: %s' % (type(e).__name__, str(e)[:160]))
     try:
         konf = konfigurerade(dash)
     except Exception as e:  # noqa: BLE001
@@ -677,9 +684,11 @@ def signatur(dash, slug):
             delar.append('%s:-' % p)
     for p in (u / 'atelje' / 'STATUS.json', u / 'DESIGNDOMAR.jsonl', u / 'atelje' / 'sessioner', u / 'ateljestarter', k / 'korningar',
               k / 'sajt' / 'dist' / 'index.html', u / 'arbetsyta' / 'PARTNER.json', u / 'atelje' / 'KANDIDATPLAN.json', k / 'DOM.json',
-              u / 'arbetsyta' / 'redigeringar'):
+              u / 'arbetsyta' / 'redigeringar', u / 'arbetsyta' / 'studio'):
         lagg(p)
     for p in sorted((u / 'arbetsyta' / 'redigeringar').glob('*.json'), key=lambda x: x.name)[-6:]:
+        lagg(p)
+    for p in sorted((u / 'arbetsyta' / 'studio').glob('*.json'), key=lambda x: x.name)[-8:]:
         lagg(p)
     for p in sorted((u / 'atelje' / 'kandidater').glob('k[0-9][0-9]/STATUS.json')):
         lagg(p)

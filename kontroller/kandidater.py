@@ -44,6 +44,8 @@ Ett avbrott förstör inga klara kandidater: varje halvgjord förbättring eller
 Körs annars av kontroller/atelje.py (prototyp.py), som skriver körningens STATUS.json.
 """
 import argparse
+import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -185,8 +187,13 @@ PASSBILDER = ('vy-390-forsta.png', 'vy-390-hela.png', 'vy-1440-forsta.png', 'vy-
 # kandidatens status, i ägarens ord (uppdraget punkt 9): en prototyp ägaren vill utveckla vidare är inte godkänd för leverans
 STATUSTEXT = {'planerad': 'planerad', 'under_arbete': 'under arbete', 'klar': 'klar för ägarens bedömning',
               'ofullstandig': 'ofullständig', 'avbruten': 'avbruten', 'fel': 'föll', 'vald': 'vald för vidareutveckling',
-              'jamfors': 'vald för jämförelse', 'forkastad': 'förkastad', 'forfinad': 'förfinad', 'godkand': 'godkänd för helbygge'}
+              'jamfors': 'vald för jämförelse', 'forkastad': 'förkastad', 'forfinad': 'förfinad', 'godkand': 'godkänd för helbygge',
+              'bedombar': 'bedömbar riktning (granskningen och svaret pågår)'}
 VISBARA = ('klar', 'vald', 'jamfors', 'forkastad', 'forfinad', 'godkand')  # kandidater ägaren kan bedöma
+# Visas och kan kommenteras: också en bedömbar riktning, vars kedja (kritiken och skaparens svar) fortfarande pågår
+# (designstudion 2026-10-11, DS2). Beslut och ändringar väntar på kandidatens gräns, när kedjan är klar (VISBARA).
+BEDOMBARA = VISBARA + ('bedombar',)
+TIDIG_PUBLICERING = os.environ.get('NWP_TIDIG_PUBLICERING', 'pa') != 'av'
 MALLSIDOR = {'404.astro', 'tack.astro', 'fel.astro', 'mottagen.astro', 'robots.txt.ts', 'sitemap.xml.ts'}
 # läsverktygen som varje session får; skillverktyget och verktygssökningen lägger atelje.session_args alltid till (ägarens
 # ord 2026-10-05 18:15Z), så en roll läser sin kärna med Read eller laddar skillen med skillverktyget
@@ -231,6 +238,48 @@ def las_status(slug, kid):
 STATUS_LAS = threading.RLock()  # kandidaternas status skrivs en i taget (satt_status och markera_avbrutna)
 
 
+class Upptagen(RuntimeError):
+    """Kandidaten har redan en skrivare (skrivlas)."""
+
+
+SKRIVLAS_VANTA = int(os.environ.get('NWP_SKRIVLAS_VANTA') or 900)  # så länge en kandidats kedja väntar på en pågående ändring
+
+
+@contextlib.contextmanager
+def skrivlas(slug, kid, vanta=0, vem=''):
+    """En skrivare per kandidat (designstudion 2026-10-11, DS4): körningens tråd för kandidaten, studions och
+    direktredigeringens arbetare och kommandoradens fotografering tar kandidatens lås innan de skriver i projektet, versionerna
+    eller statusen, och håller det tills de är klara. Låset är ett flock på underlag/<slug>/atelje/kandidater/<kid>/.skrivare.las
+    (en öppen fil per skrivare, också mellan trådar i samma process; det släpps när processen dör). vanta: sekunder att vänta på
+    en annan skrivare; därefter Upptagen med vem som håller låset, om det står i filen."""
+    d = kdir(slug, kid)
+    atelje.saker_vag(d, rot(slug))
+    d.mkdir(parents=True, exist_ok=True)
+    fd = os.open(d / '.skrivare.las', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        slut = time.monotonic() + max(0, vanta)
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= slut:
+                    try:
+                        innehav = os.pread(fd, 300, 0).decode('utf-8', 'replace').strip()
+                    except OSError:
+                        innehav = ''
+                    raise Upptagen('kandidaten %s har redan en skrivare%s' % (kid, (' (%s)' % innehav) if innehav else '')) from None
+                time.sleep(0.5)
+        try:
+            os.ftruncate(fd, 0)
+            os.pwrite(fd, ('%s, pid %d, %s' % (vem or 'okänd skrivare', os.getpid(), nu())).encode('utf-8'), 0)
+        except OSError:
+            pass
+        yield
+    finally:
+        os.close(fd)
+
+
 def satt_status(slug, kid, status, skal='', ta_bort=(), **extra):
     """Kandidatens status, atomiskt, med en logg över övergångarna. ta_bort: fält som inte längre gäller. När arbetaren
     har avslutat körningen efter ett stopp eller fel (atelje.SLUTFORD, markera_avbrutna) skrivs ingen status längre: en
@@ -264,6 +313,9 @@ def statustext(st):
     av = st.get('avbruten_vid') if isinstance(st.get('avbruten_vid'), dict) else {}
     if st.get('status') == 'avbruten' and av.get('orsak') in ('stoppet', 'fel'):
         return 'avbruten %s' % ('vid stoppet' if av['orsak'] == 'stoppet' else 'av fel')
+    ba = st.get('bedombar_avbruten') if isinstance(st.get('bedombar_avbruten'), dict) else None
+    if st.get('status') == 'bedombar' and ba:
+        return 'bedömbar riktning (granskningen avbröts %s; skaparens version står)' % ('vid stoppet' if ba.get('orsak') == 'stoppet' else 'av fel')
     return STATUSTEXT.get(st.get('status'), st.get('status'))
 
 
@@ -281,6 +333,13 @@ def markera_avbrutna(slug, slag, tid, text='', efter=''):
             atelje.SLUTFORD.set()
         for kid in lista(slug):
             st = las_status(slug, kid)
+            if st.get('status') == 'bedombar':
+                # skaparens version är hel och bedömbar och står kvar; svarets session kan leva kvar en stund efter stoppet och
+                # projektet kan bära ett halvt svar, så versionen återställs först vid återupptagningen (behandla_skiss)
+                _satt_status(slug, kid, 'bedombar', 'granskningen och svaret avbröts %s %s; skaparens version står och tas upp vid återupptagningen' % (
+                    'vid stoppet' if orsak == 'stoppet' else 'av fel', tid), (), {'bedombar_avbruten': {'tid': tid, 'orsak': orsak}})
+                ut.append(kid)
+                continue
             if st.get('status') != 'under_arbete':
                 continue
             logg = [x for x in st.get('logg') or [] if isinstance(x, dict)]
@@ -2694,12 +2753,25 @@ def skissa(slug, kid, fel=None):
         granskas = False  # skissen hann inte bli klar inom tiden: ingen granskning och inget svar som kan bryta den
         satt_status(slug, kid, 'under_arbete', 'ingen granskning: skaparens session nådde tidsgränsen',
                     skisskritik={'tid': nu(), 'gjord': False, 'skal': 'skaparens session nådde tidsgränsen'})
-    fore_svaret, svar_avbrutet = None, None
+    fore_svaret, svar_avbrutet, lage = None, None, 'under_arbete'
+    if granskas and TIDIG_PUBLICERING and not atelje.STOPP.is_set():
+        # den tidiga, bedömbara riktningen (designstudion 2026-10-11, DS2): skaparens version fotograferas och visas för
+        # ägaren innan den kritiska granskningen och svaret; bedömbar betyder inte slutgranskad, och ett svar som ändrar
+        # koden blir kandidatens nästa version. Versionen bevaras med bilderna, så att vyn visar den och kan jämföra den
+        # med svaret; kandidaten står bedömbar genom granskningen, svaret och slutfotograferingen.
+        satt_status(slug, kid, 'under_arbete', 'skaparens version fotograferas')
+        tidig = fotografera(slug, kid, skiss=True, tidig={'forsok': forsok})  # sessionerna bokförs vid slutfotograferingen (kvittot läser dem där)
+        if tidig.get('status') == 'bedombar':
+            lage = 'bedombar'
+        else:
+            satt_status(slug, kid, 'under_arbete', 'skaparens version är inte bedömbar än (%s); granskningen fortsätter' % str(tidig.get('skal') or '')[:200])
+        if atelje.STOPP.is_set():
+            raise atelje.Stoppad('försöket avbröts av stoppet')
     if granskas and not atelje.STOPP.is_set():
         kvar = int(frist - FOTO_RESERV - gatt(start, paus0))
         kr, kr_fel = None, None
         if kvar >= FRIST_SKISSKRITIK + SVAR_MIN:  # granskningen görs bara när skaparen hinner svara på den
-            satt_status(slug, kid, 'under_arbete', 'den kritiska granskaren ser bilderna')
+            satt_status(slug, kid, lage, 'den kritiska granskaren ser bilderna')
             try:
                 kr = skisskritik(slug, kid)
             except (RuntimeError, subprocess.TimeoutExpired) as e:  # granskaren är rådgivande: skissen går vidare utan den
@@ -2707,7 +2779,7 @@ def skissa(slug, kid, fel=None):
             if atelje.STOPP.is_set():  # ett stopp under granskningen: försöket står kvar under arbete och tas upp igen
                 raise atelje.Stoppad('försöket avbröts av stoppet')
         kvar = int(frist - FOTO_RESERV - gatt(start, paus0))
-        satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen' if kr and kvar >= SVAR_MIN else 'granskningen gjordes inte' if not kr else
+        satt_status(slug, kid, lage, 'skaparen svarar på granskningen' if kr and kvar >= SVAR_MIN else 'granskningen gjordes inte' if not kr else
                     'ingen tid kvar för ett svar', skisskritik={'tid': nu(), 'rekommendation': (kr or {}).get('rekommendation'),
                                                                  'storsta_problem': (kr or {}).get('storsta_problem'), 'fel': kr_fel,
                                                                  'gjord': bool(kr), 'tid_kvar': kvar, 'session': (kr or {}).get('session')})
@@ -2720,7 +2792,7 @@ def skissa(slug, kid, fel=None):
                                       skiss_prompt(slug, kid, None, None, erbjud=False, minuter=max(2, -(-kvar // 60)), forsok_min=frist // 60, kritik=kr),
                                       verktyg(slug, kid, komplettering=False) + kompetens.verktyg('skapa', slug, kid), ut,
                                       max_turer=400, **installningar, frist=kvar, nekas=andra_nekas(slug, kid), slug=slug,
-                                      vid_start=lambda pid: satt_status(slug, kid, 'under_arbete', 'skaparen svarar på granskningen', session_pid=pid),
+                                      vid_start=lambda pid: satt_status(slug, kid, lage, 'skaparen svarar på granskningen', session_pid=pid),
                                       **({'aterupptag': ursprung,  # avslaget: samma anrop som före provet
                                           'fortsattning': {'avtryck_lika': True, 'komprimerad': False, 'roll': 'skiss-svar', 'slug': slug,
                                                            'kandidat': kid, 'forsok': forsok, 'tid': nu()}} if ursprung else {}))
@@ -2735,7 +2807,7 @@ def skissa(slug, kid, fel=None):
             if atelje.STOPP.is_set():
                 raise atelje.Stoppad('försöket avbröts av stoppet')
     tidigare = las_status(slug, kid)
-    satt_status(slug, kid, 'under_arbete', 'fotograferas', sessioner=(tidigare.get('sessioner') or []) + sessioner)
+    satt_status(slug, kid, lage, 'fotograferas', sessioner=(tidigare.get('sessioner') or []) + sessioner)
     st = fotografera(slug, kid, skiss=True)
     if fore_svaret:
         bygget = lambda st_: any(x.startswith('bygget föll') or x.startswith('startsidan saknas') for x in st_.get('hinder') or [])  # noqa: E731
@@ -3666,6 +3738,25 @@ def skaparbrister(st):
     return kompetens.kravbrister((kv.get('skiss:skapa') or kv.get('full:skapa') or {}).get('kvitto'), 'skapa')
 
 
+def ta_upp_bedombar(slug, kid, st):
+    """Återupptagningen av en kandidat som stod bedömbar när granskningen eller svaret avbröts (stoppet, ett fel, processen
+    dog): skaparens bedömbara version står och görs inte om; ett halvt svar i projektet ersätts av den bevarade versionen,
+    som fotograferas igen (DS2, designstudion 2026-10-11). En bedömbar version som inte bevarades görs om som ett avbrutet
+    försök. Ger den nya statusen."""
+    if nastlad_session(st.get('session_pid')):
+        atelje.doda_trad(st.get('session_pid'))
+    v_ = (st.get('bedombar') or {}).get('version')
+    av_ = st.get('bedombar_avbruten') if isinstance(st.get('bedombar_avbruten'), dict) else {}
+    orsak_ = {'stoppet': 'vid stoppet', 'fel': 'av ett fel'}.get(av_.get('orsak'), 'med processen')
+    if v_ and bevarad(slug, kid, v_):
+        if projektets_version(slug, kid) != v_ or version(slug, kid) != v_:
+            aterstall_och_fotografera(slug, kid, v_)
+        shutil.rmtree(kdir(slug, kid) / 'fore-svaret', ignore_errors=True)
+        return satt_status(slug, kid, 'klar', 'granskningen och svaret avbröts %s; skaparens version %s står' % (orsak_, v_[:12]),
+                           ta_bort=('session_pid',), version=v_)
+    return satt_status(slug, kid, 'under_arbete', 'den bedömbara versionen är inte bevarad; försöket görs om', ta_bort=('session_pid',))
+
+
 def behandla_skiss(slug, kid):
     """En skiss: det inledande försöket, och ett omförsök bara vid ett identifierat tekniskt fel (bygget föll, skärmbilderna
     saknas, sessionen föll). Ett försök som avbröts med processen, eller som stoppet eller ett fel avbröt (avbruten_vid,
@@ -3682,6 +3773,8 @@ def behandla_skiss(slug, kid):
         b_ = st['referensprofil_brister'] or {}
         st = satt_status(slug, kid, b_.get('status_fore') or 'planerad', b_.get('skal_fore') or 'referensprofilen görs om efter förra startens brist',
                          ta_bort=('referensprofil_brister',), tekniskt_fel=bool(b_.get('tekniskt_fel_fore')))
+    if st.get('status') == 'bedombar':
+        st = ta_upp_bedombar(slug, kid, st)
     av = st.get('avbruten_vid') if st.get('status') == 'avbruten' and isinstance(st.get('avbruten_vid'), dict) else None
     if st.get('status') == 'under_arbete' or av:  # processen dog mitt i försöket, eller körningen stoppades eller föll under det
         if nastlad_session(st.get('session_pid')):  # en kvarlevande session skriver aldrig i nästa försöks projekt (S3),
@@ -3950,7 +4043,7 @@ def menyprovet(meny, fel=None, vy='390'):
     return [], []
 
 
-def fotografera(slug, kid, skiss=None):
+def fotografera(slug, kid, skiss=None, tidig=None):
     """Bygg kandidatens projekt, fotografera startsidan i 390, 768, 1280 och 1440 (STARTVYER) och undersidan i 390 och
     1440, kör axe, bevara koden, DESIGN.md och bilderna, och sätt status: klar för ägarens bedömning, eller ofullständig
     med skälen. skiss: bara startsidan, med menyns knapp klickad i verkligt tillstånd (menyprovet); hinder (startsidan
@@ -3958,9 +4051,12 @@ def fotografera(slug, kid, skiss=None):
     belägg, menyn, huvudreferensraden) markeras och skissen ändå går att bedöma; det som inte är fel men ska sägas (en
     mobil utan menyknapp där alla länkar syns) står i upplysningar. skiss None: efter versionen, en skiss i skissläget som
     inte fördjupats får skissens kontroller, också vid --fotografera och när en misslyckad fördjupning återställs
-    (granskning 3, S5)."""
+    (granskning 3, S5). En sida som svarar 200 men inte går att bedöma (ej_bedombar: tom, ett felmeddelande, ingen h1, en
+    trasig bild i första vyn) är ett hinder. tidig: skaparens version före granskningen (ett dict med försöket); utan hinder
+    blir den bedömbar (status bedombar) i stället för klar, med bilderna bevarade i versionen, så att vyn visar den
+    medan granskningen och svaret pågår (designstudion 2026-10-11, DS2)."""
     d, sajt = kdir(slug, kid), ksajt(slug, kid)
-    brister, markeringar, upplysningar = [], [], []
+    brister, markeringar, upplysningar, ej_bedombar = [], [], [], []
     fore_foto = projektets_version(slug, kid)
     frys_material(slug, kid)
     kod = d / 'kod'
@@ -4012,6 +4108,12 @@ def fotografera(slug, kid, skiss=None):
                 ins = atelje.las_json(ut / 'INSPEKTION.json') or {}
                 # en felsida (inte 200, eller inte HTML) är ingen ögonblicksbild av kandidaten: ett hinder, också i skissläget
                 brister += ['%s %s' % (vag, x) for x in forhandsvisa.ogiltig_sida(ins)]
+                # inte bedömbar trots 200 (designstudion 2026-10-11, DS-U06): ett felmeddelande, en tom huvuddel, ingen
+                # rubrik eller en bild i första vyn som inte laddades; typsnitt som inte laddades markeras
+                ej = ['%s %s' % (vag, x) for x in forhandsvisa.ej_bedombar(ins)]
+                ej_bedombar += ej
+                brister += ej
+                markeringar += ['%s %s' % (vag, x) for x in forhandsvisa.bedombarhetens_markeringar(ins)]
                 for vy, r in sorted((ins.get('vyer') or {}).items()):
                     fel = [x for x in r.get('konsol') or [] if x.get('typ') == 'error'] + list(r.get('sidfel') or [])
                     if fel:
@@ -4046,9 +4148,14 @@ def fotografera(slug, kid, skiss=None):
     if projektets_version(slug, kid) != fore_foto:
         brister.append('koden eller underlaget ändrades under fotograferingen; fotografera igen')
     v = version(slug, kid)
-    bevara_version(slug, kid, v, bilder=False)
     status = 'klar' if not brister else 'ofullstandig'
+    if tidig is not None and status == 'klar':
+        status = 'bedombar'
+        tidig = dict(tidig, tid=nu(), version=v)
+    bevara_version(slug, kid, v, bilder=status == 'bedombar')  # den tidiga versionens bilder visas medan granskningen pågår
     skal = '; '.join(brister) or ('fotograferad; brister: ' + '; '.join(markeringar) if markeringar else 'fotograferad')
+    if status == 'bedombar':
+        skal = 'bedömbar riktning: skaparens version %s; granskningen och svaret pågår%s' % (v[:12], ('; brister: ' + '; '.join(markeringar)) if markeringar else '')
     sv = list(las_status(slug, kid).get('skissversioner') or [])
     if skiss and v not in sv:
         sv.append(v)
@@ -4056,7 +4163,8 @@ def fotografera(slug, kid, skiss=None):
     return satt_status(slug, kid, status, skal, version=v, fotograferad=nu(), axe=axe, hinder=brister if skiss else None,
                        brister=markeringar if skiss else None, upplysningar=upplysningar if skiss else None, skissversioner=sv or None,
                        undersidor=undersidor(slug, kid), varv=varv_antal(slug, kid), tillampning=tillampningen(slug, kid),
-                       huvudreferens=(hr or {}).get('namn'), huvudreferens_i_researchen=huvudreferenserna_i_researchen(slug, hr))
+                       huvudreferens=(hr or {}).get('namn'), huvudreferens_i_researchen=huvudreferenserna_i_researchen(slug, hr),
+                       ej_bedombar=ej_bedombar or None, **({'bedombar': tidig} if status == 'bedombar' else {}))
 
 
 def bevara_version(slug, kid, v, bilder=True):
@@ -4602,6 +4710,12 @@ def kor_pool(slug, ids, arbete, status, skriv, parallellt=None, forsta=None):
     tråd skriver efter stoppet hindras (markera_avbrutna)."""
     kvar, las = list(ids), threading.Lock()
 
+    def tva(forsta):  # T2: den första bedömbara versionen (klar eller tidigt publicerad), ur kandidaternas loggar
+        if forsta is not None and not forsta.get('forsta_valbara'):
+            t_ = forsta_valbara(slug, str(forsta.get('start') or ''))
+            if t_:
+                forsta['forsta_valbara'] = t_
+
     def arbeta():
         while True:
             with las:
@@ -4609,17 +4723,18 @@ def kor_pool(slug, ids, arbete, status, skriv, parallellt=None, forsta=None):
                     return
                 kid = kvar.pop(0)
             try:
-                arbete(kid)
+                # en skrivare per kandidat: en pågående ändring ur studion eller direktredigeringen blir klar först (DS4)
+                with skrivlas(slug, kid, vanta=SKRIVLAS_VANTA, vem='körningens kedja'):
+                    arbete(kid)
             except atelje.Stoppad:  # kandidaten står kvar under arbete; arbetaren märker den avbruten vid stoppet
+                with las:
+                    tva(forsta)
                 return
             except Exception as e:  # noqa: BLE001 — en kandidat som faller stoppar inte de andra
                 satt_status(slug, kid, 'fel', '%s: %s' % (type(e).__name__, str(e)[:300]))
             with las:
                 status['kandidater'] = {k: las_status(slug, k).get('status') for k in lista(slug)}
-                if forsta is not None and not forsta.get('forsta_valbara'):
-                    t_ = forsta_valbara(slug, str(forsta.get('start') or ''))
-                    if t_:
-                        forsta['forsta_valbara'] = t_
+                tva(forsta)
                 skriv()
 
     tradar = [threading.Thread(target=arbeta, daemon=True) for _ in range(min(parallellt or PARALLELLT, len(kvar)))]
@@ -4773,8 +4888,9 @@ def kor(slug, status, skriv, n=None):
 
 
 def forsta_valbara(slug, efter):
-    """Tiden då den första kandidaten blev klar för ägarens bedömning i den här körningen (kandidaternas statuslogg)."""
-    t = [x.get('tid') for k in lista(slug) for x in las_status(slug, k).get('logg') or [] if x.get('status') == 'klar' and x.get('tid', '') >= efter]
+    """Tiden då den första kandidaten blev bedömbar eller klar för ägarens bedömning i den här körningen (kandidaternas
+    statuslogg; bedömbar sedan designstudion 2026-10-11, DS2)."""
+    t = [x.get('tid') for k in lista(slug) for x in las_status(slug, k).get('logg') or [] if x.get('status') in ('klar', 'bedombar') and x.get('tid', '') >= efter]
     return min(t) if t else None
 
 
@@ -5753,6 +5869,9 @@ def sammanstall(slug):
                     'undersida-390': b(under, '390', 'forsta') if under else None, 'undersida-1440': b(under, '1440', 'forsta') if under else None,
                     'undersida-390-hela': b(under, '390', 'hela') if under else None, 'undersida-1440-hela': b(under, '1440', 'hela') if under else None}
         under = forhandsvisa.sidnamn(st['undersidor'][0]) if st.get('undersidor') else None
+        # en bedömbar kandidat visas med sin bevarade versions bilder: projektets bilder byts under slutfotograferingen (DS2)
+        tidig = (st.get('bedombar') or {}).get('version') if st.get('status') == 'bedombar' else None
+        bas = d / 'versioner' / tidig[:12] / 'bilder' if tidig and bevarad(slug, kid, tidig) else d / 'bilder'
         post = {'id': kid, 'etikett': namn.get(kid), 'status': st.get('status'), 'statustext': statustext(st),
                 'skal': st.get('skal'), 'version': st.get('version'), 'varv': st.get('varv'), 'undersidor': st.get('undersidor') or [],
                 'bygd': (ksajt(slug, kid) / 'dist' / 'index.html').is_file(), 'design_fel': st.get('design_fel') or [],
@@ -5760,7 +5879,7 @@ def sammanstall(slug):
                 # skissens pass bär kärnan läst hel (karnan_last; äldre poster genomford), passen efteråt genomfört (C4)
                 'kompetenspass': {rec.get('pass'): (rec.get('karnan_last', rec.get('genomford')) if rec.get('pass') == 'skapa' else rec.get('genomford'))
                                   for k_, rec in sorted((st.get('kompetens') or {}).items()) if k_.startswith('skiss:')},
-                'hypotes': st.get('hypotes') or '', 'bilder': bilder(d / 'bilder', under),
+                'hypotes': st.get('hypotes') or '', 'bilder': bilder(bas, under), 'bedombar': st.get('bedombar') if st.get('status') == 'bedombar' else None,
                 'referensjamforelse': referensjamforelse(slug, kid), 'redovisning': kort_redovisning(slug, kid)}
         if not blind:
             import ateljeslut
@@ -5811,7 +5930,12 @@ def main(argv=None):
         if not ID.fullmatch(a.fotografera) or a.fotografera not in lista(a.slug):
             print('okänd kandidat: %s' % a.fotografera)
             return 2
-        st = fotografera(a.slug, a.fotografera)
+        try:  # kommandoraden är en skrivare som de andra: en pågående kedja eller ändring för kandidaten blir klar först (DS4)
+            with skrivlas(a.slug, a.fotografera, vem='kandidater.py --fotografera'):
+                st = fotografera(a.slug, a.fotografera)
+        except Upptagen as e:
+            print('%s; fotograferingen gjordes inte' % e)
+            return 5
         print(st['status'], st.get('skal', ''))
         return 0
     for k in sammanstall(a.slug):

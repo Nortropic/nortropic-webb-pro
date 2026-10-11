@@ -1,0 +1,29 @@
+---
+import Bas from '../layouts/Bas.astro';
+import Sidhuvud from '../components/Sidhuvud.astro';
+import Hero from '../components/Hero.astro';
+import Tjanster from '../components/Tjanster.astro';
+import OmOss from '../components/OmOss.astro';
+import Kontakt from '../components/Kontakt.astro';
+import verkstad from '../assets/atelje/verkstad.jpg';
+const tjanster = [
+  { namn: 'Kök och luckor', text: 'Platsbyggda kök efter ditt rum, i massivt trä eller målade luckor.' },
+  { namn: 'Trappor', text: 'Nya trappor och renovering av gamla, med steg som tål vardagen.' },
+  { namn: 'Fönster', text: 'Varsam renovering av äldre fönster med linoljefärg och nytt kitt.' },
+];
+---
+<Bas titel="Fiktiv Snickeri AB – platsbyggda kök och trappor (provkund)" beskrivning="Provkund i Nortropics designstudio: ett syntetiskt snickeri med kök, trappor och fönsterrenovering. Inga verkliga uppgifter." tema="#7a4a24">
+  <Sidhuvud />
+  <main id="innehall">
+    <Hero rubrik="Platsbyggt som håller i generationer" ingress="Vi bygger kök, trappor och inredning efter ditt hem – från första skiss till sista list." bild={verkstad} bildAlt="Verkstaden med hyvelbänk och virke" />
+    <Tjanster tjanster={tjanster} />
+    <OmOss />
+    <Kontakt />
+  </main>
+  <footer class="sidfot">
+    <p>Fiktiv Snickeri AB · provkund, inga verkliga uppgifter</p>
+  </footer>
+</Bas>
+<style>
+  .sidfot { padding: var(--avstand-l) var(--avstand-m); text-align: center; color: var(--farg-dampad); }
+</style>

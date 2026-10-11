@@ -1,0 +1,24 @@
+---
+interface Props { tjanster: { namn: string; text: string }[] }
+const { tjanster } = Astro.props;
+---
+<section class="tjanster" id="tjanster" aria-labelledby="tjanster-rubrik">
+  <h2 id="tjanster-rubrik" class="tjanster__rubrik">Det här bygger vi</h2>
+  <ul class="tjanster__lista">
+    {tjanster.map((t) => (
+      <li class="tjanst">
+        <h3 class="tjanst__namn">{t.namn}</h3>
+        <p class="tjanst__text">{t.text}</p>
+      </li>
+    ))}
+  </ul>
+</section>
+<style>
+  .tjanster { padding: var(--avstand-xl) var(--avstand-m); max-width: var(--spalt-maxbredd); margin-inline: auto; }
+  .tjanster__rubrik { font-family: var(--typ-rubrik-familj); font-size: 2rem; margin: 0 0 var(--avstand-l); }
+  .tjanster__lista { display: grid; gap: var(--avstand-m); list-style: none; margin: 0; padding: 0; }
+  .tjanst { background: #fff; border-radius: var(--radie-m); padding: var(--avstand-m); }
+  .tjanst__namn { margin: 0 0 var(--avstand-s); font-size: 1.25rem; }
+  .tjanst__text { margin: 0; color: var(--farg-dampad); }
+  @media (min-width: 48rem) { .tjanster__lista { grid-template-columns: repeat(3, 1fr); } }
+</style>

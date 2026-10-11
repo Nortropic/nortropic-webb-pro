@@ -124,14 +124,28 @@ def bygg_inom_grans(sajt, timeout=600):
             fcntl.flock(las, fcntl.LOCK_UN)
 
 
+STUDIOBYGGE = KONTROLLER / 'studio' / 'bygg.mjs'
+
+
+def ar_kandidatprojekt(sajt):
+    """<root>/kunder/<slug>/kandidater/kNN/sajt: skapandeflödets kandidat, inte sajtens eget bygge."""
+    delar = Path(sajt).parts
+    if 'kunder' not in delar:
+        return False
+    i = max(j for j, d in enumerate(delar) if d == 'kunder')
+    return len(delar) == i + 5 and delar[i + 2] == 'kandidater' and bool(re.fullmatch(r'k\d{2}', delar[i + 3])) and delar[i + 4] == 'sajt'
+
+
 def byggkommando(sajt):
     """Byggets kommando för <root>/kunder/<slug>/sajt eller en kandidats projekt: innanför processgränsen, utom när
-    anroparen redan är innanför den (NWP_PROCESSGRANS=1)."""
+    anroparen redan är innanför den (NWP_PROCESSGRANS=1). En kandidat byggs med studions förhandsbygge
+    (kontroller/studio/bygg.mjs: samma astro build plus källkartans id, kunskap/designstudio.md); sajtens eget bygge,
+    helbygget och exporten med npm run build, utan id."""
     sajt = Path(sajt)
     delar = sajt.parts
     i = max(j for j, d in enumerate(delar) if d == 'kunder')
     root, slug = Path(*delar[:i]), delar[i + 1]
-    kmd = ['npm', 'run', 'build', '--prefix', str(sajt)]
+    kmd = ['node', str(STUDIOBYGGE), str(sajt)] if ar_kandidatprojekt(sajt) else ['npm', 'run', 'build', '--prefix', str(sajt)]
     if os.environ.get('NWP_PROCESSGRANS') != '1':
         kmd = [sys.executable, '-B', str(KONTROLLER / 'processgrans.py'), slug, '--root', str(root), '--utan-nat', '--skrivbar', str(sajt), '--', *kmd]
     return kmd
@@ -147,7 +161,7 @@ def byggidentitet(sajt):
     return kallidentitet(sajt, kmd)
 
 
-BYGGVERKTYG = ('prova.py', 'processgrans.py')
+BYGGVERKTYG = ('prova.py', 'processgrans.py', 'studio/bygg.mjs', 'studio/karta.mjs')
 _NODE_VERSION = []
 
 
@@ -549,6 +563,7 @@ class Server:
 
     def __exit__(self, *a):
         self.httpd.shutdown()
+        self.httpd.server_close()  # lyssnarens socket stängs också (annars en ResourceWarning per server)
 
 
 def seo_rader(sj):

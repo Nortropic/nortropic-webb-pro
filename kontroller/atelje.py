@@ -3167,8 +3167,8 @@ def ta_bort_beslut(slug, info=None):
              for x in (d.get('kandidater') or []) if isinstance(x, dict) and plan.get('tid') and (x.get('plan') or d.get('plan')) == plan.get('tid')}
 
     def sedd(kid, s):
-        visad = any(isinstance(x, dict) and x.get('status') in kandidater.VISBARA for x in s.get('logg') or [])
-        return s.get('status') in kandidater.VISBARA or visad or bool(s.get('forbattras')) or kid in valda
+        visad = any(isinstance(x, dict) and x.get('status') in kandidater.BEDOMBARA for x in s.get('logg') or [])  # också tidigt publicerad (DS2)
+        return s.get('status') in kandidater.BEDOMBARA or visad or bool(s.get('forbattras')) or kid in valda
     kandplan = plan.get('kandidater') if isinstance(plan.get('kandidater'), dict) else {}
     st_kand = {kid: las_json(u / 'atelje' / 'kandidater' / kid / 'STATUS.json') or {} for kid in kandplan}
     sedda = [str(kp.get('titel') or kid) for kid, kp in sorted(kandplan.items()) if isinstance(kp, dict) and sedd(kid, st_kand[kid])]

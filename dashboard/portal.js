@@ -17,6 +17,9 @@
     system: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
     las: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     sok: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    studio: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M7 9h6M7 12h4"/>',
+    produktion: '<path d="M4 20V9l5 3V9l5 3V6l6 4v10z"/>',
+    dok: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
   };
   const ikon = (n) => `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IKON[n]}</svg>`;
 
@@ -64,6 +67,7 @@
       ['kundstart', 'Kundstart', a ? '#/intervju/' + encodeURIComponent(a.id) : null, 'intervjun: samtalet och det växande underlaget', null],
       ['underlag', 'Underlag', ks, 'källbundna uppgifter och material', 'underlag'],
       ['funktioner', 'Funktioner', ks, 'K01–K18: behov, val och plan', 'funktioner'],
+      ['designstudio', 'Designstudio', k.projekt ? '#/studio/' + s : null, 'riktningarna, förhandsvisningen, de visuella kontrollerna, samtalet och sessionerna', null],
       ['forslag', 'Förslag', p && p + '/forslag', 'skisserna och dina val', null],
       ['forfining', 'Förfining', p && '#/granska/' + s, 'kommentera den bevarade bilden och samla till ett uppdrag', null],
       ['bygge', 'Bygge', p && p + '/flode', 'helbygget och sessionerna', null],
@@ -75,17 +79,19 @@
   function aktivtOmrade(h) {
     if (h.startsWith('intervju/')) return 'kundstart';
     if (h.startsWith('kundstart/')) { try { return sessionStorage.getItem('nwp-portal:omrade') || 'kundstart'; } catch { return 'kundstart'; } }
+    if (h.startsWith('studio/')) return 'designstudio';
     if (/^arbetsyta\/[^/]+\/forslag/.test(h)) return 'forslag';
     if (/^arbetsyta\/[^/]+\/flode/.test(h)) return 'bygge';
     if (/^arbetsyta\/[^/]+\/kod/.test(h)) return 'granskning';
-    if (/^arbetsyta\/[^/]+/.test(h) || h.startsWith('granska/')) return 'forfining';
+    if (h.startsWith('granska/')) return 'forfining';
+    if (/^arbetsyta\/[^/]+/.test(h)) return 'designstudio';
     if (h === 'leverans') return 'leverans';
     if (h.startsWith('leverans-kund/')) { try { return sessionStorage.getItem('nwp-portal:omrade') === 'forvaltning' ? 'forvaltning' : 'leverans'; } catch { return 'leverans'; } }
     return null;
   }
   function kundFor(h, d) {
-    if (!d) return null;
-    let m = h.match(/^(?:arbetsyta|kund|bygge|leverans-kund|granska)\/([^/]+)/);
+    if (!d || !Array.isArray(d.kunder)) return null;  // utan kundlista ritas ramen utan stegrad
+    let m = h.match(/^(?:arbetsyta|studio|kund|bygge|leverans-kund|granska)\/([^/]+)/);
     if (m) return d.kunder.find((k) => k.slug === decodeURIComponent(m[1])) || null;
     m = h.match(/^(?:kundstart|intervju)\/([a-f0-9]{32})/);
     if (m) return d.kunder.find((k) => (k.arenden || []).some((a) => a.id === m[1])) || null;
@@ -95,10 +101,25 @@
 
   // --- ramen ---
   function navlank(href, text, ik, aktiv, id) { return `<a href="${href}"${aktiv === id ? ' aria-current="page"' : ''}>${ikon(ik)}<span>${text}</span></a>`; }
+  // Kundproduktionens och systemförbättringens delar (förr menyerna i arbetsytans huvud): samma adresser och vyer
+  const PRODUKTION = [['oversikt', 'Byggen och dina domar'], ['ab', 'Jämförelser'], ['kundstart', 'Kundstart'], ['leverans', 'Leverans och förvaltning'],
+    ['prospekt', 'Prospekt', 'n-prospekt'], ['starta', 'Starta']];
+  const SYSTEM = [['underhall', 'Underhåll och verktygslådan'], ['kirurgen', 'Kirurgen', 'n-kirurg'], ['backlog', 'Backlog', 'n-backlog'],
+    ['kalibrering', 'Kalibrering'], ['lardomar', 'Lärdomar'], ['designprov', 'Designprov']];
+  function delgrupp(id, namn, ik, delar, aktivDel) {
+    const har = delar.some(([k]) => k === aktivDel);
+    return `<details class="pt-delar" id="pt-${id}"${har || laddaOppen(id) ? ' open' : ''}><summary>${ikon(ik)}<span>${namn}</span><b class="pt-summa" id="pt-summa-${id}" hidden></b></summary>
+      <div class="pt-dellista">${delar.map(([k, n, rak]) => `<a href="#/${k}"${aktivDel === k ? ' aria-current="page"' : ''}><span>${n}</span>${rak ? `<b id="${rak}" hidden></b>` : ''}</a>`).join('')}</div></details>`;
+  }
+  function laddaOppen(id) { try { return localStorage.getItem('nwp-portal:oppen:' + id) === '1'; } catch { return false; } }
   function ritaRam(h) {
+    const forsta = h.split('/')[0];
     const aktiv = h === '' || h === 'start' ? 'start' : h.startsWith('ny-') ? 'ny-kund' : h.startsWith('testkunder') ? 'testkunder'
-      : h.startsWith('kunder') || h.startsWith('kund/') || h.startsWith('kundstart') ? 'kunder' : h.startsWith('arbetsyta') ? 'arbetsyta'
-      : ['underhall', 'kirurgen', 'backlog', 'kalibrering', 'lardomar', 'designprov'].includes(h.split('/')[0]) ? 'system' : null;
+      : h.startsWith('studio') || /^arbetsyta\/[^/]+\/?$/.test(h) || h === 'arbetsyta' ? 'studio'
+      : h.startsWith('kunder') || h.startsWith('kund/') || h.startsWith('arbetsyta/') || h.startsWith('granska') || h.startsWith('intervju') || h.startsWith('leverans-kund') ? 'kunder'
+      : forsta === 'dokumentation' ? 'dokumentation' : null;
+    const aktivDel = [...PRODUKTION, ...SYSTEM].some(([k]) => k === forsta) ? forsta : forsta === 'bygge' ? 'oversikt' : null;
+    let studio = '#/studio'; try { const s = localStorage.getItem('nwp-arbetsyta:senaste') || localStorage.getItem('nwp-portal:kund'); if (s) studio = '#/studio/' + encodeURIComponent(s); } catch { /* */ }
     let nav = document.getElementById('pt-nav');
     if (!nav) {
       nav = document.createElement('nav'); nav.id = 'pt-nav'; nav.className = 'pt-nav'; nav.setAttribute('aria-label', 'Nortropic');
@@ -115,11 +136,17 @@
         location.hash = k ? '#/kund/' + encodeURIComponent(k.slug) : (k?.test ? '#/testkunder' : '#/kunder');
       });
     }
+    if (nav.contains(document.activeElement) && nav.dataset.aktiv === JSON.stringify([aktiv, aktivDel, studio, !!P.desktop?.session])) { ritaSteg(h); return; }
+    nav.dataset.aktiv = JSON.stringify([aktiv, aktivDel, studio, !!P.desktop?.session]);
     nav.innerHTML = `<a class="pt-marke" href="#/start"><span>Nortropic</span></a>
       <div class="pt-grupp">${navlank('#/start', 'Hem', 'hem', aktiv, 'start')}${navlank('#/kunder', 'Kunder', 'kunder', aktiv, 'kunder')}${navlank('#/ny-kund', 'Ny kund', 'ny', aktiv, 'ny-kund')}${navlank('#/testkunder', 'Testkunder', 'test', aktiv, 'testkunder')}</div>
-      <div class="pt-grupp">${navlank('#/arbetsyta', 'Arbetsytan', 'arbetsyta', aktiv, 'arbetsyta')}${navlank('#/underhall', 'Systemförbättring', 'system', aktiv, 'system')}</div>
+      <div class="pt-grupp">${navlank(studio, 'Designstudio', 'studio', aktiv, 'studio')}</div>
+      <div class="pt-grupp">${delgrupp('produktion', 'Kundproduktion', 'produktion', PRODUKTION, aktivDel)}${delgrupp('system', 'Systemförbättring', 'system', SYSTEM, aktivDel)}
+        ${navlank('#/dokumentation', 'Dokumentation och rapporter', 'dok', aktiv, 'dokumentation')}</div>
       ${P.desktop?.session ? `<div class="pt-grupp pt-sist"><button type="button" class="pt-las" id="pt-las">${ikon('las')}<span>Lås Nortropic</span></button></div>` : ''}`;
     document.getElementById('pt-las')?.addEventListener('click', lasAppen);
+    nav.querySelectorAll('details.pt-delar').forEach((d) => d.addEventListener('toggle', () => { try { localStorage.setItem('nwp-portal:oppen:' + d.id.slice(3), d.open ? '1' : '0'); } catch { /* */ } }));
+    raknare();
     document.getElementById('pt-toppstatus').innerHTML = P.desktop?.session ? '<span class="pt-chip ok">Upplåst i Nortropic.app</span>' : '<span class="pt-chip">Webbläsaren</span>';
     ritaSteg(h);
   }
@@ -130,29 +157,42 @@
     try { localStorage.setItem('nwp-portal:kund', k.slug); } catch { /* bekvämlighet */ }
     const akt = aktivtOmrade(h);
     el.className = 'pt-steg';
+    const lage = document.getElementById('pt-lage')?.outerHTML || '<div class="pt-lage" id="pt-lage" role="status" aria-live="polite"></div>';
     el.innerHTML = `<div class="pt-steg-kund"><a href="#/kund/${encodeURIComponent(k.slug)}">${e_(k.namn || k.slug)}</a>${k.test ? ' <span class="pt-test">Testkund</span>' : ''}</div>
       <ol class="pt-stegrad" aria-label="Kundens arbetsområden">${omraden(k).map(([id, namn, href, om, del], i) => `<li${akt === id ? ' class="aktiv"' : ''}>${href
         ? `<a href="${href}" data-omrade="${id}" data-del="${del || ''}" title="${e_(om)}"${akt === id ? ' aria-current="step"' : ''}><i>${i + 1}</i><span>${namn}</span></a>`
-        : `<span class="pt-ej" title="${e_(om)}: inte påbörjat för kunden"><i>${i + 1}</i><span>${namn}</span></span>`}</li>`).join('')}</ol>`;
+        : `<span class="pt-ej" title="${e_(om)}: inte påbörjat för kunden"><i>${i + 1}</i><span>${namn}</span></span>`}</li>`).join('')}</ol>${lage}`;
     el.querySelectorAll('[data-omrade]').forEach((a) => a.addEventListener('click', () => { try { sessionStorage.setItem('nwp-portal:omrade', a.dataset.omrade); sessionStorage.setItem('nwp-portal:del', a.dataset.del); } catch { /* */ } }));
   }
+  async function raknare() {
+    const satt = (r) => {
+      const ett = (id, n, text) => { const b = document.getElementById(id); if (b) { b.hidden = !n; b.textContent = n ? text : ''; } };
+      ett('n-backlog', r.backlog, String(r.backlog)); ett('n-kirurg', r.kirurg, r.kirurg + ' pågår'); ett('n-prospekt', r.prospekt, String(r.prospekt));
+      ett('pt-summa-system', r.backlog + r.kirurg, String(r.backlog + r.kirurg)); ett('pt-summa-produktion', r.prospekt, String(r.prospekt));
+    };
+    if (P.raknare) satt(P.raknare);
+    if (P.raknare && Date.now() - P.raknare.tid < 60000 || P.raknareLaser) return;
+    P.raknareLaser = true;
+    try { const o = await hamta('/api/oversikt'); P.raknare = { tid: Date.now(), backlog: o.backlog_vilande || 0, kirurg: o.intag_pagar || 0, prospekt: o.prospekt_vantar || 0 }; satt(P.raknare); }
+    catch { /* räknarna är en bekvämlighet */ } finally { P.raknareLaser = false; }
+  }
+  window.portalRaknare = function portalRaknare(o) { P.raknare = { tid: Date.now(), backlog: o.backlog_vilande || 0, kirurg: o.intag_pagar || 0, prospekt: o.prospekt_vantar || 0 }; raknare(); };
   async function lasAppen() {
     try { await skicka('/api/desktop/utloggning', {}); } catch { /* sessionen kan redan vara borta */ }
     location.href = '/desktop/last';  // Nortropic.app fångar adressen och visar sitt lås; webbläsaren får en utloggad sida
   }
 
-  // Varje route går hit först: ramen ritas i appen alltid och i webbläsaren bara för portalens egna vyer, så att
-  // arbetsytan i webbläsaren ser ut som förut.
+  // Varje route går hit först: portalens ram är den enda, i appen och i webbläsaren (ägarens besked 2026-10-11: den gamla
+  // arbetsvyn ska inte finnas längre, och allt ska finnas i den nya). Designstudion, Förslag, Bygge, Granskning och delarna
+  // ritas i ramens yta; Hem är startvyn.
   window.portalSkal = async function portalSkal(h) {
-    const d = await desktopLage();
-    const egen = EGNA.includes(String(h).split('/')[0]) || (h === '' && d.session);
-    const visa = d.session || egen;
-    document.documentElement.classList.toggle('pt-ram', visa);
-    if (!visa) { ['pt-nav', 'pt-topp', 'pt-steg'].forEach((id) => document.getElementById(id)?.remove()); return false; }
+    await desktopLage();
+    const egen = EGNA.includes(String(h).split('/')[0]) || h === '';
+    document.documentElement.classList.add('pt-ram');
     if (!P.data) { try { await data(); } catch { /* listan saknas; ramen ritas ändå */ } }
     ritaRam(h);
     const lista = document.getElementById('pt-soklista');
-    if (lista && P.data) lista.innerHTML = P.data.kunder.map((k) => `<option value="${e_(k.namn || k.slug)}"></option>`).join('');
+    if (lista && Array.isArray(P.data?.kunder)) lista.innerHTML = P.data.kunder.map((k) => `<option value="${e_(k.namn || k.slug)}"></option>`).join('');
     return egen;
   };
   // Efter att en befintlig vy ritats: skrolla till den del av Kundstart som arbetsområdet pekade på.
@@ -252,7 +292,7 @@
       <div class="pt-tva">
         <section class="pt-panel"><h2>Uppdrag</h2><ul class="pt-lista">
           ${(k.arenden || []).map((a) => `<li><a href="#/kundstart/${encodeURIComponent(a.id)}">Kundstart</a> <span>${a.aktuell_bestallning ? 'omfattningen accepterad' : 'intervju och underlag'} · uppdaterad ${e_(tid(a.uppdaterad))}${a.fragor ? ' · ' + a.fragor + ' frågor att följa upp' : ''}</span></li>`).join('')}
-          ${k.projekt ? `<li><a href="#/arbetsyta/${encodeURIComponent(k.slug)}">Skapandeflödet</a> <span>senast aktivt ${e_(tid(k.projekt.senast_andrad))}${(k.pagar || []).length ? ' · pågår: ' + e_(k.pagar.join(', ')) : ''}</span></li>` : ''}
+          ${k.projekt ? `<li><a href="#/studio/${encodeURIComponent(k.slug)}">Designstudion</a> <span>senast aktivt ${e_(tid(k.projekt.senast_andrad))}${(k.pagar || []).length ? ' · pågår: ' + e_(k.pagar.join(', ')) : ''}</span></li>` : ''}
           ${!(k.arenden || []).length && !k.projekt ? '<li class="pt-tomt">Inga uppdrag.</li>' : ''}</ul></section>
         <section class="pt-panel"><h2>Väntar på dig</h2>${(k.vantar || []).length ? `<ul class="pt-lista">${k.vantar.map((v) => `<li>${e_(v)}</li>`).join('')}</ul>` : '<p class="pt-tomt">Inget beslut väntar.</p>'}
           <h2>Senare tillägg</h2><p class="pt-under">En ny funktion eller ändring för samma kund görs i kundens befintliga ärende (Funktioner) och får en egen konsekvensplan; ingen ny kund skapas.</p>
@@ -520,7 +560,7 @@
           ${c.status === 'oppen' ? `<button type="button" class="pt-lank" data-status-k="${e_(c.id)}" data-till="avvisad">Avvisa</button>` : ''}
           ${['bestalld', 'oppen'].includes(c.status) && c.inaktuell ? `<button type="button" class="pt-lank" data-status-k="${e_(c.id)}" data-till="lost_verifierad">Verifierat löst i den nya versionen</button>` : ''}
           ${c.status === 'avvisad' ? `<button type="button" class="pt-lank" data-status-k="${e_(c.id)}" data-till="oppen">Öppna igen</button>` : ''}</div></div></li>`;
-    yta(`<div class="pt-rubrikrad"><h1>Förfining · ${e_(d.namn || slug)}</h1>${d.blind ? '<span class="pt-etikett">neutrala etiketter före ditt första val</span>' : ''}<a class="pt-knapp" href="#/arbetsyta/${encodeURIComponent(slug)}">Arbetsytan: förhandsvisning och beslut</a></div>
+    yta(`<div class="pt-rubrikrad"><h1>Förfining · ${e_(d.namn || slug)}</h1>${d.blind ? '<span class="pt-etikett">neutrala etiketter före ditt första val</span>' : ''}<a class="pt-knapp" href="#/studio/${encodeURIComponent(slug)}">Designstudion: förhandsvisning och beslut</a></div>
       ${!ks.length ? '<p class="pt-tomt">Ingen kandidat har en bevarad ögonblicksbild än. Kommentarer sätts på den bevarade bilden, så att de alltid gäller en bestämd version.</p>' : `
       <div class="pt-verktyg" role="toolbar" aria-label="Kandidat, bredd och läge">
         <label>Kandidat <select id="pk-kandidat">${ks.map((x) => `<option value="${e_(x.id)}"${x.id === G.kandidat ? ' selected' : ''}>${e_(x.etikett)} · version ${e_(x.version.slice(0, 12))}</option>`).join('')}</select></label>

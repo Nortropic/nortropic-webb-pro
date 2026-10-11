@@ -541,8 +541,9 @@ def _delarna():
                    'Kompetenskedjan och slutposten'):
         assert '<h2>%s</h2>' % rubrik in v['sammanfattning'], rubrik
     html = (ROOT / 'dashboard' / 'index.html').read_text(encoding='utf-8')
-    ay = (ROOT / 'dashboard' / 'arbetsyta.js').read_text(encoding='utf-8')  # navigeringen är arbetsytans (ägarens besked 2026-10-09 ~17:11Z)
-    assert '<a href="#/dokumentation" data-v="dokumentation"' in ay and "h.startsWith('dokumentation/')" in html, 'vyn saknas i navigeringen'
+    # navigeringen är portalens (ägarens besked 2026-10-11: den gamla arbetsvyn finns inte längre, allt finns i den nya)
+    pt = (ROOT / 'dashboard' / 'portal.js').read_text(encoding='utf-8')
+    assert "navlank('#/dokumentation', 'Dokumentation och rapporter'" in pt and "h.startsWith('dokumentation/')" in html, 'vyn saknas i navigeringen'
 
 
 @fall('filtren: serverns svar har fälten för uppdrag eller systemdel, typ, version, datum och utfall, och vyns filter använder dem')

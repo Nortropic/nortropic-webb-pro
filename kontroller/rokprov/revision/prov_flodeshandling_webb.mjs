@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 const root = resolve(process.argv[2] || '.');
 const html = await readFile(resolve(root, 'dashboard/index.html'));
-const filer = new Map(await Promise.all(['kundstart-agare.js', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'portal.js', 'portal.css'].map(async namn =>
+const filer = new Map(await Promise.all(['kundstart-agare.js', 'kirurg-forbattring.js', 'arbetsyta.js', 'arbetsyta.css', 'studio.js', 'studio.css', 'portal.js', 'portal.css'].map(async namn =>
   ['/' + namn, await readFile(resolve(root, 'dashboard', namn))])));
 const namn = ['Sessionen avslutades normalt', 'Tekniska kontroller', 'Designgranskning', 'Ägarens godkännande', 'Leverans inom angiven omfattning'];
 let fas = 'klar';
@@ -49,6 +49,9 @@ const srv = createServer(async (req, res) => {
   if (vag === '/api/flode') return json(flodet);
   if (vag === '/api/desktop/lage') return json({ kontrakt: 'desktop/1', session: false });  // webbläsaren, inte Nortropic.app
   if (vag === '/api/oversikt') return json({ byggen: [], backlog_vilande: 0, intag_pagar: 0, prospekt_vantar: 0 });
+  // portalens kundlista (desktop.oversikt): kunderna i skapandeflödet, så att stegraden och kundvalet ritas
+  if (vag === '/api/desktop/oversikt') return json({ kunder: [{ slug: 'prov-flode', namn: 'Provflödet', test: true, projekt: true, arenden: [], vy: '#/studio/prov-flode' },
+    { slug: 'prov-andra', namn: 'Andra provet', test: true, projekt: true, arenden: [], vy: '#/studio/prov-andra' }], uppmarksamhet: [] });
   if (vag.startsWith('/api/')) return json({});
   if (filer.has(vag)) { res.writeHead(200, { 'Content-Type': vag.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8' }); res.end(filer.get(vag)); return; }
   if (vag !== '/') { res.writeHead(404); res.end(); return; }
@@ -66,7 +69,9 @@ try {
   await page.goto(origin + '/#/flode/prov-flode');
   await page.getByRole('heading', { name: 'Aktuellt besked', exact: true }).waitFor();
   assert.equal(await page.evaluate(() => location.hash), '#/arbetsyta/prov-flode/flode', '#/flode/<kund> ska leda till Byggflöde');
-  assert.equal(await page.getByRole('navigation', { name: 'Arbetsytans vyer' }).locator('a[aria-current="page"]').textContent(), 'Byggflöde');
+  // den gamla arbetsvyn finns inte (ägarens besked 2026-10-11): portalens stegrad bär kundens områden, och Bygge är Byggflöde
+  assert.equal(await page.locator('.ay-huvud, .ay-flikrad, .ay-meny').count(), 0, 'den gamla arbetsvyns huvud, flikrad och menyer');
+  assert.equal(await page.locator('.pt-stegrad a[aria-current="step"] span').textContent(), 'Bygge');
   assert.equal(posts.length, 0, 'att läsa vyn startar inget');
   assert.equal(await page.locator('.ay-besked dt').count(), 5, 'beskedets fem tillstånd');
   const beskedet = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Aktuellt besked', exact: true }) });
@@ -77,9 +82,9 @@ try {
   await page.locator('#ay-metod').getByText('saknas i dag').waitFor();
   await page.locator('summary').filter({ hasText: 'Figma-metodprovet' }).click();
   assert.equal(await page.locator('.ay-pilotbilder figcaption').textContent(), 'version v2', 'pilotens bild med sin version');
-  // Flöde är inte längre en egen del i menyn
-  const kund = await page.getByRole('navigation', { name: 'Arbetsytans delar' }).locator('details').first().evaluate(d => [...d.querySelectorAll('.ay-menylista a')].map(a => a.getAttribute('href')));
-  assert(!kund.some(h => h.startsWith('#/flode')), 'Flöde ska inte stå i menyn: ' + kund.join(' '));
+  // Flöde är inte en egen del i portalens navigering
+  const kund = await page.locator('#pt-nav a').evaluateAll(as => as.map(a => a.getAttribute('href')));
+  assert(!kund.some(h => h.startsWith('#/flode')), 'Flöde ska inte stå i navigeringen: ' + kund.join(' '));
   for (const width of [320, 390, 768, 1280, 1440]) {
     await page.setViewportSize({ width, height: 950 });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'spill vid ' + width);
@@ -100,7 +105,7 @@ try {
   assert.equal(posts.length, 1);
   await page.reload();
   await page.locator('.ay-besked').getByRole('button', { name: 'Förbered kundunderlaget' }).click();
-  await page.waitForFunction(() => location.hash === '#/arbetsyta/prov-flode', null, { timeout: 10000 });  // efter en start: arbetsytan, där sessionerna syns
+  await page.waitForFunction(() => location.hash === '#/studio/prov-flode', null, { timeout: 10000 });  // efter en start: studion, där sessionerna syns under Arbete
   assert.equal(posts.length, 2); assert.equal(posts[0].start_id, posts[1].start_id, 'samma start-id efter felsvaret');
   assert.equal(starter.size, 1);
   // stopp i två steg från Byggflöde

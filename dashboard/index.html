@@ -209,6 +209,7 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 </style>
 <link rel="stylesheet" href="/kundstart-agare.css">
 <link rel="stylesheet" href="/arbetsyta.css">
+<link rel="stylesheet" href="/studio.css">
 <link rel="stylesheet" href="/portal.css">
 </head>
 <body>
@@ -218,6 +219,7 @@ dl.dokfalt ul { margin: 0; padding-left: 18px; }
 <script src="/kundstart-agare.js"></script>
 <script src="/kirurg-forbattring.js"></script>
 <script src="/arbetsyta.js"></script>
+<script src="/studio.js"></script>
 <script src="/portal.js"></script>
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -237,7 +239,7 @@ let timer = null, flik = 'oversikt';
 
 function aktivNav(v) { document.querySelectorAll('nav a').forEach((a) => a.classList.toggle('aktiv', a.dataset.v === v)); }
 function raknare(o) {
-  if (typeof arbetsytaRaknare === 'function') return arbetsytaRaknare(o);  // räknarna står i arbetsytans meny
+  if (typeof arbetsytaRaknare === 'function') return arbetsytaRaknare(o);  // räknarna står i portalens navigering
   const b = $('#n-backlog'); if (b) { b.hidden = !o.backlog_vilande; b.textContent = o.backlog_vilande; }
   const k = $('#n-kirurg'); if (k) { k.hidden = !o.intag_pagar; k.textContent = o.intag_pagar ? o.intag_pagar + ' pågår' : ''; }
   const pr = $('#n-prospekt'); if (pr) { pr.hidden = !o.prospekt_vantar; pr.textContent = o.prospekt_vantar || ''; }
@@ -762,8 +764,10 @@ const KBESLUT = {
   forkasta: 'Förkasta alla: inget av förslagen håller (inget körs förrän du ber om en ny riktning)',
   ny_riktning: 'Be om en ny riktning: förslagen och sajten raderas (förslagen står i historiken med din dom) och en ny utforskning börjar med din text',
 };
-const KVISBARA = ['klar', 'vald', 'jamfors', 'forkastad', 'forfinad', 'godkand'];
-const KCHIP = { klar: 'acc', vald: 'ok', jamfors: 'acc', forfinad: 'ok', godkand: 'ok', forkastad: 'rod', ofullstandig: 'gul', fel: 'rod', avbruten: 'gul' };
+// bedömbar: skaparens version visas medan granskningen och svaret pågår (designstudion 2026-10-11, DS2); beslut om den väntar
+// tills kandidaten är klar, och kortet säger det
+const KVISBARA = ['klar', 'vald', 'jamfors', 'forkastad', 'forfinad', 'godkand', 'bedombar'];
+const KCHIP = { klar: 'acc', bedombar: 'acc', vald: 'ok', jamfors: 'acc', forfinad: 'ok', godkand: 'ok', forkastad: 'rod', ofullstandig: 'gul', fel: 'rod', avbruten: 'gul' };
 const KBREDDER = { par: 'Mobil och dator', 390: 'Mobil 390', 768: 'Surfplatta 768', 1280: 'Mellanbredd 1280', 1440: 'Dator 1440' };
 // mobil och dator är förvalet (ägarens uppdrag 2026-10-06, punkt 8); en ny nyckel, så att ett äldre sparat val inte styr
 let kBredd = (() => { try { return localStorage.getItem('kandidat-visning') || 'par'; } catch (e) { return 'par'; } })();
@@ -868,6 +872,7 @@ async function kandidatvy(slug, d) {
       <div class="rad mellan"><h3>${esc(k.etikett)}</h3><span class="chip ${KCHIP[k.status] || ''}">${esc(k.statustext)}</span></div>
       ${bilderna(k)}
       <div class="rad">${oppna(k)}${fullstorlek(k)}</div>
+      ${k.status === 'bedombar' ? '<p class="under" style="margin:0">Bedömbar tidigt: granskningen och skaparens svar pågår, och svaret kan bli en ny version. Du kan jämföra och kommentera nu; besluten om den väntar tills den är klar.</p>' : ''}
       <label class="markera"><input type="checkbox" data-markera="${esc(k.id)}"${markerade.has(k.id) ? ' checked' : ''}> Markera</label>
       ${refjamfor(k)}
       ${redovisning(k)}
@@ -944,6 +949,8 @@ async function kandidatvy(slug, d) {
     const b = (document.querySelector('input[name="k-b"]:checked') || {}).value;
     const text = $('#k-text').value;
     if (!b) { alert('Välj ett beslut.'); return; }
+    const tidiga = visbara.filter((k) => markerade.has(k.id) && k.status === 'bedombar');
+    if (tidiga.length) { alert(`${tidiga.map((k) => k.etikett).join(', ')} granskas fortfarande: beslutet om ${tidiga.length > 1 ? 'dem' : 'den'} väntar tills ${tidiga.length > 1 ? 'de' : 'den'} är klar${tidiga.length > 1 ? 'a' : ''}. Avmarkera, eller vänta.`); return; }
     const kand = visbara.filter((k) => markerade.has(k.id)).map((k) => ({ id: k.id, version: foreval.has(k.id) && k.forbattring ? k.forbattring.fore : k.version }));
     if (['valj', 'uppdrag', 'godkand'].includes(b) && !kand.length) { alert('Markera förslaget eller förslagen beslutet gäller.'); return; }
     if (b === 'uppdrag' && kand.length !== 1) { alert('Ett uppdrag gäller ett förslag: markera exakt ett.'); return; }
@@ -986,7 +993,10 @@ async function observationsvy(slug, kandidater) {
   let o;
   try { o = await api('/api/observation/' + encodeURIComponent(slug)); } catch (e) { o = { ofullstandig: e.message }; }
   const ruta = $('#k-observation');
-  if (!ruta || location.hash.replace(/^#\/?/, '') !== 'prototyp/' + slug) return;  // ägaren har gått vidare
+  // ägaren har gått vidare: Förslagen står under #/arbetsyta/<kund>/forslag (förr #/prototyp/<kund>, som leder dit); den
+  // gamla jämförelsen med prototyp/<kund> gjorde att observationen aldrig ritades (inventeringen 2026-10-11)
+  const h_ = location.hash.replace(/^#\/?/, '');
+  if (!ruta || (h_ !== 'arbetsyta/' + encodeURIComponent(slug) + '/forslag' && h_ !== 'arbetsyta/' + slug + '/forslag')) return;
   const igen = (ms) => { clearTimeout(timer); timer = setTimeout(() => observationsvy(slug, kandidater), ms); };
   if (o.ofullstandig) { ruta.innerHTML = `<h2>Under arbetet</h2><p class="under">Observationen kunde inte läsas (${esc(o.ofullstandig)}); ett nytt försök om en stund. Arbetet påverkas inte.</p>`; return igen(15000); }
   // en del som inte gick att läsa heter "inte observerat" med skälet, aldrig ett påstående om läget
@@ -1552,7 +1562,7 @@ async function dokumentationsvy(vag) {
     dokFiltreraVy(d, exakt);
   }
   const mal = flik === 'beslut' && rest ? document.getElementById('tillagg-' + rest) : null;
-  if (mal) window.scrollTo(0, mal.getBoundingClientRect().top + window.scrollY - (($('.ay[data-vy="sektion"] > .ay-flikrad') || $('.ay-huvud'))?.offsetHeight || 0) - 12);  // under arbetsytans klistrade navigering
+  if (mal) window.scrollTo(0, mal.getBoundingClientRect().top + window.scrollY - ($('#pt-topp')?.offsetHeight || 0) - 12);  // under portalens klistrade sökrad
 }
 // </dokumentationsvyn>
 
@@ -1560,12 +1570,16 @@ async function route() {
   clearTimeout(timer);
   const h = location.hash.replace(/^#\/?/, '');
   try {
-    // portalens ram (dashboard/portal.js): i Nortropic.app runt varje vy och med Hem som startvy; i webbläsaren bara på
-    // portalens egna vyer, så att arbetsytan där ser ut som förut
+    // portalens ram (dashboard/portal.js) runt varje vy, i appen och i webbläsaren, med Hem som startvy (ägarens besked
+    // 2026-10-11: den gamla arbetsvyn ska inte finnas längre, och allt ska finnas i den nya)
     if (typeof portalSkal === 'function' && await portalSkal(h)) return await portalvy(h);
-    // arbetsytan är startvyn (ägarens uppdrag 2026-10-09), och varje annan del ritas i dess ram med samma adress och
-    // samma funktioner som förut (ägarens besked 2026-10-09 ~17:11Z: allt ska in i arbetsytan)
-    if (h === '' || h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
+    // Designstudion (kunskap/designstudio.md): riktningarna, förhandsvisningen, kontrollerna, samtalet, besluten och
+    // sessionerna för en kund; #/arbetsyta/<kund> leder dit, och Förslag, Bygge och Granskning har kvar sina adresser
+    if (h === 'studio' || h.startsWith('studio/')) {
+      let s = decodeURIComponent(h.slice(7)); if (!s) { try { s = localStorage.getItem('nwp-arbetsyta:senaste') || ''; } catch { s = ''; } }
+      return await arbetsytavy(s ? encodeURIComponent(s) + '/studio' : '');
+    }
+    if (h === 'arbetsyta' || h.startsWith('arbetsyta/')) return await arbetsytavy(h.slice(10));
     if (h === 'flode' || h.startsWith('flode/') || h === 'prototyp' || h.startsWith('prototyp/')) {
       // Flöde är en del av Byggflöde (ägarens mandat 2026-10-09 ~18:28Z) och Prototyp är arbetsytans Förslagen (samma
       // mandat, b3:s och 97:s delning): de gamla adresserna leder dit, för samma kund

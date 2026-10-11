@@ -1,0 +1,27 @@
+/* Provkandidatens designgrund (handskriven, syntetisk testkund). */
+:root {
+  --farg-yta: #f6f1ea;
+  --farg-text: #1f1a14;
+  --farg-dampad: #5f5246;
+  --farg-accent: #7a4a24;
+  --farg-accent-text: #ffffff;
+  --typ-rubrik-familj: Georgia, 'Times New Roman', serif;
+  --typ-rubrik-storlek: clamp(2.25rem, 1.6rem + 2.6vw, 3.6rem);
+  --typ-rubrik-radavstand: 1.08;
+  --typ-brodtext-familj: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --typ-brodtext-storlek: 1.0625rem;
+  --avstand-s: 0.75rem;
+  --avstand-m: 1.25rem;
+  --avstand-l: 2.5rem;
+  --avstand-xl: 4.5rem;
+  --spalt-maxbredd: 72rem;
+  --radie-m: 0.5rem;
+}
+body {
+  margin: 0;
+  font-family: var(--typ-brodtext-familj);
+  font-size: var(--typ-brodtext-storlek);
+  line-height: 1.6;
+  color: var(--farg-text);
+  background: var(--farg-yta);
+}

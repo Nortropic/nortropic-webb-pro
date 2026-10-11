@@ -1,0 +1,21 @@
+---
+const lankar = [
+  { href: '#tjanster', text: 'Tjänster' },
+  { href: '#om-oss', text: 'Om oss' },
+  { href: '#kontakt', text: 'Kontakt' },
+];
+---
+<header class="sidhuvud">
+  <a class="sidhuvud__namn" href="/">Fiktiv Snickeri</a>
+  <nav aria-label="Huvudmeny">
+    <ul class="sidhuvud__lankar">
+      {lankar.map((l) => <li><a href={l.href}>{l.text}</a></li>)}
+    </ul>
+  </nav>
+</header>
+<style>
+  .sidhuvud { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--avstand-s); padding: var(--avstand-m); max-width: var(--spalt-maxbredd); margin-inline: auto; }
+  .sidhuvud__namn { font-family: var(--typ-rubrik-familj); font-size: 1.35rem; color: var(--farg-text); text-decoration: none; }
+  .sidhuvud__lankar { display: flex; gap: var(--avstand-m); list-style: none; margin: 0; padding: 0; }
+  .sidhuvud__lankar a { color: var(--farg-text); }
+</style>

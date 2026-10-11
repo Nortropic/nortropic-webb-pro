@@ -24,7 +24,7 @@ import atelje
 import skapande
 
 FD = 8
-HANDLINGAR = ('helbygge', 'exportera', 'preview', 'release', 'aktivera', 'redigera')  # redigera: direktredigering.py (2026-10-10)
+HANDLINGAR = ('helbygge', 'exportera', 'preview', 'release', 'aktivera', 'redigera', 'studio')  # redigera: direktredigering.py (2026-10-10); studio: studio.py (designstudion 2026-10-11)
 
 
 def lasfil(root, slug):
@@ -174,6 +174,10 @@ def startmiljo():
 
 
 def krav(slug,handling):
+    # direktredigeringen och studion skriver i en kandidat vid dess gräns, under kandidatens skrivlås: de prövar körningen,
+    # kandidatens status, versionen och källan själva (direktredigering._villkor), och andra kandidater kan arbeta under
+    # tiden (designstudion 2026-10-11, DS4); kundens startlås håller dem ändå borta från helbygget och exporten
+    if handling in ('redigera','studio'):return
     atelje_ledig(atelje.ROOT,slug)
     if handling=='helbygge':
         m=startmiljo()
@@ -198,7 +202,6 @@ def krav(slug,handling):
         import aktivera
         t=aktivera.torr(slug)
         if not t['kan_koras']:raise ValueError('Ingen aktivering: '+'; '.join(t['hinder']+t['saknas'] or ['inget att göra']))
-    elif handling=='redigera':pass  # direktredigeringen prövar körningen, versionen och källan själv, under låset (direktredigering.kor)
     else:raise ValueError('okänd flödeshandling')
 
 
@@ -280,11 +283,12 @@ def arbetare(slug,handling,start_id,fd):
         elif handling=='release':args=[sys.executable,'-B',str(atelje.ROOT/'kontroller/kundrepo.py'),slug,'--release']
         elif handling=='aktivera':args=[sys.executable,'-B',str(atelje.ROOT/'kontroller/aktivera.py'),slug,'--kor']
         elif handling=='redigera':args=[sys.executable,'-B',str(atelje.ROOT/'kontroller/direktredigering.py'),slug,'--kor',start_id]
+        elif handling=='studio':args=[sys.executable,'-B',str(atelje.ROOT/'kontroller/studio.py'),slug,'--kor',start_id]
         else:args=[sys.executable,'-B',str(atelje.ROOT/'kontroller/exportera.py'),slug,'--git']
         # Exportens npm och byggskript kan skapa barn i egna sessioner. Följ samma
         # macOS-processidentiteter som korvakt, inte bara Popen-processens pid.
         import korvakt
-        trad=korvakt.Trad(korvakt.las_process(os.getpid())) if handling in ('exportera','preview','release','aktivera','redigera') else None
+        trad=korvakt.Trad(korvakt.las_process(os.getpid())) if handling in ('exportera','preview','release','aktivera','redigera','studio') else None
         child=subprocess.Popen(args,cwd=atelje.ROOT,env=dict(os.environ,NWP_FLODE_START_ID=start_id),pass_fds=(FD,))
         with journallas(slug):  # barnets pid: ett stopp når arbetet också om arbetaren dör (GR-20261008-r117-claude#B3)
             _,d=post(slug,start_id);atelje.skriv_json_atomiskt(p,dict(d,barn_pid=child.pid,barn_startad=atelje.nu()))

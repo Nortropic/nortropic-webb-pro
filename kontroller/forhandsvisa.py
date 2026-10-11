@@ -74,11 +74,49 @@ def giltig_bild(p):
     return int.from_bytes(huvud[16:20], 'big') > 0 and int.from_bytes(huvud[20:24], 'big') > 0
 
 
+def ej_bedombar(ins, min_text=40):
+    """Skälen till att en fotograferad sida inte är en bedömbar riktning (designstudion 2026-10-11, DS-U06), ur
+    INSPEKTION.json:s bedömbarhet: den visar ett felmeddelande trots 200, sidan är tom (mindre än min_text tecken text),
+    kärninnehållet saknas (ingen huvudrubrik, h1), eller en bild i första vyn laddades inte (det kritiskt saknade fotot).
+    Mobil och dator hör till samma version och prövas båda. En inspektion utan fältet (äldre) prövas inte. Typsnitt som inte
+    laddades och en tom main när resten av sidan har text står för sig (markeringar), som brister i en bedömbar sida."""
+    skal = []
+    for vy, r in sorted(((ins or {}).get('vyer') or {}).items()):
+        b = r.get('bedombarhet')
+        if not isinstance(b, dict) or b.get('fel'):
+            continue
+        if b.get('felsida'):
+            skal.append('%s px: sidan visar ett felmeddelande' % vy)
+        if int(b.get('text_langd') or 0) < min_text:
+            skal.append('%s px: sidan är tom (%s tecken text)' % (vy, b.get('text_langd')))
+        if r.get('h1') == 0:
+            skal.append('%s px: sidan saknar huvudrubrik (h1)' % vy)
+        if b.get('brutna_bilder_forsta_vyn'):
+            skal.append('%s px: en bild i första vyn laddades inte (%s)' % (vy, ', '.join(x.rsplit('/', 1)[-1] for x in b['brutna_bilder_forsta_vyn'])[:160]))
+    return skal
+
+
+def bedombarhetens_markeringar(ins, min_text=40):
+    """Det som brister i en bedömbar sida (markeringar, inga hinder): typsnitt som inte laddades, och en main som är tom
+    medan resten av sidan har text (innehållet ligger utanför huvudlandmärket)."""
+    ut = ['typsnittet %s laddades inte' % f for f in typsnitt_fel(ins)]
+    for vy, r in sorted(((ins or {}).get('vyer') or {}).items()):
+        b = r.get('bedombarhet') or {}
+        if b.get('main') and b.get('main_text_langd') is not None and int(b['main_text_langd']) < min_text <= int(b.get('text_langd') or 0):
+            ut.append('%s px: main är tom (%s tecken); innehållet ligger utanför huvudlandmärket' % (vy, b['main_text_langd']))
+    return ut
+
+
+def typsnitt_fel(ins):
+    """Typsnittsfamiljer som sidan begärde men som inte laddades, i någon vy."""
+    return sorted({f for r in ((ins or {}).get('vyer') or {}).values() for f in ((r.get('bedombarhet') or {}).get('typsnitt_fel') or [])})
+
+
 def ogiltig_sida(ins):
     """Skälen till att en fotograferad vy inte är kandidatens sida, ur INSPEKTION.json: huvuddokumentet svarade inte 200,
     eller svarade med något annat än HTML (ett JSON-fel, en fil). Det fångar en felsida som fotograferats som
-    ögonblicksbild (arbetsytans testdata 2026-10-09, Codex fynd O1). Det fångar inte en sida som svarar 200 med HTML men
-    visar ett fel, en tom sida eller fel innehåll; den bedöms av den som ser bilden. En uppgift som saknas prövas inte:
+    ögonblicksbild (arbetsytans testdata 2026-10-09, Codex fynd O1). En sida som svarar 200 med HTML men visar ett fel eller är
+    tom fångas av ej_bedombar; fel innehåll bedöms av den som ser bilden. En uppgift som saknas prövas inte:
     utan statusfält (en inspektion som inte bär det) ingen statusprövning, utan innehållstyp bara statusen; status null
     betyder att sidan inte svarade alls, och det är ett fel."""
     skal = []

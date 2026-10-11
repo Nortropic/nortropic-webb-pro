@@ -702,7 +702,7 @@ echo "   flödesvyns prov ok"
 node "$ROOT/kontroller/rokprov/revision/prov_flodeshandling_webb.mjs" "$ROOT" >"$ROOT/kunder/rokprov-mall/flodeshandling-webb-prov.log" 2>&1 \
   || { echo "FEL: flödeshandlingens webbläsarprov"; tail -20 "$ROOT/kunder/rokprov-mall/flodeshandling-webb-prov.log"; exit 1; }
 echo "   flödeshandlingens API och webbläsarprov ok"
-echo "   arbetsytan (2026-10-09): spill, ett område åt gången, axe i tre vyer, sandlådan, start och stopp, strömmen och återanslutningen, samtalet och ändringen"
+echo "   arbetsytan i portalens ram och designstudion (2026-10-11): spill, studions delar och flikar, axe, sandlådan, start och stopp, strömmen och återanslutningen, samtalet och ändringen"
 node "$ROOT/kontroller/rokprov/revision/prov_arbetsyta_webb.mjs" "$ROOT" >"$ROOT/kunder/rokprov-mall/arbetsyta-webb-prov.log" 2>&1 \
   || { echo "FEL: arbetsytans webbläsarprov"; tail -20 "$ROOT/kunder/rokprov-mall/arbetsyta-webb-prov.log"; exit 1; }
 echo "   arbetsytans webbläsarprov ok (syntetiska svar; ingen riktig session)"
@@ -714,6 +714,11 @@ echo "   arbetsytan (2026-10-09): läget, sessionernas lägen, blindningen på s
   || { echo "FEL: arbetsytans prov"; tail -25 "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; exit 1; }
 if grep -q 'skipped=' "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; then echo "FEL: arbetsytans prov hoppade över fall, fast mallsajten finns i rökprovet (GR-20261009-arbetsyta-oberoende#K8)"; tail -5 "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log"; exit 1; fi
 echo "   arbetsytans prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/arbetsyta-prov.log" | tr '\n' ' '))"
+echo "   designstudion (2026-10-11): källkartan, de fem områdena i rätt källa, konflikt och återställning, blindningen, bedömbar tidigt och en skrivare per kandidat"
+"$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_designstudio.py" >"$ROOT/kunder/rokprov-mall/designstudio-prov.log" 2>&1 \
+  || { echo "FEL: designstudions prov"; tail -30 "$ROOT/kunder/rokprov-mall/designstudio-prov.log"; exit 1; }
+if grep -q 'skipped=' "$ROOT/kunder/rokprov-mall/designstudio-prov.log"; then echo "FEL: designstudions prov hoppade över fall, fast mallsajten finns i rökprovet"; tail -5 "$ROOT/kunder/rokprov-mall/designstudio-prov.log"; exit 1; fi
+echo "   designstudions prov ok ($(grep -E '^(Ran|OK)' "$ROOT/kunder/rokprov-mall/designstudio-prov.log" | tr '\n' ' '))"
 echo "   Nortropic.app, motorns sida (desktop/1, 2026-10-10): identiteten, engångskoden, sessionen, Ny kund, översikten och det pågående arbetet"
 "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/rokprov/revision/prov_desktop.py" >"$ROOT/kunder/rokprov-mall/desktop-prov.log" 2>&1 \
   || { echo "FEL: desktopkontraktets prov"; tail -25 "$ROOT/kunder/rokprov-mall/desktop-prov.log"; exit 1; }

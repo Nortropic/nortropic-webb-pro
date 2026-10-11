@@ -1095,11 +1095,23 @@ const rubrik = 'Bilverkstad i Testby';
         self.assertEqual(direktredigering.kor(SLUG, bas['redigering_id']), 2)
         with self.assertRaises(direktredigering.Inaktuell):
             direktredigering.begar(dash, SLUG, dict(bas, redigering_id='r' + '2' * 40, gammal='Skicka förfrågan', ny='Skicka'))
-        # en arbetare som skriver i kandidaterna nekar, och ett bygge som faller lägger tillbaka den gamla texten
-        st = self.skriv_status(pid=self.levande(), steg='kandidater')
-        with self.assertRaises(direktredigering.Inaktuell):
+        # DS4 (designstudion 2026-10-11): en arbetare som skriver i andra kandidater hindrar inte ändringen, men kandidaten
+        # själv utan säker gräns (dess kedja arbetar) nekar, och en andra skrivare finner kandidatens skrivlås upptaget
+        self.skriv_status(pid=self.levande(), steg='kandidater')
+        fore = kandidater.las_status(SLUG, 'k02')['status']
+        kandidater.satt_status(SLUG, 'k02', 'under_arbete', 'provet: kandidatens kedja arbetar')
+        with self.assertRaises(direktredigering.Inaktuell) as e:
             direktredigering.begar(dash, SLUG, dict(bas, redigering_id='r' + '3' * 40, version=ny_v, gammal='Skicka förfrågan', ny='Skicka'))
-        self.skriv_status(pid=None, steg='klar_for_bedomning')
+        self.assertIn('säker gräns', str(e.exception))
+        kandidater.satt_status(SLUG, 'k02', fore, 'provet: kedjan är klar')
+        direktredigering.begar(dash, SLUG, dict(bas, redigering_id='r' + '6' * 40, version=ny_v, gammal='Skicka förfrågan', ny='Skicka nu'))
+        with kandidater.skrivlas(SLUG, 'k02', vem='provets andra skrivare'):
+            self.assertEqual(direktredigering.kor(SLUG, 'r' + '6' * 40), 3)
+        post6 = self.las(direktredigering.katalog(SLUG) / ('%s.json' % ('r' + '6' * 40)))
+        self.assertEqual(post6['status'], 'konflikt', post6)
+        self.assertIn('provets andra skrivare', post6['skal'])
+        self.assertIn('"knapp": "Skicka förfrågan"', (kandidater.ksajt(SLUG, 'k02') / 'src' / 'data' / 'texter.json').read_text(encoding='utf-8'), 'inget skrevs')
+        # medan arbetaren lever: ett bygge som faller lägger tillbaka den gamla texten
         r = direktredigering.begar(dash, SLUG, dict(bas, redigering_id='r' + '4' * 40, version=ny_v, gammal='Skicka förfrågan', ny='Skicka "nu"'))
         self.assertEqual(r['fil'], 'src/data/texter.json')
         foto = self.falsk_fotografering(falla=(1,))
@@ -1118,9 +1130,12 @@ const rubrik = 'Bilverkstad i Testby';
     def test_direktredigeringen_ar_en_flodeshandling(self):
         self.assertIn('redigera', flodesstart.HANDLINGAR)
         flodesstart.krav(SLUG, 'redigera')  # ateljén väntar på ägaren: inget hinder i startens krav
+        # DS4: en arbetare i andra kandidater hindrar inte starten; kandidatens gräns och skrivlås prövas av arbetaren
         self.skriv_status(pid=self.levande(), steg='kandidater')
-        with self.assertRaises(ValueError):
-            flodesstart.krav(SLUG, 'redigera')
+        flodesstart.krav(SLUG, 'redigera')
+        flodesstart.krav(SLUG, 'studio')
+        with self.assertRaises(ValueError):  # andra flödeshandlingar väntar som förut på ateljén
+            flodesstart.krav(SLUG, 'exportera')
 
     def test_forhandsvisningens_brygga_bara_i_dashboardens_server(self):
         d = self.root / 'dist'

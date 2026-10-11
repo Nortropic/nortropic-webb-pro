@@ -187,6 +187,22 @@ for (const vy of vyer) {
     await b.page.evaluate(() => scrollTo(0, 0));
     r.skarmar = Math.ceil(sidhojd / skarmhojd);
     r.h1_i_forsta_vyn = await b.page.evaluate((h) => { const e = document.querySelector('h1'); return !!e && e.getBoundingClientRect().top < h; }, skarmhojd);
+    // bedömbarheten (designstudion 2026-10-11, DS-U06): en sida som svarar 200 kan ändå vara tom, visa ett fel eller sakna
+    // bilden som bär första vyn; typsnitten som sidan begär ska ha laddats (forhandsvisa.ej_bedombar läser detta)
+    r.bedombarhet = await b.page.evaluate(async (h) => {
+      const ren = (e) => ((e && e.innerText) || '').replace(/\s+/g, ' ').trim();
+      const main = document.querySelector('main');
+      const text = ren(document.body);
+      const forsta = [...document.images].filter((i) => { const q = i.getBoundingClientRect(); return q.top < h && q.bottom > 0 && q.width > 0 && q.height > 0; });
+      // en bild utan egen bredd (en svg med bara viewBox) har naturalWidth 0 utan att vara trasig: decode() avgör
+      const brutna = [];
+      for (const i of forsta) if (i.complete && i.naturalWidth === 0 && !(await i.decode().then(() => true, () => false))) brutna.push(String(i.currentSrc || i.src || '(ingen källa)').slice(-120));
+      const typsnitt = document.fonts ? [...document.fonts] : [];
+      return { main: !!main, main_text_langd: main ? ren(main).length : null, text_langd: text.length, bilder_forsta_vyn: forsta.length,
+        brutna_bilder_forsta_vyn: brutna.slice(0, 5),
+        typsnitt_fel: typsnitt.filter((f) => f.status === 'error').map((f) => f.family).slice(0, 5),
+        felsida: /(^|\s)(404|500)\b.{0,40}(not found|hittades inte|error)|internal server error|cannot get \/|astroerror|\[vite\]/i.test((document.title + ' ' + text.slice(0, 600))) };
+    }, skarmhojd).catch((e) => ({ fel: String(e.message || e).slice(0, 200) }));
     if (extraktSel) {  // före tillstånden (hover, meny, reflow) som ändrar sidan; källbilden är vyns första ruta och helsida
       const x = await extrahera(b.page, extraktSel, { kod: medKod }).catch((e) => ({ fel: String(e.message || e).slice(0, 200) }));
       x.kallbilder = { forsta: r.forsta_vyn, rutor: r.rutor, hela: r.hela_sidan }; x.vy = vy; x.adress = a.adress; x.tid = nu(); x.matning = 'uppmätt';

@@ -1,0 +1,33 @@
+---
+import { Image } from 'astro:assets';
+import Knapp from './Knapp.astro';
+interface Props { rubrik: string; ingress: string; bild: ImageMetadata; bildAlt: string; variant?: 'delad' | 'helbild' }
+const { rubrik, ingress, bild, bildAlt, variant = 'delad' } = Astro.props;
+---
+<section class:list={['hero', `hero--${variant}`]} aria-labelledby="hero-rubrik">
+  <div class="hero__text">
+    <p class="hero__etikett">Snickeri i Fiktivstad</p>
+    <h1 id="hero-rubrik" class="hero__rubrik">{rubrik}</h1>
+    <p class="hero__ingress">{ingress}</p>
+    <div class="hero__knappar">
+      <Knapp href="#kontakt">Begär offert</Knapp>
+      <Knapp href="#tjanster" variant="sekundar">Se våra tjänster</Knapp>
+    </div>
+  </div>
+  <figure class="hero__bild">
+    <Image src={bild} alt={bildAlt} widths={[640, 1024, 1600]} sizes="(min-width: 64rem) 50vw, 100vw" loading="eager" fetchpriority="high" />
+  </figure>
+</section>
+<style>
+  .hero { display: grid; gap: var(--avstand-l); padding-block: var(--avstand-xl); padding-inline: var(--avstand-m); max-width: var(--spalt-maxbredd); margin-inline: auto; }
+  .hero__etikett { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; color: var(--farg-accent); margin: 0 0 var(--avstand-s); }
+  .hero__rubrik { font-family: var(--typ-rubrik-familj); font-size: var(--typ-rubrik-storlek); line-height: var(--typ-rubrik-radavstand); margin: 0; max-width: 18ch; }
+  .hero__ingress { font-size: 1.2rem; line-height: 1.55; max-width: 42ch; color: var(--farg-dampad); }
+  .hero__knappar { display: flex; flex-wrap: wrap; gap: var(--avstand-s); margin-top: var(--avstand-l); }
+  .hero__bild { margin: 0; }
+  .hero__bild img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; object-position: 50% 50%; border-radius: var(--radie-m); }
+  @media (min-width: 64rem) {
+    .hero--delad { grid-template-columns: 1fr 1fr; align-items: center; }
+    .hero__bild img { aspect-ratio: 4 / 5; object-position: 60% 40%; }
+  }
+</style>
