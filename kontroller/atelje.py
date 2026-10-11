@@ -2235,13 +2235,22 @@ def forra_kritik(rot, omgang):
     return valkritik((k / 'VAL.md').read_text(encoding='utf-8')) if (k / 'VAL.md').is_file() else None
 
 
-def fortsatt_nekas(st):
+def fortsatt_nekas(st, slug=None):
     """Skälet när --fortsatt inte får ta vid, annars None. Bara en körning som föll (steg fel, eller ett steg mitt i vars
     process är borta) tas upp igen; en avslutad körning stämplas aldrig om som klar förbi ägarens dom (omgranskning 2, fynd
     1). Undantaget är planprovad: körningen stannade på begäran före skaparna (kandidater.STOPP_EFTER), och --fortsatt är
-    vägen till dem (kvalitetsprovet 2026-10-09; --om är en ny körning som arkiverar planen i foregaende/)."""
+    vägen till dem (kvalitetsprovet 2026-10-09; --om är en ny körning som arkiverar planen i foregaende/). Likaså en
+    kandidatkörning som slutade utan en enda skiss att bedöma och utan ägarens dom efter den: där finns ingen dom att gå
+    förbi, och --fortsatt gör om det som brast hos kandidaterna (körprovet 2026-10-11: båda stannade i referensprofilen,
+    och omprofileringen vid nästa start gick inte att nå)."""
     if st.get('steg') == 'planprovad':
         return None
+    kand = st.get('kandidater') if isinstance(st.get('kandidater'), dict) else {}
+    if st.get('steg') == 'klar_for_bedomning' and st.get('kandidatflode') and kand:
+        import kandidater as kd_
+        dom = skapande.senaste(slug, underlag=UNDERLAG) if slug else None
+        if not any(v in kd_.VISBARA for v in kand.values()) and not (dom and dom.get('tid', '') > (st.get('klar') or '')):
+            return None
     if not st.get('steg') or st.get('steg') in AVSLUTADE:
         return ('--fortsatt tar vid efter en körning som föll; körningen är %s. Ägarens dom avgör nästa steg '
                 '(kontroller/prototyp.py).' % (st.get('steg') or 'inte startad'))
@@ -3572,8 +3581,8 @@ def starta(a, rot):
         print('Ateljén förkastade alla riktningar i den här körningen och bygget stannar (ägarbeslut 2026-10-04): skriv rapporten '
               'och avsluta. En ny ateljé efter en förkastning startas av ägaren, inte inifrån bygget.')
         return 6
-    if a.fortsatt and fortsatt_nekas(st):
-        return avsluta_fore(a.slug, fortsatt_nekas(st), 2)
+    if a.fortsatt and fortsatt_nekas(st, a.slug):
+        return avsluta_fore(a.slug, fortsatt_nekas(st, a.slug), 2)
     if a.ny_riktning and st.get('steg') == 'startar' and not st.get('pid') and sekunder_sedan(st.get('startad')) < 600:
         print('En start av ateljén pågår (startad %s, arbetaren har inte skrivit sitt pid än); omtaget väntar. Kör igen om en stund.'
               % st.get('startad'))

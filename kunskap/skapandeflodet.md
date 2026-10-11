@@ -466,7 +466,9 @@ avbrott i arbetaren (SystemExit) slutar också som fel med sessionerna avslutade
 pågår. I den äldre utforskningen tar den vid i omgången som föll, med samma kritik
 som första gången (skaparens TILLBAKA.md eller panelens VAL.md), och i en putsning vid förfiningen eller slutdomen mot
 samma före. En avslutad körning (klar, förkastad, tillbaka) tas aldrig upp igen, och varken `--fortsatt` eller
-`--bara-domare` körs när ägaren dömt efter körningen; där avgör ägarens dom nästa steg. Det som den äldre utforskningen
+`--bara-domare` körs när ägaren dömt efter körningen; där avgör ägarens dom nästa steg. En kandidatkörning som slutade
+utan en enda skiss att bedöma har ingen dom att vänta på: `--fortsatt` gör där om det som brast hos kandidaterna
+(`atelje.fortsatt_nekas`; körprovet 2026-10-11). Det som den äldre utforskningen
 flyttar undan, äldre riktningsbilder och en tidigare vinnare, hamnar i `atelje/foregaende/`. Inget raderas.
 
 ## Research på begäran

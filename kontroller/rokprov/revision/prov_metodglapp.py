@@ -658,6 +658,13 @@ class Stoppefterplanen(unittest.TestCase):
         self.assertIsNone(nekas({'steg': 'fel'}))
         for steg in ('klar_for_bedomning', 'klar', 'forberedd', None):
             self.assertIsNotNone(nekas({'steg': steg}), steg)
+        # körprovet 2026-10-11: en kandidatkörning utan en enda skiss att bedöma tas upp igen, inte förbi en dom eller en skiss
+        tom = {'steg': 'klar_for_bedomning', 'kandidatflode': True, 'klar': '2026-10-11T06:43:51Z', 'kandidater': {'k01': 'fel', 'k02': 'fel'}}
+        with patch.object(atelje.skapande, 'senaste', return_value=None):
+            self.assertIsNone(nekas(tom, 'stopp-prov'))
+            self.assertIsNotNone(nekas(dict(tom, kandidater={'k01': 'klar', 'k02': 'fel'}), 'stopp-prov'), 'en skiss väntar på ägaren')
+        with patch.object(atelje.skapande, 'senaste', return_value={'tid': '2026-10-11T07:00:00Z', 'beslut': 'ny_riktning'}):
+            self.assertIsNotNone(nekas(tom, 'stopp-prov'), 'ägarens dom efter körningen avgör')
 
     def test_slutposten_sager_vad_som_finns_att_gora(self):
         import ateljeslut
