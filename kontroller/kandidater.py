@@ -1681,14 +1681,16 @@ def referensprofil_klar(slug, kid):
     if atelje.STOPP.is_set():  # stoppet dödade profileringen: ett avbrott, ingen profilbrist; statusen står orörd
         raise atelje.Stoppad('profileringen avbröts av stoppet')
     andrat = (rapport.get('uppdrag') or {}).get(kid) != uppdrag_sha(k)
-    if 'kandidater' not in rapport or andrat:
-        b_ = [str(x) for x in rapport.get('brister') or []] + (['uppdraget ändrades under profileringen'] if andrat and 'kandidater' in rapport else [])
+    # en rapport utan kandidaten (förankringens vägran att skriva, forankra_skrivmal) är ingen profilering av den
+    utan = kid not in (rapport.get('kandidater') or {})
+    if utan or andrat:
+        b_ = [str(x) for x in rapport.get('brister') or []] + (['uppdraget ändrades under profileringen'] if andrat and not utan else [])
         b_ = b_ or ['okänt fel']
         # det som gällde före bristen sparas, så att nästa start återställer det (ett tekniskt omförsök förblir ett)
         satt_status(slug, kid, 'fel', 'referensprofilen gav ingen rapport för uppdraget, så skaparen startar inte: ' + '; '.join(b_)[:600],
                     referensprofil_brister={'tid': nu(), 'brister': b_, 'sekunder': sek, 'status_fore': st.get('status'),
                                             'skal_fore': st.get('skal'), 'tekniskt_fel_fore': bool(st.get('tekniskt_fel'))},
-                    tekniskt_fel=False)
+                    tekniskt_fel=False, ta_bort=('referensprofil',))  # en tidigare starts brist gäller inte längre
         return False
     p_ = ((rapport.get('kandidater') or {}).get(kid) or {})
     post = {'tid': nu(), 'sekunder': sek, 'tillstand': p_.get('tillstand') if rapport.get('ok') else 'ofullstandig',

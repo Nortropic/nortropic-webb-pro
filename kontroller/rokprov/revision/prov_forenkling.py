@@ -500,6 +500,14 @@ class Kedjan(Grund):
         self.assertIn('uppdraget ändrades under profileringen', kd.las_status(SLUG, 'k01')['referensprofil_brister']['brister'])
         self.assertTrue(kd.ska_skapas(kd.las_status(SLUG, 'k01')), 'nästa start gör om profileringen')
         self.assertNotEqual(kd.uppdrag_sha(k), 'ett-annat-uppdrag')
+        # en rapport utan kandidaten (förankringens vägran) stoppar, och en tidigare starts brist står inte kvar
+        kd.satt_status(SLUG, 'k01', 'planerad', 'uppdraget skrivet', ta_bort=('referensprofil_brister',),
+                       referensprofil={'tid': kd.nu(), 'brister': ['förra startens brist']})
+        tom = {'ok': False, 'brister': ['skrivmålet vägrades'], 'uppdrag': {'k01': kd.uppdrag_sha(k)}, 'kandidater': {}}
+        with patch.object(kd, 'profilrapport', return_value=tom):
+            self.assertFalse(kd.referensprofil_klar(SLUG, 'k01'))
+        st = kd.las_status(SLUG, 'k01')
+        self.assertEqual((st['status'], st['referensprofil_brister']['brister'], st.get('referensprofil')), ('fel', ['skrivmålet vägrades'], None))
 
     def test_en_aldre_starts_profilsparr_tas_upp_och_det_tekniska_omforsoket_forblir_ett(self):
         # granskningen 2026-10-10, fynd 1: en profilbrist i ett tekniskt omförsök fick kandidaten att fastna för alltid; en

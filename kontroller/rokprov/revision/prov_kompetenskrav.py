@@ -161,6 +161,18 @@ class Krav(unittest.TestCase):
                 p['skill_anrop'] = p['skill_anrop'] + [skills[0]]
                 self.assertIn('session 1: Skill aktiverades inte före första ändringen: %s' % skills[0], kompetens.kravbrister(kv, pass_))
 
+    def test_underagent_utanfor_skissen_aktiverar_ett_valt_alternativ_fore_forsta_andringen(self):
+        kv = kvitto('helbygge')
+        karna = [f for r in kompetens.for_pass('helbygge') for f in r['karna']]
+        karnskills, _ = kompetens.aktiverbara(karna)
+        alt = [f for r in kompetens.for_pass('helbygge') for f in r['valj']]
+        valt = next(f for f in alt if f.endswith('/SKILL.md') and kompetens.aktiverbara([f])[0])
+        namn = kompetens.aktiverbara([valt])[0][0]
+        filer = kompetens.lasfiler('helbygge')
+        kv['per_session'][0]['underagenter'] = [{'agent': 'syntetisk', 'andrade': True, 'lasta': filer, 'fore_forsta_andring': filer,
+                                                 'skill_anrop': karnskills + [namn], 'skill_fore': karnskills, 'valda': [kompetens.vag(valt)]}]
+        self.assertIn('session 1, underagent syntetisk: Skill aktiverades inte före första ändringen: %s' % namn, kompetens.kravbrister(kv, 'helbygge'))
+
     def test_underagentens_karna_och_val(self):
         kv = kvitto('skapa')
         karnskills, _ = kompetens.aktiverbara([f for r in kompetens.for_pass('skapa') for f in r['karna']])

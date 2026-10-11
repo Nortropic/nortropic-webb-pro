@@ -20,7 +20,7 @@ try {
   await page.locator('#pt-system a[href="#/kompetens"]').click();
   await page.locator('.kk h1').filter({ hasText: 'Kompetenskartan' }).waitFor();
   assert.equal(await page.locator('#pt-system a[href="#/kompetens"]').getAttribute('aria-current'), 'page');
-  assert.match(await page.locator('.kk-summa').textContent(), /2 av 14 roller observerade/);
+  assert.match(await page.locator('.kk-summa').textContent(), /2 av 15 roller observerade/);
   // Luckor först: kärnan, MCP-kravet och det oobserverade, var och en med källa och förslag
   assert.equal(await page.locator('[data-kk-flik="luckor"]').getAttribute('aria-selected'), 'true');
   const luckor = await page.locator('.kk-lucka').allTextContents();
