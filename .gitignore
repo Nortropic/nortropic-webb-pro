@@ -27,3 +27,5 @@ backlog/.*
 *.key
 *.p12
 *.pfx
+# Chrome skriver tilläggets regelindex här när DevTools-profileringen laddar det läsande tillägget (kandidatprovet 2026-10-11)
+kontroller/webblasare/devtools-lasande/_metadata/
