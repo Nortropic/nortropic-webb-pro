@@ -461,8 +461,10 @@ class Kedjan(Grund):
         kd.satt_status(SLUG, 'k01', 'planerad', 'uppdraget skrivet', forsok=0)
         self.stack.enter_context(patch.object(atelje, 'session', side_effect=AssertionError('ingen skaparsession i provet')))
 
-    def test_profilbristen_gors_om_en_gang_per_start_aldrig_i_en_slinga(self):
-        anrop = []
+    def test_profilbristen_ar_underlag_och_gors_inte_om_i_en_slinga(self):
+        # ägarens uppdrag 2026-10-11 om designflödet: en ofullständig profil stoppar inte skaparen; den görs en gång per
+        # försök, och bristen står i statusen och skaparens prompt (profil_rader)
+        anrop, skissade = [], []
 
         def falsk(slug, kid):
             anrop.append(kid)
@@ -470,31 +472,29 @@ class Kedjan(Grund):
         import ab
         with patch.object(kd, 'profilrapport', falsk), patch.object(ab, 'skisskrav', lambda slug: None), \
                 patch.object(ab, 'skissavslutad', lambda slug, kid: kd.las_status(slug, kid)):
-            st = kd.behandla_skiss(SLUG, 'k01')
-            self.assertEqual(anrop, ['k01'], 'ett försök i den här starten')
-            self.assertEqual(st['status'], 'fel')
-            self.assertTrue(kd.ska_skapas(st))
-            st = kd.behandla_skiss(SLUG, 'k01')  # nästa start
-            self.assertEqual(anrop, ['k01', 'k01'])
-            self.assertEqual(st['referensprofil_brister']['brister'], ['syntetisk brist'])
-            self.assertEqual(int(st.get('forsok') or 0), 0)
+            self.assertTrue(kd.referensprofil_klar(SLUG, 'k01'))
+            st = kd.las_status(SLUG, 'k01')
+            self.assertEqual(anrop, ['k01'], 'ett försök')
+            self.assertEqual(st['status'], 'planerad', 'statusen står kvar: skaparen får börja')
+            self.assertEqual(st['referensprofil']['brister'], ['syntetisk brist'])
+            self.assertIsNone(st.get('referensprofil_brister'))
+            self.assertTrue(any('syntetisk brist' in r for r in kd.profil_rader(SLUG, 'k01')))
 
-    def test_ett_tekniskt_omforsok_forblir_ett_efter_en_profilbrist(self):
-        # granskningen 2026-10-10, fynd 1: en profilbrist i ett tekniskt omförsök fick kandidaten att fastna för alltid
-        kd.satt_status(SLUG, 'k01', 'fel', 'bygget föll: syntetiskt', tekniskt_fel=True, forsok=1)
+    def test_en_aldre_starts_profilsparr_tas_upp_och_det_tekniska_omforsoket_forblir_ett(self):
+        # granskningen 2026-10-10, fynd 1: en profilbrist i ett tekniskt omförsök fick kandidaten att fastna för alltid; en
+        # äldre starts spärr (status fel med referensprofil_brister) återställs, och omförsöket görs med sitt skäl
+        kd.satt_status(SLUG, 'k01', 'fel', 'referensprofilen är ofullständig, så skaparen startar inte: syntetisk', forsok=1,
+                       referensprofil_brister={'tid': kd.nu(), 'brister': ['syntetisk brist'], 'status_fore': 'fel',
+                                               'skal_fore': 'bygget föll: syntetiskt', 'tekniskt_fel_fore': True}, tekniskt_fel=False)
+        self.assertTrue(kd.ska_skapas(kd.las_status(SLUG, 'k01')))
         skissade = []
         import ab
-        with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['syntetisk brist']}), \
-                patch.object(ab, 'skisskrav', lambda slug: None), patch.object(ab, 'skissavslutad', lambda slug, kid: kd.las_status(slug, kid)):
-            st = kd.behandla_skiss(SLUG, 'k01')
-        self.assertEqual(st['referensprofil_brister']['tekniskt_fel_fore'], True)
-        self.assertTrue(kd.ska_skapas(st))
-        with patch.object(kd, 'profilrapport', referensfixtur.profilrapport(kd)), \
-                patch.object(kd, 'skissa', side_effect=lambda slug, kid, fel=None: skissade.append(fel) or kd.satt_status(slug, kid, 'klar', 'x')), \
+        with patch.object(kd, 'skissa', side_effect=lambda slug, kid, fel=None: skissade.append(fel) or kd.satt_status(slug, kid, 'klar', 'x')), \
                 patch.object(ab, 'skisskrav', lambda slug: None), patch.object(ab, 'skissavslutad', lambda slug, kid: kd.las_status(slug, kid)), \
                 patch.object(kd, 'skaparbrister', return_value=[]):
             kd.behandla_skiss(SLUG, 'k01')
         self.assertEqual(skissade, ['bygget föll: syntetiskt'], 'nästa start gör det tekniska omförsöket med sitt skäl')
+        self.assertIsNone(kd.las_status(SLUG, 'k01').get('referensprofil_brister'))
 
     def test_profilsteget_behaller_skalet_och_ett_stopp_ar_ett_avbrott(self):
         kd.satt_status(SLUG, 'k01', 'ofullstandig', 'förra försökets brister: menyn öppnar ingenting', forsok=1)
@@ -510,7 +510,8 @@ class Kedjan(Grund):
         finally:
             atelje.STOPP.clear()
         efter = kd.las_status(SLUG, 'k01')
-        self.assertEqual((efter['status'], efter.get('referensprofil_brister')), (fore['status'], None), 'ett stopp är ingen profilbrist')
+        self.assertEqual((efter['status'], efter.get('referensprofil_brister'), efter.get('referensprofil')),
+                         (fore['status'], None, fore.get('referensprofil')), 'ett stopp är ingen profilbrist')
 
     def test_provunderlag_startar_aldrig_en_verklig_profilering(self):
         with patch.object(skapande, 'kor_trad', side_effect=AssertionError('ingen process mot provunderlaget')):

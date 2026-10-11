@@ -124,6 +124,40 @@ class Krav(unittest.TestCase):
         }, {'21st': 'ansluten'}, True)
         self.assertEqual(ut.get('med_innehall'), 5)
 
+    # Ägarens uppdrag 2026-10-11 om designflödet: i skissen och fördjupningen är kärnan det som läses före första
+    # ändringen, och ett valt alternativ är specialisten för ett observerat problem, aktiverad när beslutet står.
+    def test_specialist_vald_efter_forsta_andringen_ar_godkand(self):
+        kv = kvitto('skapa')
+        p = kv['per_session'][0]
+        p['valda'] = ['.claude/skills/better-typography/SKILL.md']  # läst efter första renderingen
+        p['skill_anrop'] = p['skill_anrop'] + ['better-typography']  # aktiverad, men inte före första ändringen
+        self.assertEqual(kompetens.kravbrister(kv, 'skapa'), [])
+
+    def test_vald_specialist_som_aldrig_aktiverades_ar_en_brist(self):
+        kv = kvitto('skapa')
+        kv['per_session'][0]['valda'] = ['.claude/skills/better-typography/SKILL.md']
+        self.assertIn('session 1: Skill-aktivering saknas: better-typography', kompetens.kravbrister(kv, 'skapa'))
+
+    def test_karnan_ar_fortfarande_kravd_fore_forsta_andringen(self):
+        kv = kvitto('skapa')
+        p = kv['per_session'][0]
+        p['fore_forsta_andring'] = [f for f in p['fore_forsta_andring'] if not f.endswith('craft-floor.md')]
+        p['skill_fore'] = [n for n in p['skill_fore'] if n != 'frontend-design']
+        fel = kompetens.kravbrister(kv, 'skapa')
+        self.assertIn('session 1: .claude/skills/impeccable/reference/craft-floor.md (läst först efter första ändringen)', fel)
+        self.assertIn('session 1: Skill aktiverades inte före första ändringen: frontend-design', fel)
+
+    def test_skissens_karna_ar_den_lilla_och_rorelsepasset_behaller_sin(self):
+        karna = kompetens.lasfiler('skapa')
+        for f in ('.claude/skills/frontend-design/SKILL.md', '.claude/skills/impeccable/reference/craft-floor.md',
+                  'kunskap/bild.md', 'kunskap/copy-kontroll.md'):
+            self.assertIn(f, karna)
+        for f in ('.claude/skills/emil-design-eng/SKILL.md', '.claude/skills/emil-animate/SKILL.md'):
+            self.assertNotIn(f, karna, 'rörelse vid behov i skissen, ingen obligatorisk animation')
+            self.assertIn(f, kompetens.valbara('skapa'))
+            self.assertIn(f, kompetens.lasfiler('rorelse'), 'specialistens eget pass har hela kärnan')
+        self.assertLess(sum(len((ROOT / f).read_text(encoding='utf-8')) for f in karna), 50000)
+
 
 if __name__ == '__main__':
     unittest.main()

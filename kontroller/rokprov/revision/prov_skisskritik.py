@@ -1018,6 +1018,31 @@ def godkann_foto():
                        kandidater=[{'id':'k01','version':st['version']}],belagg='syntetiskt prov',tid=atelje.nu())
 
 
+@fall('13b en redovisning som inte stämmer med det observerade kastar inte kritiken; olästa kärnan gör det')
+def _kritik_redovisning():
+    # kandidatprovet 2026-10-11: granskaren skrev "Inte valda eller lästa: …" i fältet valda, och hela kritiken kastades
+    import uuid
+    kund(); d=kd.kdir(SLUG,'k01')
+    kritiker(sid_fn=lambda: kompetens_transkript('skisskritik'), svar={'valda': [
+        {'fil': 'kritik/GRANSKARE.md, refero-design/references/anti-ai-slop.md', 'varfor': 'Inte valda eller lästa: täcks av kärnan'}]})
+    kd.satt_status(SLUG,'k01','under_arbete',forsok=1)
+    post=kd.skisskritik(SLUG,'k01')
+    assert post and post['rekommendation']=='byt komposition', post
+    assert any('kritik/GRANSKARE.md' in b for b in post['redovisningsbrister']), post.get('redovisningsbrister')
+    assert post['kompetenskravbrister']==post['redovisningsbrister'], 'bristen står i posten'
+    assert kd.skisskritik_giltig(SLUG,'k01',post), 'kritiken är aktuell för försöket'
+    # negativ kontroll: en granskare som inte läste sin kärna fäller kritiken som förut
+    kritiker(sid_fn=lambda: transkript([], str(uuid.uuid4())))
+    try:
+        kd.skisskritik(SLUG,'k01')
+    except RuntimeError as e:
+        assert 'kärnan saknas' in str(e), e
+    else:
+        raise AssertionError('en kritik utan läst kärna ska fällas')
+    post=json.loads((d/'SKISSKRITIK.json').read_text())
+    assert not kd.skisskritik_giltig(SLUG,'k01',post)
+
+
 @fall('14 godkänd kandidat överför samma public-filer och kundbilder till helbygget')
 def _materialoverforing():
     kund();s=kd.ksajt(SLUG,'k01')

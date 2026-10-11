@@ -173,10 +173,12 @@ kandidaterna och granskningarna.
    de läsande skalkommandona nekas varje session som arbetar med en kandidat (`kandidater.andra_nekas`; skapandets egna
    verktyg och det egna projektet berörs inte). Varje kandidats kedja börjar med dess egna förutsättningar: DevTools för
    dess valda referenssidor (`kandidater.referensprofil_klar`, `kunskap/referensprofil.md`), beställd i kedjan i stället
-   för i ett gemensamt steg före alla skapare. En kandidat börjar när dess egna profiler finns, olika sidor profileras
-   samtidigt (högst så många som skissar samtidigt) och samma sida en gång; en kandidats profilbrist stoppar bara den
-   kandidaten, och nästa start gör om profileringen en gång (ägarens förenklingsuppdrag 2026-10-10, D). Profilerna når
-   skaparen i uppdragets prompt (`kandidater.profil_rader`), bundna till uppdraget, så att UPPDRAG.md inte skrivs om.
+   för i ett gemensamt steg före alla skapare (ägarens förenklingsuppdrag 2026-10-10, D). Olika sidor profileras
+   samtidigt (högst så många som skissar samtidigt) och samma sida en gång. En ofullständig profil är underlag, inte en
+   spärr (ägarens uppdrag 2026-10-11 om designflödet): skaparen startar, får bristen i sin prompt och arbetar från
+   referensbilderna och SEKTIONER.md. Profilerna når skaparen i uppdragets prompt (`kandidater.profil_rader`), bundna till
+   uppdraget, så att UPPDRAG.md inte skrivs om. Skaparen läser kärnan före första ändringen och väljer specialisterna
+   efter det problem renderingen visar (metodkartan, Kompetenserna: kärnan först, specialisten efter problemet).
    Försökets förutsättningar fryses när det startar (`underlag_vid_start`: uppdraget, materialet, profilerna och
    paketet); en annan kandidats komplettering ändrar dem inte, och en ändring före nästa försök står i statusen
    (`underlag_andrat`). Skaparen skriver RIKTNING.md först
@@ -196,7 +198,9 @@ kandidaterna och granskningarna.
    när bedömningen kräver ett annat tillstånd, detektorn utan kodutdrag och förebilder ur Refero och Mobbin. Skaparens
    varv ges bara när flödets förhandsvisning inte gick att ta och varvet är byggt av samma version (`KALLA.json` i
    varvet, `forhandsvisa.varvets_version`); gamla bilder intygar aldrig ny kod. SKISSKRITIK.json bär kandidatens version, det granskaren bevisligen såg (en tom eller saknad bild räknas
-   aldrig som sedd) och kompetenskvittot, och skaparen svarar i en egen session ("Svar på granskningen" i RIKTNING.md).
+   aldrig som sedd) och kompetenskvittot (en kritik vars granskare inte läste sin kärna fälls; en egen redovisning som
+   inte stämmer med det observerade sparas som `redovisningsbrister` men kastar inte kritiken, ägarens uppdrag 2026-10-11
+   om designflödet), och skaparen svarar i en egen session ("Svar på granskningen" i RIKTNING.md).
    Den sessionen är ny, som en fortsättning är: den får kompetensens rader och steg 0 igen och sägs aldrig ha läst
    kärnan i en tidigare session; kvittot räknar sessionerna var för sig (motorinventeringen 2026-10-08, K06).
    Ett avgränsat prov (ägarens godkännande 2026-10-11; `NWP_SVAR_ATERUPPTAG=pa`, inte standard förrän tid och förbrukning

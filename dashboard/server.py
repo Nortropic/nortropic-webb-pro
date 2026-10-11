@@ -1842,11 +1842,13 @@ def flode(slug):
             kontroller.append({'text': 'planprövningen gjord'})
         if kand:  # profilen beställs i varje kandidats kedja (ägarens förenklingsuppdrag 2026-10-10, D); neutrala namn
             st_k = {x['id']: kandidater.las_status(slug, x['id']) for x in kand}
-            klara_p = sum(1 for s_ in st_k.values() if s_.get('referensprofil'))
-            brist_p = [x.get('etikett') or x['id'] for x in kand if st_k[x['id']].get('referensprofil_brister')]
-            if klara_p or brist_p:
-                kontroller.append({'text': 'referensprofilerna i förslagens kedjor: %d klara%s' % (
-                    klara_p, ('; stoppade av en profilbrist (görs om vid nästa start): %s' % ', '.join(brist_p)) if brist_p else '')})
+            klara_p = sum(1 for s_ in st_k.values() if s_.get('referensprofil') and not (s_.get('referensprofil') or {}).get('brister'))
+            ofull_p = [x.get('etikett') or x['id'] for x in kand if (st_k[x['id']].get('referensprofil') or {}).get('brister')]
+            brist_p = [x.get('etikett') or x['id'] for x in kand if st_k[x['id']].get('referensprofil_brister')]  # en äldre starts spärr
+            if klara_p or ofull_p or brist_p:
+                kontroller.append({'text': 'referensprofilerna i förslagens kedjor: %d klara%s%s' % (
+                    klara_p, ('; ofullständiga, skaparen arbetar från bilderna: %s' % ', '.join(ofull_p)) if ofull_p else '',
+                    ('; stoppade av en profilbrist i en äldre start (görs om vid nästa start): %s' % ', '.join(brist_p)) if brist_p else '')})
         if kand:
             kontroller.append({'text': '%d av %d förslag klara att bedöma%s' % (sum(1 for x in kand if x.get('status') in kandidater.VISBARA), len(kand),
                                (', %d till bedömbara medan granskningen pågår' % sum(1 for x in kand if x.get('status') == 'bedombar'))

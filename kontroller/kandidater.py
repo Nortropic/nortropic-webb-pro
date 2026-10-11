@@ -1644,21 +1644,28 @@ def fryst_underlag(slug, kid):
 
 def profil_rader(slug, kid):
     """Kandidatens DevTools-profiler i skaparens prompt: bara kandidatens egen rapport (kedjan per kandidat), bunden till
-    uppdraget som det står i planen nu; annars inget."""
+    uppdraget som det står i planen nu. En ofullständig profil står som en brist med underlaget som återstår
+    (referensprofil_klar); en rapport som gäller ett annat uppdrag ger inget."""
     import referensprofil
     rapport = atelje.las_json(kdir(slug, kid) / 'REFERENSPROFIL.json') or {}
     k = ((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid)
-    if not (rapport.get('ok') and (rapport.get('uppdrag') or {}).get(kid) == uppdrag_sha(k)):
-        return []
-    return referensprofil.prompt_rader(rapport, kid)
+    if rapport.get('ok') and (rapport.get('uppdrag') or {}).get(kid) == uppdrag_sha(k):
+        return referensprofil.prompt_rader(rapport, kid)
+    brister = (las_status(slug, kid).get('referensprofil') or {}).get('brister')
+    if brister:
+        return ['- DevTools-profilen för huvudreferensen blev ofullständig (%s). Underlaget är referensbilderna och' % '; '.join(brister)[:400],
+                '  SEKTIONER.md (sektionernas uppmätta mått, typsnitt och CSS-regler ur fångsten); skriv i RIKTNING.md under Material',
+                '  om något som profilen skulle ha gett saknades för ett beslut.']
+    return []
 
 
 def referensprofil_klar(slug, kid):
-    """Kandidatens egen förutsättning före skaparen (ägarens förenklingsuppdrag 2026-10-10, D): DevTools för dess valda
-    referenssidor, beställd i kandidatens kedja i stället för i ett gemensamt steg före alla skapare. En kandidat startar
-    när dess egna profiler finns; en annan kandidats brist stoppar den inte. En brist sparas och stoppar bara den här
-    kandidaten (status fel med referensprofil_brister); nästa start gör om profileringen en gång (behandla_skiss), och
-    en giltig profil återanvänds då ur referensprofilens cache. Ger True när skaparen får börja."""
+    """Kandidatens DevTools-profil före skaparen, beställd i kandidatens kedja (ägarens förenklingsuppdrag 2026-10-10, D).
+    Profilen är underlag, inte en spärr (ägarens uppdrag 2026-10-11 om designflödet: fel i valfri inspiration fäller inte
+    en kandidat i onödan): en ofullständig profil sparas som brist i referensprofil, skaparen får veta det och arbetar från
+    referensbilderna och SEKTIONER.md, som fångsten redan mätt (kandidatprovet 2026-10-11: ett prestandaspår som inte
+    blev klart stoppade k02 två gånger fast CSS-reglerna var uppmätta). Kundgränsen, referenskontraktet och stoppet
+    gäller som förut: ett stopp under profileringen är ett avbrott. Ger True när skaparen får börja."""
     k = ((atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}).get(kid)
     if not isinstance(k, dict):
         return True  # ingen plan i kontraktets form: startvillkoren prövas av referensstopp
@@ -1670,18 +1677,12 @@ def referensprofil_klar(slug, kid):
         raise atelje.Stoppad('profileringen avbröts av stoppet')
     if rapport.get('ok') and (rapport.get('uppdrag') or {}).get(kid) != uppdrag_sha(k):
         rapport = dict(rapport, ok=False, brister=['uppdraget ändrades under profileringen'])
-    if not rapport.get('ok'):
-        b_ = [str(x) for x in rapport.get('brister') or ['okänt fel']]
-        # det som gällde före bristen sparas, så att nästa start återställer det (ett tekniskt omförsök förblir ett)
-        satt_status(slug, kid, 'fel', 'referensprofilen är ofullständig, så skaparen startar inte: ' + '; '.join(b_)[:600],
-                    referensprofil_brister={'tid': nu(), 'brister': b_, 'sekunder': sek, 'status_fore': st.get('status'),
-                                            'skal_fore': st.get('skal'), 'tekniskt_fel_fore': bool(st.get('tekniskt_fel'))},
-                    tekniskt_fel=False)
-        return False
     p_ = ((rapport.get('kandidater') or {}).get(kid) or {})
-    satt_status(slug, kid, st.get('status') or 'planerad', st.get('skal') or '', ta_bort=('referensprofil_brister',),
-                referensprofil={'tid': nu(), 'sekunder': sek, 'tillstand': p_.get('tillstand'),
-                                'profiler': len(p_.get('profiler') or []), 'ateranvanda': sum(1 for x in p_.get('profiler') or [] if x.get('ateranvand'))})
+    post = {'tid': nu(), 'sekunder': sek, 'tillstand': p_.get('tillstand') if rapport.get('ok') else 'ofullstandig',
+            'profiler': len(p_.get('profiler') or []), 'ateranvanda': sum(1 for x in p_.get('profiler') or [] if x.get('ateranvand'))}
+    if not rapport.get('ok'):
+        post['brister'] = list(dict.fromkeys(str(x) for x in rapport.get('brister') or ['okänt fel']))
+    satt_status(slug, kid, st.get('status') or 'planerad', st.get('skal') or '', ta_bort=('referensprofil_brister',), referensprofil=post)
     return True
 
 
@@ -2108,11 +2109,13 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         'Arbetsgången:',
         *(['Steg 0 görs i varje session, också den här; gör sedan det som %s behöver.' % ('svaret på granskningen' if kritik else 'fortsättningen')]
           if (kritik or fortsattning) else []),
-        '0. Använd hela kompetensen: aktivera rollernas skills med skillverktyget och läs deras referensfiler hela (rollernas',
-        '   rader nedan säger vilka; en aktivering som misslyckas skriver du i RIKTNING.md innan du går vidare), och välj bland',
-        '   alternativen det som passar riktningen, för art direction (frontend-design, impeccable new-work och bolder eller',
-        '   quieter), typografi (impeccable typeset), bilder (kunskap/bild.md), innehåll, användbarhet och kontakt (Mobbin, UI UX',
-        '   Pro Max), responsivitet och interaktion och rörelse (Emils material, med reducerad rörelse). refero-design är',
+        '0. Läs kärnan: aktivera rollernas kärnskills med skillverktyget och läs kärnans referensfiler hela (rollernas rader',
+        '   nedan säger vilka; en aktivering som misslyckas skriver du i RIKTNING.md innan du går vidare). Specialisterna bland',
+        '   alternativen väljer du efter det du ser i dina renderingar: typografin och färgerna (impeccable colorize,',
+        '   better-typography, better-colors), layouten och mobilen (impeccable adapt, better-layout), texten (impeccable clarify,',
+        '   better-writing), uttrycket (impeccable new-work, bolder eller quieter, högst en Taste-variant som stöd för art',
+        '   direction) eller ett rörligt beteende med ett syfte (Emils material och Motion; ingen rörelse för att visa kvalitet).',
+        '   Den du väljer aktiverar eller läser du hel när beslutet står, och inget val görs som ceremoni. refero-design är',
         '   researchmetod, inte ensam designauktoritet; du avgör motstridiga råd. Researchens material är redan hämtat; öppna de',
         '   faktiska referensbilderna med Read, och sök kompletterande förebilder i Refero eller Mobbin när underlaget inte',
         '   räcker (branschen och uppgiften, aldrig kundens uppgifter). Ett tomt eller misslyckat sökresultat skrivs som det är',
@@ -2145,8 +2148,9 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         '3. Första varvet efter renderingen prövar grunden: bär kompositionen, hierarkin, bildvalet och rytmen, och syns kundens',
         '   särprägel, eller kan samma form användas av nästan vilken hantverkare som helst? Känns riktningen generisk byter du',
         '   grundidé, referens eller komposition (med skälet), i stället för att finjustera en svag struktur. Därefter åtgärdar',
-        '   varje varv det största visuella problemet du ser i bilderna; skriv i RIKTNING.md under "Varv N" problemet och',
-        '   åtgärden. Inget fast antal varv: sluta när du inte ser något problem som går att åtgärda inom tiden.',
+        '   varje varv det största visuella problemet du ser i bilderna; skriv i RIKTNING.md under "Varv N" problemet, den',
+        '   specialist du valde för det (eller att ingen behövdes) och åtgärden, och se i nästa varvs bilder om det blev bättre.',
+        '   Inget fast antal varv: sluta när du inte ser något problem som går att åtgärda inom tiden.',
         'Tiden: högst %d minuter för din session, bygg- och verktygstid inräknad (försöket högst %d minuter med fotograferingen' % (
             minuter, forsok_min or minuter),
         'efter); sedan stoppas sessionen. Ha en renderad',
@@ -2227,8 +2231,7 @@ def skapa(slug, kid):
     """En skaparsession för kandidaten (och en ny efter en begärd komplettering); sedan fotograferas den."""
     if referensstopp(slug, kid):  # också en direkt start eller en återupptagning prövar kontraktet
         return las_status(slug, kid)
-    if not referensprofil_klar(slug, kid):  # kandidatens egna profiler; en brist stoppar bara den här kandidaten
-        return las_status(slug, kid)
+    referensprofil_klar(slug, kid)  # kandidatens egen profil; en brist blir skaparens underlag, aldrig en spärr
     st = las_status(slug, kid)
     forsok = int(st.get('forsok') or 0) + 1
     forbered_projekt(slug, kid)
@@ -2508,8 +2511,7 @@ def skisskritik_giltig(slug, kid, post=None):
     try:
         post = post if post is not None else atelje.las_json(kdir(slug, kid) / 'SKISSKRITIK.json')
         return (isinstance(post, dict) and bool(post.get('rekommendation'))
-                and not kompetens.kravbrister(post.get('kompetens'), 'skisskritik')
-                and not kompetens.redovisade_brister(post.get('kompetens'), 'skisskritik', post)
+                and not kompetens.kravbrister(post.get('kompetens'), 'skisskritik')  # en redovisningsbrist är sparad, inte ogiltig (skisskritik)
                 and las_status(slug, kid).get('status') != 'avbruten'
                 and post.get('identitet') == skisskritik_identitet(slug, kid))
     except (OSError, ValueError):
@@ -2564,14 +2566,20 @@ def skisskritik(slug, kid):
     if not isinstance(so, dict) or not so.get('rekommendation'):
         return None
     kv = kompetens.kvitto([svar], 'skisskritik')
-    kravbrister = kompetens.kravbrister(kv, 'skisskritik') + kompetens.redovisade_brister(kv, 'skisskritik', so)
+    kravbrister = kompetens.kravbrister(kv, 'skisskritik')
+    # Granskarens egen redovisning som inte stämmer med det observerade (ett alternativ i valda som inte lästes) sparas som
+    # brist men kastar inte kritiken, som bygger på bilderna och är rådgivande; kandidatprovet 2026-10-11: granskaren skrev
+    # "Inte valda eller lästa: …" i fältet valda, kritiken kastades och skaparen fick inget av den med 29 minuter kvar.
+    # Kärnan som inte lästs fäller kritiken som förut.
+    redovisning = kompetens.redovisade_brister(kv, 'skisskritik', so)
     post = dict(so, tid=nu(), varv=v[-1], version=version_, identitet=identitet, karta=metod.sha(metod.KARTA.read_text(encoding='utf-8')),
                 bilder=[rel(p) for p in bilder], bedomt=bedomt(svar.get('session_id'), slug, kid, so), kompetens=kompetens_kort(kv), blind=rel(tillatet),
-                svar=ut.name, sekunder=int(time.monotonic() - start), kompetenskravbrister=kravbrister,
+                svar=ut.name, sekunder=int(time.monotonic() - start), kompetenskravbrister=kravbrister + redovisning,
+                **({'redovisningsbrister': redovisning} if redovisning else {}),
                 session={x: svar.get(x) for x in ('session_id', 'num_turns', 'duration_ms', 'total_cost_usd')})
     (d / 'SKISSKRITIK.json').write_text(json.dumps(post, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     if kravbrister:
-        raise RuntimeError('skisskritikens kompetenskrav uppfylldes inte: ' + '; '.join(kravbrister))
+        raise RuntimeError('skisskritikens kompetenskrav uppfylldes inte: ' + '; '.join(kravbrister + redovisning))
     return post
 
 
@@ -2666,8 +2674,7 @@ def skissa(slug, kid, fel=None):
     efter ett identifierat tekniskt fel, med kortare tid. Ingen förlängning."""
     if referensstopp(slug, kid):  # startvillkoret också här: varje väg till en skaparsession prövar kontraktet
         return las_status(slug, kid)
-    if not referensprofil_klar(slug, kid):  # kandidatens egna profiler; en brist stoppar bara den här kandidaten
-        return las_status(slug, kid)
+    referensprofil_klar(slug, kid)  # kandidatens egen profil; en brist blir skaparens underlag, aldrig en spärr
     st = las_status(slug, kid)
     installningar = skaparval(slug, kid)
     forsok = int(st.get('forsok') or 0) + 1
@@ -5670,6 +5677,7 @@ def vantan_rader(slug, status):
         p_, b_ = st.get('referensprofil') or {}, byggrader_kandidat(slug, kid)
         rader.append('- %s: profilen %s s (%s av %s profiler återanvända)%s; byggen %d, återanvända %d, väntan på bygglåset %d s, byggtid %d s.' % (
             kid, p_.get('sekunder', '–'), p_.get('ateranvanda', '–'), p_.get('profiler', '–'),
+            ('; profilbrist (skaparen arbetade från bilderna och SEKTIONER.md): %s' % '; '.join(p_['brister'])[:200]) if p_.get('brister') else
             ('; profilbrist: %s' % '; '.join((st.get('referensprofil_brister') or {}).get('brister') or [])[:200]) if st.get('referensprofil_brister') else '',
             b_['byggda'], b_['ateranvanda'], b_['vantade'], b_['byggtid']))
     return rader

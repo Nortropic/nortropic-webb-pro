@@ -74,6 +74,9 @@ GRANSKANDE = ('skisskritik', 'jamforelse', 'kritik_a', 'kritik_b', 'fore_efter')
 # blinda för skaparens text, uppdrag, referenspaket och kod; före/efter-bedömningen ser bara de två versionernas bilder
 # (ägarens uppdrag 2026-10-09, punkt 10: bilderna bedöms före skaparens förklaring)
 BLINDA = ('skisskritik', 'kritik_a', 'fore_efter')
+# Passen där alternativen är specialister för ett observerat problem: kärnan läses före första ändringen, ett valt
+# alternativ när beslutet står (ägarens uppdrag 2026-10-11 om designflödet; kunskap/metodkarta.md, Kompetenserna)
+BEHOVSSTYRDA = ('skapa', 'fordjupa')
 FORSKANDE = ('forska', 'forbered')  # forskar och ändrar aldrig sidan
 FORHAND = '.venv/bin/python kontroller/forhandsvisa.py <slug> --kandidat <id>'
 
@@ -556,6 +559,16 @@ def prompt_rader(pass_, slug, kid=None, k=None):
                  'vana utan skäl?", aldrig ensam grund för ett fynd. Beskriver en skill ett eget arbetsflöde (underagenter, källkod,',
                  'frågor till användaren, sparade rapporter) gäller dess bedömning, inte flödet: du arbetar i den här sessionen med',
                  'verktygen nedan och svarar i schemat.']
+    elif pass_ in BEHOVSSTYRDA:  # skissen och fördjupningen: kärnan först, specialisten efter det observerade problemet
+        rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Aktivera rollernas kärnskills' % PASSNAMN[pass_],
+                 'med skillverktyget (Skill) och läs kärnans referensfiler HELA med Read innan du ändrar något (en fil större än en',
+                 'läsning läses i delar med offset och limit tills alla rader är lästa); en aktivering eller läsning som misslyckas',
+                 'skriver du i svaret innan beroende arbete fortsätter. Alternativen är specialisterna: när en rendering visar ett',
+                 'problem väljer du den specialist som problemet kräver, aktiverar eller läser den hel när beslutet står, och skriver',
+                 'problemet, specialisten och ändringen i varvet; ett val som inte behövs görs inte. Ett recept som säger emot ett',
+                 'annat, ett ägarbeslut eller kundens behov avgörs av Avgörandena i metoden, designreglerna och kundens aktuella domar',
+                 'ovan. Följ arbetsflödet: craft-floor.md direkt före ändringar i gränssnittet, sedan bygg, rendera, se det största',
+                 'problemet, välj relevant kompetens, ändra och kontrollera effekten i mobil och dator tillsammans.']
     else:
         rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Aktivera varje rolls skills' % PASSNAMN[pass_],
                  'med skillverktyget (Skill) och läs rollens referensfiler HELA med Read innan du ändrar något (en fil större än en',
@@ -581,7 +594,8 @@ def prompt_rader(pass_, slug, kid=None, k=None):
         rader += ['', '%s: %s' % (x['namn'], x['uppgift'])]
         rader.append('- kärnan, hel före arbetet: ' + aktiveringstext(x['karna']))
         if x['valj']:
-            rader.append('- alternativen, välj efter %s: ' % ('det du bedömer' if pass_ in GRANSKANDE else 'riktningen') + aktiveringstext(x['valj']))
+            rader.append('- %s: ' % ('alternativen, välj efter det du bedömer' if pass_ in GRANSKANDE else 'specialisterna, välj efter det observerade problemet'
+                                     if pass_ in BEHOVSSTYRDA else 'alternativen, välj efter riktningen') + aktiveringstext(x['valj']))
         for v in x['verktyg']:
             if v == 'design' and not kid:
                 continue
@@ -890,10 +904,14 @@ def kravbrister(kv, pass_, k=None):
                     fel.append('session %d: %s läses hel med Read (skillen är användaranropad hos källan och Skill-verktyget vägrar den)' % (i, f))
             sedda = {bildkedja.skillnamn(n) for n in p.get('skill_anrop') or []}
             tidiga = {bildkedja.skillnamn(n) for n in p.get('skill_fore') or []}
+            karnskills = set(aktiverbara(karna)[0])
             for namn in krav:
                 if namn not in sedda:
                     fel.append('session %d: Skill-aktivering saknas: %s' % (i, namn))
-                elif skrivande and p.get('andrade') and namn not in tidiga:
+                elif skrivande and p.get('andrade') and namn in karnskills and namn not in tidiga:
+                    # bara kärnan före första ändringen; ett valt alternativ är specialisten för ett observerat problem och
+                    # aktiveras när beslutet står (ägarens uppdrag 2026-10-11 om designflödet: bygg, rendera, se det största
+                    # problemet, välj relevant kompetens, ändra, kontrollera effekten)
                     fel.append('session %d: Skill aktiverades inte före första ändringen: %s' % (i, namn))
             fel += underagentbrister(p, i, karnafiler, karna, alternativ)
     for m in dict.fromkeys(m for r in roller for m in r.get('mcp_krav', [])):
@@ -1004,9 +1022,12 @@ def underagentbrister(p, i, karnafiler, karna, alternativ):
         namn_u = 'session %d, underagent %s' % (i, str(u.get('agent') or '?')[:12])
         fel += ['%s: ändrade utan kärnan före första ändringen: %s' % (namn_u, Path(f).name)
                 for f in sorted(karnafiler - set(u.get('fore_forsta_andring') or []))]
-        krav, _ = aktiverbara(karna + [f for f in alternativ if vag(f) in (u.get('valda') or [])])
+        karnskills, _ = aktiverbara(karna)
+        valda, _ = aktiverbara([f for f in alternativ if vag(f) in (u.get('valda') or [])])
         tidiga = {bildkedja.skillnamn(n) for n in u.get('skill_fore') or []}
-        fel += ['%s: Skill aktiverades inte före första ändringen: %s' % (namn_u, n) for n in krav if n not in tidiga]
+        sedda = {bildkedja.skillnamn(n) for n in u.get('skill_anrop') or []}
+        fel += ['%s: Skill aktiverades inte före första ändringen: %s' % (namn_u, n) for n in karnskills if n not in tidiga]
+        fel += ['%s: Skill-aktivering saknas: %s' % (namn_u, n) for n in valda if n not in karnskills and n not in sedda]
     return fel
 
 

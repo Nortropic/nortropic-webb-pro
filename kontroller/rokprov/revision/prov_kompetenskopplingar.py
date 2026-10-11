@@ -36,19 +36,26 @@ class Kopplingar(unittest.TestCase):
         kd.skriv_uppdrag(self.slug, 'k01', self.k, 1, 1)
         (self.r / kd.UPPDRAGSMATERIAL).write_text('{}')
 
-    def test_inspektionen_ligger_i_kandidatens_kedja_och_stoppar_bara_den(self):
+    def test_inspektionen_ligger_i_kandidatens_kedja_och_en_brist_ar_underlag(self):
         # Ägarens förenklingsuppdrag 2026-10-10, D: profilen beställs i kandidatens kedja, inte i ett gemensamt steg före
-        # alla skapare. Bara den externa inspektionen ersätts; skissa, startvillkoret och statusen körs.
+        # alla skapare. Ägarens uppdrag 2026-10-11 om designflödet: en ofullständig profil är underlag, inte en spärr; skaparen
+        # startar och får bristen i sin prompt. Bara den externa inspektionen ersätts.
         kd.satt_status(self.slug, 'k01', 'planerad', 'uppdraget skrivet', forsok=0)
-        with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['k01: syntetisk profilbrist']}) as profil, \
-             patch.object(atelje, 'session', side_effect=AssertionError('ingen skaparsession utan profil')):
-            st = kd.skissa(self.slug, 'k01')
+        with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['k01: syntetisk profilbrist']}) as profil:
+            self.assertTrue(kd.referensprofil_klar(self.slug, 'k01'))
         profil.assert_called_once_with(self.slug, 'k01')
-        self.assertEqual(st['status'], 'fel')
-        self.assertIn('syntetisk profilbrist', st['skal'])
-        self.assertEqual(st['referensprofil_brister']['brister'], ['k01: syntetisk profilbrist'])
-        self.assertEqual(int(st.get('forsok') or 0), 0, 'en profilbrist är inget skaparförsök')
-        self.assertTrue(kd.ska_skapas(st), 'nästa start gör om profileringen')
+        st = kd.las_status(self.slug, 'k01')
+        self.assertEqual((st['status'], st['skal']), ('planerad', 'uppdraget skrivet'), 'skaparen får börja; statusen står kvar')
+        self.assertEqual(st['referensprofil']['brister'], ['k01: syntetisk profilbrist'])
+        self.assertEqual(st['referensprofil']['tillstand'], 'ofullstandig')
+        self.assertIsNone(st.get('referensprofil_brister'), 'ingen spärr sparas')
+        self.assertFalse(kd.ska_skapas(dict(st, status='fel')), 'en profilbrist gör inget fel till ett omförsök')
+        with patch.multiple(kd, metodinfo=lambda *a: {'sha': 'metod', 'delar': {'före': ['METOD-skiss.md']}},
+                            uppdragsmaterial_rader=lambda *a: [], historik_rader=lambda *a: [], metodvariant=lambda *a: 'grund'), \
+             patch.object(skapande, 'kritikrader', lambda *a, **k: []), patch.object(kompetens, 'prompt_rader', lambda *a, **k: []):
+            prompt = kd.skiss_prompt(self.slug, 'k01')
+        self.assertIn('DevTools-profilen för huvudreferensen blev ofullständig (k01: syntetisk profilbrist)', prompt)
+        self.assertIn('SEKTIONER.md', prompt)
         # körningen har inget gemensamt profilsteg före poolen: poolen startar, och brister stannar i kandidaterna
         with patch.multiple(kd, STOPP_EFTER='', lista=lambda _: ['k01'], leverera_metod=lambda _: {},
                             planprovning_behov=lambda *a: [], korlage=lambda *a: 'skiss', material_behov=lambda *a: [],

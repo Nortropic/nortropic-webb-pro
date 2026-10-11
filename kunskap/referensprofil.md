@@ -56,9 +56,13 @@ processens huvudtråd och stoppet avslutar hela trädet. Rapporten skrivs atomis
 (bindningens identitet), inte hela beställningen: olika sidor profileras samtidigt, med egen nätgräns, egen isolerad
 Chrome och egen session per profil, och samtidigheten begränsas av skaparpoolen (högst tre). En sida som en annan
 kandidat profilerar väntas in och återanvänds. En kandidat vars referensval brister får bristen och ingen profil, och
-de andra kandidaternas beställningar görs ändå. En brist stoppar bara den kandidaten (status fel med
-`referensprofil_brister`); nästa start gör om profileringen en gång och återanvänder de giltiga profilerna, aldrig i en
-slinga. Ett prov med ett annat underlag än motorns startar aldrig en verklig profilering (`kandidater.profilrapport`).
+de andra kandidaternas beställningar görs ändå. En brist är underlag, inte en spärr (ägarens uppdrag 2026-10-11 om
+designflödet): den sparas i kandidatens status (`referensprofil` med `brister`), skaparen startar och får veta att
+profilen är ofullständig, och arbetar från referensbilderna och SEKTIONER.md, som fångsten redan mätt. Kandidatprovet
+2026-10-11 visade varför: ett prestandaspår som inte blev klart stoppade k02 två gånger fast CSS-reglerna var uppmätta.
+En äldre starts spärr (status fel med `referensprofil_brister`) tas upp av nästa start och profileras en gång till, aldrig i
+en slinga. Ett stopp under profileringen är ett avbrott. Ett prov med ett annat underlag än motorns startar aldrig en
+verklig profilering (`kandidater.profilrapport`).
 
 ## Vad skaparen får
 
