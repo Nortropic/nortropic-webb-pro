@@ -202,13 +202,18 @@ kandidaterna och granskningarna.
    Ett avgränsat prov (ägarens godkännande 2026-10-11; `NWP_SVAR_ATERUPPTAG=pa`, inte standard förrän tid och förbrukning
    har jämförts med en ny svarssession) låter svaret i stället fortsätta skaparens egen konversation (`claude -p --resume
    <skaparens session> --fork-session`, https://code.claude.com/docs/en/sessions): bara när skaparens senaste session i
-   försöket slutade utan avbrott, dess transkript finns och inte har komprimerats och rollens kompetensfiler är oförändrade
-   sedan försöket startade (`kandidater.svar_aterupptag`, `kompetens.avtryck`). Fortsättningen får samma verktyg,
-   behörigheter, MCP-konfiguration, modell och effort som en ny svarssession, ett eget session-id och en post med sitt
-   ursprung (`bildkedja.registrera_fortsattning`); dess kvitto räknar bara de egna raderna (`bildkedja.transkript` ger en
-   vy utan ursprungets kopierade rader), och kärnan som ursprunget läste ärvs bara när villkoren håller också när kvittot
-   skrivs (`kompetens.arvet`). Ett alternativ som fortsättningen väljer och inte läst i konversationen aktiveras eller
-   läses helt där. Ursprungets transkript, svar och metadata skrivs aldrig om, förbrukningen räknas per process, och
+   försöket slutade utan avbrott, dess transkript finns och inte har komprimerats, dess kontext är högst
+   `SVAR_ATERUPPTAG_TAK` token (500 000; Claude Code komprimerade Opus 5.5 här vid ~966 000) och rollens kompetensfiler är
+   oförändrade sedan försöket startade (`kandidater.svar_aterupptag`, `kompetens.avtryck`). Fortsättningen får samma
+   verktyg, behörigheter, MCP-konfiguration, modell och effort som en ny svarssession (`-p --resume` återställer inte
+   `--mcp-config`, inställningar eller kataloger och startar i en ny `-p`-körnings behörighetsläge), ett eget session-id och
+   en post med sitt ursprung (`bildkedja.registrera_fortsattning`; utan posten startar ingen fortsättning). Dess kvitto
+   räknar bara de egna raderna och de ärvda lägesbilagorna för verktyg, MCP och skills (`bildkedja.transkript`), och
+   kärnan som ursprunget läste ärvs bara när varken ursprunget eller fortsättningen har komprimerats (`kompetens.arvet`);
+   komprimeras fortsättningen, läser den kärnan igen. Ett alternativ som fortsättningen väljer och inte läst i
+   konversationen aktiveras eller läses helt där. Claude Code räknar en återupptagen sessions kostnad, `modelUsage` och
+   API-tid sammanlagda med ursprungets; fortsättningens svar bär bara sin egen del, och de sammanlagda värdena står under
+   `fortsattning.kumulativt` (`atelje.egen_forbrukning`). Ursprungets transkript, svar och metadata skrivs aldrig om, och
    kritikern är oförändrad.
    Klar är skissen när den är byggd och
    renderad i 390, 1280 och 1440 och RIKTNING.md har huvudreferensen, idén, referenserna, det överförda och

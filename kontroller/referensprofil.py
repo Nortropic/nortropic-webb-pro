@@ -85,7 +85,7 @@ def valda_sidor(slug, k, underlag, root):
         return [], 'egen riktning: ingen vald referenssajt att profilera'
     if not namn:
         raise ValueError('huvudreferensen saknas')
-    sidor = []
+    sidor, paketnamn = [], set()
     for text in k.get('referensbilder') or []:
         if not isinstance(text, str):
             raise ValueError('referensbildens sökväg är ogiltig')
@@ -105,6 +105,7 @@ def valda_sidor(slug, k, underlag, root):
         if len(match) != 1:
             raise ValueError('referensbilden saknar en entydig deklarerad sida i paketet')
         sidor.append((p, paket, match[0]))
+        paketnamn |= {referensens_namn(c['namn']) for c in kandidater if isinstance(c, dict) and c.get('namn')}
     namn_s = {referensens_namn(c['namn']) for _, _, (c, _) in sidor}
     krav = {referensens_namn(hr)} if referensens_namn(hr) in namn_s else {referensens_namn(n) for n in namn}  # "och" i namnet
     grupper = {}
@@ -136,7 +137,9 @@ def valda_sidor(slug, k, underlag, root):
         g = grupper[nyckel]
         g['bilder'][str(p.relative_to(ref))] = _sha(p, ref)
     namn_g = {referensens_namn(g['namn']) for g in grupper.values()}
-    if not grupper and (k.get('utgangspunkt') or {}).get('slag') in EJ_WEBB:
+    # en tjänsteskärm, stil eller kodkälla har ingen webbsida att profilera; en huvudreferens som är en sajt i paketet har
+    # det, vilket slag planen än angav (granskningen 2026-10-11: andra referensers bilder fick annars släppa igenom den)
+    if not grupper and (k.get('utgangspunkt') or {}).get('slag') in EJ_WEBB and not (krav & paketnamn):
         return [], 'vald tjänsteskärm, stil eller kodkälla saknar fångad webbsida; DevTools är inte tillämpligt'
     if not krav <= namn_g:
         raise ValueError('huvudreferensen saknar matchande paketerad bild: ' + ', '.join(sorted(krav - namn_g)))

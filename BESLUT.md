@@ -5096,6 +5096,14 @@ slutade utan avbrott, transkriptet inte har komprimerats och rollens kompetensfi
 exakt samma argument som en ny svarssession utöver de två, ett eget session-id, en post med sitt ursprung och ett eget
 kvitto över bara sina egna rader; ärvd läsning gäller bara när villkoren håller när kvittot skrivs. Källan
 (code.claude.com/docs/en/sessions och CLI-referensen) säger att `--fork-session` ger ett nytt session-id och lämnar
-originalet orört. Prövat lokalt: forken kopierar ursprungets rader med samma uuid, därav vyn utan dem. Behörigheter,
-`--mcp-config`, inställningar och kataloger anges igen exakt som i en ny svarssession, så att fortsättningen inte beror
-på vad en återupptagning återställer. Avslaget är anropet identiskt med före provet.
+originalet orört, att `-p --resume` inte återställer `--mcp-config`, `--settings`, `--plugin-dir` eller `--add-dir` och
+startar i en ny `-p`-körnings behörighetsläge; de anges därför igen exakt som i en ny svarssession. En sond med två
+Haiku-sessioner (2026-10-11 ~07:2xZ) visade tre saker som källan inte säger: forken kopierar ursprungets rader med samma
+uuid, den skriver inga egna lägesbilagor för verktyg, MCP och skills när uppsättningen är densamma, och dess
+`total_cost_usd`, `modelUsage` och `duration_api_ms` är sammanlagda med ursprungets (0,0526 = 0,0478 + 0,0048 USD
+listpris), medan `usage`, `num_turns` och `duration_ms` gäller processen. Därför bär vyn de ärvda lägesbilagorna, och
+fortsättningens svar bokför bara sin egen förbrukning. En oberoende granskning (underagent, 2026-10-11) fann dessutom att
+en sajt i paketet kunde släppas igenom som huvudreferens utan profil genom planens slag, att varv 2 släppte tjänsternas
+frågor också när de föll i varv 1, att en registrering som föll lämnade försöket under arbete och att en komprimerad
+fortsättning skulle sakna kärnan; alla är rättade med prov som är röda utan rättelsen. Avslaget är anropet identiskt med
+före provet.

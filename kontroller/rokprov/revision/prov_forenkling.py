@@ -171,6 +171,33 @@ class Researchvarvet(Grund):
         self.assertEqual([s_['namn'] for s_ in begaranden[1]['referens']['kandidater']], ['galleri-a'], 'bara den saknade rollen')
         self.assertNotIn('tjanster', begaranden[1], 'tjänsterna frågas inte om')
         self.assertTrue(any('varv 2 hämtar bara det som saknas' in x for x in post['slappta']))
+        self.assertEqual(post['tjanster'], {'rc': 0}, 'första varvets utfall står kvar')
+
+    def test_varv_tva_fragar_tjansterna_igen_nar_de_foll(self):
+        # granskningen 2026-10-11: tjänsterna som nådde tidsgränsen i första varvet släpptes i det andra med fel skäl
+        import bildkedja
+        import referenskontrakt as rk
+        kd.rot(SLUG).mkdir(parents=True, exist_ok=True)
+        svar = {'varfor': 'v', 'riktningar': 'r', 'antaganden': [], 'galleri': {}, 'sallning': [], 'urvalsfragor': {}, 'tackning': {},
+                'sajter': [{'namn': 'galleri-a', 'adress': 'https://galleri-a.se/', 'roll': 'hantverk', 'varfor': 'x', 'sidor': ['/']}],
+                'fragor': [{'tjanst': 'refero', 'fraga': 'typografisk riktning', 'typ': 'stil', 'syfte': 'x'}]}
+        begaranden, utfall = [], [{'referens': {'rc': 0}, 'tjanster': {'rc': None, 'tidsgrans': 600}}, {'referens': {'rc': 0}, 'tjanster': {'rc': 0}}]
+
+        def komplettera(slug, f, r, underlag, **k):
+            begaranden.append(json.loads(Path(f).read_text()))
+            return utfall[len(begaranden) - 1]
+        with patch.object(atelje, 'session', return_value={'session_id': None, 'structured_output': svar}), \
+                patch.object(skapande, 'komplettera', komplettera), patch.object(skapande, 'kanal_fel', return_value=None), \
+                patch.object(skapande, 'senaste_paket', return_value=None), \
+                patch.object(kompetens, 'kravbrister', return_value=[]), patch.object(kompetens, 'kvitto', return_value={}), \
+                patch.object(kd, 'forska_prompt', lambda *a, **k: 'PROMPT'), patch.object(bildkedja, 'transkript', return_value=None), \
+                patch.object(rk, 'sokningar', return_value=[]), patch.object(rk, 'verifiera_upptackt', return_value={'vag': 'galleri', 'kalla': 'x'}), \
+                patch.object(rk, 'researchbrister', side_effect=[['inspirationsgenomgången har 1 fångade sajter ur gallerierna (arbetsregeln: minst 2)'], [], []]), \
+                patch.object(rk, 'researchluckor', return_value={'bransch': 0, 'inspiration': 1}):
+            post = kd.forska(SLUG, 2, skiss=True)
+        self.assertEqual(len(begaranden), 2)
+        self.assertIn('tjanster', begaranden[1], 'tjänsterna som inte blev klara frågas igen')
+        self.assertEqual(post['tjanster'], {'rc': 0})
 
 
 class Material(Grund):
@@ -385,6 +412,17 @@ class Profiler(unittest.TestCase):
         res = self.kor({'kandidater': {'k01': palet}})
         self.assertFalse(res['ok'], 'huvudreferensens egen ofullständiga sida stoppar som förut')
         self.assertIn('inte fullständigt fångad', res['kandidater']['k01']['brister'][0])
+
+    def test_huvudreferens_som_ar_en_sajt_kraver_sin_bild_vilket_slag_planen_an_anger(self):
+        # granskningen 2026-10-11, fynd 1: andra referensers bilder filtrerades bort och slaget refero_stil släppte igenom
+        # en huvudreferens som är en fångad sajt i paketet, utan profil
+        self.paket('tekt', 'https://tekt.example.com/')
+        cox = self.paket('cox', 'https://cox.example.com/')
+        res = self.kor({'kandidater': {'k01': {'huvudreferens': 'Tekt — rubrikerna', 'utgangspunkt': {'slag': 'refero_stil'},
+                                               'referensbilder': cox['referensbilder']}}})
+        self.assertFalse(res['ok'], res)
+        self.assertIn('saknar matchande paketerad bild: tekt', res['kandidater']['k01']['brister'][0])
+        self.assertEqual(self.calls, [])
 
     def test_huvudreferens_med_parentes_och_kolon(self):
         # körprovet 2026-10-11 (k02): "norwegian-crafts (fångad i paket-v05: 01-start och 02-about)" lästes som
@@ -715,15 +753,20 @@ class Aterupptag(Grund):
         self.stack.enter_context(patch.object(bildkedja, 'PROJEKT', self.tmp / 'projekt'))
         self.prefix = 'kunder/%s/kandidater/k01/sajt/src/' % SLUG
 
-    def skriv(self, sid, handelser, kopia=None, komprimera=False):
+    def skriv(self, sid, handelser, kopia=None, komprimera=False, kontext=90000):
         import uuid as uuid_
         rader = [dict(r, sessionId=sid) for r in (kopia or [])]
         if not kopia:
+            rader.append({'type': 'attachment', 'uuid': str(uuid_.uuid4()), 'sessionId': sid,
+                          'attachment': {'type': 'deferred_tools_delta', 'addedNames': ['mcp__refero__refero_search_styles']}})
+            rader.append({'type': 'attachment', 'uuid': str(uuid_.uuid4()), 'sessionId': sid,
+                          'attachment': {'type': 'skill_listing', 'isInitial': True, 'names': ['refero-design']}})
             rader.append({'type': 'user', 'uuid': str(uuid_.uuid4()), 'sessionId': sid, 'message': {'role': 'user', 'content': 'uppdraget'}})
         for i, (namn, inp) in enumerate(handelser, 1):
             tid = '%s-%d' % (sid[:8], i)
             rader.append({'type': 'assistant', 'uuid': str(uuid_.uuid4()), 'sessionId': sid,
-                          'message': {'role': 'assistant', 'content': [{'type': 'tool_use', 'id': tid, 'name': namn, 'input': inp}]}})
+                          'message': {'role': 'assistant', 'usage': {'input_tokens': 10, 'cache_read_input_tokens': kontext - 10},
+                                      'content': [{'type': 'tool_use', 'id': tid, 'name': namn, 'input': inp}]}})
             rader.append({'type': 'user', 'uuid': str(uuid_.uuid4()), 'sessionId': sid,
                           'message': {'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': tid, 'content': [{'type': 'text', 'text': 'ok'}]}]}})
         if komprimera:
@@ -752,7 +795,12 @@ class Aterupptag(Grund):
         a, b = self.par()
         hel, vy = self.bk.transkript_hel(b), self.bk.transkript(b)
         self.assertNotEqual(hel, vy)
-        self.assertEqual(self.bk.uuider(vy) & self.bk.uuider(self.bk.transkript_hel(a)), set(), 'inget ärvt i vyn')
+        arvda = self.bk.uuider(vy) & self.bk.uuider(self.bk.transkript_hel(a))
+        rader_vy = [json.loads(x) for x in vy.read_text().splitlines()]
+        self.assertTrue(arvda and all(r['type'] == 'attachment' for r in rader_vy if r['uuid'] in arvda),
+                        'av det ärvda bara lägesbilagorna (sonden 2026-10-11: en fortsättning skriver inga egna)')
+        import observation
+        self.assertEqual(sorted(observation.las_session(vy).get('mcp') or {}), ['refero'], 'MCP-läget syns i fortsättningens vy')
         self.assertGreater(len(hel.read_text().splitlines()), len(vy.read_text().splitlines()), 'fortsättningens hela fil står kvar')
         ml = self.bk.metodlasning(b, kompetens.lasfiler('skapa'), skrivprefix=self.prefix)
         self.assertEqual((ml.get('fore'), ml.get('efter')), ([], []), 'ursprungets läsningar räknas aldrig som fortsättningens')
@@ -791,9 +839,14 @@ class Aterupptag(Grund):
         k_ = str(uuid_.uuid4())
         self.skriv(k_, self.kompetens_steg(), komprimera=True)
         self.assertIn('komprimerats', kd.svar_aterupptag(SLUG, 'k01', [{'session_id': k_}], avtryck)[1])
+        stor = str(uuid_.uuid4())
+        self.skriv(stor, self.kompetens_steg(), kontext=kd.SVAR_ATERUPPTAG_TAK + 1)
+        self.assertIn('taket', kd.svar_aterupptag(SLUG, 'k01', [{'session_id': stor}], avtryck)[1])
+        self.assertIn('avtrycket', kd.svar_aterupptag(SLUG, 'k01', [{'session_id': a}], None)[1])
         text = kd.svar_fortsattning_prompt(SLUG, 'k01', {'varv': 2, 'storsta_problem': 'rubriken', 'rekommendation': 'fortsätt'}, 12)
         self.assertIn('Fortsättning av din egen konversation', text)
         self.assertIn('Läs inte om kärnan', text)
+        self.assertIn('Komprimeras', text)
         self.assertNotIn('Detta är en ny session', text)
         self.assertFalse(kd.SVAR_ATERUPPTAG, 'avslaget som standard')
 
@@ -801,18 +854,32 @@ class Aterupptag(Grund):
         import uuid as uuid_
         a = str(uuid_.uuid4())
         self.skriv(a, [])
+        with open(self.bk.PROJEKT / 'p' / (a + '.jsonl'), 'a') as f_:
+            f_.write(json.dumps({'type': 'cost-state', 'sessionId': a, 'totalCostUSD': 3.0, 'totalAPIDuration': 4000,
+                                 'modelUsage': {'claude-opus-5-5': {'costUSD': 3.0, 'outputTokens': 60}}}) + '\n')
         logg = self.tmp / 'args.json'
         falsk = self.tmp / 'claude'
         falsk.write_text('#!/usr/bin/env python3\nimport json, sys, uuid\nargs = sys.argv[1:]\n'
                          'open(%r, "a").write(json.dumps(args) + "\\n")\n'
                          'sid = args[args.index("--session-id") + 1] if "--session-id" in args else str(uuid.uuid4())\n'
-                         'print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "session_id": sid, "result": "ok"}))\n' % str(logg))
+                         'print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "session_id": sid, "result": "ok",'
+                         ' "total_cost_usd": 5.0, "duration_api_ms": 9000, "num_turns": 3,'
+                         ' "modelUsage": {"claude-opus-5-5": {"costUSD": 5.0, "outputTokens": 100}}}))\n' % str(logg))
         falsk.chmod(0o700)
         with patch.object(atelje, 'claude', return_value=str(falsk)), patch.object(atelje, 'observerad', return_value=(None, None)):
             ny = atelje.session('svara', ['Read'], self.tmp / 'svar-ny.json', modell='claude-opus-5-5', effort='high')
             ater = atelje.session('svara', ['Read'], self.tmp / 'svar-ater.json', modell='claude-opus-5-5', effort='high',
                                   aterupptag=a, fortsattning={'avtryck_lika': True, 'roll': 'skiss-svar'})
         args = [json.loads(x) for x in logg.read_text().splitlines()]
+        # Claude Code räknar fortsättningens kostnad sammanlagd med ursprungets (sonden 2026-10-11): bara den egna står kvar
+        ny_svar, ater_svar = (json.loads((self.tmp / n).read_text()) for n in ('svar-ny.json', 'svar-ater.json'))
+        self.assertEqual((ny_svar['total_cost_usd'], 'fortsattning' in ny_svar), (5.0, False), 'en ny session rörs inte')
+        self.assertEqual(ater_svar['total_cost_usd'], 2.0)
+        self.assertEqual(ater_svar['modelUsage']['claude-opus-5-5'], {'costUSD': 2.0, 'outputTokens': 40})
+        self.assertEqual((ater_svar['duration_api_ms'], ater_svar['num_turns']), (5000, 3))
+        self.assertEqual(ater_svar['fortsattning']['kumulativt']['total_cost_usd'], 5.0)
+        utan = atelje.egen_forbrukning({'total_cost_usd': 5.0, 'num_turns': 1}, str(uuid_.uuid4()))
+        self.assertNotIn('total_cost_usd', utan, 'utan ursprungets kostnadsläge är den egna kostnaden okänd')
         i = args[1].index('--resume')
         self.assertEqual(args[1][i:i + 3], ['--resume', a, '--fork-session'])
         self.assertEqual(args[1][:i] + args[1][i + 3:], args[0], 'samma behörigheter, MCP-konfiguration, modell och effort som en ny session')
@@ -821,6 +888,17 @@ class Aterupptag(Grund):
         self.assertTrue((self.tmp / 'svar-ny.json').is_file(), 'ursprungets svar och metadata skrivs aldrig om')
         with self.assertRaises(ValueError):
             atelje.session('x', ['Read'], self.tmp / 'svar-blind.json', aterupptag=a, blind=str(self.tmp / 'tillat.json'))
+        # granskningen 2026-10-11, fynd 4: en registrering som faller startar ingen fortsättning och syns som ett fel som
+        # anroparen hanterar (svaret räknas som avbrutet), aldrig som ett OSError som lämnar försöket under arbete
+        import uuid as uuid_
+        for kand_id, startar in ((str(uuid_.uuid4()), False), (None, True)):  # id:t känt före starten (observationen), annars ur svaret
+            fore = len(logg.read_text().splitlines())
+            with patch.object(atelje, 'claude', return_value=str(falsk)), patch.object(atelje, 'observerad', return_value=(kand_id, None)), \
+                    patch.object(self.bk, 'registrera_fortsattning', side_effect=OSError('syntetiskt skrivfel')):
+                with self.assertRaisesRegex(RuntimeError, 'kunde inte registreras'):
+                    atelje.session('svara', ['Read'], self.tmp / 'svar-fel.json', modell='claude-opus-5-5', effort='high',
+                                   aterupptag=a, fortsattning={'avtryck_lika': True})
+            self.assertEqual(len(logg.read_text().splitlines()) - fore, int(startar), 'ingen session startar när id:t är känt')
 
 
 class Kontrollerna(unittest.TestCase):

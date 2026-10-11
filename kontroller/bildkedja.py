@@ -163,10 +163,58 @@ def komprimerad(fil):
     return False
 
 
+# lägesbilagor (verktyg, MCP, skills, modell) som beskriver sessionens uppsättning, inga läsningar eller anrop
+TILLSTANDSBILAGOR = ('skill_listing', 'deferred_tools_delta', 'deferred_tools_record', 'mcp_instructions_delta', 'agent_listing_delta', 'model')
+
+
+def kostnadslage(fil):
+    """Den sista raden "cost-state" i ett transkript (Claude Codes sammanlagda kostnad, API-tid och modelUsage för
+    sessionen), eller None."""
+    sista = None
+    try:
+        with open(fil, encoding='utf-8', errors='replace') as f:
+            for rad in f:
+                if '"cost-state"' not in rad:
+                    continue
+                try:
+                    r = json.loads(rad)
+                except ValueError:
+                    continue
+                if isinstance(r, dict) and r.get('type') == 'cost-state':
+                    sista = r
+    except (OSError, TypeError):
+        return None
+    return sista
+
+
+def kontextstorlek(fil):
+    """Kontextens storlek i token vid konversationens sista svar (indata, cacheskrivning och cacheläsning i den sista
+    assistentradens användning), eller None när den inte går att läsa."""
+    sista = None
+    try:
+        with open(fil, encoding='utf-8', errors='replace') as f:
+            for rad in f:
+                if '"assistant"' not in rad or '"usage"' not in rad:
+                    continue
+                try:
+                    r = json.loads(rad)
+                except ValueError:
+                    continue
+                u = ((r.get('message') or {}).get('usage') or {}) if isinstance(r, dict) and r.get('type') == 'assistant' else {}
+                k = sum(int(u.get(n) or 0) for n in ('input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens'))
+                if k:
+                    sista = k
+    except OSError:
+        return None
+    return sista
+
+
 def transkript(session_id):
     """Sessionens transkript, eller None (okänt id, eller Claude Code sparade inget). För en registrerad fortsättning:
     en vy med bara fortsättningens egna rader (de som inte finns i ursprunget), så att inget ur den ärvda historiken räknas
-    två gånger; hela filen nås med transkript_hel."""
+    två gånger, och de ärvda lägesbilagorna (TILLSTANDSBILAGOR): Claude Code skriver verktygens, MCP:ernas och skillsens
+    läge som ändringar mot historiken, så en fortsättning med samma uppsättning skriver inga egna (sonden 2026-10-11).
+    Hela filen nås med transkript_hel."""
     p = transkript_hel(session_id)
     if p is None:
         return None
@@ -184,7 +232,8 @@ def transkript(session_id):
                 r = json.loads(rad)
             except ValueError:
                 continue
-            if isinstance(r, dict) and r.get('uuid') in arvda:
+            if isinstance(r, dict) and r.get('uuid') in arvda and not (
+                    r.get('type') == 'attachment' and ((r.get('attachment') or {}).get('type') in TILLSTANDSBILAGOR)):
                 continue
             ut.write(rad if rad.endswith('\n') else rad + '\n')
     os.replace(tmp, vy)

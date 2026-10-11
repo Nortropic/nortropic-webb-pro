@@ -517,6 +517,34 @@ class Stoppad(Exception):
     pass
 
 
+def egen_forbrukning(svar, ursprung):
+    """En fortsättnings svar med bara dess egen förbrukning. Claude Code återställer sessionens kostnad vid --resume, också
+    med --fork-session: total_cost_usd, modelUsage och duration_api_ms är sammanlagda med ursprungets, medan usage,
+    num_turns och duration_ms gäller processen (sonden 2026-10-11). Ursprungets sista "cost-state" dras av; de
+    sammanlagda värdena står kvar under fortsattning.kumulativt. Utan ursprungets kostnadsläge är den egna kostnaden
+    okänd och tas bort, så att ingen summa räknar ursprunget två gånger."""
+    import bildkedja
+    fore = bildkedja.kostnadslage(bildkedja.transkript_hel(ursprung)) or {}
+    kum = {k: svar.get(k) for k in ('total_cost_usd', 'modelUsage', 'duration_api_ms') if k in svar}
+    ut = {k: v for k, v in svar.items() if k not in kum}
+
+    def minus(a, b):
+        return max(0, a - b) if isinstance(a, (int, float)) and isinstance(b, (int, float)) else None
+    if fore:
+        if 'total_cost_usd' in kum:
+            ut['total_cost_usd'] = minus(kum['total_cost_usd'], fore.get('totalCostUSD') or 0)
+        if 'duration_api_ms' in kum:
+            ut['duration_api_ms'] = minus(kum['duration_api_ms'], fore.get('totalAPIDuration') or 0)
+        if isinstance(kum.get('modelUsage'), dict):
+            fm = fore.get('modelUsage') if isinstance(fore.get('modelUsage'), dict) else {}
+            ut['modelUsage'] = {m: {k: (minus(v, (fm.get(m) or {}).get(k) or 0) if isinstance(v, (int, float)) else v) for k, v in x.items()}
+                                for m, x in kum['modelUsage'].items() if isinstance(x, dict)}
+    ut['fortsattning'] = {'ursprung': str(ursprung), 'kumulativt': kum,
+                          'ursprungets_kostnadslage': {k: fore.get(k) for k in ('totalCostUSD', 'totalAPIDuration', 'modelUsage')} if fore else None,
+                          'egen_forbrukning': 'ursprungets sista cost-state avdraget' if fore else 'okänd: ursprungets kostnadsläge saknas'}
+    return ut
+
+
 def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None,
             blind=None, arbetsslug=None, webb=False, aterupptag=None, fortsattning=None):
     """En nästlad session med namngivna verktyg; nekas läggs till NEKAS (till exempel de andra kandidaternas kataloger).
@@ -559,7 +587,10 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
         args[2:2] = ['--resume', str(aterupptag), '--fork-session']
         if sid:
             import bildkedja
-            bildkedja.registrera_fortsattning(sid, str(aterupptag), **(fortsattning or {}))
+            try:  # utan posten räknade kvittot ursprungets rader som fortsättningens: då startar ingen fortsättning
+                bildkedja.registrera_fortsattning(sid, str(aterupptag), **(fortsattning or {}))
+            except OSError as e:
+                raise RuntimeError('fortsättningen kunde inte registreras: %s' % e) from e
     # egen processgrupp: vid tidsgräns stoppas också sessionens barn (ett npm run build som annars fortsätter och
     # krockar med fotograferingens bygge i samma katalog; granskningen av r59, punkt 2)
     utfall = 'avbruten'
@@ -622,9 +653,15 @@ def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort
                 if sid:
                     observera('uppdatera', oslug, sid, slut=nu(), utfall=utfall)
     svar = las_json(ut) or {}
+    if aterupptag and svar:
+        svar = egen_forbrukning(svar, aterupptag)
+        skriv_json_atomiskt(ut, svar)
     if aterupptag and not sid and svar.get('session_id'):
         import bildkedja
-        bildkedja.registrera_fortsattning(str(svar['session_id']), str(aterupptag), **(fortsattning or {}))
+        try:
+            bildkedja.registrera_fortsattning(str(svar['session_id']), str(aterupptag), **(fortsattning or {}))
+        except OSError as e:  # ett oregistrerat svar räknas inte: anroparen behandlar det som ett avbrutet svar
+            raise RuntimeError('fortsättningen kunde inte registreras: %s' % e) from e
     if p.returncode or svar.get('is_error'):
         raise RuntimeError('sessionen föll (kod %s, %s): %s' % (p.returncode, svar.get('subtype'),
                                                                 (fel or b'').decode(errors='replace')[-400:] or str(svar.get('result'))[:400]))
