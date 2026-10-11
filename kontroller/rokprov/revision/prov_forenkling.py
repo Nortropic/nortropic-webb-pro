@@ -496,6 +496,18 @@ class Kedjan(Grund):
         self.assertEqual(skissade, ['bygget föll: syntetiskt'], 'nästa start gör det tekniska omförsöket med sitt skäl')
         self.assertIsNone(kd.las_status(SLUG, 'k01').get('referensprofil_brister'))
 
+    def test_redovisningen_skiljer_korningens_tid_fran_kedjans(self):
+        # kandidatprovet 2026-10-11: "väntan till första valbara skissen: 1266 minuter" räknades från kedjans första start
+        # genom fyra körningar och uppehåll, och ingen kandidat gick att välja
+        status = {'startad': '2026-10-11T21:18:34Z', 'tider': {'start': '2026-10-11T00:21:28Z', 'klar': '2026-10-11T21:33:34Z'}}
+        kd.satt_status(SLUG, 'k01', 'ofullstandig', 'syntetiskt')
+        rader = kd.denna_korningens_tider(SLUG, status, '2026-10-11T21:27:28Z')
+        self.assertIn('9 minuter till första bedömbara version, 15 minuter totalt; 0 av 1 kandidater går att välja', ' '.join(rader))
+        self.assertIn('kedjans första start 2026-10-11T00:21:28Z', rader[0])
+        self.assertEqual(kd.denna_korningens_tider(SLUG, {'startad': '2026-10-11T00:21:28Z', 'tider': status['tider']}, None), [],
+                         'en körning som är kedjans första har inga egna rader')
+        self.assertIn('i en tidigare körning', ' '.join(kd.denna_korningens_tider(SLUG, status, '2026-10-11T05:00:00Z')))
+
     def test_profilsteget_behaller_skalet_och_ett_stopp_ar_ett_avbrott(self):
         kd.satt_status(SLUG, 'k01', 'ofullstandig', 'förra försökets brister: menyn öppnar ingenting', forsok=1)
         with patch.object(kd, 'profilrapport', referensfixtur.profilrapport(kd)):

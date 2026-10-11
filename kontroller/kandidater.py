@@ -5683,6 +5683,22 @@ def vantan_rader(slug, status):
     return rader
 
 
+def denna_korningens_tider(slug, status, fv):
+    """Den här körningens egna tider när den tar vid efter en tidigare (ägarens uppdrag 2026-10-11 om designflödet: summera
+    inte uppehåll som väntan). Tiderna ovan räknas från kedjans första start, med tidigare körningar, ägarens stopp, kvotstopp
+    och uppehåll inräknade; här står körningens start, tiden till första bedömbara version i den och om någon kandidat går
+    att välja (en bedömbar version är inte valbar förrän kandidaten står bland VISBARA)."""
+    t, start = status.get('tider') or {}, status.get('startad')
+    if not start or not t.get('start') or start <= t['start']:
+        return []
+    valbara = [k for k in lista(slug) if las_status(slug, k).get('status') in VISBARA]
+    forsta = ('%s minuter till första bedömbara version' % minuter_mellan(start, fv)) if fv and fv >= start else \
+             'första bedömbara version i en tidigare körning' if fv else 'ingen bedömbar version'
+    return ['- tiderna ovan räknas från kedjans första start %s, med tidigare körningar och uppehåll inräknade; den här körningen' % t['start'],
+            '  startade %s: %s, %s minuter totalt; %d av %d kandidater går att välja.' % (
+                start, forsta, minuter_mellan(start, t.get('klar')) if t.get('klar') else '–', len(valbara), len(lista(slug)))]
+
+
 def redovisa_skiss(slug, status):
     """REDOVISNING.md för skissläget (ägarens uppdrag 2026-10-05 16:25Z, punkt 7 och 8): tiderna, varje kandidat med status,
     minuter, försök, brister ur de snabba kontrollerna, det som tillfördes uppdraget och verktygen som användes, de
@@ -5706,7 +5722,8 @@ def redovisa_skiss(slug, status):
                  ('%s%s' % (fv, '' if fv_kalla == SATT else ' (%s)' % fv_kalla)) if fv else '–', t.get('klar') or '–'),
              '- väntan till första valbara skissen: %s minuter%s; total väntan: %s minuter.' % (
                  minuter_mellan(t.get('start'), fv) if fv else '–', '' if not fv or fv_kalla == SATT else ' (framräknad)',
-                 minuter_mellan(t.get('start'), t.get('klar')) if t.get('klar') else '–'), '',
+                 minuter_mellan(t.get('start'), t.get('klar')) if t.get('klar') else '–'),
+             *denna_korningens_tider(slug, status, fv), '',
              *vantan_rader(slug, status), '',
              '## Det som tillfördes varje uppdrag', '',
              '- UPPDRAG.md ur planen (designuppdraget, besökarens uppgift, den viktigaste sektionen, huvudreferensen och',

@@ -5310,3 +5310,65 @@ standardgrenen stod kvar, så grenbyte ingår inte):
   ARIA, Open Recents ordning, Source Controls läge ur senaste hämtningen. Mappväljaren, tokenrutan, GitHub-sökningen,
   grenbytet och Workspace Trusts dialoger valdes bort; arbetskopian under `kunder/` är betrodd av konstruktion, och
   Claude Codes egen förtroendedialog plus sandlådan står för begränsningen.
+
+## Tillägg 2026-10-11: designflödet — kärnan först och specialisten efter problemet; profilen och kritiken fäller inte en skiss
+
+**Status:** gäller; genomfört av Claude i grenen `claude/designflode-20261011`, prövat mekaniskt och i ett verkligt
+kandidatprov (baslinje och pilot, nedan). Designen är inte bedömd av ägaren.
+
+Ägarens meddelande ~21:10Z, ordagrant (uppdragsfilen `PROMPT-Nortropic-Designflode-Audit-Atgard.md` och den länkade
+guiden ordagrant i sessionens privata minne):
+
+> Läs PROMPT-Nortropic-Designflode-Audit-Atgard.md som ett sammanhållet engångsuppdrag för Nortropic Webb Pro. KILLED
+> Guide.docx är inspirationsunderlag, inte en överordnad produkt- eller teknikspecifikation.
+>
+> Börja med att verifiera aktuellt repo, gren, lokala ändringar och pågående arbete. Återanvänd tidigare relevanta
+> audit- och pilotresultat när de finns; bygg inte redan genomförda förbättringar igen.
+>
+> Genomför uppdragets fyra etapper: auditera den verkliga kedjan, förenkla befintlig implementation, åtgärda och
+> verifiera med en avgränsad verklig pilot inom befintligt mandat.
+>
+> Stanna inte vid en plan när säkra åtgärder kan genomföras. Inför ingen ny motor eller ny uppsättning obligatoriska
+> processpass. Bevara kundskydd, produktbeslut och mitt faktiska designgodkännande.
+>
+> Visa vad som blev enklare, vad som faktiskt blev bättre på sidan och vad som fortfarande inte är verifierat.
+
+Ur uppdragsfilen, ordagrant: "Befintliga övriga skills, MCP:er och metoder ska få motsvarande relevanta uppgifter, inte
+bli obligatoriska stationer som alla pass måste besöka." "Emil, Motion, GSAP och andra specialister vid behov. Ingen
+obligatorisk animation för att signalera kvalitet." "Alla Taste-varianter ska inte läsas samtidigt." "Fel i valfri
+inspiration bör inte i onödan fälla andra färdiga kandidater. Säkerhetsfel, fel kunddata eller saknat faktiskt mandat
+är däremot inte estetiska invändningar som får ignoreras." Den lokala arbetsloopen: "Bygg → rendera och interagera →
+se största problemet → välj relevant kompetens → ändra → kontrollera effekten."
+
+**Underlaget:** Codex/Astras audit GR-20261011-astra-v2 (A1–A2 på 4d7bcec, privat) återanvändes; dess Ä-01 är numera i
+main (959819e, DS2). Baslinjen var ägarens kvarstående mandat 2026-10-11 ~03:1xZ ("Fortsätt det befintliga
+tvåförslagsprovet med opus 5.5 … Ändra inte provets metod under fortsättningen"): `--fortsatt` på b0d1f21 21:18Z. Utfall:
+k01:s skapare startade 21:19:21Z, första renderingen fanns 21:22Z och skissen var bedömbar 21:27:28Z, tekniskt ren (axe 0,
+inga hinder), men skaparen hade läst 7 av 18 kärnfiler (3 före första ändringen) och ingen metodfil, så läskravet märkte
+den ofullständig 21:33:32Z och den gick inte att välja; granskarens kritik ("fortsätt", inte generisk) kastades för att
+granskaren skrivit "Inte valda eller lästa: …" i schemafältet valda; k02 stoppades för andra gången av ett DevTools-spår
+som inte blev klart (CSS-reglerna var uppmätta). 0 av 2 valbara, 15 minuter. Efter renstarten 2026-10-09 hade ingen av
+elva körningar nått en skiss; varje stopp låg i en grind före renderingen.
+
+**Genomförarens tillämpning (Claude):**
+- **Kärnan först, specialisten efter problemet** (`kunskap/metodkarta.md`, Kompetenserna; `kompetens.BEHOVSSTYRDA`): i
+  passen skapa och fordjupa är kärnan det varje skiss behöver före första ändringen (frontend-design, craft-floor,
+  bild.md, typeset, copy-kontroll, redaktionellt-pass, layout och impeccables animate, som prövar om rörelse har ett
+  syfte): 8 filer och omkring 43 000 tecken i stället för 18 och 159 956. Resten är specialister som väljs efter det
+  problem renderingen visar och läses hela när de väljs; en vald specialist får aktiveras efter första ändringen.
+  Rörelsen har en egen roll i skissen (interaktion) och passet rörelse behåller hela kärnan. Ingen skill är borttagen.
+- **Referensprofilen är underlag, inte en spärr** (`kandidater.referensprofil_klar`, `kunskap/referensprofil.md`):
+  bristen sparas i statusen och står i skaparens prompt; stoppet är fortfarande ett avbrott.
+- **Granskarens kritik kastas inte för en redovisningsbrist** (`kandidater.skisskritik`): bristen sparas
+  (`redovisningsbrister`); en granskare som inte läst sin kärna fälls som förut.
+- **Bevarat:** research och referenser före förslagen (ägarens beslut 2026-10-10), tio förslag, referenskontraktet,
+  planprövningen, kundvakten, blindheten, låsen, skaparens läskrav (en skiss med oläst kärna är fortfarande
+  ofullständig: prövas av piloten med den mindre kärnan), ägarens val och godkännande.
+- **Konflikten, redovisad:** ägarens ord 2026-10-05 ("du ska använda ALLA SKILLS OCH MCPS TILLGÄNGLIGA", "varje roll
+  läser de fullständiga relevanta delarna") och 2026-10-09 ("ANVÄNDER FULLT UT I I RÄTTA STEG") läses som tillgång och
+  användning i rätt steg; alla skills är tillgängliga och en vald läses hel. Codex tillämpning 2026-10-09 ("Brister …
+  hindrar ett aktuellt klart resultat") gäller fortfarande skaparens kärna, men kärnan är mindre.
+- **Inte ändrat, prövat som hypotes:** planprövningen före skaparen (6 av 9 ändringar 2026-10-11 var formval i text före
+  rendering; flytten till skissen kräver ett eget försök med allt annat lika). awesome-design-md (dömd nej 2026-10-01 i
+  Kirurgens register; katalogen saknar lokala hantverksverksamheter) och Vercels riktlinjer (helbyggets steg 6, lokal
+  kopia e3d624ba saknar en senare regel) är oförändrade.
