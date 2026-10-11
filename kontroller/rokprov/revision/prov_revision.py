@@ -5490,7 +5490,10 @@ assert '.claude/skills/impeccable/reference/critique.md' in kp_k3.lasfiler('gran
 assert set(kp_k3.PASS) == {p_ for x_ in kp_k3.tolka().values() for p_ in x_['pass']}, 'varje pass har en roll'
 # Codex punkt 7: kärnan är en sammanhängande metod; stilvarianterna och recepten är alternativ att välja
 assert '.claude/skills/taste-soft/SKILL.md' not in kp_k3.lasfiler('skapa') and '.claude/skills/taste-soft/SKILL.md' in kp_k3.valbara('skapa')
-assert '.claude/skills/refero-design/SKILL.md' in kp_k3.lasfiler('skapa') and '.claude/skills/hallmark/references/macrostructures.md' in kp_k3.valbara('planera')
+# ägarens uppdrag 2026-10-11 om designflödet: refero-design (researchmetoden) är planens kärna och skissens specialist;
+# skissens kärna är art direction (frontend-design) med hantverksgolvet
+assert '.claude/skills/refero-design/SKILL.md' in kp_k3.lasfiler('planera') and '.claude/skills/refero-design/SKILL.md' in kp_k3.valbara('skapa') \
+    and '.claude/skills/frontend-design/SKILL.md' in kp_k3.lasfiler('skapa') and '.claude/skills/hallmark/references/macrostructures.md' in kp_k3.valbara('planera')
 assert kp_k3.storlek(kp_k3.lasfiler('skapa')) < 160000, kp_k3.storlek(kp_k3.lasfiler('skapa'))
 v_k3 = kp_k3.verktyg('skapa', 'x', 'k01')
 assert 'Skill' in v_k3 and not any(x_.startswith('mcp__') for x_ in v_k3) and any('kontroller/uxsok.py' in x_ for x_ in v_k3)
