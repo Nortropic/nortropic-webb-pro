@@ -550,7 +550,7 @@ class Planen(Grund):
         with patch.object(atelje, 'session', session), patch.object(kompetens, 'kravbrister', return_value=[]), \
                 patch.object(kd, 'plan_prompt', lambda *a, **k: 'PLAN'), patch.object(kd, 'referenskedjebrist', return_value=None), \
                 patch.object(kd, 'referensbrist', lambda slug, k: 'ogiltigt i provet' if k['titel'].startswith('Ogiltigt') else None), \
-                patch.object(kd, 'planbrist', return_value=None), patch('referenskontrakt.planbrister', return_value=[]):
+                patch.object(kd, 'planbrist', return_value=None):
             return bas, kd.planera(SLUG, 10, 'skiss')
 
     def test_sex_giltiga_far_fyra_till_i_en_komplettering(self):
@@ -585,6 +585,31 @@ class Planen(Grund):
         plan = json.loads((kd.rot(SLUG) / 'KANDIDATPLAN.json').read_text())
         self.assertEqual(len(ids), 8)
         self.assertIn('kompletteringen föll', plan['brist_mot_begart'])
+
+    def test_en_felklassad_rad_i_genomgangen_rensas_och_raknas_inte(self):
+        # kandidatprovet 2026-10-11: planen föll två gånger på en enda rad (en inspirationssajt i branschgenomgången) fast
+        # arbetsregelns täckning var uppfylld; det giltiga uppdraget gick förlorat
+        import referenskontrakt as rk
+        fel_rad = dict(referensfixtur.branschrad(SLUG, referensfixtur.GALLERI[0]))
+        plan = dict(self.plan, bransch=list(self.plan['bransch']) + [fel_rad])
+        self.assertTrue(any('inte en branschsajt' in x for x in rk.planbrister(SLUG, self.u, plan)), 'raden är ogiltig')
+        rensad, bort = rk.rensa_genomgangar(SLUG, self.u, plan)
+        self.assertEqual([b['sajt'] for b in bort], [referensfixtur.GALLERI[0]])
+        self.assertEqual(rk.planbrister(SLUG, self.u, rensad), [], 'täckningen av de giltiga raderna räcker')
+        self.assertNotIn(fel_rad, rensad['bransch'])
+        # utan tillräckligt många giltiga rader stoppar täckningen planen som förut
+        bara_fel = dict(plan, bransch=[fel_rad, self.plan['bransch'][0]])
+        rensad2, _bort2 = rk.rensa_genomgangar(SLUG, self.u, bara_fel)
+        self.assertTrue(any('branschgenomgången har 1 giltiga rader' in x for x in rk.planbrister(SLUG, self.u, rensad2)))
+        # genom planeringen: planen skrivs med de giltiga raderna, den bortrensade redovisas, och försöket bokförs
+        bas = {x: plan.get(x) for x in ('bransch', 'forebilder_utanfor')}
+        _b, ids = self.kor([dict(bas, variation='v', kandidater=[self.uppdrag(i) for i in range(1, 11)])])
+        k = json.loads((kd.rot(SLUG) / 'KANDIDATPLAN.json').read_text())
+        self.assertEqual(len(ids), 10)
+        self.assertEqual([b['sajt'] for b in k['genomgang_bortrensade']], [referensfixtur.GALLERI[0]])
+        self.assertIn('Bortrensade rader i genomgångarna', (kd.rot(SLUG) / 'KANDIDATPLAN.md').read_text())
+        rader = [json.loads(x) for x in (kd.rot(SLUG) / 'PLANERING-forsok.jsonl').read_text().splitlines()]
+        self.assertEqual([(x['forsok'], x['planfel'], len(x['genomgang_bortrensade'])) for x in rader], [(1, [], 1)])
 
     def test_tio_giltiga_gor_ingen_komplettering(self):
         bas = {x: self.plan.get(x) for x in ('bransch', 'forebilder_utanfor')}

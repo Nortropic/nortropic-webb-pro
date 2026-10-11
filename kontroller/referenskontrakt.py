@@ -288,15 +288,14 @@ def _text_ok(t, n=MIN_OBSERVATION):
     return len(re.sub(r'[\s,.;:och]+', '', utan)) >= n // 2
 
 
-def planbrister(slug, underlag, plan, paket=None):
-    """Planens genomgångar: branschgenomgången och förebilderna, med sajter ur paketet och belägg i rätt version."""
-    if not isinstance(plan, dict):
-        return ['planen saknas']
+def _genomgangarna(slug, underlag, plan, paket=None):
+    """Planens genomgångar rad för rad: (giltiga branschrader, giltiga förebilder, de ogiltiga raderna som
+    [(fält, sajt, skäl)]), eller None när paketet saknas (skälet i den enda raden)."""
     paket = paket if paket is not None else (Path(underlag) / slug / 'referenser' / plan['paket'] if plan.get('paket') else senaste_paket(slug, underlag))
     if not paket or not Path(paket).is_dir():
-        return ['planens referenspaket %s finns inte' % (plan.get('paket') or '(okänt)')]
+        return None, None, [('paket', None, 'planens referenspaket %s finns inte' % (plan.get('paket') or '(okänt)'))]
     rader = paket_rad(paket)
-    fel = []
+    ogiltiga = []
     br = [b for b in plan.get('bransch') or [] if isinstance(b, dict)]
     giltiga_br, sedda_vardar = [], set()
     for b in br:
@@ -317,10 +316,7 @@ def planbrister(slug, underlag, plan, paket=None):
             brist = 'branschraden för %s upprepar en sajt som redan står med (samma värd är en förebild)' % b.get('sajt')
         if not brist:
             sedda_vardar.add(vard(post.get('adress')))
-        (fel.append(brist) if brist else giltiga_br.append(b))
-    if len(giltiga_br) < ARBETSREGEL['plan_bransch']:
-        fel.append('branschgenomgången har %d giltiga rader (arbetsregeln: minst %d, var och en med en fångad branschsajt och belägg)' % (
-            len(giltiga_br), ARBETSREGEL['plan_bransch']))
+        (ogiltiga.append(('bransch', b.get('sajt'), brist)) if brist else giltiga_br.append(b))
     fb = [b for b in plan.get('forebilder_utanfor') or [] if isinstance(b, dict)]
     giltiga_fb = []
     for b in fb:
@@ -334,11 +330,39 @@ def planbrister(slug, underlag, plan, paket=None):
                  'förebilden %s saknar ett konkret "stark webbplatsreferens för …"' % b.get('sajt') if not _text_ok(b.get('stark_for'), 15) else
                  'förebilden %s bygger designbedömningen på omdömen, betyg, storlek eller sökplacering' % b.get('sajt')
                  if ANSEENDEORD.search(' '.join(str(b.get(f) or '') for f in ('kvalitet', 'stark_for', 'tar_med'))) else None)
-        (fel.append(brist) if brist else giltiga_fb.append(b))
+        (ogiltiga.append(('forebild', b.get('sajt'), brist)) if brist else giltiga_fb.append(b))
+    return giltiga_br, giltiga_fb, ogiltiga
+
+
+def planbrister(slug, underlag, plan, paket=None):
+    """Planens genomgångar: branschgenomgången och förebilderna, med sajter ur paketet och belägg i rätt version. Varje
+    ogiltig rad och en täckning under arbetsregeln är en brist."""
+    if not isinstance(plan, dict):
+        return ['planen saknas']
+    giltiga_br, giltiga_fb, ogiltiga = _genomgangarna(slug, underlag, plan, paket)
+    if giltiga_br is None:
+        return [ogiltiga[0][2]]
+    fel = [skal for _f, _s, skal in ogiltiga]
+    if len(giltiga_br) < ARBETSREGEL['plan_bransch']:
+        fel.append('branschgenomgången har %d giltiga rader (arbetsregeln: minst %d, var och en med en fångad branschsajt och belägg)' % (
+            len(giltiga_br), ARBETSREGEL['plan_bransch']))
     if len(giltiga_fb) < ARBETSREGEL['plan_forebilder']:
         fel.append('inspirationsgenomgången i planen har %d giltiga förebilder (arbetsregeln: minst %d, fångade och med belägg)' % (
             len(giltiga_fb), ARBETSREGEL['plan_forebilder']))
     return fel
+
+
+def rensa_genomgangar(slug, underlag, plan, paket=None):
+    """Planen med bara de giltiga raderna i genomgångarna, och de bortrensade som [{'falt', 'sajt', 'skal'}] (ägarens
+    förenklingsuppdrag 2026-10-10: kandidatprovet 2026-10-11 föll i planeringen på en enda felklassad rad, fast
+    arbetsregelns täckning var uppfylld). En ogiltig rad räknas aldrig som giltig; täckningen prövas sedan på de giltiga
+    raderna (planbrister), så kraven är desamma. Saknas paketet görs ingen rensning."""
+    if not isinstance(plan, dict):
+        return plan, []
+    giltiga_br, giltiga_fb, ogiltiga = _genomgangarna(slug, underlag, plan, paket)
+    if giltiga_br is None:
+        return plan, []
+    return dict(plan, bransch=giltiga_br, forebilder_utanfor=giltiga_fb), [{'falt': f, 'sajt': s_, 'skal': skal} for f, s_, skal in ogiltiga]
 
 
 def designgrundbrist(b, post):

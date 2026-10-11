@@ -5041,7 +5041,14 @@ okänd version kunde intyga skaparens varv, en specialfil fick identiteten att h
 komplettering fällde en plan som räckte, samma sida profilerades en gång per bildval, och startkontrollen prövade
 bara startfasens roller. Alla är rättade och har prov (röda på commiten före rättelsen; FIFO-fallet hängde där).
 
-**Det som är mekanik och det som är hypotes:** proven (`prov_forenkling.py`, 30 fall; 19 av de 24 första röda på
+**Körprovet 2026-10-11 och rättelsen efter det.** Körningen (två förslag, 0a43341) uppfyllde researchens kontrakt efter
+70,6 minuter och två varv. Där låg tjänsterna (443 och 364 s) inom fångsternas tid (1 469 och 1 221 s). Planen föll
+därefter två gånger, 12,5 och 17,5 minuter, på en enda felklassad rad i branschgenomgången: en inspirationssajt stod
+bland branschsajterna, fast arbetsregelns täckning var uppfylld. Det giltiga uppdraget gick då förlorat. En ogiltig rad i
+genomgångarna rensas nu bort med skälet och räknas aldrig, och täckningen prövas på de giltiga raderna
+(`referenskontrakt.rensa_genomgangar`). Varje planförsöks brister sparas (`PLANERING-forsok.jsonl`).
+
+**Det som är mekanik och det som är hypotes:** proven (`prov_forenkling.py`, 31 fall; 19 av de 24 första röda på
 basen 1353214, de sex för granskningens fynd röda på 1b9d344) visar
 mekaniken med attrapper. Tidsvinsten är uppmätt bara för tjänsterna i researchen (6–9 minuter som nu ligger inom
 fångstens tid); att profilerna per kandidat ger en tidigare första skiss, att återanvända byggen kortar kön och att

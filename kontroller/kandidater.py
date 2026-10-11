@@ -1745,7 +1745,10 @@ def planera(slug, n, lage=None):
         if brister:
             raise RuntimeError('planeringens kompetenskrav uppfylldes inte: ' + '; '.join(brister))
         plan = svar.get('structured_output') or {}
-        planfel = rk.planbrister(slug, atelje.UNDERLAG, plan, paket)  # genomgångarna: fångade sajter och belägg i paketet
+        # genomgångarna: en ogiltig rad rensas bort med skälet och räknas aldrig; täckningen prövas på de giltiga
+        # (ägarens förenklingsuppdrag 2026-10-10: en enda felklassad rad fällde förr hela planen, och dess giltiga uppdrag)
+        plan, bortrensade = rk.rensa_genomgangar(slug, atelje.UNDERLAG, plan, paket)
+        planfel = rk.planbrister(slug, atelje.UNDERLAG, plan, paket)  # täckningen: fångade sajter och belägg i paketet
         kand, avvisade = [], []
         for k in plan.get('kandidater') or []:
             if not isinstance(k, dict) or not str(k.get('titel') or '').strip():
@@ -1755,6 +1758,13 @@ def planera(slug, n, lage=None):
             brist = referensbrist(slug, k) or planbrist(k) or referenskedjebrist(slug, k, {'paket': paket.name if paket else None})
             (avvisade.append({'titel': str(k.get('titel'))[:120], 'skal': brist}) if brist else kand.append(k))
         kand = kand[:n]
+        # varje försöks brister sparas, så att ett stopp går att spåra (kandidatprovet 2026-10-11 visade bara det sista)
+        (r / 'PLANERING.json').write_text(json.dumps({'tid': nu(), 'kompetens': kompetens_kort(kv), 'forsok': forsok, 'kompetenskravbrister': brister,
+                                                    'planfel': planfel, 'genomgang_bortrensade': bortrensade, 'giltiga_uppdrag': len(kand),
+                                                    'avvisade': avvisade}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+        with open(r / 'PLANERING-forsok.jsonl', 'a', encoding='utf-8') as fh:
+            fh.write(json.dumps({'tid': nu(), 'forsok': forsok, 'planfel': planfel, 'genomgang_bortrensade': bortrensade,
+                                 'giltiga_uppdrag': len(kand), 'avvisade': avvisade}, ensure_ascii=False) + '\n')
         if not planfel:  # genomgångarna håller: de giltiga uppdragen står fast, och de saknade kompletteras nedan
             break
         fel = '; '.join(planfel + ['%d användbara uppdrag av %d%s' % (len(kand), n, ('; avvisade: ' + '; '.join(
@@ -1771,7 +1781,7 @@ def planera(slug, n, lage=None):
     (r / 'KANDIDATPLAN.json').write_text(json.dumps({'tid': nu(), 'antal': len(ids), 'begart': n, 'lage': lage, 'variation': plan.get('variation'),
                                                     'paket': paket.name if paket else None,
                                                     'referenskontrakt': {'version': rk.VERSION, 'brister': [], 'tid': nu()},
-                                                    'kandidater': dict(zip(ids, kand)), 'avvisade': avvisade, 'kompetens': kompetens_kort(kv), 'kompetenskravbrister': [], 'bransch': plan.get('bransch') or [],
+                                                    'kandidater': dict(zip(ids, kand)), 'avvisade': avvisade, 'genomgang_bortrensade': bortrensade, 'kompetens': kompetens_kort(kv), 'kompetenskravbrister': [], 'bransch': plan.get('bransch') or [],
                                                     'forebilder_utanfor': plan.get('forebilder_utanfor') or [],
                                                     # färre än begärt redovisas, och fylls aldrig upp med kosmetiska dubbletter (punkt 6)
                                                     'brist_mot_begart': (None if len(ids) >= n else '%d av %d användbara förslag%s%s' % (
@@ -1793,7 +1803,9 @@ def planera(slug, n, lage=None):
                                                  + ['- **%s** (%s): %s; kundens material: %s; begränsningar: %s; belägg: %s' % (
                                                      b.get('sajt'), b.get('galleri'), b.get('kvalitet'), b.get('kundens_material'), b.get('begransningar'),
                                                      ', '.join(b.get('belagg') or [])) for b in plan.get('forebilder_utanfor') or [] if isinstance(b, dict)]
-                                                 + (['', '## Avvisade uppdrag (referens eller referenskedja utan underlag)', ''] + ['- %s: %s' % (a['titel'], a['skal']) for a in avvisade] if avvisade else [])) + '\n',
+                                                 + (['', '## Avvisade uppdrag (referens eller referenskedja utan underlag)', ''] + ['- %s: %s' % (a['titel'], a['skal']) for a in avvisade] if avvisade else [])
+                                                 + (['', '## Bortrensade rader i genomgångarna (räknas inte)', ''] + ['- %s %s: %s' % (b_['falt'], b_['sajt'], b_['skal']) for b_ in bortrensade]
+                                                    if bortrensade else [])) + '\n',
                                        encoding='utf-8')
     for i, (kid, k) in enumerate(zip(ids, kand), 1):  # efter planen på disk: UPPDRAG.md bär underlaget ur just den
         skriv_uppdrag(slug, kid, k, i, len(kand))

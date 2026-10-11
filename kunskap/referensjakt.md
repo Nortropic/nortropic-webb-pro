@@ -77,6 +77,13 @@ komponent och tema eller mall (21st, med licens). En skärmbild redovisas aldrig
   paketets bilder; också en egen huvudreferens;
 - kandidatens UPPDRAG.md bär underlaget ur just den planen.
 
+En rad i genomgångarna som inte uppfyller kontraktet (en sajt som inte finns eller inte är en branschsajt i paketet,
+saknade eller trasiga belägg, bedömningar utan observation) rensas bort ur planen med skälet och räknas aldrig; täckningen
+prövas på de giltiga raderna, så en plan utan tillräckligt många stoppas som förut (`referenskontrakt.rensa_genomgangar`;
+ägarens förenklingsuppdrag 2026-10-10, efter att en enda felklassad rad fällt hela planen och dess giltiga uppdrag i
+kandidatprovet 2026-10-11). De bortrensade raderna står i KANDIDATPLAN.json och KANDIDATPLAN.md, och varje planförsöks
+brister i `PLANERING-forsok.jsonl`.
+
 Antalen är en täckningskontroll, aldrig ett kvalitetsbetyg. En plan eller research äldre än kontraktet står som historik
 och märks så; den skrivs inte om, och en ny designomgång krävs. Kontraktet prövas vid planen, vid återupptagningen och vid
 varje väg till en skaparsession (`kandidater.referensstopp`), så att en cache eller en annan startväg inte kringgår det.
