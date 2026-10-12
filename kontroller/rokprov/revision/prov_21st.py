@@ -21,7 +21,8 @@ import skapande
 import startkontroll as sk
 
 ROOT = Path(__file__).resolve().parents[3]
-VERKTYG = ['mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration', 'mcp__21st__get_theme']  # get_theme: tokens ur ett tema (2026-10-09)
+VERKTYG = ['mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration', 'mcp__21st__get_theme',
+           'mcp__21st__search_logo']  # get_theme: tokens ur ett tema (2026-10-09); search_logo: tredjepartsmärken (inventeringen 2026-10-12)
 ALLA_21ST = ['mcp__21st__' + v for v in ('add_to_list', 'bookmark', 'create_bookmark_list', 'delete_component', 'delete_template', 'delete_theme',
              'edit_component', 'edit_profile', 'edit_take', 'edit_template', 'edit_theme', 'get_bookmark_list', 'get_changes', 'get_component',
              'get_generation', 'get_generation_job', 'get_inspiration', 'get_notes', 'get_profile', 'get_take', 'get_theme', 'get_usage',
@@ -83,7 +84,9 @@ class Tjugoforsta(unittest.TestCase):
         self.assertIn('kundens namn', self.vakt('mcp__21st__search', {'query': 'hero for Provfirman Trä'}) or '')
         self.assertIn('ort', self.vakt('mcp__21st__search', {'query': 'gallery Exempelby carpentry'}) or '')
         self.assertIn('personnamn', self.vakt('mcp__21st__search', {'query': 'testimonial Anna Svensson'}) or '')
-        for v in ('mcp__21st__submit_component', 'mcp__21st__search_logo', 'mcp__21st__video_export', 'mcp__21st__get_usage'):
+        self.assertIsNone(self.vakt('mcp__21st__search_logo', {'query': 'instagram'}))
+        self.assertIn('kundens namn', self.vakt('mcp__21st__search_logo', {'query': 'Provfirman Trä'}) or '')
+        for v in ('mcp__21st__submit_component', 'mcp__21st__video_export', 'mcp__21st__get_usage'):
             self.assertIn('inte ett av flödets verktyg', self.vakt(v, {'query': 'x'}) or '', v)
         self.assertEqual(sorted(x for x in kundvakt.tillatna() if x.startswith('mcp__21st__')), sorted(VERKTYG))
 
@@ -91,12 +94,12 @@ class Tjugoforsta(unittest.TestCase):
         k = kompetens.tolka()
         self.assertEqual(k['komposition']['mcp'], ['refero', 'mobbin', '21st'])
         self.assertEqual(kompetens.mcp_verktyg('21st'), VERKTYG)
-        self.assertEqual(kompetens.slappta()['21st'], ['search', 'get_component', 'get_inspiration', 'get_theme'])
+        self.assertEqual(kompetens.slappta()['21st'], ['search', 'get_component', 'get_inspiration', 'get_theme', 'search_logo'])
         self.assertEqual(kompetens.tjanstverktyg_fel(), [])
         self.assertEqual(kompetens.prova(), [])
         beslut = kompetens.tjanstverktyg()['21st']
         self.assertEqual(sorted(beslut), sorted(v.split('__')[-1] for v in ALLA_21ST), 'varje verktyg på servern (tools/list 2026-10-08) har ett beslut')
-        self.assertEqual({v for v, x in beslut.items() if x['beslut'] == 'uppgift'}, {'search', 'get_component', 'get_inspiration', 'get_theme'})
+        self.assertEqual({v for v, x in beslut.items() if x['beslut'] == 'uppgift'}, {'search', 'get_component', 'get_inspiration', 'get_theme', 'search_logo'})
         self.assertTrue(all(x['provat'] for v, x in beslut.items() if x['beslut'] == 'ingen uppgift'))
         p = '\n'.join(kompetens.prompt_rader('skapa', self.slug, 'k01'))
         self.assertIn('21st.dev Builder', p); self.assertIn('generiska', p)

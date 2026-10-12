@@ -20,12 +20,15 @@ kunddesign. Det här verktyget håller designfasens spår på disken, privat i u
     godkann <slug> vNN --ritning R [--text TEXT] ÄGARENS designgodkännande (nekas sessionerna; ägaren kör det själv)
     overlamna <slug> [--prova]                  överlämningspaketet till helbygget ur den godkända versionen
     status <slug> · kvitto <slug> --session ID [--pass skapa] · karta --prova · start <slug> [--skriv-bara]
+    inventera [--placera]                       förmågorna mot kartan; --placera skriver stationerna, flödena och preliminära
+                                                rader för nya skills och filer (underhållet kör det vid varje skillintag)
 
 Designgodkännande, byggstart och publicering är tre beslut: godkann startar inget, kor.sh tar vid först när ägaren
 startar bygget, och publiceringen är lanseringens eget steg (kunskap/lansering.md). Slutkoder: 0 klart, 1 en kontroll
 föll eller något saknas, 2 fel i anropet.
 """
 import argparse
+import fnmatch
 import hashlib
 import json
 import os
@@ -91,7 +94,7 @@ SVAR_SCHEMA = {
                                       'licens': {'type': 'string'}, 'kod': {'type': 'string'}}}},
         'begransningar': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 12},
         'atergang': {'type': 'object', 'additionalProperties': False, 'required': ['till', 'skal'],
-                     'properties': {'till': {'type': 'string', 'enum': ['fortsatt', 'innehall', 'art', 'komposition']},
+                     'properties': {'till': {'type': 'string', 'enum': ['fortsatt', 'underlag', 'innehall', 'art', 'komposition']},
                                     'skal': {'type': 'string', 'maxLength': 800}}},
         'kompetens': {'type': 'object', 'additionalProperties': False, 'required': ['aktiverade', 'lasta', 'valda'],
                       'properties': {'aktiverade': {'type': 'array', 'items': {'type': 'string'}},
@@ -119,6 +122,9 @@ class Fel(Exception):
     pass
 
 
+FLODEN = ('research', 'band', 'specialistpass', 'overlamning', 'helbygge', 'granskning', 'leverans', 'underhall', 'systemarbete')
+HARLEDDA = ('research', 'band', 'specialistpass', 'overlamning', 'helbygge')  # följer av bandets tabell och kompetensblocken
+FORMAGOR = ('.md', '.py', '.mjs', '.js', '.cjs', '.sh', '.csv', '.json', '.yaml')  # en skills filer som är förmågor (inte typsnitt, licenser)
 ALLTID = ('kritik', 'tillganglighet')  # körs alltid och kan inte hoppas över (ägarens uppdrag 2026-10-12 ~17:35Z, punkt 3)
 TOKEN = re.compile(r'`([^`]+)`')
 
@@ -149,6 +155,12 @@ def stationer(text=None):
                           'alternativ': af, 'mcp': km + am, 'pass': kp + ap, 'metoder': TOKEN.findall(celler[4]), 'utdata': celler[5],
                           'kontroll': celler[6], 'kors': celler[7]}
     return ut
+
+
+def filen(f):
+    """Filen ur en token i bandets tabell: `väg`, `väg rad a–b, c–d` eller `väg # rubrik` (samma form som metodkartans
+    utdrag, metod.utdrag), så att ett radutdrag i en station prövas och låses som utdragen (inventeringen 2026-10-12)."""
+    return re.split(r' (?:rad |# )', f, 1)[0].strip()
 
 
 def metoder(text=None):
@@ -468,8 +480,12 @@ def bygg_sida(slug, v, underlag=None):
         shutil.rmtree(s)
     (s / '_blob').mkdir(parents=True)
     shutil.copy2(rt, s / 'support.js')
-    for r in post['ritningar']:
-        shutil.copy2(vk / 'kanvas' / r['fil'], s / r['fil'])
+    for r in post['ritningar']:  # dukens fil oförändrad i kanvas/; den renderade kopian får en viewport-meta, som duken ger
+        # genom ramens bredd, så att axe och stilrapporten med mobilemulering mäter 390 och inte en layout på 980 px
+        t = (vk / 'kanvas' / r['fil']).read_text(encoding='utf-8', errors='replace')
+        if 'name="viewport"' not in t:
+            t = re.sub(r'(<head[^>]*>)', r'\1\n<meta name="viewport" content="width=device-width, initial-scale=1">', t, count=1, flags=re.I)
+        (s / r['fil']).write_text(t, encoding='utf-8')
     kanda = (las(rot(slug, underlag) / 'TILLGANGAR.json') or {}).get('blobs') or {}
     index, saknade = {}, []
     for b in post['tillgangar']:
@@ -613,9 +629,11 @@ def station_rader(st):
     """Stationens arbetsinstruktion: frågan, skills och tjänster bara för stationen, utdata och kontroll (en station i taget;
     ägarens uppdrag 2026-10-12 ~17:35Z, punkt 2)."""
     import kompetens
-    anrop = set(kompetens.anvandaranropade(ROOT))
+    anrop = set(kompetens.anvandaranropade(ROOT)) | set(kompetens.vantande_skills(ROOT))  # användaranropade och Initial Response: Read
     def visa(f):
         namn = f.split('/')[0]
+        if filen(f) != f:  # ett radutdrag: bara de raderna, aldrig hela skillen
+            return '%s (läs bara utdraget med Read, offset och limit)' % f
         return '%s (%s)' % (f, 'läs hel med Read' if f.startswith(('kunskap/', 'kritik/')) or '/reference' in f or namn in anrop
                             or not f.endswith('SKILL.md') else 'aktivera med Skill')
     ordning = list(stationer())
@@ -625,9 +643,14 @@ def station_rader(st):
             'Stationens fråga: ' + st['fraga'],
             'Stationens metod (metodtabellen, källa och princip): ' + '; '.join(
                 '%s: %s, %s' % (x, met[x]['kalla'], met[x]['princip']) for x in st.get('metoder') or [] if x in met) + '.',
-            *(['Tillgängligheten är ett krav också i den här stationen (W3C WAI, under utformningen): riktiga knappar, länkar och fält, '
-               'kontrast 4,5:1, synlig fokus, primära kontroller minst 44 px, reflow i 320 och reducerad rörelse; renderingen prövar det '
-               'vid varje version. Rita och pröva 390 först.'] if a11y else []),
+            *(['Tillgängligheten är ett krav också i den här stationen (W3C WAI, under utformningen; WCAG 2.2 AA): riktiga knappar, '
+               'länkar och fält, kontrast 4,5:1 för text och 3:1 för kontroller och fokus (1.4.11), färg aldrig ensam (1.4.1), synlig '
+               'fokus som inte döljs av fasta sidhuvuden (2.4.11), träffytor minst 24 px (2.5.8) och reflow i 320; ägarens golv: '
+               'primära kontroller minst 44 px och reducerad rörelse. Renderingen prövar det axe och mätningarna når vid varje '
+               'version. Rita och pröva 390 först.'] if a11y else []),
+            *(['Tillgängligheten i innehållet (W3C WAI): rubrikordningen, länktexter som säger vart de leder och textalternativ per '
+               'bildplats bestäms här. Rita 390 först: besökarens toppuppgift och den primära handlingen ska synas i första skärmen.']
+              if st['id'] == 'innehall' else []),
             'Stationens skills, bara för den här frågan: ' + '; '.join(visa(f) for f in st['karna']) + '.',
             *(['Alternativ efter riktningen: ' + '; '.join(visa(f) for f in st['alternativ']) + '.'] if st['alternativ'] else []),
             *(['Tjänster (bakom kundvakten, generiska frågor): ' + ', '.join(st['mcp']) + '.'] if st['mcp'] else []),
@@ -640,8 +663,10 @@ def kvitto_station(sessioner, pass_, st):
     """Kvittot mot stationens skills (inte rollens hela kärna): tillgång, aktivering och läsning, anrop och utfall var för
     sig. Det fäller ingenting; läsning är ingen insats (ägarens uppdrag 2026-10-12 ~17:35Z, punkt 4)."""
     import kompetens
-    k = {st['id']: {'id': st['id'], 'namn': st['namn'], 'uppgift': st['fraga'], 'pass': [pass_], 'karna': st['karna'], 'efter': [],
-                    'efter_i_karna': [], 'valj': st['alternativ'], 'verktyg': [], 'mcp': st['mcp'], 'mcp_krav': [], 'visar': st['kontroll']}}
+    karna = list(dict.fromkeys(filen(f) for f in st['karna']))
+    valj = [f for f in dict.fromkeys(filen(f) for f in st['alternativ']) if f not in karna]
+    k = {st['id']: {'id': st['id'], 'namn': st['namn'], 'uppgift': st['fraga'], 'pass': [pass_], 'karna': karna, 'efter': [],
+                    'efter_i_karna': [], 'valj': valj, 'verktyg': [], 'mcp': st['mcp'], 'mcp_krav': [], 'visar': st['kontroll']}}
     kv = kompetens.kvitto(sessioner, pass_, k=k)
     return kv, kompetens.kravbrister(kv, pass_, k=k)
 
@@ -719,7 +744,7 @@ def svar_md(b, post):
     rader += ['- %s `%s`%s: %s → %s%s' % (r['kalla'], r['id'], (' ' + r['adress']) if r.get('adress') else '', r['visar'], r['anvandning'],
                                           (' · licens ' + r['licens']) if r.get('licens') else '') for r in so.get('referenser') or []] or ['- inga']
     if so.get('atergang'):
-        rader += ['', '## Återgång', '', '- %s: %s' % ({'fortsatt': 'fortsätt bandet', 'innehall': 'omtag av innehåll och struktur',
+        rader += ['', '## Återgång', '', '- %s: %s' % ({'fortsatt': 'fortsätt bandet', 'underlag': 'omtag av underlaget (ny research eller nya förebilder)', 'innehall': 'omtag av innehåll och struktur',
                                                         'art': 'omtag av art direction', 'komposition': 'omtag av kompositionen'}
                                                        .get(so['atergang'].get('till'), so['atergang'].get('till')), so['atergang'].get('skal'))]
     rader += ['', '## Begränsningar', ''] + (['- ' + x for x in so.get('begransningar') or []] or ['- inga redovisade'])
@@ -1090,9 +1115,10 @@ def karta_prova(text=None):
     per = {}
     for sid, x in st.items():
         for f in x['karna'] + x['alternativ']:
-            p = metod.kalla(f)
-            if not p.is_file():
-                fel.append('stationen %s: %s finns inte' % (sid, f))
+            try:
+                metod.utdrag(f)
+            except metod.MetodFel as e:
+                fel.append('stationen %s: %s' % (sid, e))
             if not f.startswith(('kunskap/', 'kritik/')):
                 per.setdefault('skill:' + f.split('/')[0], set()).add(sid)
         for m_ in x['mcp']:
@@ -1112,16 +1138,164 @@ def karta_prova(text=None):
         fel += ['stationen %s: metoden %s finns inte i metodtabellen' % (sid, m_) for m_ in x['metoder'] if m_ not in met]
     anvanda = {m_ for x in st.values() for m_ in x['metoder']}
     fel += ['metoden %s har ingen station i bandet' % m_ for m_ in met if m_ not in anvanda]
+    harl = harledda_floden(text)
     for namn, delar in rader.items():
+        angivna_f = floden_i(delar[3])
+        fel += ['%s: okänt flöde %s (flödena: %s)' % (namn, f_, ', '.join(FLODEN)) for f_ in sorted(angivna_f - set(FLODEN))]
+        if namn.startswith('skill:') and (angivna_f & set(HARLEDDA)) != harl.get(namn, set()):
+            fel.append('%s: raden säger flödena %s men tabellerna och kompetensblocken %s (designfas.py inventera --placera)' % (
+                namn, ', '.join(sorted(angivna_f & set(HARLEDDA))) or 'inga', ', '.join(sorted(harl.get(namn, set()))) or 'inga'))
+        if namn.startswith('fil:'):
+            if delar[3].startswith('stationer:'):
+                fel.append('%s: en filrad har inga egna stationer; stationerna står i bandets tabell' % namn)
+            elif not delar[3].startswith(('skäl:', 'flöden:')):
+                fel.append('%s: en filrad börjar med flöden: eller skäl:' % namn)
+            via = harl.get('skill:' + namn[4:].split('/')[0], set())
+            fel += ['%s: flödet %s når filen bara genom skillen, och skillen har inte flödet' % (namn, f_)
+                    for f_ in sorted((angivna_f & set(HARLEDDA)) - via)]
+            continue
         m_ = re.match(r'^stationer: ([a-z, ]+);', delar[3])
         angivna = {x.strip() for x in m_.group(1).split(',')} if m_ else set()
         if angivna - set(st):
             fel.append('%s: okänd station %s' % (namn, ', '.join(sorted(angivna - set(st)))))
         if namn in per and angivna != per[namn]:
             fel.append('%s: raden säger stationerna %s men tabellen %s' % (namn, ', '.join(sorted(angivna)) or 'inga', ', '.join(sorted(per[namn]))))
-        if namn.startswith('skill:') and namn not in per and not delar[3].startswith('skäl:'):
+        if namn.startswith('skill:') and namn not in per and not re.search(r'(?:^|; )skäl:', delar[3]):
             fel.append('%s har varken en station eller ett skrivet skäl' % namn)
+    filrader = [x[4:] for x in rader if x.startswith('fil:')]
+    placerade = placerade_filer(text)
+    for f in formagofiler():
+        if f not in placerade and not any(fnmatch.fnmatchcase(f, g) for g in filrader):
+            fel.append('filen %s har varken en plats i tabellerna eller en filrad (designfas.py inventera)' % f)
+    alla = formagofiler()
+    fel += ['fil:%s matchar ingen fil' % g for g in filrader if not any(fnmatch.fnmatchcase(f, g) for f in alla)]
     return fel
+
+
+def formagofiler():
+    """Skillsens filer som är förmågor, relativt .claude/skills (inte KALLA.md, licenser eller typsnitt)."""
+    return sorted(p.relative_to(SKILLS).as_posix() for p in SKILLS.rglob('*')
+                  if p.is_file() and p.suffix in FORMAGOR and p.name != 'KALLA.md' and not p.name.upper().startswith('LICENSE'))
+
+
+def placerade_filer(text=None):
+    """Filerna som bandets tabell eller ett kompetensblock namnger, och varje skills SKILL.md (skillens egen rad)."""
+    import kompetens
+    text = KARTA.read_text(encoding='utf-8') if text is None else text
+    ut = {filen(f) for x in stationer(text).values() for f in x['karna'] + x['alternativ']}
+    ut |= {f for x in kompetens.tolka(text).values() for f in x['karna'] + x['efter'] + x['valj']}
+    ut |= {p.relative_to(SKILLS).as_posix() for p in SKILLS.glob('*/SKILL.md')}
+    return ut
+
+
+def floden_i(cell):
+    m = re.search(r'(?:^|; )flöden: ([a-z, ]+);', cell)
+    return {x.strip() for x in m.group(1).split(',') if x.strip()} if m else set()
+
+
+def harledda_floden(text=None):
+    """{'skill:<namn>': {flöden}} som följer av tabellerna: band ur bandets tabell, research ur blocken forska och
+    forberedelse, specialistpass ur block med ett ds-pass, overlamning ur stationen och blocket leverans, helbygge ur
+    blocket helbygge (inventeringen 2026-10-12, punkt 4: kartan och blocken säger samma sak)."""
+    import kompetens
+    text = KARTA.read_text(encoding='utf-8') if text is None else text
+    ut = {}
+    def lagg(f, flode):
+        if not f.startswith(('kunskap/', 'kritik/', 'mall/')):
+            ut.setdefault('skill:' + filen(f).split('/')[0], set()).add(flode)
+    for sid, x in stationer(text).items():
+        for f in x['karna'] + x['alternativ']:
+            lagg(f, 'band')
+            if sid == 'overlamning':
+                lagg(f, 'overlamning')
+    for bid, x in kompetens.tolka(text).items():
+        floden = ({'research'} if bid in ('forska', 'forberedelse') else set()) | ({'helbygge'} if bid == 'helbygge' else set()) \
+            | ({'overlamning'} if bid == 'leverans' else set()) | ({'specialistpass'} if set(x['pass']) & set(kompetens.DESIGNSTOD) else set())
+        for f in x['karna'] + x['efter'] + x['valj']:
+            for fl in floden:
+                lagg(f, fl)
+    return ut
+
+
+def inventera(placera=False, text=None, idag=None):
+    """Inventeringen som håller kartan aktuell (ägarens tillägg 2026-10-12 17:50Z: "uppdateras löpande också per
+    automatik"): skills och filer utan plats, kartrader vars stationer eller härledda flöden inte följer tabellerna, och
+    tjänsternas verktyg utan beslut. Med placera får en ny skill eller fil en preliminär rad märkt "automatiskt placerad
+    <datum>, oprövad", som väntar på en verklig placering, och stationerna och flödena skrivs om ur tabellerna. Ger
+    (rapportrader, ny text eller None)."""
+    import kompetens
+    text = KARTA.read_text(encoding='utf-8') if text is None else text
+    idag = idag or nu()[:10]
+    m = KARTBLOCK.search(text)
+    if not m:
+        return ['metodkartan saknar blocket designfas-karta'], None
+    st, harl = stationer(text), harledda_floden(text)
+    per = {}
+    for sid, x in st.items():
+        for f in x['karna'] + x['alternativ']:
+            if not f.startswith(('kunskap/', 'kritik/')):
+                per.setdefault('skill:' + filen(f).split('/')[0], set()).add(sid)
+        for m_ in x['mcp']:
+            per.setdefault('mcp:' + m_, set()).add(sid)
+        for p_ in x['pass']:
+            per.setdefault('pass:' + p_, set()).add(sid)
+    ordning = list(st)
+    rader = [r for r in m.group('rader').splitlines()]
+    namn_i = {r.split(' | ')[0].strip() for r in rader if r.strip()}
+    rapport, nya = [], []
+    for s in sorted(p.name for p in SKILLS.iterdir() if p.is_dir() and (p / 'SKILL.md').is_file()):
+        if 'skill:' + s not in namn_i:
+            km = SKILLS / s / 'KALLA.md'
+            kalla_ = re.search(r'github\.com/([\w.-]+/[\w.-]+)', km.read_text(encoding='utf-8')) if km.is_file() else None
+            nya.append('skill:%s | %s | ingen | skäl: automatiskt placerad %s, oprövad: ny skill; läs SKILL.md och placera den '
+                       'i bandets tabell, ett kompetensblock eller med ett skrivet skäl | väntar på placering' % (
+                           s, kalla_.group(1) if kalla_ else 'okänd källa', idag))
+    filrader = [x[4:] for x in namn_i if x.startswith('fil:')]
+    placerade = placerade_filer(text)
+    utan = [f for f in formagofiler() if f not in placerade and not any(fnmatch.fnmatchcase(f, g) for g in filrader)]
+    for mapp in sorted({f.rsplit('/', 1)[0] for f in utan}, key=lambda x: (x.count('/'), x)):  # föräldern före barnet
+        antal = sum(1 for f in utan if f.rsplit('/', 1)[0] == mapp)
+        if not antal:
+            continue
+        nya.append('fil:%s/* | %s | ingen | skäl: automatiskt placerad %s, oprövad: %d filer utan plats; läs och placera dem i '
+                   'en station, ett block eller med ett skäl | väntar på placering' % (mapp, mapp.split('/')[0], idag, antal))
+        utan = [f for f in utan if not fnmatch.fnmatchcase(f, mapp + '/*')]  # fnmatch låter * gå över /: underkatalogerna med
+    rapport += ['ny rad: ' + r[:110] for r in nya]
+    rader = [r for r in rader if r.strip()] + nya
+    for i, rad in enumerate(rader):  # stationerna och de härledda flödena ur tabellerna, också på de nya raderna
+        delar = [x.strip() for x in rad.split(' | ')]
+        if len(delar) != 5:
+            continue
+        namn, cell = delar[0], delar[3]
+        ny = cell
+        if not namn.startswith('fil:'):
+            ratt = sorted(per.get(namn, set()), key=ordning.index)
+            sm = re.match(r'^stationer: ([a-z, ]+); ', ny)
+            if ratt and (not sm or [x.strip() for x in sm.group(1).split(',')] != ratt):
+                ny = 'stationer: %s; %s' % (', '.join(ratt), ny[sm.end():] if sm else ny)
+            elif not ratt and sm:
+                ny = 'skäl: inte längre i bandets tabell, automatiskt %s; %s' % (idag, ny[sm.end():])
+        if namn.startswith('skill:'):
+            ratt_f = sorted(harl.get(namn, set()) | (floden_i(ny) - set(HARLEDDA)), key=FLODEN.index)
+            if sorted(floden_i(ny), key=FLODEN.index) != ratt_f:
+                fm = re.search(r'(?:^|; )flöden: [a-z, ]+;', ny)
+                utan_f = (ny[:fm.start()] + ('; ' if fm.start() else '') + ny[fm.end():].lstrip()) if fm else ny
+                sm = re.match(r'^stationer: [^;]*; ', utan_f)
+                flod = 'flöden: %s; ' % ', '.join(ratt_f) if ratt_f else ''
+                ny = (utan_f[:sm.end()] + flod + utan_f[sm.end():]) if sm else flod + utan_f
+                ny = ny.replace(';; ', '; ').strip()
+        if ny != cell:
+            if namn not in {r.split(' | ')[0] for r in nya}:
+                rapport.append('%s: %s → %s' % (namn, cell[:70], ny[:70]))
+            delar[3] = ny
+            rader[i] = ' | '.join(delar)
+    vantar = [r.split(' | ')[0] for r in rader if 'automatiskt placerad' in r]
+    andrat = [r for r in rapport]
+    rapport += ['väntar på en verklig placering: %s' % ', '.join(vantar)] if vantar else []
+    rapport += ['tjänsternas verktyg: ' + x for x in kompetens.tjanstverktyg_fel(text)]
+    if not placera or not andrat:
+        return rapport, None
+    return rapport, text[:m.start('rader')] + '\n'.join(rader) + '\n' + text[m.end('rader'):]
 
 
 def start(slug, skriv_bara=False, underlag=None):
@@ -1173,6 +1347,7 @@ def main(argv=None):
     a.add_argument('--station')
     a = s.add_parser('station'); a.add_argument('slug'); a.add_argument('station'); a.add_argument('--ritning', required=True)
     a = s.add_parser('karta'); a.add_argument('--prova', action='store_true')
+    a = s.add_parser('inventera'); a.add_argument('--placera', action='store_true')
     a = s.add_parser('start'); a.add_argument('slug'); a.add_argument('--skriv-bara', action='store_true')
     x = p.parse_args(argv)
     ut = lambda d: print(json.dumps(d, ensure_ascii=False, indent=1))  # noqa: E731
@@ -1219,6 +1394,17 @@ def main(argv=None):
             ut(kvitto(x.session, getattr(x, 'pass'), x.station))
         elif x.cmd == 'station':
             print(station_brief(x.slug, x.station, x.ritning))
+        elif x.cmd == 'inventera':
+            rapport, ny = inventera(placera=x.placera)
+            if ny is not None:
+                KARTA.write_text(ny, encoding='utf-8')
+            print('\n'.join(rapport) if rapport else 'inventeringen: varje skill, fil och tjänst har sin plats, och kartan följer tabellerna')
+            if x.placera:  # underhållet läser slutkoden: kartan ska hålla efter placeringen, också när inget skrevs
+                f = karta_prova()
+                print('\n'.join(['kartan efter placeringen:'] + f) if f else 'kartan %s och prövad (karta --prova utan fel)' % (
+                    'skriven' if ny is not None else 'oförändrad'))
+                return 1 if f else 0
+            return 0
         elif x.cmd == 'karta':
             f = karta_prova()
             print('\n'.join(f) if f else 'designfas-karta: varje skill, tjänst och specialistpass har sin rad')

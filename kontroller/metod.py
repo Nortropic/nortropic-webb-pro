@@ -185,6 +185,20 @@ def prova(karta_text=None, las=None):
                     kallor.setdefault(f, sha(p.read_text(encoding='utf-8')))
     except Exception as e:  # noqa: BLE001 — en karta som inte går att tolka stoppar leveransen
         fel.append('kompetensblocken: %s' % e)
+    # designfasens band (designfas.stationer): stationernas filer och radutdrag hör till samma låsta underlag, så att en
+    # uppdaterad skill aldrig tyst flyttar ett radutdrag i en station (inventeringen 2026-10-12)
+    try:
+        import designfas
+        for x in designfas.stationer(text).values():
+            for f in x['karna'] + x['alternativ']:
+                try:
+                    u = utdrag(f)
+                except MetodFel as e:
+                    fel.append('bandet: %s' % e)
+                    continue
+                kallor.setdefault(u['vag'], u['sha'])
+    except Exception as e:  # noqa: BLE001
+        fel.append('bandet: %s' % e)
     for vag, h in sorted(kallor.items()):
         if las.get(vag) != h:
             fel.append('%s %s sedan utdragen prövades: pröva raderna och skriv låset (metod.py --las)' % (vag, 'har ändrats' if vag in las else 'saknas i låset'))

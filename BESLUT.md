@@ -5512,3 +5512,36 @@ fäller."
 - **Behållet:** omkring tio riktningar, 44 px, inga karuseller, den rena designstarten, ägarens godkännande som eget
   kommando, egna beslut för byggstart och publicering, granskning före skaparens förklaring, kundvakten och de tekniska
   golven.
+- **Efter den oberoende granskningen** (en AI-bedömning av texten mot primärkällorna, 22 avvikelser): processmodellerna
+  bär bara ramen, och ordningen inne i utformningen är praxis och vår hypotes; specificeringen är briefen före bandet;
+  användarna medverkar inte i designfasen, och det står som avvikelse; mobilen först är en prioritering med en kontroll i
+  390; tillgängligheten börjar i innehållet (en medveten utvidgning av ägarens "från art direction") och följer WCAG 2.2 AA
+  (24 px för alla mål, 1.4.11, 1.4.1, 2.4.11), medan 44 px och reducerad rörelse är ägarens golv (AAA); kritiken och
+  jämförelsen före valet körs samlat när alla riktningar finns; metodtabellen har slaget [skill], en metod för komposition
+  och Bedömning i tre slag; återgången kan gå till underlaget.
+
+## Tillägg 2026-10-12: full inventering av skills, MCP:er och verktyg
+
+**Status:** gäller; genomfört av Claude i grenen `claude/produktionsband-20261012`. Mekaniken prövad (`prov_designfas`,
+`prov_21st`); användningen i en version prövas på Navet och redovisas i slutrapporten.
+
+Ägarens uppdrag (inklistrat, ankomst före 2026-10-12T17:49:05Z, med tillägget före 17:50:52Z "Ja, det är viktigt att
+alla dessa uppdateras löpande också per automatik."; ordagrant i
+`underlag/uppdrag/PROMPT-Nortropic-Full-inventering-formagor-20261012.md`, privat): varje förmåga på varje ställe där den
+gör nytta, ner till filnivå, kontrollerbart och utan nytt register.
+
+- **Placeringen** står i metodkartans designfas-karta: stationer och flöden per skill (flödena research, band,
+  specialistpass, överlämning och helbygge härleds ur bandets tabell och kompetensblocken och prövas; granskning,
+  leverans, underhåll och systemarbete skrivs), och en filrad (`fil:<glob>`) med plats eller skäl för varje fil som ingen
+  tabell namnger. Bandets stationer har fått radutdrag (`väg rad a–b`, samma form som metodkartans utdrag), och
+  helbyggets block har fått rörelsens och polishens skills.
+- **Automatiken:** `designfas.py inventera --placera` skriver stationerna och flödena ur tabellerna och preliminära rader
+  ("automatiskt placerad <datum>, oprövad") för nya skills och filer; underhållet kör det i provet av en skill och vid
+  intaget, där kartan checkas in med skillen och återställs med den. Metodlåset omfattar bandets filer, och underhållets
+  skydd mot flyttade radutdrag gäller också bandets.
+- **Tjänsterna:** 21st `search_logo` har fått uppgift (tredjepartsmärken, fritt) och släpps av kundvakten; `get_inspiration`
+  är beskriven som den rangordnade sökning den är; Refero används i kritiken och typografin, Mobbin i innehållet,
+  kompositionen och formuläret, och Mobbins `ai_usage_notice` förs ordagrant in i svaret.
+- **Lyft till ägaren** (kostnad, konto eller ny tjänst; införs inte på eget initiativ): Figma (`generate_image`, Weave,
+  läsvägen för kundfiler), 21st-generering och video, Mobbins läge deep, claude-in-chrome för duken, Claude Docs,
+  computer-use, bildgenerering och logotyper, licensfrågan i ui-styling och läsningen av intagskrav 4.

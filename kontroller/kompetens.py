@@ -158,8 +158,10 @@ MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en käll
     # 21st.dev Builder (kontroller/mcp/21st.json; ägarens val 2026-10-07, uppdraget 2026-10-08, 2C): verktygen vid tools/list
     # 2026-10-08 (51 på servern; sessionsprovet i rapporten). Rollen komposition söker komponenter generiskt (search, fritt),
     # hämtar en vald komponents kod med källa, licens och beroenden (get_component; åtkomsten avgörs av kontot) och
-    # läser inspirationsflödet (get_inspiration); katalogens publicerings-, konto- och videoverktyg har ingen uppgift
-    '21st': ('mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration', 'mcp__21st__get_theme'),
+    # rangordnar metadata (get_inspiration), hämtar ett tema (get_theme) och tredjepartsmärken (search_logo); katalogens
+    # publicerings-, konto- och videoverktyg har ingen uppgift
+    '21st': ('mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration', 'mcp__21st__get_theme',
+             'mcp__21st__search_logo'),  # tredjepartsmärken ur svgl.app i polish och helbygget (inventeringen 2026-10-12)
 }
 MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)',
            'motion': 'Motion (dokumentation och exempel för motion, motion/react och motion-v; den fria servern)',

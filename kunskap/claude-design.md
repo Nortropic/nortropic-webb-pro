@@ -28,7 +28,7 @@ fristående claude.ai/design, som **stängs 2026-12-14**. Vi använder **Design-
 | Huvudlös session (`claude -p`) som utförare | 2026-10-12, med `enableArtifact` | **nej**: Artifact-verktyget finns inte i `-p`; flödets automatiska sessioner kan inte skriva duken |
 | Interaktiv session i repots rot | 2026-10-12, transkript | Artifact-verktyget och repots skills (taste) finns |
 | `/design` i repot | 2026-10-12, sessionens kommandolista | skuggas av repots skill `design` (bildgenererande); utföraren skapar duken med Artifact-verktyget och typens adress |
-| Designsystem | Design System-typen finns för kontot; inga system ännu | se Designsystemet nedan |
+| Designsystem | Design System-typen finns för kontot; "Nortropic komponentbeteenden" skapat 2026-10-12 (https://claude.ai/artifact/KrfYkkN1vqhDGgoZssNfzm) | publicerat med README, tokens, fyra komponenter med statiska förhandsvisningar och omslag; utan komponentpaket, så det kan inte monteras på en duk, och det ska inte heller läggas på en kunds duk som utseende |
 
 Varför inte de andra: den fristående upphör; i en Claude-konversation når Claude varken repots skills (de måste laddas
 upp som paket och kräver kodkörning), de lokala verktygen (Playwright, axe, referensfångsten, kundvakten) eller kundens
@@ -75,10 +75,13 @@ insats, och skills som säger emot varandra och läses samtidigt drar mot en sä
 alla skills i guidens ordning och blev ändå underkänt. Litteraturen säkrar golvet: begriplighet, tillgänglighet,
 iteration och utvärdering.
 
-- **Ordningen efter litteraturen.** Innehållet och strukturen kommer före kompositionen (riktningens första version är
-  strukturen med det verkliga innehållet); mobilen bär formen från första ritningen och stationen responsiv prövar och
-  förfinar; tillgängligheten är ett krav i varje station från art direction och prövas av renderingen vid varje version.
-  Där bandet avviker från källorna står avvikelsen som hypotes med skäl under tabellen.
+- **Ordningen efter litteraturen.** Processmodellerna bär ramen (förstå, specificera, utforma, utvärdera, iterera);
+  ordningen inne i utformningen är praxis och vår hypotes. Innehållet och strukturen kommer före kompositionen
+  (riktningens första version är strukturen med det verkliga innehållet); mobilen först är en prioritering (toppuppgiften
+  och den primära handlingen i första skärmen i 390), och stationen responsiv prövar och förfinar; tillgängligheten är ett
+  krav i varje station från innehållet (rubriker, länktexter, textalternativ) och från art direction (WCAG 2.2 AA och
+  ägarens golv), och renderingen prövar det axe och mätningarna når vid varje version. Där bandet avviker från källorna
+  står avvikelsen som hypotes med skäl under tabellen.
 - **En station i taget.** `designfas.py station <slug> <id> --ritning <fil>` ger stationens arbetsinstruktion ur
   tabellen (frågan, skills, metod, tillgänglighetskravet). En station som ändrar ritningen görs helst av en underagent
   med bara stationens skills; utföraren granskar, publicerar och sparar. Utförarens egen grund är kort.
@@ -86,18 +89,27 @@ iteration och utvärdering.
   efter (`version --station --ritning`), eller ett svar med fynd och belägg (`bestall --station`, `specialist`).
   Versionen prövar om insatsen syns (pixeljämförelsen mot förra versionen av samma ritning, `insats`). Kvittot redovisar
   tillgång, aktivering, användning och bedömd kvalitet var för sig och fäller ingenting (ägarens beslut, punkt 6).
-- **Iterationen.** Varje version utvärderas i renderingen; kritikens svar säger om bandet ska gå tillbaka till innehåll
-  och struktur, art direction eller komposition (`atergang`), och omtaget görs före detaljerna.
+- **Iterationen.** Varje version utvärderas i renderingen; kritikens svar säger om bandet ska gå tillbaka till
+  underlaget, innehåll och struktur, art direction eller komposition (`atergang`), och omtaget görs före detaljerna.
 - **Behovsstyrt men fullständigt.** En station som inte gäller sidan hoppas över med skälet i versionens orsak
   (`--hoppa <id>="<skäl>"`); formulärstationen gäller en sida med formulär; rörelsestationen ger alltid ett beslut
   (rörelse med syfte eller "stilla"); kritiken och tillgängligheten kan inte hoppas över, och tillståndskontrollen görs
   av renderingen vid varje version.
 - **Synligt för ägaren.** En anteckning per version på duken (id `vNN`); `designfas.py status` visar bandets läge per
   riktning (gjord med synlig ändring och tid, svar med återgång, hoppad med skäl, ej tillämplig, återstår).
-- **Omkring tio riktningar.** Varje riktning går underlag, innehåll och struktur, art, komposition och kritik innan
-  ägaren väljer; den valda går resten av bandet.
-- **Oberoende prövning.** Bandet prövades mot primärkällorna av en oberoende granskare före merge; utfallet står i
-  slutrapporten. AI-bedömning, ägarens bedömning och användarprov är olika belägg.
+- **Omkring tio riktningar, två följder.** Varje riktning går underlag, innehåll och struktur, art och komposition; när
+  alla finns körs kritiken och jämförelsen samlat, sida vid sida (parallell återkoppling, Dow m.fl. 2010). Ägaren väljer,
+  och den valda går resten av bandet.
+- **Förmågorna på filnivå.** Inventeringen 2026-10-12 (ordagrant i
+  `underlag/uppdrag/PROMPT-Nortropic-Full-inventering-formagor-20261012.md`) placerade varje skill, fil och tjänstverktyg:
+  en station kan ha ett radutdrag (`väg rad a–b`), varje rad i designfas-kartan säger sina stationer och flöden
+  (research, band, specialistpass, överlämning, helbygge, granskning, leverans, underhåll, systemarbete), och en fil som
+  ingen tabell namnger har en filrad med plats eller skäl. `designfas.py inventera` visar vad som saknar plats, och
+  `--placera` skriver stationerna och flödena ur tabellerna och preliminära rader för nya skills och filer; det dagliga
+  underhållet kör det vid varje skillintag, och metodlåset omfattar bandets filer.
+- **Oberoende prövning.** Bandet prövades mot primärkällorna av en oberoende granskare före merge (22 avvikelser, införda
+  i metodkartan; utfallet i slutrapporten). AI-bedömning, ägarens bedömning och användarprov är olika belägg, och
+  användarbelägg saknas i designfasen.
 
 ## Duken
 

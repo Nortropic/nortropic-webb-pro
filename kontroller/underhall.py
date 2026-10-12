@@ -992,6 +992,12 @@ def utdrag_som_andras(tmp, namn):
            'for r in sorted({r for rubrik in metod.STEG.values() for del_ in ("före", "varv", "uppslag") '
            'for r in metod.stegets_rader(metod.tolka(metod.KARTA.read_text(encoding="utf-8")), rubrik, del_)}):\n'
            '    try:\n        ut[r] = metod.utdrag(r)["text"]\n    except Exception as e:\n        ut[r] = "FEL: %s" % e\n'
+           'import designfas\n'
+           'for x in designfas.stationer().values():\n'
+           '    for r in x["karna"] + x["alternativ"]:\n'
+           '        if " rad " in r or " # " in r:\n'
+           '            try:\n                ut[r] = metod.utdrag(r)["text"]\n'
+           '            except Exception as e:\n                ut[r] = "FEL: %s" % e\n'
            'print(json.dumps(ut))\n')
     svar = []
     for rot in (ROOT(), tmp):
@@ -1056,6 +1062,11 @@ def repokopia_for_metod(tmp):
 
 
 def prova_metod_i(tmp):
+    # inventeringen placerar en ny skill eller fil preliminärt och skriver stationerna och flödena ur tabellerna (ägarens
+    # tillägg 2026-10-12: "uppdateras löpande också per automatik"); designfas-kartan ska hålla efteråt
+    rc, ut = vl.kor([sys.executable, '-B', tmp / 'kontroller' / 'designfas.py', 'inventera', '--placera'], cwd=tmp, timeout=300)
+    if rc:
+        return 'designfas-kartan håller inte efter inventeringen: ' + vl.sista(ut, 300)
     rc, ut = vl.kor([sys.executable, '-B', tmp / 'kontroller' / 'metod.py', '--las'], cwd=tmp, timeout=300)
     if rc:
         return 'metodkartan håller inte: ' + vl.sista(ut, 300)
@@ -1142,7 +1153,7 @@ def ta_in_skill(k, r, kand, staged):
     if staged.get('oforandrad'):
         return 'ok', 'mappen oförändrad i källan sedan %s' % r['skill']['commit'][:12], None
     mapp = Path(r['mapp'])
-    sokvagar = [str(mapp.relative_to(ROOT())), 'kunskap/metodkarta.lock.json']
+    sokvagar = [str(mapp.relative_to(ROOT())), 'kunskap/metodkarta.lock.json', 'kunskap/metodkarta.md']
     # låset räknas ur kunskap/, skillsen, kritik/ och mall/: okommitterade ändringar där skulle bakas in i det (fynd 5)
     smutsigt = rena(sokvagar + ['kunskap', '.claude/skills', 'kritik', 'mall'])
     if smutsigt:
@@ -1169,6 +1180,9 @@ def ta_in_skill(k, r, kand, staged):
         return 'avvisad', 'vid intaget: ' + '; '.join(hinder), None
     lasfil = ROOT() / 'kunskap' / 'metodkarta.lock.json'
     las_fore = lasfil.read_bytes() if lasfil.is_file() else None
+    kartfil = ROOT() / 'kunskap' / 'metodkarta.md'
+    karta_fore = kartfil.read_bytes()
+    inventering = []
     avtryck_fore = vl.mappavtryck(mapp)
     reserv = Path(korregister.egen_tmp('nwp-skillreserv-', 'underhall')) / mapp.name
     shutil.copytree(mapp, reserv, symlinks=True)
@@ -1178,7 +1192,8 @@ def ta_in_skill(k, r, kand, staged):
         shutil.copytree(reserv, mapp, symlinks=True)
         if las_fore is not None:
             lasfil.write_bytes(las_fore)
-        if vl.mappavtryck(mapp) != avtryck_fore or (las_fore is not None and lasfil.read_bytes() != las_fore):
+        kartfil.write_bytes(karta_fore)
+        if vl.mappavtryck(mapp) != avtryck_fore or (las_fore is not None and lasfil.read_bytes() != las_fore) or kartfil.read_bytes() != karta_fore:
             return 'mappen eller låset skiljer sig efter återställningen'
         return None
     try:
@@ -1191,6 +1206,10 @@ def ta_in_skill(k, r, kand, staged):
                 vl.nu(), r['skill']['commit'][:12], staged['head'][:12], staged['filer'], staged.get('kommentar') or 'ingen kommentar',
                 (' Nya krockar enligt granskningen: ' + '; '.join(staged['krockar'])) if staged['krockar'] else '')
             kalla_md.write_text(t, encoding='utf-8')
+            rc, ut = vl.kor([sys.executable, '-B', ROOT() / 'kontroller' / 'designfas.py', 'inventera', '--placera'], timeout=300)
+            if rc:
+                raise RuntimeError('designfas-kartan håller inte efter inventeringen: ' + vl.sista(ut))
+            inventering = [r for r in str(ut).splitlines() if r.startswith(('ny rad:', 'väntar på'))]
             rc, ut = vl.kor([sys.executable, '-B', ROOT() / 'kontroller' / 'metod.py', '--las'], timeout=300)
             if rc:
                 raise RuntimeError('låset kunde inte skrivas: ' + vl.sista(ut))
@@ -1205,8 +1224,9 @@ def ta_in_skill(k, r, kand, staged):
         shutil.rmtree(reserv.parent, ignore_errors=True)
     if cfel:
         return 'behallen', cfel, None
-    return 'uppdaterad', '%s → %s, %d filer%s' % (r['skill']['commit'][:12], staged['head'][:12], staged['filer'],
-                                                     ('; nya krockar: ' + '; '.join(staged['krockar'])) if staged['krockar'] else ''), commit
+    return 'uppdaterad', '%s → %s, %d filer%s%s' % (r['skill']['commit'][:12], staged['head'][:12], staged['filer'],
+                                                       ('; nya krockar: ' + '; '.join(staged['krockar'])) if staged['krockar'] else '',
+                                                       ('; inventeringen: ' + '; '.join(inventering)) if inventering else ''), commit
 
 
 # --- sajtens paket ---

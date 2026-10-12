@@ -158,6 +158,8 @@ class B_Version(Grund):
         vk = self.u / SLUG / 'design' / 'versioner' / 'v01'
         self.assertEqual(post['version'], 'v01')
         self.assertEqual((vk / 'kanvas' / 'Main.dc.html').read_text(), RITNING)
+        self.assertIn('name="viewport"', (vk / 'sida' / 'Main.dc.html').read_text(), 'den renderade kopian mäts i 390, inte i 980')
+        self.assertNotIn('name="viewport"', RITNING)
         self.assertEqual(post['filer']['Main.dc.html'], df.sha(vk / 'kanvas' / 'Main.dc.html'))
         self.assertEqual(post['tillgangar'], [BLOBB])
         self.assertEqual(post['okanda_tillgangar'], [])
@@ -351,15 +353,17 @@ class H_Band(Grund):
         self.assertEqual(ordning[:4], ['underlag', 'innehall', 'art', 'komposition'], 'content first, art direction före kompositionen')
         self.assertLess(ordning.index('komposition'), ordning.index('typografi'))
         self.assertLess(ordning.index('rorelse'), ordning.index('kritik'))
-        self.assertIn('taste/SKILL.md', st['art']['karna'])
+        self.assertIn('taste/SKILL.md', [df.filen(f) for f in st['art']['karna']])
         self.assertIn('ds_kritik', st['kritik']['pass'])
-        self.assertEqual(df.station('rorelse')['mcp'], ['motion'])
+        self.assertIn('motion', df.station('rorelse')['mcp'])
         met = df.metoder()
         self.assertIn('process', met)
         for sid, x in st.items():
             self.assertTrue(x['metoder'] and all(m in met for m in x['metoder']), sid)
         self.assertTrue(any('W3C WAI' in r for r in df.station_rader(st['typografi'])), 'tillgängligheten är ett krav i stationen')
-        self.assertFalse(any('under utformningen' in r for r in df.station_rader(st['innehall'])), 'före art direction')
+        inn = df.station_rader(st['innehall'])
+        self.assertTrue(any('rubrikordningen' in r for r in inn), 'tillgängligheten i innehållet (granskningen mot WAI)')
+        self.assertFalse(any('kontrast 4,5:1' in r for r in inn), 'de visuella kraven börjar vid art direction')
         with self.assertRaisesRegex(df.Fel, 'okänd station'):
             df.station('smak')
 
@@ -429,6 +433,84 @@ class H_Band(Grund):
         self.assertEqual((kritik['lage'], kritik['atergang']['till']), ('svar', 'komposition'))
 
 
+class I_Inventering(unittest.TestCase):
+    """Inventeringen 2026-10-12 (ordagrant i underlag/uppdrag/PROMPT-Nortropic-Full-inventering-formagor-20261012.md, med
+    ägarens tillägg om automatik): radutdrag i stationerna, flödena härledda ur tabellerna, en plats eller ett skäl för
+    varje fil, inventera --placera och bandets filer i metodlåset."""
+
+    def test_radutdrag_i_stationen(self):
+        import metod
+        art = df.station('art')
+        tok = next(f for f in art['karna'] if df.filen(f) == 'taste/SKILL.md')
+        self.assertNotEqual(tok, 'taste/SKILL.md', 'taste avgränsad till sina avsnitt')
+        self.assertGreater(len(metod.utdrag(tok)['intervall']), 1)
+        self.assertTrue(any('läs bara utdraget' in r for r in df.station_rader(art)))
+        trasig = df.KARTA.read_text(encoding='utf-8').replace('`taste/SKILL.md rad 13–81', '`taste/SKILL.md rad 13–99999', 1)
+        self.assertTrue(any('taste/SKILL.md rad 13–99999' in f for f in df.karta_prova(trasig)), 'ett utdrag utanför filen fälls')
+
+    def test_floden_harleds_och_ett_fel_falls(self):
+        h = df.harledda_floden()
+        self.assertTrue({'band', 'helbygge'} <= h['skill:frontend-design'], h['skill:frontend-design'])
+        self.assertIn('research', h['skill:refero-design'])
+        self.assertIn('overlamning', h['skill:design-system'])
+        text = df.KARTA.read_text(encoding='utf-8')
+        rad = next(r for r in text.splitlines() if r.startswith('skill:frontend-design |'))
+        utan = text.replace(rad, rad.replace('helbygge, ', '', 1).replace(', helbygge', '', 1), 1)
+        self.assertTrue(any('skill:frontend-design: raden säger flödena' in f for f in df.karta_prova(utan)))
+        okand = text.replace(rad, rad.replace('flöden: ', 'flöden: smak, ', 1), 1)
+        self.assertTrue(any('okänt flöde smak' in f for f in df.karta_prova(okand)))
+
+    def test_varje_fil_har_en_plats_eller_ett_skal(self):
+        text = df.KARTA.read_text(encoding='utf-8')
+        self.assertEqual(df.karta_prova(text), [])
+        rad = next(r for r in text.splitlines() if r.startswith('fil:design/* |'))
+        fel = df.karta_prova(text.replace(rad + '\n', '', 1))
+        self.assertTrue(any(f.startswith('filen design/') for f in fel), fel[:3])
+        med_station = text.replace(rad, rad.replace('| skäl: ', '| stationer: polish; skäl: ', 1), 1)
+        self.assertTrue(any('en filrad har inga egna stationer' in f for f in df.karta_prova(med_station)))
+        tom = text.replace(rad, rad + '\nfil:finns-inte/* | x | ingen | skäl: en rad utan fil, för provet | ingen uppgift', 1)
+        self.assertTrue(any('fil:finns-inte/* matchar ingen fil' in f for f in df.karta_prova(tom)))
+        via = text.replace(rad, rad + '\nfil:slides/* | x | ingen | flöden: helbygge; en plats som skillen inte har | prov', 1)
+        self.assertTrue(any('fil:slides/*: flödet helbygge når filen bara genom skillen' in f for f in df.karta_prova(via)))
+
+    def test_inventera_placerar_och_kartan_haller(self):
+        text = df.KARTA.read_text(encoding='utf-8')
+        rapport, ny = df.inventera(placera=True, text=text, idag='2026-10-12')
+        self.assertIsNone(ny, rapport)
+        rad_skill = next(r for r in text.splitlines() if r.startswith('skill:canvas-design |'))
+        rad_fil = next(r for r in text.splitlines() if r.startswith('fil:design/* |'))
+        gles = text.replace(rad_skill + '\n', '', 1).replace(rad_fil + '\n', '', 1)
+        gles = gles.replace('stationer: art; flöden: band, specialistpass; D5, D8 kärna', 'stationer: polish; D5, D8 kärna', 1)
+        self.assertTrue(df.karta_prova(gles))
+        rapport, ny = df.inventera(placera=True, text=gles, idag='2026-10-12')
+        self.assertIsNotNone(ny)
+        self.assertEqual(df.karta_prova(ny), [], 'kartan håller efter placeringen')
+        self.assertTrue(any(r.startswith('ny rad: skill:canvas-design') for r in rapport), rapport[:5])
+        self.assertTrue(any(r.startswith('ny rad: fil:design/') for r in rapport), rapport[:5])
+        self.assertTrue(any(r.startswith('väntar på en verklig placering') and 'skill:canvas-design' in r for r in rapport))
+        ny_rad = next(r for r in ny.splitlines() if r.startswith('skill:canvas-design |'))
+        self.assertIn('stationer: komposition; flöden: band, specialistpass; skäl: automatiskt placerad 2026-10-12', ny_rad)
+        self.assertIn('skill:taste | Leonxlnx/taste-skill | båda | stationer: art; flöden: band, specialistpass;', ny)
+
+    def test_metodlaset_och_underhallet_omfattar_bandet(self):
+        import metod
+        import underhall
+        fel, kallor = metod.prova()
+        self.assertEqual(fel, [])
+        self.assertIn('modern-web-guidance/guides/css/fluid-scaling.md', kallor, 'en fil som bara bandet namnger')
+        import inspect
+        self.assertIn('designfas.stationer()', inspect.getsource(underhall.utdrag_som_andras), 'bandets radutdrag skyddas vid intaget')
+        self.assertIn("'inventera', '--placera'", inspect.getsource(underhall.prova_metod_i))
+        self.assertIn("'inventera', '--placera'", inspect.getsource(underhall.ta_in_skill))
+
+    def test_atergang_till_underlaget(self):
+        self.assertIn('underlag', df.SVAR_SCHEMA['properties']['atergang']['properties']['till']['enum'])
+        md = df.svar_md({'id': 'B001', 'typ': 'kritik', 'version': 'v01', 'ritning': 'Main.dc.html', 'station': 'kritik',
+                         'projekt': SLUG, 'uppgift': 'kritik av helheten'},
+                        {'svar': {'atergang': {'till': 'underlag', 'skal': 'förebilderna bär inte'}}})
+        self.assertIn('omtag av underlaget', md)
+
+
 class F_Karta(unittest.TestCase):
     def test_kartan_har_en_rad_per_kompetens(self):
         self.assertEqual(df.karta_prova(), [])
@@ -440,7 +522,8 @@ class F_Karta(unittest.TestCase):
         self.assertTrue(any('skill:taste' in x and 'tabellen' in x for x in fel_), fel_)
         utan = text.replace('skill:slides | nextlevelbuilder/ui-ux-pro-max-skill | ingen | skäl:', 'skill:slides | nextlevelbuilder/ui-ux-pro-max-skill | ingen | ')
         self.assertTrue(any('skill:slides har varken en station' in x for x in df.karta_prova(utan)))
-        ensam = text.replace('| `detalj`, `varv` | ny version med före och efter |', '| `varv` | ny version med före och efter |')
+        ensam = text.replace('| `detalj`, `varv`, `wai` | ny version med före och efter |', '| `varv`, `wai` | ny version med före och efter |')
+        self.assertNotEqual(ensam, text, 'polishens metodcell finns')
         self.assertTrue(any('metoden detalj har ingen station' in x for x in df.karta_prova(ensam)))
 
     def test_en_saknad_skill_falls(self):

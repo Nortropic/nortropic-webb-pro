@@ -20,6 +20,11 @@ varje station ger dig sina skills när det är dess tur. Säger två skills emot
 designreglerna, aldrig vilken skill du läste sist. Saknas KUNDFORSTAELSE.md eller researchen (`atelje/FORSKNING.md`,
 referenspaketet): säg det och be ägaren köra dem; formge inte utan dem.
 
+Design-typens egna arbetsregler säger att en canvas inte ska läsas tillbaka eller renderas om inte användaren bett om
+det. Här har ägaren bett om det: återläsningen och renderingen efter varje publicering (`designfas.py version`) är
+ägarens uttryckliga ordning i designfasen (uppdraget 2026-10-12), eftersom versionerna, bilderna och kontrollerna är
+spåret och observationen.
+
 ## Före bandet
 
 1. Läs duken om den finns (`designfas.py status`). Finns ingen: skapa den med Artifact-verktyget och Design-typen
@@ -32,13 +37,16 @@ referenspaketet): säg det och be ägaren köra dem; formge inte utan dem.
 
 ## En station i taget
 
-För varje riktning (en ritning, en sida med `expand: "fill"`) går du bandet i tabellens ordning, som följer
-processmodellen: förstå (underlag), innehåll och struktur, art direction, komposition, visuell form, interaktion,
-utvärdering, iteration. Mobilen bär formen från första ritningen: rita och pröva 390 först. Tillgängligheten är ett
-krav i varje station från art direction och framåt (riktiga element, kontrast, fokus, 44 px, reflow, reducerad rörelse).
+För varje riktning (en ritning, en sida med `expand: "fill"`) går du bandet i tabellens ordning: underlag, innehåll och
+struktur, art direction, komposition, visuell form, interaktion, utvärdering, iteration (ramen ur processmodellerna, den
+inre ordningen praxis och vår hypotes; metodkartan, Avvikelser och hypoteser). Mobilen först: rita 390 först, med
+besökarens toppuppgift och den primära handlingen i första skärmen. Tillgängligheten är ett krav i varje station från
+innehållet (rubrikordning, länktexter, textalternativ) och från art direction (riktiga element, kontrast 4,5:1 och 3:1
+för kontroller och fokus, färg aldrig ensam, fokus som inte döljs, träffytor 24 px och 44 px för primära kontroller,
+reflow, reducerad rörelse).
 
 1. `designfas.py station <slug> <station> --ritning <fil>` ger stationens arbetsinstruktion: frågan, skills och
-   tjänster bara för stationen, indata, utdata och kontroll.
+   tjänster bara för stationen, indata, utdata och kontroll. Ett radutdrag (`väg rad a–b`) läses bara i sina rader.
 2. Gör stationen. En station som ändrar ritningen görs helst av en underagent (Agent-verktyget) som får
    instruktionen, aktiverar stationens skills med Skill (en användaranropad skill läses hel med Read), ändrar bara det
    stationen gäller och lämnar en ändrad ritning och en kort redovisning. Du granskar ändringen mot frågan.
@@ -57,13 +65,16 @@ krav i varje station från art direction och framåt (riktiga element, kontrast,
 **Innehåll och struktur** ger riktningens första version: strukturen med det verkliga innehållet (content first),
 och **art** ger den sitt språk. **Kritiken** är ett specialistpass som ser bilderna och briefen före din förklaring:
 `designfas.py bestall <slug> --typ kritik --station kritik --version <v> --ritning <fil> --uppgift "…"` och
-`designfas.py specialist <slug> B00N`. Svaret säger om bandet ska gå tillbaka (`atergang`: innehåll och struktur, art
-direction eller komposition); är helheten svag gör du omtaget innan du lägger varven på detaljer. **Tillgängligheten** utgår från renderingens axe, fokus och reflow i
+`designfas.py specialist <slug> B00N`. Svaret säger om bandet ska gå tillbaka (`atergang`: underlaget, innehåll och
+struktur, art direction eller komposition); är helheten svag gör du omtaget innan du lägger varven på detaljer, med
+`bolder` eller `quieter` i kompositionen när kritiken fann sidan platt eller överlastad. **Tillgängligheten** utgår från renderingens axe, fokus och reflow i
 versionens BILDER.json och kontroll/. Andra stationer kan också beställas som pass (typen och stationen i tabellen) när
 du vill ha en oberoende insats; svaret förs in i en version med `--bestallning B00N` och bedöms med `designfas.py infor`.
 
-**Omkring tio riktningar.** Varje riktning går underlag, innehåll och struktur, art, komposition och kritik innan
-ägaren väljer; den valda går resten av bandet. När flera riktningar finns körs jämförelsen (`--typ jamforelse --station jamforelse`).
+**Omkring tio riktningar.** Varje riktning går underlag, innehåll och struktur, art och komposition. När alla finns
+körs kritiken och jämförelsen samlat, med riktningarna sida vid sida (`--typ kritik --station kritik` och `--typ
+jamforelse --station jamforelse`, med `--ritning '*'`); gör inget omtag per riktning innan de andra finns. Ägaren väljer,
+och den valda går resten av bandet: typografi, responsiv, rörelse, formulär, kritik, tillgänglighet och polish.
 **Överlämningen** efter ägarens godkännande: `designfas.py overlamna <slug>`, DESIGN.md i paketet ifylld ur den
 godkända versionen, kundens designsystem med Design System-typen, och `overlamna --prova` utan brister.
 
