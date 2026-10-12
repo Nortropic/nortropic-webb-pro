@@ -41,8 +41,9 @@ ett namn under en rubrik om personer (Om oss, Team, Omdömen, Kontakt). Andra pa
 mening, stoppas som hela par. En ort stoppas efter ett platsverb och, utanför §7, efter varje platspreposition. Briefens
 §7, där förlagorna och typsnitten står, läses bara för orter och mailto-länkar. Ett typsnitt ur Google Fonts och en term
 som "Dark Mode" är inga namn, så en generisk fråga med en förlaga eller ett typsnitt ur designriktningen går.
-Detaljerna, och var felet går åt det säkra hållet, står i kundvaktens beskrivning. Mobbins `search_screens` går bara med
-`mode` "standard", eftersom verktygets standardläge deep kostar krediter. Sessionerna når Refero, Mobbin, 21st och Motion genom
+Detaljerna, och var felet går åt det säkra hållet, står i kundvaktens beskrivning. Mobbins `search_screens` kräver ett
+uttryckligt `mode`, "standard" eller "deep"; deep ingår i kontots Pro-plan, är obegränsat under Mobbins beta och släpps
+sedan ägarens beslut 2026-10-12. Sessionerna når Refero, Mobbin, 21st och Motion genom
 `kontroller/mcp/` (`--mcp-config` med `--strict-mcp-config` i `atelje.session_args`; Referos fil får nyckeln ur
 hemlighetsmappen, `atelje.refero_mcp_fil`): inga servrar på användarnivån laddas (det verkliga sessionsprovet
 2026-10-08 visade tio sådana bredvid flödets tre, GR-20261008-r117-claude#E1), och Mobbin, som annars bara finns på
@@ -553,9 +554,9 @@ refero_search_apps: ingen uppgift — i webbflödet, eftersom verktyget bara sö
 ```
 
 ```tjanstverktyg mobbin
-search_screens: uppgift — sidor och tillstånd för besökarens uppgift, i researchen och i uppdragens material (en sökfras per uppdrag) I bandet (inventeringen 2026-10-12): stationerna underlag och formulär. Mobbins svar kan bära `ai_usage_notice`: dess text förs ordagrant in i svaret eller versionens orsak; `mode` är alltid "standard" (kundvakten stoppar deep, som kostar krediter), och `output_destination` är `design_tool` hos utföraren och `code` i helbygget.
-search_flows: uppgift — användarresor med stegen i ordning I bandet (inventeringen 2026-10-12): stationen formulär (förfrågan, felbesked, bekräftelse). Mobbins svar kan bära `ai_usage_notice`: dess text förs ordagrant in i svaret eller versionens orsak; `mode` är alltid "standard" (kundvakten stoppar deep, som kostar krediter), och `output_destination` är `design_tool` hos utföraren och `code` i helbygget.
-search_sections: uppgift — avgränsade sektioner, som ett formulärsteg eller en projektlista I bandet (inventeringen 2026-10-12): stationerna innehåll och komposition: sektionsmönstret för den viktigaste sektionen och ordningen i FAQ, omdömen och kontakt. Mobbins svar kan bära `ai_usage_notice`: dess text förs ordagrant in i svaret eller versionens orsak; `mode` är alltid "standard" (kundvakten stoppar deep, som kostar krediter), och `output_destination` är `design_tool` hos utföraren och `code` i helbygget.
+search_screens: uppgift — sidor och tillstånd för besökarens uppgift, i researchen och i uppdragens material (en sökfras per uppdrag) I bandet (inventeringen 2026-10-12): stationerna underlag och formulär. Mobbins svar kan bära `ai_usage_notice`: dess text förs ordagrant in i svaret eller versionens orsak; `mode` är "standard" eller "deep" (deep för nyanserade frågor; ägarens beslut 2026-10-12), och `output_destination` är `design_tool` hos utföraren och `code` i helbygget.
+search_flows: uppgift — användarresor med stegen i ordning I bandet (inventeringen 2026-10-12): stationen formulär (förfrågan, felbesked, bekräftelse). Mobbins svar kan bära `ai_usage_notice`: dess text förs ordagrant in i svaret eller versionens orsak; `mode` är "standard" eller "deep" (deep för nyanserade frågor; ägarens beslut 2026-10-12), och `output_destination` är `design_tool` hos utföraren och `code` i helbygget.
+search_sections: uppgift — avgränsade sektioner, som ett formulärsteg eller en projektlista I bandet (inventeringen 2026-10-12): stationerna innehåll och komposition: sektionsmönstret för den viktigaste sektionen och ordningen i FAQ, omdömen och kontakt. Mobbins svar kan bära `ai_usage_notice`: dess text förs ordagrant in i svaret eller versionens orsak; `mode` är "standard" eller "deep" (deep för nyanserade frågor; ägarens beslut 2026-10-12), och `output_destination` är `design_tool` hos utföraren och `code` i helbygget.
 ```
 
 **Chrome DevTools MCP** (ägarens uppdrag 2026-10-07, punkt 7 och 5; version och källa i `kunskap/beroenden.md`) körs bara

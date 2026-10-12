@@ -405,7 +405,7 @@ def _block():
     assert a[a.index('--tools') + 1] == 'Bash,Glob,Grep,Read,Skill,ToolSearch', a[a.index('--tools') + 1]
     p = s['prompt']
     assert 'Rollerna i skisskritiken' in p and r['uppgift'] in p and all(kompetens.vag(f) in p for f in r['karna']), p[:1500]
-    assert 'MCP: Refero' in p and 'Mobbin' in p and 'mode "standard"' in p and 'aldrig kundens namn' in p, p
+    assert 'MCP: Refero' in p and 'Mobbin' in p and 'uttryckligt mode' in p and 'aldrig kundens namn' in p, p
     assert 'detektor.py %s --kandidat k01 --granskare' % SLUG in p and '--granskare' in p, p
     # kriterierna bor i blocket: kartans uppgift ändras, så ändras prompten (inga egna kriterier i koden)
     spara = kompetens.tolka

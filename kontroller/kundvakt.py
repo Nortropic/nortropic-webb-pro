@@ -16,8 +16,10 @@ verktyg hos samma tjänst stoppas (den oberoende granskningen 2026-10-05, fynd 1
 flow_id …) med UUID, korta tal i sidnummer och gränser och tjänsternas egna adresser prövas inte som "lång sifferföljd"
 eller "adress"; fritext och JSON-nycklar prövas alltid, och namnprövningen tål NFD-kodade tecken, URL-kodning (också
 dubbel), sammansättningar, gatans namn utan nummer och telefonnumrets sista siffror (granskning 4, G14; granskningen
-2026-10-05, fynd 8). En tom indata stoppas. Mobbins search_screens söker i läget deep när mode saknas, och det kostar
-krediter: ett anrop utan uttryckligt mode som inte är deep stoppas (granskningen GR-20261007-r102, B6).
+2026-10-05, fynd 8). En tom indata stoppas. Mobbins search_screens kräver ett uttryckligt mode, "standard" eller
+"deep": verktyget söker i deep när mode saknas, och valet ska synas i anropet (granskningen GR-20261007-r102, B6). Deep
+släpps sedan ägarens beslut 2026-10-12 ("deep ska finnas för oss att köra"): det ingår i kontots Pro-plan och är
+obegränsat under Mobbins beta; frågorna är generiska som alltid.
 
 Personnamn, orter och adresser ur kundens underlag (granskningen GR-20261007-r102, B5; omgranskningen
 GR-20261007-r102-om, B1 och B2; omgranskningen GR-20261007-r104, B1 och B2). Ägarens regel: Refero och Mobbin ska
@@ -83,8 +85,8 @@ SMA_NYCKEL = re.compile(r'(^|_)(page|limit)$')  # sidnummer och gränser: bara k
 UUID = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
 TAL = re.compile(r'^\d{1,9}$')  # Referos skärm- och flödes-id är tal; ett telefonnummer (tio siffror) prövas alltid
 TJANSTEVARDAR = ('refero.design', 'mobbin.com')
-MOBBIN_SKARMAR = 'mcp__mobbin__search_screens'  # verktygets standardläge är deep, som kostar krediter
-MOBBIN_LAGEN = ('standard', 'fast')  # fast är verktygets äldre namn på standard
+MOBBIN_SKARMAR = 'mcp__mobbin__search_screens'  # verktygets standardläge är deep när mode saknas
+MOBBIN_LAGEN = ('standard', 'fast', 'deep')  # fast är verktygets äldre namn på standard; deep sedan ägarens beslut 2026-10-12
 
 # --- personnamn och orter ur kundens underlag (B5; omgranskningen GR-20261007-r102-om, B1 och B2; GR-20261007-r104) ---
 NAMNTEXTER = ('BRIEF.md', 'INNEHALL.md', 'TEXTUNDERLAG.md')
@@ -674,8 +676,8 @@ def provning(slug, underlag, anrop):
     if namn not in tillatna():
         return 'verktyget %s är inte ett av flödets verktyg hos Refero, Mobbin, Motion eller 21st.dev (metodkartans verktygsbeslut); anropet stoppas' % namn
     if namn == MOBBIN_SKARMAR and str((anrop.get('tool_input') or {}).get('mode') or '').strip().lower() not in MOBBIN_LAGEN:
-        return ('%s kräver mode "standard": verktygets standardläge deep kostar krediter, och flödet söker i standardläget; '
-                'anropet stoppas' % namn)
+        return ('%s kräver ett uttryckligt mode, "standard" eller "deep" (verktyget väljer deep när mode saknas, och valet '
+                'ska synas i anropet); anropet stoppas' % namn)
     uppgifter = underlagets_uppgifter(slug, underlag)
     # Samma fulla nummermängd i alla parametergrenar; ett tjänste-ID är
     # undantaget från talformatregeln, aldrig från redan kända kunduppgifter.

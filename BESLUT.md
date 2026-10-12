@@ -5583,3 +5583,30 @@ markerade. Ingen omgång med tre riktningar är gjord eller bedömd av ägaren.
   prövar planprompten med tre uppdrag.
 - **Behållet:** ägarens godkännande som eget kommando, byggstart och publicering som egna beslut, 44 px, inga
   karuseller, den rena designstarten, granskning före skaparens förklaring, kundvakten och de tekniska golven.
+
+## Tillägg 2026-10-12: Mobbins läge deep släpps
+
+**Status:** gäller; genomfört av Claude i grenen `claude/mobbin-deep-20261012`. Ersätter i den delen regeln ur granskningen
+GR-20261007-r102, B6, att Mobbins `search_screens` bara går med `mode` "standard".
+
+Ägarens beslut (ankomst före 2026-10-12T20:16:15Z; ordagrant i `underlag/uppdrag/BESKED-Mobbin-deep-20261012.md`, privat),
+efter Mobbins inställningssida ("AI usage — For features such as Deep Search — BETA: Usage is unlimited during beta.
+Limits will apply later"):
+
+> deep ska finnas för oss att köra
+
+Kontot har Pro (kontomenyn, läst 2026-10-12), och Mobbins prissida säger "Search and Deep Search: Included". Antagandet
+bakom stoppet, att deep kostar krediter, gäller alltså inte i dag. Gränserna efter betan är okända.
+
+- **Kundvakten** (`kontroller/kundvakt.py`, `MOBBIN_LAGEN`) släpper `mode` "standard", "fast" och "deep". Ett anrop utan
+  mode eller med ett okänt mode stoppas fortfarande, så att valet syns i anropet. Frågorna är generiska som alltid.
+- **Prompterna** (`kompetens.prompt_rader`, `referenstjanster.prompt_for`) och metodkartan säger "standard" för snabba
+  sökningar och "deep" för nyanserade frågor.
+- **Provet** `prov_startkvitto`, fall 11, prövar att deep släpps och att anrop utan giltigt mode stoppas.
+- **Användningen prövad mot de verkliga körningarna** (ägarens fråga samma kväll, "visst används den korrekt"): i sju
+  researchsessioner (konditoriet och Lerverket) gjordes 60 anrop till Mobbin. Av dem var 30 `search_sections`, alltså
+  webbplatsernas sektioner, som är Mobbins starkaste källa för en webbplats. Men 11 av 30 `search_screens` och
+  `search_flows` sökte appar (`platform` ios) för en webbplats, och alla gick i standardläget. Prompten
+  (`referenstjanster.prompt_for`) säger nu att sektionerna är huvudkällan, att skärmar och flöden söks med `platform`
+  web (ios bara med skäl) och att deep används för frågor där helheten avgör.
+

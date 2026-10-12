@@ -36,7 +36,8 @@ claude:
     falsklarm utanför §7 i löptext och rubriker går, och en förlaga utanför §7 stoppas som par (10f); genitiv i
     underlagets namn, genitiv efter en initial, fetstil efter ett personord, Bokadirekts frisör och ett förnamn i en
     mening (10g);
-11. Mobbins search_screens går bara med mode standard (deep kostar krediter), och prompterna säger det;
+11. Mobbins search_screens kräver ett uttryckligt mode, standard eller deep (deep sedan ägarens beslut 2026-10-12), och
+    prompterna säger det;
 12. sessionsprovet läser init-beskedet och avslutar sessionen med hela processgruppen, utan att vänta på modellen.
 
     .venv/bin/python kontroller/rokprov/revision/prov_startkvitto.py <repo>
@@ -1274,7 +1275,7 @@ def _kundvakt_k2():
 
 # ===== 11. Mobbins krediter (B6) =====
 
-@fall('11 Mobbins search_screens går bara med mode standard, och prompterna säger det')
+@fall('11 Mobbins search_screens kräver ett uttryckligt mode, standard eller deep, och prompterna säger det')
 def _mobbins_lage():
     slug = 'k11-lage'
     kund(slug)
@@ -1282,17 +1283,19 @@ def _mobbins_lage():
 
     def prov(inn, verktyg=skarm):
         return kundvakt.provning(slug, KOPIA / 'underlag', {'tool_name': verktyg, 'tool_input': inn})
-    for inn in ({'query': 'contact form page', 'platform': 'web'}, {'query': 'contact form page', 'platform': 'web', 'mode': 'deep'},
-                {'query': 'contact form page', 'platform': 'web', 'mode': ''}):
-        assert 'mode' in (prov(inn) or ''), ('deep eller utan mode släpptes igenom', inn)
+    for inn in ({'query': 'contact form page', 'platform': 'web'}, {'query': 'contact form page', 'platform': 'web', 'mode': ''},
+                {'query': 'contact form page', 'platform': 'web', 'mode': 'turbo'}):
+        assert 'mode' in (prov(inn) or ''), ('ett anrop utan giltigt mode släpptes igenom', inn)
+    assert prov({'query': 'contact form page', 'platform': 'web', 'mode': 'deep'}) is None, 'deep sedan ägarens beslut 2026-10-12'
     assert prov({'query': 'contact form page', 'platform': 'web', 'mode': 'standard'}) is None
     assert prov({'query': 'contact form page', 'platform': 'web', 'mode': 'fast'}) is None, 'fast är verktygets äldre namn på standard'
     assert prov({'query': 'onboarding with steps', 'platform': 'web'}, 'mcp__mobbin__search_flows') is None, 'search_flows har inget mode'
     assert prov({'query': 'pricing section'}, 'mcp__mobbin__search_sections') is None, 'search_sections har inget mode'
     # prompterna: skaparnas roller med Mobbin och tjänstesessionen
     rader = '\n'.join(kompetens.prompt_rader('skapa', slug, 'k01'))
-    assert 'search_screens kräver mode "standard"' in rader and 'personnamn, citat' in rader, rader[-800:]
-    assert 'search_screens kräver mode "standard"' in referenstjanster.prompt_for('mobbin', [{'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'Byggfirma')
+    assert 'search_screens kräver ett uttryckligt mode' in rader and '"deep"' in rader and 'personnamn, citat' in rader, rader[-800:]
+    mp = referenstjanster.prompt_for('mobbin', [{'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'Byggfirma')
+    assert 'search_screens kräver ett uttryckligt mode' in mp and 'platform "web"' in mp and 'search_sections är Mobbins starkaste' in mp, mp[-900:]
     assert 'pröva också mobile' not in referenstjanster.prompt_for('refero', [{'fraga': 'x', 'syfte': '', 'typ': 'skarm'}], 'Byggfirma')
 
 

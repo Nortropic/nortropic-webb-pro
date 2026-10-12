@@ -635,8 +635,9 @@ def prompt_rader(pass_, slug, kid=None, k=None):
             rader.append('- MCP: ' + ', '.join(MCPNAMN[m] for m in x['mcp']) + '; frågorna är alltid generiska: bransch och uppgift, aldrig'
                          ' kundens namn, ort, webbadress eller nummer, personnamn, citat eller kundens egna texter, och task_intent'
                          ' bara bransch och uppgift (kundvakten prövar varje anrop och stoppar sådana)' +
-                         ('; Mobbins search_screens kräver mode "standard": ett anrop utan mode eller med deep stoppas (deep kostar'
-                          ' krediter)' if 'mobbin' in x['mcp'] else '') +
+                         ('; Mobbins search_screens kräver ett uttryckligt mode: "standard" för snabba sökningar eller "deep" (AI-rankat,'
+                          ' för nyanserade frågor; ingår i kontots Pro-plan och är obegränsat under Mobbins beta); ett anrop utan mode'
+                          ' stoppas' if 'mobbin' in x['mcp'] else '') +
                          ('; Motions search-motion-docs söker mönstret du bygger (inView, stagger, spring, layout) med platform js'
                           ' eller react, och träffar märkta Motion+ (betalda) används inte' if 'motion' in x['mcp'] else ''))
         if x.get('mcp_krav'):

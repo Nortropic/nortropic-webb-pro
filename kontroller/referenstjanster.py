@@ -113,10 +113,16 @@ def prompt_for(tjanst, fragor, bransch):
                       '(sektionsrytmen) och komponenter (reglerna), så som get_style ger dem, ordagrant eller nära; bild_url är',
                       'förhandsbilden (images.refero.design/styles/…). Skärmfrågor svaras i traffar, stilfrågor i stilar.']
     else:
-        rader += ['Använd search_screens (sidor och tillstånd), search_sections (avgränsade sektioner; verktyget har ingen platform-',
+        rader += ['Kunden får en webbplats. search_sections är Mobbins starkaste källa för den: webbplatsernas sektioner (hero, showcase,',
+                  'how it works, social proof, pricing, FAQ, footer); sök den viktigaste sektionen och de sektioner sidan behöver, en per',
+                  'anrop. search_screens och search_flows söker med platform "web"; "ios" bara när frågan uttryckligen gäller ett',
+                  'appmönster som mobilen behöver, med skälet i anmarkning. Beskriv innehållet och elementen konkret (verktygen avråder',
+                  'från vaga stilord), och använd mode "deep" för frågor där kvaliteten avgörs av helheten snarare än av ett element.',
+                  'Använd search_screens (sidor och tillstånd), search_sections (avgränsade sektioner; verktyget har ingen platform-',
                   'parameter) eller search_flows (användarresor: svara med stegen i ordning i steg) efter vad frågan gäller; bild_url är',
-                  'image_url för träffen (tillfällig länk, ska laddas ner nu). search_screens kräver mode "standard": kundvakten stoppar ett',
-                  'anrop utan mode eller med deep, som kostar krediter (search_sections och search_flows har inget mode). Bredda eller',
+                  'image_url för träffen (tillfällig länk, ska laddas ner nu). search_screens kräver ett uttryckligt mode: "standard" för',
+                  'snabba sökningar eller "deep" för nyanserade frågor (ingår i kontots Pro-plan, obegränsat under Mobbins beta); kundvakten',
+                  'stoppar ett anrop utan mode (search_sections och search_flows har inget mode). Bredda eller',
                   'formulera om en sökning när träffarna är svaga, och skriv det i anmarkning.']
     rader += ['Svara enligt schemat: anrop (varje verktygsanrop: verktyg, argument, resultat_typ: text, json, bild-url eller inline-bild),',
               'stilar (tom lista när ingen fråga är av typen stil),',
