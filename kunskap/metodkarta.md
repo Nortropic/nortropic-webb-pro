@@ -1267,7 +1267,7 @@ verktyg:inspektera.mjs | Nortropic | Code | D3, D8 inspekterad DOM, tillstånd o
 verktyg:extrahera.mjs | Nortropic | Code | D3, D8 beräknade stilar och layoutmått hos en referens (uppmätt) → EXTRAKT.md | i researchen
 verktyg:devtools.py | Nortropic | Code | D3 DevTools-profilen för en vald referenssida → DEVTOOLS.md | i researchens kedja
 verktyg:stilpaket.py | Nortropic | Code | D3, D10 Referos stilpaket → värden som riktningen kan utgå från och som överlämningen märker | i researchen och bygget
-verktyg:uxsok.py | Nortropic (ui-ux-pro-max) | båda | D5 utförarens sökning i UI UX Pro Max; ds_research → riktlinjer | läsande
+verktyg:uxsok.py | Nortropic (ui-ux-pro-max) | båda | D5 utförarens sökning i UI UX Pro Max; ds_research → riktlinjer; helbyggets steg 5 med `--stack astro` för ramverkets riktlinjer | läsande
 verktyg:axe.mjs | Nortropic (axe-core) | Code | D5–D11 genom rendera --kontroll och helbyggets prov → tillgänglighetsfynd per version | prövat mot provduken
 verktyg:stil.mjs | Nortropic | Code | D5–D11 genom rendera --kontroll → stilrapport (typsnitt, klickytor, modellernas standardval) | prövat mot provduken
 verktyg:detektor.py | Nortropic (impeccable detect) | Code | D11 helbyggets och kandidatflödets byggda sidor; i designfasen kör renderingen motorn på varje version i 390 och 1440 (`designfas.py rendera --kontroll`, fynden med området typografi eller layout i `kontroll/detektor/`), och stationerna typografi, komposition, responsiv, kritik och polish får fynden i sin instruktion | i designfasen prövad med en attrapp av motorn (prov_designfas), oprövad på en kunds duk

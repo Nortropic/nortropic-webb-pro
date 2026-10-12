@@ -300,6 +300,10 @@ trösklar. Bygg för att klara den. Metodreglerna nedan står med källa, vår t
 och Text i `kunskap/metodkarta.md` och de avsnitt ur frontend-design, taste, impeccable, emil-* och better-* de räknar
 upp, `kunskap/bygge-referens.md`, `kunskap/bild.md`, och `kunskap/formularsakerhet.md` om sajten får formulär.
 
+När ett byggval gäller ramverket (bilder, öar, typsnitt, routing, prestanda), slå upp Astros riktlinjer med
+`.venv/bin/python kontroller/uxsok.py --stack astro "<ämne>"` (UI UX Pro Max, 53 riktlinjer i `data/stacks/astro.csv`,
+till exempel bilder med `astro:assets`). En riktlinje är ett råd med källa; mallens och byggstandardens beslut går före.
+
 Kör `.venv/bin/python kontroller/upptagna_val.py <slug>` och läs `underlag/<slug>/UPPTAGNA-VAL.md`: typsnitt, färger
 och toppsektioner som tidigare byggen redan valt, och modellens egna standardval. Du ser valen, inte sajterna. Ett
 upptaget val är tillåtet när verksamhetens material motiverar det; välj det aldrig av vana, och skriv skälet i
