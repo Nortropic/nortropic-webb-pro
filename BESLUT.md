@@ -5519,6 +5519,11 @@ fäller."
   (24 px för alla mål, 1.4.11, 1.4.1, 2.4.11), medan 44 px och reducerad rörelse är ägarens golv (AAA); kritiken och
   jämförelsen före valet körs samlat när alla riktningar finns; metodtabellen har slaget [skill], en metod för komposition
   och Bedömning i tre slag; återgången kan gå till underlaget.
+- **Ägarens besked om kvalitetsribban** (ankomst före 2026-10-12T18:16:09Z, ordagrant i `underlag/niva/MATTSTOCK.md`,
+  privat): Apple och Nike är ledtrådar till ribban, inte mallar; ägarens preferenser vägleder kvalitetsnivån men låser
+  aldrig kundens färger, typsnitt, komposition eller personlighet. I bandet: underlaget skiljer branschsajter för
+  förståelse från inspirationssajter för gestaltningsmöjligheter, art direction och kritiken frågar om designen själv
+  visar varför riktningen passar kunden, och kritiken mäter precisionen på ägarens nivå, inte ägarens stil.
 
 ## Tillägg 2026-10-12: full inventering av skills, MCP:er och verktyg
 
