@@ -5621,7 +5621,7 @@ och regelinventeringens åtgärder". Ingen människa svarade; besluten nedan är
   en svensk beskrivning i frontmattern och förordet "Så används skillen i nortropic-webb-pro" överst i SKILL.md. Källan
   skrev om just de raderna, och underhållets trevägssammanslagning avvisade uppdateringen 2026-10-10 och skulle göra det
   vid varje ny version. Förorden står nu i en egen fil per mapp, `NORTROPIC.md`, och SKILL.md med frontmatter och alla
-  referensfiler är källans vid c0588bb (plugin.json 1.10.3), byte för byte. Sammanslagningen (`underhall.plan_for_skill`)
+  referensfiler är källans vid d574cc8 (plugin.json 1.10.2), byte för byte. Sammanslagningen (`underhall.plan_for_skill`)
   går bara igenom filer som källan har och tar källans nya version av en fil som är lika källan vid vår commit; en
   simulerad nästa version med omskriven frontmatter och första stycke gav noll krockar i alla tio mapparna, mot krock i
   SKILL.md med förordet kvar.
@@ -5640,8 +5640,14 @@ och regelinventeringens åtgärder". Ingen människa svarade; besluten nedan är
 - **Utdragen:** metodkartans radutdrag ur variant och explain-interface är rubrikutdrag, som följer avsnittet när
   källan ändrar texten; typografins "Write copy naturally, style with CSS" heter nu "Natural case, typographic
   punctuation" och ersättningstabellen står i `wrapping-and-punctuation.md`.
-- **Karenstiden:** c0588bb var yngre än tre dygn (incheckad 2026-10-11T01:15Z). Antagande: valideringen anger c0588bb
-  och intaget görs för hand med varje fil genomläst, så karenstiden, som skyddar det automatiska intaget, väntades inte ut.
+- **Karenstiden:** intaget följer den (`kunskap/beroenden.md`, Skydden runt en ny version: "En skill prövas i den
+  senaste commit i källan som är äldre än karenstiden"). Den senaste commit i källan som var äldre än tre dygn
+  (gränsen 2026-10-09T23:30Z) är d574cc8 (2026-10-05, plugin.json 1.10.2), och den har också state-machine. Valideringen
+  angav c0588bb (2026-10-10), som skiljer sig bara i variants och state-machines väljare (en grupperad lista i stället för
+  en fast rad). Underhållet tar in c0588bb eller senare när karenstiden gått ut, och krocken i SKILL.md stoppar det inte
+  längre: en simulering mot c0588bb gav noll krockar. Peek-scrollerns rättelse (#32, åtgärd B4) kom i da5f6d5
+  (2026-10-04) och finns alltså redan i d574cc8. Rättat samma natt: en första version av intaget tog c0588bb förbi
+  karenstiden; samordnaren påpekade det, och karenstiden flyttar vi inte själva.
 - **state-machine** är intagen ordagrant och är ett alternativ i bandets station `formular` och i rollen granskning
   (`ds_granskning`, formulärstationens pass), så att den har en roll i kompetenskartan (B2). **build-design** togs
   inte in; Figmavägen är ett lyft till ägaren.

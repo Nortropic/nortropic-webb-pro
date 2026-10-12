@@ -6704,10 +6704,10 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: mekanik prövas separat; kvalitet och verklig effektiv konfiguration ännu oprövade.
 - Backlog: B-20261002-effort-medium-mot-high-i-ett-a-b (återanvänd mekanik, dess historiska klarmarkering är inte ett effektresultat).
 
-### 2026-10-13 · jakubkrehel/skills, state-machine (och better-skillsen till c0588bb) · ja, på ägarens mandat
-- Källa: https://github.com/jakubkrehel/skills @ c0588bb6d654eb725046f0bf9deec338c34891ab (2026-10-10, plugin.json
-  1.10.3), MIT; lästa: `skills/state-machine/` hela (SKILL.md, switcher.md, agents/openai.yaml) och diffarna från
-  267330e och eaf8d1b till c0588bb för better-accessibility, -colors, -interface, -layout, -typography, -ui, -writing,
+### 2026-10-13 · jakubkrehel/skills, state-machine (och better-skillsen till d574cc8) · ja, på ägarens mandat
+- Källa: https://github.com/jakubkrehel/skills @ d574cc8a576dc24256ad38268b8d03d86724a1b3 (2026-10-05, plugin.json
+  1.10.2), MIT; lästa: `skills/state-machine/` hela (SKILL.md, switcher.md, agents/openai.yaml) och diffarna från
+  267330e och eaf8d1b till d574cc8 för better-accessibility, -colors, -interface, -layout, -typography, -ui, -writing,
   explain-interface och variant.
 - Steg: designfasens band, station formular (state-machine); de nio uppdaterade skillsen där de redan står.
 - Jämfört med i dag: formulärstationen ritar felläget som interaktiv ritning (`kunskap/metodkarta.md`, Bandet:
@@ -6718,8 +6718,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   valideringarnas och regelinventeringens åtgärder"). B1: förorden flyttades till `NORTROPIC.md` så att SKILL.md står
   ordagrant och underhållets sammanslagning inte krockar; B2: state-machine i formulärstationen; B3: källraderna i
   better-break och better-interface-review; B4: peek-scrollerns calc (#32) rättad genom B1.
-- Kostnad: state-machine 3 336 token totalt (granska_repo.py), läses bara när stationen väljer den.
-- Säkerhet: förgranskningen LÅG för alla tio mappar vid c0588bb; inga dolda tecken, skript, behörigheter eller krokar.
+- Kostnad: state-machine 2 255 token totalt (granska_repo.py), läses bara när stationen väljer den.
+- Säkerhet: förgranskningen LÅG för alla tio mappar vid d574cc8; inga dolda tecken, skript, behörigheter eller krokar.
   Kända kommandon i texten: curl i explain-interface/no-browser.md (K49) och git i interface-review (K52).
 - Förslag: `.claude/skills/state-machine/` med KALLA.md; alternativ i stationen formular och i rollen granskning
   (ds_granskning). build-design (med figma.md)

@@ -14,7 +14,7 @@ stationer och flöden: `kunskap/metodkarta.md`, i kompetensblocken, bandets stat
 - **Två ägarbeslut som skillen inte sänker** [beslut]: primära interaktiva kontroller är minst 44×44 CSS-pixlar
   (byggstandarden 3.3; `kunskap/designregler.md`, Nortropics produkt- och ägarbeslut), och rörelse följer reducerad
   rörelse (byggstandarden 3.5: med `prefers-reduced-motion: reduce` ingen förflyttning, skalning eller rotation).
-  Skillen klassar i c0588bb målen 44 px och 40 px som rekommendationer som aldrig blir `HIGH` ("Criteria, not
+  Skillen klassar sedan 2026-10-04 (da5f6d5) målen 44 px och 40 px som rekommendationer som aldrig blir `HIGH` ("Criteria, not
   conventions" i SKILL.md), och dess reservregel för reducerad rörelse är borttagen så att bara opt-in återstår
   (motion-and-zoom.md). Hos oss är båda krav: en primär kontroll under 44 px och rörelse som inte följer reducerad
   rörelse är fynd mot byggstandarden, vad skillens allvarsgrad än säger. WCAG:s golv på 24 px (2.5.8) gäller alla mål.

@@ -6,7 +6,7 @@ skillskript körda, inget nät. Avgörandena gäller genom `kunskap/metodkarta.m
 filer och rader varje steg använder; den här filen är underlaget, med citat och källor. Radnumren i husets egna filer
 gällde vid granskningen och kan ha flyttat sig; skillsens filer är oförändrade sedan intaget (KALLA.md). Tillägg
 2026-10-13: Jakub Krehels better-skills (också better-variant och better-explain-interface) är uppdaterade till källans
-c0588bb, och förorden som K63 citerar står nu i mappens `NORTROPIC.md`. Radnumren ur dem nedan gäller versionerna vid
+d574cc8, och förorden som K63 citerar står nu i mappens `NORTROPIC.md`. Radnumren ur dem nedan gäller versionerna vid
 granskningen (267330e och eaf8d1b); metodkartans utdrag är omskrivna mot den nya texten.
 
 **Företräde** (`kunskap/designregler.md`): kvalitetskrav, kundens behov, ägarens beslut inom räckvidd,
@@ -237,7 +237,7 @@ granskningen :13–37; olika svar, inte olika nyanser; axeltabellen; golvet). In
 **better-explain-interface.** R: avsnitten från "What you can actually read" till "Explain the mechanism, not the
 readout" (vid granskningen :26–35, :54–58, :60–107: vad som går att läsa, sidan som belägg, uppmätt/härlett/slutsats,
 skärmbild som rekonstruktion, lagren). Inte: no-browser.md curl (K49), "Close on what transfers" som kopieringsgräns
-(K01). Installationskommandot för Chrome DevTools MCP (K51, vid granskningen :37–41) finns inte i c0588bb.
+(K01). Installationskommandot för Chrome DevTools MCP (K51, vid granskningen :37–41) finns inte i d574cc8.
 
 **better-interface-review.** Inte: git, gh och worktree (K52).
 

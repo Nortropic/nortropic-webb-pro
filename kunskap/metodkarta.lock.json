@@ -1,7 +1,7 @@
 {
  "kallor": {
   "banner-design/SKILL.md": "ccb89ddc848f60bfe630cb19dfe3e062df94a029467a9b15259f2761019ac5c4",
-  "better-accessibility/NORTROPIC.md": "1c64772da035637d0cbec1abf47b0df5eeee2a3db4ce057d1b9d5bdea6805867",
+  "better-accessibility/NORTROPIC.md": "48bfac6a1a795c730c2edf7b9a07079aa009601c05534de2a1b6c322e306bce9",
   "better-accessibility/SKILL.md": "df0cafe0e75a08548cf46a2a430f46c198e7e0ee9d46bdf7884c2afefb44b70e",
   "better-accessibility/forms.md": "66557dc714093f45f6cc0ab8e248092cb2e3bc994609c6e629135f0ddf09e0f4",
   "better-accessibility/motion-and-zoom.md": "1a15404327c8c73010888c7665b2083d9c1b312202cb6ad241b342d49a170714",
@@ -21,7 +21,7 @@
   "better-ui/NORTROPIC.md": "fc7fb483de4bd19ff8a9ae98f83e24a4e96173d85ec248982043ecc6bb9d7ca4",
   "better-ui/SKILL.md": "fb9807bb5c59a3ca9d4a27b25f56b36e5596251d280fb30c4b7f2ff8b6f4fe2d",
   "better-ui/icon-transitions.md": "676b344e7b22c37692a520c7ea2ab8fad3b3c8943a833f8133e51042297e9f06",
-  "better-variant/SKILL.md": "2d8eef43768e01d7fcec5ec2fd56dcfc453904b31a23fe8ea53170eb828d24ea",
+  "better-variant/SKILL.md": "e5bb95b72aa1589f72f350e2201be031129155db3cb27e9c3bec284ee08bc245",
   "better-writing/NORTROPIC.md": "be57eee76e6550da13e5c6afadd0f6bbfd1df4e123639daede5b3601084ba7ed",
   "better-writing/SKILL.md": "ef6843cbfcbafa62614b1a6e012c0b1ab6fd33eee0bdd84123cf49fe275c3a31",
   "brand/SKILL.md": "1c24139633e2ebf11da4f97eaeb1c0564f8658a40b3ad779387a5b8c6cb76dbc",
@@ -143,7 +143,7 @@
   "refero-design/references/motion.md": "6ab9c171f61badd47cd4ca4d981295982b17317841be38d8efe816aef1ffeea6",
   "refero-design/references/typography.md": "5c2211d3e432571225015c41f7a24693ecc61a6c84a33d44088aed2d19f6fdcb",
   "refero-design/references/visual-workflow.md": "0647bfdfeb503649263a81f3dbc23ffd6f257a5d41ca5fb8921ed9bf1fdfde5a",
-  "state-machine/SKILL.md": "30b72100000bc8039a81fd4150919430d6ba5bcff5b4e86de11e7490afa54010",
+  "state-machine/SKILL.md": "f944409b17c9c0641e8049dd628ee93610279f882779a81f8876e6466aea586d",
   "taste-brandkit/SKILL.md": "31b8c633ade8a5c52d4f9c17c78ef54b4b65c59a02029d079ced9f2eb4f53a1e",
   "taste-brutalist/SKILL.md": "fffbaac8597f07679e9d87145533567658aedba3b5eca6f16a7075a333048caa",
   "taste-image-to-code/SKILL.md": "4c060a8064a8b13380bc2ef3d6e6a1d0b1e316aa093cd9807d0ce9e4eeb037fa",
