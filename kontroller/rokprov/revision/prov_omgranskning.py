@@ -50,9 +50,10 @@ def kompetenssteg(pass_):
 
 
 class Lasordning(unittest.TestCase):
-    """N03: specialistpassets beslut använder läsordningen. Arbete före den obligatoriska kärnläsningen ger ett omförsök
-    från versionen före passet och aldrig genomford=true; ett tidigare försök maskerar aldrig det nya försökets brist, och
-    en återställning som faller lämnar passet ej genomfört. Läst, observerat använt och bedömt hålls isär i posten."""
+    """N03, ändrad av ägarens besked 2026-10-12 ("Insatsen räknas, inte läsningen … Det fäller inte en version för oläst
+    material"): läsordningen redovisas i specialistpassets post (sen_karna, kompetenskravbrister, varning) men ger varken
+    ett omförsök eller en återställning, och passet bedöms på insatsen (ändringen, det prövade beteendet med bild och det
+    observerade verktyget). Ett avbrutet pass återställs som förut. Läst, observerat använt och bedömt hålls isär i posten."""
     SLUG = 'n03-prov'
 
     def setUp(self):
@@ -79,7 +80,7 @@ class Lasordning(unittest.TestCase):
                 raise RuntimeError('bygget föll vid återställningen')
             return kd.satt_status(slug, kid, 'klar', 'återställd', version=v, axe={'allvarliga': 0})
 
-        def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
+        def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, webb=False):
             self.prompter.append(prompt)
             pass_ = prompt.split()[1]
             steg_ = kompetenssteg(pass_)
@@ -102,6 +103,8 @@ class Lasordning(unittest.TestCase):
                                        'bild': kd.rel(self.d / 'bilder' / 'start' / 'vy-390-forsta.png')}],
                   'visuell_bedomning': {'fore': 'a', 'efter': 'b', 'omdome': 'battre', 'skal': 'tydligare'}, 'ingen_andring': '',
                   'valda': [], 'passade_inte': [], 'kvarstar': []}
+            if ordning == 'samre':  # passet bedömer själv sin ändring som sämre och inte tekniskt nödvändig: versionen före gäller
+                so['visuell_bedomning'] = dict(so['visuell_bedomning'], omdome='samre', skal='rörigare')
             svar = {'structured_output': so, 'session_id': transkript(steg)}
             Path(ut).write_text(json.dumps(svar))
             return svar
@@ -116,16 +119,17 @@ class Lasordning(unittest.TestCase):
     def rec(self, nyckel):
         return kd.las_status(self.SLUG, 'k01')['kompetens'][nyckel]  # den sparade statusen, inte returvärdet
 
-    def test_sen_karna_i_bada_forsoken_ar_aldrig_genomford(self):
-        self.ordning[:] = ['sen', 'sen', 'fore', 'fore']  # rörelsepasset läser sent två gånger; granskningspasset i ordning
+    def test_sen_karna_redovisas_och_passet_star(self):
+        self.ordning[:] = ['sen', 'fore']  # rörelsepasset läser sent; granskningspasset i ordning
         kd.efter_fordjupning(self.SLUG, 'k01', {'tid': 'a', 'text': 'x', 'uppdrag': {'typ': 'bygg_ut', 'resultat': 'hela startsidan', 'omfattning': ['/x/'], 'bevara': ['första vyn'], 'specialister': {'rorelse': 'andra', 'granskning': 'andra'}}})  # passen körs bara på uppdragets begäran (2026-10-09)
         r = self.rec('fordjupa:a:rorelse')
-        self.assertIs(r['genomford'], False, 'arbete före kärnläsningen godkändes')
-        self.assertTrue(r['sen_karna'] and r['kasserade_forsok'], r)
-        self.assertTrue(any('läst först efter första ändringen' in x for x in r['kasserade_forsok'][0]['saknade']), r['kasserade_forsok'])
-        self.assertTrue((self.d / 'svar-pass-fordjupa-a-rorelse-2.json').is_file(), 'inget omförsök')
-        self.assertIn('läst först efter första ändringen', self.prompter[1], 'omförsöket fick inte veta bristen')
-        self.assertEqual(self.ater[:1], ['v1'], 'det första försökets ändringar återställdes inte')
+        self.assertIs(r['genomford'], True, 'läsordningen fäller inte passets insats')
+        self.assertTrue(r['sen_karna'], r)
+        self.assertEqual(r['kasserade_forsok'], [], 'inget försök kastas för läsningens skull')
+        self.assertFalse((self.d / 'svar-pass-fordjupa-a-rorelse-2.json').is_file(), 'inget omförsök')
+        self.assertEqual(self.ater, [], 'passets ändringar återställs inte för läsningens skull')
+        self.assertTrue(any('läst först efter första ändringen' in x for x in r['kompetenskravbrister']), r['kompetenskravbrister'])
+        self.assertIn(kd.KVITTOVARNING, r['varning'])
         # läst, observerat använt och bedömt hålls isär: läsordningen i kvittot, verktyget observerat, bedömningen redovisad
         karna = {x['roll']: x for x in r['kvitto']['tillstand']}
         self.assertTrue(any('läsordningen' in x['karna']['tillstand'] for x in karna.values()), r['kvitto']['tillstand'])
@@ -133,38 +137,42 @@ class Lasordning(unittest.TestCase):
         self.assertEqual(r['visuell_bedomning']['omdome'], 'battre')
         self.assertIs(self.rec('fordjupa:a:granskning')['genomford'], True, 'ett pass i rätt ordning är genomfört')
 
-    def test_sen_karna_i_forsta_forsoket_ger_omforsok(self):
+    def test_sen_karna_ger_ett_forsok_och_ett_kvitto(self):
         self.ordning[:] = ['sen', 'fore']
         kd.kompetenspass(self.SLUG, 'k01', 'rorelse', 'fordjupa:b', {'tid': 'b', 'text': 'x'})
         r = self.rec('fordjupa:b:rorelse')
-        self.assertTrue((self.d / 'svar-pass-fordjupa-b-rorelse-2.json').is_file(), 'ingen ny session efter den sena läsningen')
+        self.assertEqual(len(self.prompter), 1, 'en session; ett nytt försök begärs uttryckligen (--nytt-passforsok)')
         self.assertIs(r['genomford'], True, r)
-        self.assertEqual((len(r['kvitto']['per_session']), r['sen_karna']), (1, []), 'bara omförsökets session räknas')
-        self.assertEqual(r['kasserade_forsok'][0]['aterstalld_till'], 'v1')
+        self.assertEqual(len(r['kvitto']['per_session']), 1)
+        self.assertTrue(r['sen_karna'])
+        self.assertEqual(self.ordning, ['fore'], 'den andra ordningen användes aldrig')
 
-    def test_ett_tidigare_forsok_maskerar_inte_det_nya_forsokets_brist(self):
-        self.ordning[:] = ['saknar', 'sen']  # det första saknar en fil, omförsöket läser allt men först efter ändringen
+    def test_saknad_karnfil_redovisas(self):
+        self.ordning[:] = ['saknar']  # en kärnfil lästes aldrig
         kd.kompetenspass(self.SLUG, 'k01', 'rorelse', 'fordjupa:c', {'tid': 'c', 'text': 'x'})
         r = self.rec('fordjupa:c:rorelse')
-        self.assertIs(r['genomford'], False, 'omförsökets sena läsning maskerades')
-        self.assertEqual(r['kvitto']['saknas'], [], 'omförsöket läste hela kärnan')
-        self.assertTrue(r['sen_karna'])
+        self.assertIs(r['genomford'], True)
+        self.assertTrue(r['kvitto']['saknas'], 'kvittot säger vilken fil som inte lästes')
+        self.assertTrue(any('kärnan saknas' in x for x in r['kompetenskravbrister']), r['kompetenskravbrister'])
+        self.assertEqual(self.ater, [])
 
-    def test_aterstallning_som_faller_lamnar_passet_ej_genomfort(self):
+    def test_kvittobrist_forsoker_ingen_aterstallning(self):
         self.ordning[:] = ['sen']
-        self.ater_fel = True
+        self.ater_fel = True  # en återställning skulle falla; ingen görs för kvittots skull
         kd.kompetenspass(self.SLUG, 'k01', 'granskning', 'fordjupa:e', {'tid': 'e', 'text': 'x'})
         r = self.rec('fordjupa:e:granskning')
-        self.assertIs(r['genomford'], False)
-        self.assertTrue(r['kasserade_forsok'] and 'aterstallning_fel' in r['kasserade_forsok'][0], r['kasserade_forsok'])
+        self.assertIs(r['genomford'], True)
+        self.assertEqual((self.ater, r['kasserade_forsok'], r['aterstalld']), ([], [], None))
+        self.assertEqual(kd.las_status(self.SLUG, 'k01')['status'], 'forfinad')
 
     def test_avbrutet_pass_tas_upp_och_provas_lika(self):
         kd.satt_status(self.SLUG, 'k01', 'forfinad', 'förfinad', version='v5', pass_pagar={'nyckel': 'fordjupa:f:rorelse', 'fore': 'v5', 'status': 'forfinad'})
         self.ordning[:] = ['sen', 'sen']
         kd.kompetenspass(self.SLUG, 'k01', 'rorelse', 'fordjupa:f', {'tid': 'f', 'text': 'x'})
         r = self.rec('fordjupa:f:rorelse')
-        self.assertEqual(self.ater[0], 'v5', 'det avbrutna passet återställdes inte först')
-        self.assertIs(r['genomford'], False)
+        self.assertEqual(self.ater, ['v5'], 'det avbrutna passet återställdes först, och kvittot återställer inget mer')
+        self.assertIs(r['genomford'], True)
+        self.assertTrue(r['sen_karna'])
 
 
 class Planversion(unittest.TestCase):
@@ -198,7 +206,7 @@ class Planversion(unittest.TestCase):
             kd.skriv_uppdrag(self.SLUG, k, plan['kandidater'][k], i, 2)
             kd.satt_status(self.SLUG, k, 'planerad', 'uppdraget skrivet', titel=plan['kandidater'][k]['titel'], hypotes=plan['kandidater'][k]['hypotes'])
 
-        def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
+        def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, webb=False):
             if schema is kd.PLANPROVNING_SCHEMA:
                 if self.provning_faller[0]:
                     raise RuntimeError('prövningens session föll')

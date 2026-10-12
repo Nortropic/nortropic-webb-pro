@@ -483,31 +483,32 @@ class Kedjan(Grund):
             self.assertIsNone(st.get('referensprofil_brister'))
             self.assertTrue(any('syntetisk brist' in r for r in kd.profil_rader(SLUG, 'k01')))
 
-    def test_ingen_rapport_eller_ett_andrat_uppdrag_stoppar_som_forut(self):
-        # granskningen 2026-10-11: tidsgränsen, en fallen process eller slugvaktens vägran ger ingen rapport, och ett uppdrag
-        # som ändrades under profileringen är inte prövat i sin nya version; där startar skaparen inte
+    def test_ingen_rapport_eller_ett_andrat_uppdrag_ar_en_brist_och_skaparen_startar(self):
+        # ägarens besked 2026-10-12 (fria tyglar; ersätter granskningen 2026-10-11 för det här fallet): tidsgränsen, en fallen
+        # process, slugvaktens vägran eller ett uppdrag som ändrades under profileringen ger ingen rapport, och det är en brist
+        # i underlaget, inget stopp: skaparen startar med referensbilderna och SEKTIONER.md och får veta vad som saknas
         k = json.loads((self.r / 'KANDIDATPLAN.json').read_text())['kandidater']['k01']
         with patch.object(kd, 'profilrapport', return_value={'ok': False, 'brister': ['profileringen nådde tidsgränsen 3600 s']}):
-            self.assertFalse(kd.referensprofil_klar(SLUG, 'k01'))
+            self.assertTrue(kd.referensprofil_klar(SLUG, 'k01'))
         st = kd.las_status(SLUG, 'k01')
-        self.assertEqual(st['status'], 'fel')
-        self.assertEqual(st['referensprofil_brister']['brister'], ['profileringen nådde tidsgränsen 3600 s'])
-        self.assertEqual(kd.profil_rader(SLUG, 'k01'), [], 'ingen äldre profil eller brist till en skapare som inte startar')
-        kd.satt_status(SLUG, 'k01', 'planerad', 'uppdraget skrivet', ta_bort=('referensprofil_brister',))
+        self.assertEqual(st['status'], 'planerad')
+        self.assertIsNone(st.get('referensprofil_brister'))
+        self.assertEqual(st['referensprofil']['brister'], ['ingen rapport för uppdraget: profileringen nådde tidsgränsen 3600 s'])
+        rader = '\n'.join(kd.profil_rader(SLUG, 'k01'))
+        self.assertIn('blev ofullständig', rader)
+        self.assertIn('SEKTIONER.md', rader)
         annat = {'ok': True, 'brister': [], 'uppdrag': {'k01': 'ett-annat-uppdrag'}, 'kandidater': {'k01': {'tillstand': 'genomford', 'profiler': []}}}
         with patch.object(kd, 'profilrapport', return_value=annat):
-            self.assertFalse(kd.referensprofil_klar(SLUG, 'k01'))
-        self.assertIn('uppdraget ändrades under profileringen', kd.las_status(SLUG, 'k01')['referensprofil_brister']['brister'])
-        self.assertTrue(kd.ska_skapas(kd.las_status(SLUG, 'k01')), 'nästa start gör om profileringen')
+            self.assertTrue(kd.referensprofil_klar(SLUG, 'k01'))
+        self.assertIn('ingen rapport för uppdraget: uppdraget ändrades under profileringen', kd.las_status(SLUG, 'k01')['referensprofil']['brister'])
         self.assertNotEqual(kd.uppdrag_sha(k), 'ett-annat-uppdrag')
-        # en rapport utan kandidaten (förankringens vägran) stoppar, och en tidigare starts brist står inte kvar
-        kd.satt_status(SLUG, 'k01', 'planerad', 'uppdraget skrivet', ta_bort=('referensprofil_brister',),
-                       referensprofil={'tid': kd.nu(), 'brister': ['förra startens brist']})
+        # en rapport utan kandidaten (förankringens vägran) är en brist, och en tidigare starts brist ersätts
+        kd.satt_status(SLUG, 'k01', 'planerad', 'uppdraget skrivet', referensprofil={'tid': kd.nu(), 'brister': ['förra startens brist']})
         tom = {'ok': False, 'brister': ['skrivmålet vägrades'], 'uppdrag': {'k01': kd.uppdrag_sha(k)}, 'kandidater': {}}
         with patch.object(kd, 'profilrapport', return_value=tom):
-            self.assertFalse(kd.referensprofil_klar(SLUG, 'k01'))
+            self.assertTrue(kd.referensprofil_klar(SLUG, 'k01'))
         st = kd.las_status(SLUG, 'k01')
-        self.assertEqual((st['status'], st['referensprofil_brister']['brister'], st.get('referensprofil')), ('fel', ['skrivmålet vägrades'], None))
+        self.assertEqual((st['status'], st['referensprofil']['brister']), ('planerad', ['ingen rapport för uppdraget: skrivmålet vägrades']))
 
     def test_en_aldre_starts_profilsparr_tas_upp_och_det_tekniska_omforsoket_forblir_ett(self):
         # granskningen 2026-10-10, fynd 1: en profilbrist i ett tekniskt omförsök fick kandidaten att fastna för alltid; en

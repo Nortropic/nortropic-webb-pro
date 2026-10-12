@@ -85,8 +85,11 @@ class Kopplingar(unittest.TestCase):
                                             '--tillstand tangentbord,reflow', 'polish.md')]
         self.assertEqual(ordning, sorted(ordning), 'stegen i guidens ordning')
         self.assertLess(prompt.index('"Taste"'), prompt.index('3. Granskningen'), 'Taste-rattarna före bygget')
-        self.assertIn('Alla steg krävs: en skiss där någon av granskningens filer inte lästs hel är ofullständig', prompt,
-                      'prompten säger det som kravet fäller (granskningen 2026-10-12, fynd 2)')
+        # ägarens besked 2026-10-12: insatsen räknas, inte läsningen; prompten säger att läsningen redovisas men inte fäller
+        self.assertIn('Alla steg görs, och insatsen räknas, inte läsningen', prompt)
+        self.assertIn('läsningen', prompt[prompt.index('Alla steg görs'):prompt.index('Alla steg görs') + 300])
+        self.assertIn('fäller aldrig skissen', prompt)
+        self.assertNotIn('kan inte väljas', prompt)
         self.assertNotIn('Hinner du inte alla steg', prompt)
         self.assertIn('- granskningen efter första renderingen, hel när steget görs och tillämpad på sidan:', prompt)
         self.assertIn('.claude/skills/emil-review-animations/SKILL.md', prompt, 'rollens rad bär Emils granskning')

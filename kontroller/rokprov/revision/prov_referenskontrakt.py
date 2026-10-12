@@ -293,15 +293,30 @@ class Startvillkoret(Grund):
         (self.u / SLUG / 'atelje' / 'KANDIDATPLAN.json').write_text(json.dumps(plan, ensure_ascii=False))
         kd.satt_status(SLUG, 'k01', 'planerad', 'uppdraget skrivet', titel='Kurserna först', forsok=0)
 
-    def test_aldre_plan_och_aterupptagning_startar_ingen_skapare(self):
+    def test_aldre_plan_ger_varning_och_skaparen_startar(self):
+        # ägarens besked 2026-10-12 (fria tyglar): en brist i referenskontraktet är en varning, och skaparen startar med det
+        # som finns; bara en kandidat utan uppdrag i planen startar inte
         self.bygg_paket()
         gammal = self.plan()
         gammal.pop('referenskontrakt')
         self.skapa_kandidat(gammal)
-        with patch.object(atelje, 'session', side_effect=AssertionError('ingen skaparsession får starta')):
-            st = kd.skissa(SLUG, 'k01')
-        self.assertEqual(st.get('status'), 'fel', st)
+        self.assertEqual(kd.referensstopp(SLUG, 'k01'), [], 'kontraktets brister stoppar inte skaparen')
+        st = kd.las_status(SLUG, 'k01')
+        self.assertEqual(st.get('status'), 'planerad', st)
         self.assertTrue(any('äldre än referenskontraktet' in b for b in st.get('referenskontrakt_brister') or []), st)
+        self.assertIn('varning', st.get('referenskontrakt_varning') or '')
+        # en tidigare starts stopp (status fel med bristerna) blir planerad igen
+        kd.satt_status(SLUG, 'k01', 'fel', 'referensunderlaget uppfyller inte kontraktet', referenskontrakt_brister=['x'], tekniskt_fel=False,
+                       ta_bort=('referenskontrakt_varning',))
+        self.assertTrue(kd.tidigare_referensstopp(kd.las_status(SLUG, 'k01')))
+        self.assertTrue(kd.ska_skapas(kd.las_status(SLUG, 'k01')))
+        self.assertEqual(kd.referensstopp(SLUG, 'k01'), [])
+        self.assertEqual(kd.las_status(SLUG, 'k01').get('status'), 'planerad')
+        # utan uppdrag i planen finns inget att arbeta från
+        utan = dict(gammal, kandidater={'k02': gammal['kandidater']['k01']})
+        self.skapa_kandidat(utan)
+        self.assertTrue(kd.referensstopp(SLUG, 'k01'))
+        self.assertEqual(kd.las_status(SLUG, 'k01').get('status'), 'fel')
 
     @unittest.skipIf(rk is None, 'basen saknar referenskontraktet')
     def test_komplett_underlag_nar_ratt_skapare(self):
@@ -319,7 +334,7 @@ class Startvillkoret(Grund):
         self.assertTrue(any('UPPDRAG.md' in b for b in rk.startbrister(SLUG, self.u, plan, 'k01')))
 
     @unittest.skipIf(rk is None, 'basen saknar referenskontraktet')
-    def test_planeringen_gor_ett_omforsok_och_stoppar(self):
+    def test_planeringen_gor_ett_omforsok_och_planerar_med_varning(self):
         self.bygg_paket()
         (self.u / SLUG / 'atelje').mkdir(parents=True, exist_ok=True)
         anropen = []
@@ -332,12 +347,12 @@ class Startvillkoret(Grund):
         with patch.object(atelje, 'session', falsk), patch.object(kd.kompetens, 'kravbrister', return_value=[]), \
                 patch.object(kd, 'planbrist', return_value=None), patch.object(kd, 'referensbrist', return_value=None), \
                 patch.object(kd, 'plan_prompt', lambda slug, n, skiss=False, fel=None: 'PLAN fel=%s' % fel):  # prompten prövas i prov_revision
-            with self.assertRaises(RuntimeError) as e:
-                kd.planera(SLUG, 1, 'skiss')
+            ids = kd.planera(SLUG, 1, 'skiss')  # kontraktets brister är en varning: det giltiga uppdraget går till skaparen
         self.assertEqual(len(anropen), 2, 'ett omförsök med bristerna')
         self.assertIn('branschgenomgången', anropen[1])
-        self.assertIn('referenskontraktet', str(e.exception))
-        self.assertFalse((self.u / SLUG / 'atelje' / 'KANDIDATPLAN.json').exists(), 'ingen plan skrivs')
+        self.assertEqual(ids, ['k01'])
+        plan = json.loads((self.u / SLUG / 'atelje' / 'KANDIDATPLAN.json').read_text())
+        self.assertTrue(any('branschgenomgången' in v for v in plan['referenskontrakt']['varningar']), plan['referenskontrakt'])
 
 
 class Webben(Grund):
@@ -608,18 +623,16 @@ class Robusthet(Grund):
         self.assertEqual(h[0]['begaran']['referens']['kandidater'][0]['sidor'], ['/kurser', '/boka', '/kontakt', '/om'], 'läget full är oförändrat')
         self.assertEqual(kd.FORSKA_SCHEMA['properties']['sajter']['items']['properties']['sidor']['maxItems'], skapande.MAX_SIDOR_PER)
 
-    def test_kompetensbrist_ger_ett_namngivet_omforsok_och_upprepad_brist_stoppar(self):
+    def test_kompetensbrist_redovisas_utan_omforsok_och_stoppar_inte(self):
+        # ägarens besked 2026-10-12: kvittot redovisas, och researchen fortsätter med svaret (inget omförsök som kastar det)
         brist = 'session 1: Skill-aktivering saknas: better-explain-interface'
-        post, prompter, kvitton, h = self.forska(True, self.so(['/']), [[brist], []])
+        post, prompter, kvitton, h = self.forska(True, self.so(['/']), [[brist], [brist]])
         self.assertIsInstance(post, dict, post)
-        self.assertEqual(len(prompter), 2)
-        self.assertIn('better-explain-interface', prompter[1] or '')
-        self.assertEqual(kvitton[-1], 1, 'kraven prövas på sessionen vars svar används')
-        self.assertEqual(post['kompetensomforsok']['brister'], [brist])
-        self.assertEqual(len(h), 1, 'bara omförsöket hämtar')
-        post, prompter, _kv, h = self.forska(True, self.so(['/']), [[brist], ['session 1: Skill-aktivering saknas: better-explain-interface']])
-        self.assertIsInstance(post, RuntimeError)
-        self.assertEqual((len(prompter), len(h)), (2, 0), 'aldrig fler försök än två, och ingen hämtning')
+        self.assertEqual(len(prompter), 1, 'inget omförsök för kvittots skull')
+        self.assertEqual(set(kvitton), {1}, 'kvittot gäller den enda sessionen')
+        self.assertIsNone(post['kompetensomforsok'])
+        self.assertEqual(post['kompetenskravbrister'], [brist])
+        self.assertEqual(len(h), 1, 'hämtningen görs med svaret')
 
     def test_omforsoket_arver_paketet(self):
         self.bygg_paket()  # ett läsbart paket-v01 från ett tidigare försök

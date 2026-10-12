@@ -10,8 +10,8 @@ slutpost (ägarens uppdrag 2026-10-07, punkt 4 och 5; granskningen av r101).
 
 Slutkod: 0 provet grönt för just det bygge som ligger i dist/, RAPPORT.md skriven i körningen (samma sha256 som
 stoppvakten band och släppte), stoppvakten själv släppte med gröna kontroller och godkänd granskning, och granskningen
-gäller samma bygge och samma metod som nu, och helbyggets kompetenskrav har observerats i körningens egen session
-· 1 avslutat utan det (också när en äldre godkänd granskningsfil ligger kvar;
+gäller samma bygge och samma metod som nu (helbyggets kompetenskvitto redovisas i posten som varning och påverkar inte
+slutkoden sedan ägarens besked 2026-10-12) · 1 avslutat utan det (också när en äldre godkänd granskningsfil ligger kvar;
 omgång tre, F11) · 3 mekaniken (provet, kriterierna, mallen, krokarna, kor.sh, dashboarden) eller gränsen (en post
 tillkom eller försvann direkt under kunder/ eller underlag/, eller flaggan uchg lyftes; kor.sh:s grans(), Codex
 2026-10-04 F1), ägarens domlogg eller dom (DOM.json), eller körningarnas protokoll (kunder/<slug>/korningar/ och
@@ -937,7 +937,7 @@ def text(post):
     kb = kn.get('kompetens')
     if isinstance(kb, dict):
         r.append('Helbyggets kompetens: %s' % ('huvudsessionens observerade arbetskrav uppfyllda (underagenters egna sessioner ej prövade; ingen kvalitetsdom)' if kb.get('uppfyllt') is True
-                 else '; '.join(kb.get('brister') or ['inte observerad'])))
+                 else 'VARNING (redovisas, fäller inte bygget): ' + '; '.join(kb.get('brister') or ['inte observerad'])))
     mek = kn['mekaniken']
     if mek['antal']:
         r.append('VARNING: skyddade filer ändrades under körningen, av bygget eller någon annan (kirurgen, ägarens dom):\n' + '\n'.join(mek['andrade'])
@@ -1158,7 +1158,8 @@ def aktuell(k, korning=None):
       UTEBLEV.json). En körning som dödas med SIGKILL får sin post av vakten, så ägarens senare dom räknas (KAN 4). Dog
       också vakten (ingen post och inget protokoll) är domen ej belagd så länge DOM.json ändrats sedan den körningen
       startade; nästa körning räknar inte domar som tillkom efter det.
-    - Utan observerat kompetensbevis är leveransklar inte belagt nu. Äldre slutkod och designomdömen skrivs inte om.
+    - Kompetensbeviset redovisas som varning och ändrar inte leveransklar (ägarens besked 2026-10-12). Äldre slutkod och
+      designomdömen skrivs inte om.
     Ger None utan post."""
     k = Path(k)
     dist = k / 'sajt' / 'dist'
@@ -1271,12 +1272,9 @@ def aktuell(k, korning=None):
     else:
         t['klart_for_leverans'] = leverans(t, post.get('slutkod'), k.name)
     kb = (post.get('kontroller') or {}).get('kompetens')
-    if not isinstance(kb, dict) or kb.get('uppfyllt') is not True:
+    if not isinstance(kb, dict) or kb.get('uppfyllt') is not True:  # en varning, aldrig ett nej till leveransen (ägarens besked 2026-10-12)
         skal_k = 'helbyggets kompetens ej observerad' if not isinstance(kb, dict) else 'helbyggets kompetenskrav inte uppfyllda'
-        provad['kompetens'] = {'varde': None if not isinstance(kb, dict) else False, 'text': skal_k}
-        lev = t['klart_for_leverans']
-        t['klart_for_leverans'] = dict(lev, varde=False, text='; '.join(x for x in
-            (lev.get('text') if lev.get('varde') is not True else None, skal_k) if x))
+        provad['kompetens'] = {'varde': None if not isinstance(kb, dict) else False, 'text': skal_k + ' (varning; fäller inte bygget)'}
     return post
 
 
@@ -1364,10 +1362,9 @@ def main(argv):
     mekanik = [f for f in skydd if f.startswith(MEKANIK)] + domlogg + agarfil + protokoll + lista_fel
     godkant, skal = ar_godkant(k, s, v, g, korning)
     import byggmcp
+    # Helbyggets kompetenskvitto redovisas i slutposten som varning och underkänner aldrig bygget (ägarens besked
+    # 2026-10-12, ordagrant i BESLUT.md: "Insatsen räknas, inte läsningen … Det fäller inte en version för oläst material")
     kompetensbevis = byggmcp.kompetensbevis(k, korning)
-    if not kompetensbevis['uppfyllt']:
-        godkant = False
-        skal = (skal + '; ' if skal else '') + 'helbyggets kompetenskrav: ' + '; '.join(kompetensbevis['brister'])
     slutkod, slutkod_text = _slutkod(k, rc, v, mekanik, godkant)
     processer = processer_efter()
     hinder = [x for x, galler in (

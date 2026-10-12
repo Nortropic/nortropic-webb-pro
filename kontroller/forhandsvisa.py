@@ -196,6 +196,12 @@ def forhandsvisa(slug, sida='/', ut=None, bara_bygg=False, kandidat=None, mellan
         return 2, '%s saknas; %s' % (sajt.relative_to(ROOT) if sajt.is_relative_to(ROOT) else sajt,
                                      'kandidatens projekt förbereds av kontroller/kandidater.py' if kandidat else
                                      'skapa den med kontroller/ny_sajt.py %s --installera' % slug), None
+    if kandidat:  # vid behov npm install i kandidatens eget projekt (kandidater.egna_paket; ägarens besked 2026-10-12)
+        import kandidater
+        if kandidater.paketbehov(slug, kandidat):
+            rc_p, text_p = kandidater.egna_paket(slug, kandidat)
+            if rc_p:
+                return 2, 'kandidatens paket kunde inte installeras, så bygget gjordes inte:\n%s' % text_p, None
     kalla = prova.byggidentitet(sajt)  # versionen som bilderna gäller (KALLA.json i varvet)
     rc, out = prova.bygg_inom_grans(sajt)  # innanför processgränsen: sidornas kod körs vid bygget (omgranskningen, fynd 8)
     if rc:

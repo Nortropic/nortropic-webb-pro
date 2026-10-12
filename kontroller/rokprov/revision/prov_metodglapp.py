@@ -216,15 +216,17 @@ class Specialistpass(unittest.TestCase):
         kd.efter_fordjupning(self.SLUG, 'k01', self.DOM)
         return len(self.prompter) - n
 
-    def test_sista_forsokets_andringar_aterstalls_och_passet_ar_inte_uppfyllt(self):
-        self.ordning[:] = ['sen', 'sen', 'fore', 'fore']
-        self.fordjupa()
+    # Sedan ägarens besked 2026-10-12 fäller läsordningen inget pass (kandidater.KVITTOVARNING); passet misslyckas här på
+    # insatsen: det bedömer själv sin ändring som sämre och inte tekniskt nödvändig, så versionen före gäller (ordningen 'samre')
+    def test_ett_misslyckat_pass_aterstalls_och_ar_inte_uppfyllt(self):
+        self.ordning[:] = ['samre', 'fore']
+        self.assertEqual(self.fordjupa(), 2, 'ett försök per pass; kvittot ger inget omförsök')
         r = self.rec()
         self.assertIs(r['genomford'], False)
-        self.assertEqual(self.ater[:2], ['v1', 'v1'], 'sista försökets ändringar återställdes inte')
-        self.assertEqual(r['version_efter'], 'v1', 'arbetet utan kärnan blev kvar som slutversion')
+        self.assertEqual(self.ater, ['v1'], 'passets ändringar återställdes inte')
+        self.assertEqual(r['version_efter'], 'v1', 'den sämre versionen blev kvar som slutversion')
         self.assertIs(r.get('uppfyllt'), False, 'ett avslutat men underkänt pass räknas som uppfyllt')
-        self.assertIn('kärnkravet uppfylldes inte i sista försöket', r['aterstalld'])
+        self.assertIn('sämre', r['aterstalld'])
         st = kd.las_status(self.SLUG, 'k01')
         self.assertEqual(st['kompetens_ej_uppfyllda'], [self.ROR])
         self.assertIn('kompetenspass ej uppfyllda: rorelse', st['skal'], 'misslyckandet syns inte i beskedet')
@@ -232,8 +234,17 @@ class Specialistpass(unittest.TestCase):
         n = r['nivaer']  # de sex nivåerna var för sig: det underkända passet är erbjudet, laddat men inte belagt i artefakten
         self.assertEqual((n['erbjuden']['varde'], n['belagd_i_artefakten']['varde'], n['effekt_bedomd']['varde']), (True, False, None))
 
+    def test_sen_karna_faller_inte_passet(self):
+        self.ordning[:] = ['sen', 'fore']
+        self.assertEqual(self.fordjupa(), 2)
+        r = self.rec()
+        self.assertIs(r['uppfyllt'], True, 'läsordningen är redovisning, inte grind')
+        self.assertTrue(r['sen_karna'])
+        self.assertEqual(self.ater, [])
+        self.assertNotIn('ej uppfyllda', kd.las_status(self.SLUG, 'k01')['skal'])
+
     def test_aterupptagningen_gor_inte_om_passet_av_sig_sjalv_men_ett_begart_forsok_gar(self):
-        self.ordning[:] = ['sen', 'sen', 'fore', 'fore']
+        self.ordning[:] = ['samre', 'fore']
         self.fordjupa()
         self.assertEqual(self.fordjupa(), 0, 'återupptagningen gjorde om passet utan begäran (slinga)')
         self.assertIn('kompetenspass ej uppfyllda: rorelse', kd.las_status(self.SLUG, 'k01')['skal'],
@@ -250,10 +261,10 @@ class Specialistpass(unittest.TestCase):
             kd.begar_nytt_passforsok(self.SLUG, 'k01', self.ROR)  # redan uppfyllt
 
     def test_budgeten_tar_slut(self):
-        self.ordning[:] = ['sen', 'sen', 'fore', 'fore']
+        self.ordning[:] = ['samre', 'fore']
         self.fordjupa()
         kd.begar_nytt_passforsok(self.SLUG, 'k01', self.ROR)
-        self.ordning[:] = ['sen', 'sen']
+        self.ordning[:] = ['samre']
         self.fordjupa()
         self.assertEqual((self.rec()['uppfyllt'], self.rec()['omgang']), (False, 2))
         with self.assertRaises(ValueError) as fel:
@@ -263,14 +274,14 @@ class Specialistpass(unittest.TestCase):
         self.assertEqual(self.fordjupa(), 0)
 
     def test_aterstallningen_som_faller_syns(self):
-        self.ordning[:] = ['sen', 'sen', 'fore', 'fore']
+        self.ordning[:] = ['samre', 'fore']
         self.ater_fel = True
         self.fordjupa()
         r = self.rec()
         st = kd.las_status(self.SLUG, 'k01')
         self.assertIn('återställningen föll', str(r.get('aterstalld')), 'att återställningen föll syns inte')
         self.assertIs(r.get('uppfyllt'), False)
-        self.assertEqual(st['status'], 'ofullstandig', 'en kandidat med kvarvarande arbete utan kärnan stod kvar som förfinad')
+        self.assertEqual(st['status'], 'ofullstandig', 'en kandidat med en sämre version som inte kunde återställas stod kvar som förfinad')
 
     def test_ett_uppfyllt_pass_gors_inte_om(self):
         self.ordning[:] = ['fore', 'fore']

@@ -201,7 +201,8 @@ class ByggMcp(unittest.TestCase):
                 self.assertFalse(byggmcp.kompetensbevis(k, 'prov')['uppfyllt'])
                 kvitto.assert_not_called()
 
-    def test_korsluts_riktiga_ingang_nekar_utan_kvitto_och_bevarar_felkoder(self):
+    def test_korsluts_riktiga_ingang_redovisar_kvittot_och_bevarar_felkoder(self):
+        # ägarens besked 2026-10-12: helbyggets kompetenskvitto redovisas i posten som varning och underkänner aldrig bygget
         k, _ = self.bevisdata()
         bevis = {'uppfyllt': False, 'brister': ['syntetisk saknad aktivering'], 'korning': 'prov'}
         sparade = []
@@ -217,7 +218,7 @@ class ByggMcp(unittest.TestCase):
                 agaren_vid_slut=lambda *a, **kw: ({'varde': None}, {}), agarens_domar=lambda *a: ([], None),
                 slutpost=post, skriv_slutpost=lambda *a: self.tmp / 'post', text=lambda *a: 'syntetiskt slutbesked', skriv_ut=lambda *a: None))
             args = ['korslut', str(k), '0', 'fore', 'efter', 'prov']
-            self.assertEqual(korslut.main(args), 1)
+            self.assertEqual(korslut.main(args), 0, 'kvittot underkänner inte ett annars godkänt bygge')
             self.assertEqual(sparade[-1]['kontroller']['kompetens'], bevis)
             bevis.update(uppfyllt=True, brister=[])
             self.assertEqual(korslut.main(args), 0)
@@ -227,7 +228,7 @@ class ByggMcp(unittest.TestCase):
                 self.assertEqual(korslut.main(args), 3)
 
 
-    def test_aldre_slutpost_utan_kompetens_blir_inte_aktuellt_leveransklar(self):
+    def test_slutpost_utan_kompetens_ar_leveransklar_med_varning(self):
         import granska
         import kundstart_kalla
         import prova
@@ -243,17 +244,19 @@ class ByggMcp(unittest.TestCase):
              patch.object(granska, 'aktuell_metod', return_value={}), \
              patch.object(korslut, 'agarens_dom', return_value={'varde': True}), \
              patch.object(korslut, 'avbrutna', return_value=[]):
-            for bevis, vantat in ((None, False), ({'uppfyllt': False, 'brister': ['syntetisk brist']}, False),
-                                   ({'uppfyllt': True, 'korning': 'prov', 'session_id': self.sid}, True)):
+            for bevis, varning in ((None, True), ({'uppfyllt': False, 'brister': ['syntetisk brist']}, True),
+                                    ({'uppfyllt': True, 'korning': 'prov', 'session_id': self.sid}, False)):
                 post['kontroller'] = {} if bevis is None else {'kompetens': bevis}
                 f.write_text(json.dumps(post))
                 fore = f.read_bytes()
                 nu = korslut.aktuell(k)
-                self.assertIs(nu['tillstand']['klart_for_leverans']['varde'], vantat)
+                self.assertIs(nu['tillstand']['klart_for_leverans']['varde'], True, 'kvittot ändrar inte leveransklar')
                 self.assertEqual(nu['slutkod'], 0, 'en äldre råslutkod ska inte skrivas om')
                 self.assertEqual(nu['tillstand']['designgranskaren_godkanner'], post['tillstand']['designgranskaren_godkanner'])
-                if not vantat:
-                    self.assertIn('kompetens', nu['tillstand']['klart_for_leverans']['text'])
+                if varning:
+                    self.assertIn('varning', nu['provad']['kompetens']['text'])
+                else:
+                    self.assertNotIn('kompetens', nu['provad'])
                 self.assertEqual(f.read_bytes(), fore, 'aktuell() får inte ändra historikfilen')
 
 

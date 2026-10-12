@@ -510,7 +510,8 @@ def i_kopian(ut):
                            'kompetensbrister': kompetens.kravbrister(kv, pass_), 'dump': dumpkat, 'nyckel': s.nyckel})
 
     kor('skisskritiken', 'skisskritik', True, kd.GRANSKARE_MODELL, 'high', lambda: kd.skisskritik(SLUG, 'k01'))
-    kor('fore_efter', 'fore_efter', True, kd.GRANSKARE_MODELL, 'high', lambda: kd.fore_efter(SLUG, 'k01', v0, v1))
+    # före/efter avgör återställning: skaparens modell på max sedan ägarens besked 2026-10-12 (förut granskarens Sonnet på high)
+    kor('fore_efter', 'fore_efter', True, kd.fore_efter_modell(), kd.EFFORT_FORE_EFTER, lambda: kd.fore_efter(SLUG, 'k01', v0, v1))
     kor('skaparen', 'fordjupa', False, atelje.MODELL, atelje.EFFORT,
         lambda: kd.uppdrag_session(SLUG, 'k01', dom, uppdrag, d / 'svar-uppdrag-dyad.json'))
 

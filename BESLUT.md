@@ -5610,3 +5610,64 @@ bakom stoppet, att deep kostar krediter, gäller alltså inte i dag. Gränserna 
   (`referenstjanster.prompt_for`) säger nu att sektionerna är huvudkällan, att skärmar och flöden söks med `platform`
   web (ios bara med skäl) och att deep används för frågor där helheten avgör.
 
+## Tillägg 2026-10-12: fria tyglar i flödets kod
+
+**Status:** gäller; genomfört av Claude i grenen `claude/fria-tyglar-flodet-20261012`. Räckvidd: kandidatflödet
+(`kontroller/kandidater.py`), sessionernas nekanden (`atelje.py`, `kompetens.py`), referenstjänsterna och helbyggets
+slutpost (`korslut.py`). Mallen, kor.sh, provet, designfasen och kunskap/ ändras i en egen gren.
+
+Ägarens besked 2026-10-12, ordagrant:
+
+> Inga av sådana här beroenden eller andra är mitt beslut, det skall utnyttjas för det är ju de här sakerna som är
+> kvalité och premium hemsidor. … Vi kan inte ha saker som beror på mig, det är helt fria tyglar under våra flöden för
+> skapandet. Det är inte konstigt att vi har skapat ai slop eller undermåliga hemsidor om du är begränsad av regler som
+> har smygit sig in …
+
+Ur bandets uppdrag samma dag, ordagrant: "Insatsen räknas, inte läsningen … Det fäller inte en version för oläst
+material."
+
+Borttaget eller lättat:
+
+- **Paketen:**
+  - npm, npx och node nekas inte längre i `atelje.NEKAS`.
+  - Skaparen skriver också i kandidatens `package.json`, låset, `astro.config.mjs`, `tsconfig.json`, `components.json` och
+    `public/`.
+  - Skaparen installerar paket med `kandidater.py <slug> --paket kNN <paket@version>`. Kandidaten får då en egen
+    `node_modules` i stället för länken till sajtens, med exakt version i låset, utan paketskript och bara ur
+    npm-registret. Bygget och fotograferingen kör `npm install` i kandidaten när `package.json` kräver det.
+  - Prompterna säger att paket väljs fritt när de höjer kvaliteten, med version, källa och licens i RIKTNING.md.
+- **Kompetenskvittot redovisar och fäller inte** (`kandidater.KVITTOVARNING`). Bristerna står kvar i statusen och
+  kvittot som varning, men de:
+  - gör inte skissen ovalbar (också i läget full och när en sparad skiss tas upp igen);
+  - nekar inte ägarens godkännande, som i stället får varningen med sig i domen;
+  - kastar inte förfiningen, specialistpassen eller förbättringsrundan, och ger inget omförsök;
+  - stoppar inte researchen, planen eller planprövningen;
+  - underkänner inte helbygget och ändrar inte "klart för leverans" (`korslut`).
+
+  Beslutet 2026-10-10 om ett omförsök när bara researchens kompetens brast behövs inte längre och är ersatt.
+- **Tider och modeller:**
+  - skissens försök 2 700 → 5 400 s;
+  - svarets minsta tid 420 → 840 s;
+  - skissens effort high → max, och researchen i skissläget 1 200 → 2 400 s;
+  - före/efter-bedömningen, som avgör återställning, går från Sonnet 5.5 på high till skaparens modell på max, med
+    600 → 1 200 s;
+  - referenstjänsternas urval går från Sonnet 5.5 till Opus 5.5, med 1 800 → 2 700 s och 90 → 150 turer.
+- **Hårda stopp före första pixeln blir varningar:**
+  - brister i referenskontraktet stoppar inte längre researchen, planen eller skaparens start;
+  - en tjänst som ligger nere stoppar inte researchen;
+  - en DevTools-profil som saknas stoppar inte skaparen.
+
+  Stoppet finns kvar bara där det inte finns något att arbeta från: researchen gav varken svar eller paket, planen gav
+  inget användbart uppdrag, eller kandidaten saknar uppdrag. Ett giltigt uppdrag räcker.
+- **Webben:** skaparen, förfiningen, förbättringsrundan och specialistpassen får WebSearch och WebFetch genom kundvakten,
+  med bara generiska frågor.
+- **Emils skills:** de släpps till Skill-verktyget. K46 var självpåtaget. Promptens villkor gäller: ingen svarar, inga
+  frågor, och antagandena redovisas i arbetet (för skaparen i RIKTNING.md).
+
+**Behållet:**
+- ägarens designgodkännande som eget kommando, och byggstarten och publiceringen som egna beslut;
+- kundvakten för kunddata;
+- 44 px för primära kontroller och inga karuseller;
+- Lighthouse prestanda ≥ 90 som krav;
+- säkerheten: inga hemligheter i kod, och inga skript från okända paket utan låsning (`--ignore-scripts`, `--save-exact`
+  och projektets `.npmrc`).
