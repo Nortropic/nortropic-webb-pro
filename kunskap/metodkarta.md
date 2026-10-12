@@ -606,7 +606,7 @@ screencast_stop: ingen uppgift — avslutar en inspelning som aldrig startas (se
 
 ```tjanstverktyg motion
 search-motion-docs: uppgift — rollen rorelses sökning i Motions dokumentation, exempel och Motion UI (platform js för motion i ett <script>, react för motion/react i en React-ö; sökordet är mönstret som byggs: inView, stagger, spring, layout) när ett beteende byggs med Motion; svaret är text och länkar, inga bilder, och träffar märkta Motion+ (betalda) används inte (ägarens beslut 2026-10-07: bara den fria delen); prövat 2026-10-07
-generate-css-easing: ingen uppgift — verktyget står i skillen (motion/codex/index.md och css-spring/index.md) men fanns inte på servern vid tools/list, så CSS-fjädrar skrivs för hand med linear() eller cubic-bezier tills verktyget finns och prövats; prövat 2026-10-07
+generate-css-easing: ingen uppgift — verktyget är Motion+ (betalt; motion.dev/docs/ai-kit-generate-css, läst 2026-10-12) och ingår inte i den fria delen; samma CSS-fjädrar ger `spring(visualDuration, bounce)` ur det låsta `motion` vid bygget (`String(spring(0.3, 0.25))` = `550ms linear(…)`, prövat 2026-10-12 med motion 14.0.0), i Astro-frontmattern eller `<style define:vars>`, utan JavaScript i webbläsaren (`kunskap/beroenden.md`, Motion)
 ```
 
 ```tjanstverktyg 21st
@@ -1299,7 +1299,7 @@ fil:emil-ask-sonner/* | emilkowalski/skills | ingen | skäl: Sonners API; Sonner
 fil:gsap/gsap-* | greensock/gsap-skills | Code | flöden: helbygge; nås genom gsap/SKILL.md när ett beteende kräver dem: plugins och verktyg; gsap-react bara med en React-ö; gsap-frameworks (Vue, Svelte) används inte | uppslag; oprövat
 fil:motion/codex/* | motiondivision/ai-kit | Code | flöden: helbygge; bruksanvisningen för Motions sökning (search-motion-docs) före en icke-trivial animation | uppslag; Motion-servern saknades i inventeringens session
 fil:motion/performance-audit/* | motiondivision/ai-kit | Code | flöden: helbygge, granskning; MotionScore graderar rörelsens kostnad i renderingen | uppslag; oprövat
-fil:motion/css-spring/* | motiondivision/ai-kit | ingen | skäl: kräver verktyget generate-css-easing på Motion-servern, som inte fanns vid prövningen 2026-10-07; underhållet prövar listan igen | blockerad: verktyget saknas
+fil:motion/css-spring/* | motiondivision/ai-kit | ingen | skäl: beskriver verktyget generate-css-easing, som är Motion+ (betalt) och aldrig finns på den fria servern; samma fjädrar ger `spring()` ur motion vid bygget (`kunskap/beroenden.md`, Motion) | ingen uppgift: Motion+ (betalt)
 fil:motion/transition-preview/* | motiondivision/ai-kit | ingen | skäl: förhandsvisning av en övergångs känsla i Motions verktyg; duken och rendera.mjs visar övergångarna | ingen uppgift
 fil:motion/best-practices/* | motiondivision/ai-kit | båda | flöden: band, specialistpass, helbygge; css-or-motion.md, index.md och motion.md har stationen rorelse; base-ui.md och vue.md används inte (varken Base UI eller Vue i mallen) | delvis i stationen
 fil:hallmark/references/components/* | nutlope/hallmark | Design | flöden: band, specialistpass; nås genom component-cookbook.md i komposition: arketypernas förlagor | uppslag; oprövat

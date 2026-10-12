@@ -236,7 +236,8 @@ def _mcp_till_rollen():
            'motion': {'search-motion-docs', 'generate-css-easing', 'foo-bar'}}
     vr = {x['namn']: x for x in sk.tjanstverktyg_rader(upp)}
     assert vr['Motions verktyg med uppgift']['resultat'] == 'ok', vr.get('Motions verktyg med uppgift')
-    assert vr['generate-css-easing (Motion)']['resultat'] == 'ingen_uppgift' and '2026-10-07' in vr['generate-css-easing (Motion)']['detalj'], vr.get('generate-css-easing (Motion)')
+    assert (vr['generate-css-easing (Motion)']['resultat'] == 'ingen_uppgift' and 'Motion+' in vr['generate-css-easing (Motion)']['detalj']
+            and 'spring(' in vr['generate-css-easing (Motion)']['detalj']), vr.get('generate-css-easing (Motion)')  # betalt; den fria vägen vid bygget
     assert vr['foo-bar (Motion)']['resultat'] == 'nytt', vr.get('foo-bar (Motion)')
     borta = {x['namn']: x for x in sk.tjanstverktyg_rader(dict(upp, motion={'generate-css-easing'}))}['Motions verktyg med uppgift']
     assert borta['resultat'] == 'fel' and 'tilldelade men saknas' in borta['detalj'], borta

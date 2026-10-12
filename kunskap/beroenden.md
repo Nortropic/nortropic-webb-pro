@@ -55,7 +55,11 @@ under byggstandardens 200 kB (3.7), men GSAP är det tyngsta valet och bär sig 
   framer-motion, och npm-paketet `framer-motion` 14.0.0 är ett alias som aldrig installeras bredvid (båda får inte
   finnas). Skillen `.claude/skills/motion/` (Motion AI Kit, fria delen) är därför också Framer Motion-skillen, och
   dess MCP (`kontroller/mcp/motion.json`, `search-motion-docs`) söker dokumentation och exempel för `motion`,
-  `motion/react` och `motion-v`; ingen separat Framer Motion-skill eller -MCP finns eller behövs.
+  `motion/react` och `motion-v`; ingen separat Framer Motion-skill eller -MCP finns eller behövs. CSS-fjädrar som
+  `linear()` genereras vid bygget med `spring(visualDuration, bounce)` ur `motion`: i Astro
+  `<style define:vars={{ fjader: String(spring(0.3, 0.25)) }}>` och `transition: transform var(--fjader)`, som ger
+  `550ms linear(…)` och ingen JavaScript i webbläsaren (motion.dev/docs/css, avsnittet Astro; prövat 2026-10-12 med
+  motion 14.0.0). Verktyget `generate-css-easing` är Motion+ (betalt) och används inte.
 - **21st.dev Builder** (ägarens val 2026-10-07): MCP:n `kontroller/mcp/21st.json` (https://21st.dev/api/mcp, nyckeln
   `TWENTYFIRST_API_KEY` ur `~/.nortropic-hemligheter/webb-pro/21st.env`, insatt av `atelje.tjugoforsta_mcp_fil` i en
   0600-fil bredvid nyckeln) ger rollen komposition komponentsök (`search`, fritt), en vald komponents kod

@@ -34,8 +34,10 @@
   2026-10-07 gav ett verktyg, `search-motion-docs` (`platform` js, react eller vue; `searchTerm`), och `resources/list`
   en tom lista: dokumentsidorna kommer som resource_links i svaret och läses med `resources/read`, som flödets
   sessioner inte har något verktyg för, så sessionen får titlar, beskrivningar, API-namn och demolänkar. Verktyget
-  `generate-css-easing`, som skillen nämner (codex/index.md, css-spring/index.md), fanns inte på servern 2026-10-07;
-  metodkartan har beslutet. Motion+-servern (search-motion-source, save-transition, open-transition-editor,
+  `generate-css-easing`, som skillen nämner (codex/index.md, css-spring/index.md), fanns inte på servern 2026-10-07:
+  det är Motion+ (betalt; motion.dev/docs/ai-kit-generate-css, läst 2026-10-12) och kommer aldrig till den fria
+  servern. Samma fjädrar ger `spring()` ur `motion` vid bygget (`kunskap/beroenden.md`, Motion); metodkartan har
+  beslutet. Motion+-servern (search-motion-source, save-transition, open-transition-editor,
   MotionScore-metodiken) används inte.
 - **Förgranskning 2026-10-07:** `kontroller/granska_repo.py` gav LÅG: 11 textfiler, omkring 8 350 tokens (160 alltid,
   1 110 när skillen används, 7 040 vid behov); inga dolda tecken, ingen text riktad till agenter, inga behörigheter,
