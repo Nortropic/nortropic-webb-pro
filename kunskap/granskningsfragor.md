@@ -20,10 +20,12 @@ genom ägarens Apple/Nike-besked 2026-10-12, precisionen på den nivån och inte
 5. Syns namn, område, telefon, org.nr, omdömen med källa och egna bilder av arbetet och personerna utan att man letar? I
    vilken ruta syns de först? (Fogg & Tseng 1999; NN/g 2016: K; ordningen: T)
 6. Står pris, prisexempel eller hur priset sätts, och svarstiden? (NN/g 2016; GOV.UK, Contact a department: K)
-7. Ser märken och sigill verifierbara ut (utfärdare, länk), eller är de egen dekor? (Baymard, Site seal trust 2013,
-   överfört: T)
-8. Formuläret i 390: står en synlig etikett ovanför varje fält, utan platshållare som etikett? Är det valfria märkt, står
-   ett fält per rad, och säger knappen vad som händer? (GOV.UK Text input och Question pages; NN/g; Baymard: K)
+7. Går märken, sigill och omdömen att verifiera (utfärdare, länk, källa)? Baymards nyare studie fann att även ett
+   hemgjort sigill gav förtroende, så bedöm verifierbarheten och sanningen, inte bara utseendet. (Baymard, Site seal
+   trust, den nyare studien; marknadsföringslagen: T)
+8. Formuläret i 390: står en synlig etikett ovanför varje fält, utan platshållare som etikett? Är det valfria märkt
+   ("valfritt", GOV.UK; NN/g märker det obligatoriska och Baymard båda), står ett fält per rad, säger telefonfältet
+   varför och när ni ringer, och säger knappen vad som händer? (GOV.UK Text input och Question pages; NN/g; Baymard: K)
 9. Formuläret med felen framkallade: finns en sammanfattning med länkar, text vid varje fält och mer än bara färg?
    (GOV.UK Error summary och Error message; NN/g; WCAG 1.4.1: K)
 10. Går sidan att förstå genom att bara läsa rubriker och fetstil? Finns textväggar? (NN/g, F-mönstret 2017; Krug 2014: K)
