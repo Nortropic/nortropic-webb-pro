@@ -207,8 +207,9 @@ def _mcp_till_rollen():
     assert kompetens.MCPNAMN['motion'] and 'motion/react' in kompetens.MCPNAMN['motion'], kompetens.MCPNAMN
     # prompten (ägarens förtydligande): aktivera med skillverktyget, läs referensfiler med Read, misslyckanden syns
     p = re.sub(r'\s+', ' ', '\n'.join(kompetens.prompt_rader('rorelse', SLUG, 'k01')))  # raderna bryts mitt i meningar
-    assert ('läs hela med Read: .claude/skills/impeccable/reference/animate.md, .claude/skills/emil-design-eng/SKILL.md, .claude/skills/emil-animate/SKILL.md' in p), p
-    assert 'aktivera med skillverktyget: emil-' not in p, p
+    # Emils skills aktiveras med Skill sedan ägarens besked 2026-10-12 (K46 släppt, kompetens.SLAPPTA_VANTANDE)
+    assert ('aktivera med skillverktyget: emil-design-eng (.claude/skills/emil-design-eng/SKILL.md), animate (.claude/skills/emil-animate/SKILL.md); '
+            'läs hela med Read: .claude/skills/impeccable/reference/animate.md' in p), p
     assert ('aktivera med skillverktyget: motion (.claude/skills/motion/SKILL.md), gsap (.claude/skills/gsap/SKILL.md)' in p
             and '.claude/skills/motion/best-practices/css-or-motion.md' in p and '.claude/skills/gsap/gsap-core/SKILL.md' in p), p
     assert 'misslyckas skriver du i svaret innan beroende arbete fortsätter' in p, p
@@ -348,7 +349,7 @@ def _valet_och_kvittot():
     assert all(x['tillampning'] == T['ej_observerat'] for x in tg), [x['tillampning'] for x in tg]
     # en aktiverad skill utan misslyckanden, och en roll utan observation
     t1 = {x['roll']: x for x in kompetens.tillstand(dict(bas, skill_fel=[], skill_anrop=['motion', 'gsap', 'emil-animate', 'emil-design-eng'] + [
-        s_ for s_ in {f.split('/')[0] for f in r['karna'] + r['valj']} if not s_.startswith(('kunskap', 'kritik'))]), 'rorelse')}['rorelse']
+        s_ for s_ in {f.split('/')[0] for f in r['karna'] + r['valj'] + r.get('efter', [])} if not s_.startswith(('kunskap', 'kritik'))]), 'rorelse')}['rorelse']
     assert t1['nivaer']['aktivering'].startswith('aktiverad med skillverktyget'), t1['nivaer']['aktivering']
     t2 = {x['roll']: x for x in kompetens.tillstand({'verifierad': False}, 'rorelse')}['rorelse']
     assert t2['nivaer']['aktivering'] == T['ej_observerat'] and t2['nivaer']['bedomd_kvalitet']['av_sessionen'] == T['ej_observerat'], t2['nivaer']
@@ -474,10 +475,12 @@ def _arlda_nivaer():
     assert t['mcp']['motion']['tillstand'] == T['ej_observerat'], t
     assert T['ej_observerat'] in t['nivaer']['anvandning'], t['nivaer']
     role = kompetens.tolka()['rorelse']
-    required, _ = kompetens.aktiverbara(role['karna'])
+    # Emils skills är aktiverbara sedan ägarens besked 2026-10-12 (K46 släppt); de som källan gjort användaranropade läses
+    required, _ = kompetens.aktiverbara(role['karna'] + role.get('efter', []))
+    assert {'emil-design-eng', 'emil-animate'} <= set(required), required
     kv = {'verifierad': True, 'lasta': [kompetens.vag(f) for f in role['karna']], 'valda': [], 'skill_anrop': required}
     t = {x['roll']: x for x in kompetens.tillstand(kv, 'rorelse')}['rorelse']
-    assert not required and t['nivaer']['aktivering'].startswith('inga Skill-aktiveringar tilldelade'), t['nivaer']
+    assert t['nivaer']['aktivering'].startswith('aktiverad med skillverktyget'), t['nivaer']
     assert 'utan aktivering' not in t['nivaer']['aktivering'], t['nivaer']
     n = kompetens.nivaer(['a', 'b'], ['a'], [], ['b'], {}, {}, None, True)
     assert n['aktivering'].startswith('delvis:') and 'Read' in n['aktivering'] and 'b' in n['aktivering'], n
@@ -485,14 +488,16 @@ def _arlda_nivaer():
     assert T['ej_observerat'] in n['anvandning'] and T['anvant'] in n['anvandning'], n
 
 
-@fall('11 riktiga kompetenspasset bevarar MCP-utfallen och kräver Motion-resultat bara vid Motion-val')
+@fall('11 riktiga kompetenspasset bevarar MCP-utfallen och redovisar ett saknat Motion-resultat vid Motion-val som varning (ägarens besked 2026-10-12)')
 def _passets_hela_kvitto():
     from copy import deepcopy
     from unittest.mock import patch
     kund()
     errors = []
-    for tech, outcome, expected in [('motion', None, False), ('motion', 'tomt resultat', False),
-                                    ('motion', 'fel', False), ('motion', 'anrop lyckades', True),
+    # ett Motion-val utan observerat Motion-svar (tjänsten nere, tom eller inget anrop) redovisas som varning och fäller inte
+    # passets insats (KVITTOVARNING); förhandsvisningen med resultat och bilden per beteende avgör
+    for tech, outcome, expected in [('motion', None, True), ('motion', 'tomt resultat', True),
+                                    ('motion', 'fel', True), ('motion', 'anrop lyckades', True),
                                     ('css', None, True), ('stilla', None, True)]:
         st = {'status': 'klar', 'version': 'v1', 'kompetens': {}}
         def spara(slug, kid, status, skal='', ta_bort=(), **extra):
@@ -524,6 +529,11 @@ def _passets_hela_kvitto():
                 errors.append((tech, outcome, 'borttappat', key))
         if rec['genomford'] is not expected:
             errors.append((tech, outcome, 'genomford', rec['genomford'], expected, rec['beteende_provat']))
+        motionbrist = any('Motion-valet saknar observerat svar' in b for b in rec['kompetenskravbrister'])
+        if motionbrist is not (tech == 'motion' and outcome != 'anrop lyckades'):
+            errors.append((tech, outcome, 'motionbristen redovisas inte rätt', rec['kompetenskravbrister']))
+        if motionbrist and kd.KVITTOVARNING not in (rec.get('varning') or ''):
+            errors.append((tech, outcome, 'ingen varning', rec.get('varning')))
     assert not errors, errors
     # utan bild för ett prövat beteende är passet inte genomfört, fast sessionen rapporterar det (C4)
     st = {'status': 'klar', 'version': 'v1', 'kompetens': {}}
@@ -540,7 +550,7 @@ def _passets_hela_kvitto():
     assert rec['genomford'] is False and rec['beteende_provat'][0]['bild_finns'] is False, ('ett beteende utan bild räknades som genomfört', rec['genomford'])
 
 
-@fall('13 C4:s rest: passet är inte genomfört utan ett observerat verktygs- eller MCP-anrop med resultat, och ett MCP-svar utan känd form är inte observerat innehåll (C6:s rest)')
+@fall('13 C4:s rest: passet är inte genomfört utan ett observerat verktygs- eller MCP-anrop med resultat, och ett MCP-svar utan känd form är inte observerat innehåll (C6:s rest; redovisas som varning sedan 2026-10-12)')
 def _krav_pa_observerat_anrop():
     from copy import deepcopy
     from unittest.mock import patch
@@ -569,9 +579,9 @@ def _krav_pa_observerat_anrop():
              patch.object(kd, 'fotografera', side_effect=lambda *a, **k: deepcopy(st)), patch.object(atelje, 'session', return_value={'structured_output': so_}), \
              patch.object(kompetens, 'kvitto', return_value=deepcopy(kv)):
             rec = json.loads(json.dumps(kd.kompetenspass(SLUG, 'k01', 'rorelse', 'mekanikprov')))['kompetens']['mekanikprov:rorelse']
-        utfall.append((namn, rec['genomford'], rec['anvanda_verktyg']))
-    assert utfall == [('inget anrop', False, []), ('förhandsvisning använd', True, ['förhandsvisning']), ('bara fel', False, []),
-                      ('Motion-svar utan känd form', False, ['förhandsvisning'])], utfall
+        utfall.append((namn, rec['genomford'], rec['anvanda_verktyg'], any('Motion-valet saknar' in b for b in rec['kompetenskravbrister'])))
+    assert utfall == [('inget anrop', False, [], False), ('förhandsvisning använd', True, ['förhandsvisning'], False), ('bara fel', False, [], False),
+                      ('Motion-svar utan känd form', True, ['förhandsvisning'], True)], utfall
     t = kompetens.mcp_tillstand('motion', 1, {MOTION_VERKTYG: {'svar utan känd form': 1}}, {'motion': 'ansluten'}, True)
     assert t['tillstand'] == kompetens.TILLSTAND['ej_observerat'] and 'utan känd form' in t['orsak'], t
     assert kompetens.mcp_tillstand('motion', 1, {MOTION_VERKTYG: {'anrop lyckades': 1}}, {'motion': 'ansluten'}, True)['tillstand'] == kompetens.TILLSTAND['anvant']

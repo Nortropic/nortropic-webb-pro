@@ -155,13 +155,17 @@ class Specialistgrans(unittest.TestCase):
         las = bildlasning(); las['grupper']['Y']['lasta'] = 3
         self.assertFalse(kd.fore_efter_bilder_last(las, 4))
 
-    def test_cache_kraver_versioner_kompetens_och_bildlasning(self):
+    def test_cache_kraver_versioner_och_bildlasning_men_inte_kvittot(self):
+        # ägarens besked 2026-10-12: domen gäller när bilderna bevisligen lästs; kvittot redovisas och avgör inte
         post = bedomning()
         self.assertTrue(kd.fore_efter_giltig(post, 'fore', 'efter'))
         self.assertFalse(kd.fore_efter_giltig(post, 'fore', 'ny'))
-        for f, v in [('kompetens', {}), ('kompetenskravbrister', ['saknas']), ('lasning', {}), ('sett', False)]:
+        for f, v in [('lasning', {}), ('sett', False)]:
             p = copy.deepcopy(post); p[f] = v
             with self.subTest(f=f): self.assertFalse(kd.fore_efter_giltig(p, 'fore', 'efter'))
+        for f, v in [('kompetens', {}), ('kompetenskravbrister', ['saknas'])]:
+            p = copy.deepcopy(post); p[f] = v
+            with self.subTest(f=f): self.assertTrue(kd.fore_efter_giltig(p, 'fore', 'efter'))
         self.assertTrue(kd.fore_efter_giltig(bedomning(utfall='oklart'), 'fore', 'efter'), 'en ärligt oklar maskindom är fortfarande inget ägarbeslut')
 
     def forbered_fordjupning(self, post):
@@ -181,13 +185,13 @@ class Specialistgrans(unittest.TestCase):
         self.assertEqual(st['status'], 'forfinad', 'maskinomdömet får inte sätta ägargodkänd')
         self.assertEqual(dom['uppdrag']['resultat'], 'rätta rubrik')
 
-    def test_aterupptagning_gor_om_bristande_evidens_pa_samma_version(self):
-        for falt in ('kompetens', 'lasning'):
+    def test_aterupptagning_gor_om_bristande_bildevidens_pa_samma_version(self):
+        for falt, gors_om in (('lasning', 1), ('kompetens', 0)):  # ett saknat kvitto gör inte om en bildbelagd dom
             gammal = bedomning(); gammal[falt] = {}
             dom = self.forbered_fordjupning(gammal)
             with patch.object(kd, 'fore_efter', return_value=bedomning()) as nytt:
                 kd.efter_fordjupning(self.slug, self.kid, dom)
-            self.assertEqual(nytt.call_count, 1)
+            self.assertEqual(nytt.call_count, gors_om, falt)
 
     def test_giltig_bedomning_ateranvands_utan_session_eller_historikomskrivning(self):
         dom = self.forbered_fordjupning(bedomning())

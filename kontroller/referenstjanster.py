@@ -9,7 +9,7 @@ Uppdraget (JSON): {"fragor": [{"tjanst": "refero"|"mobbin", "fraga": "…", "syf
 Typen stil (bara Refero) gäller en sammanhängande visuell riktning: refero_search_styles och refero_get_style, och svaret
 sparas strukturerat (typografi, färger, layout, rytm, komponenter) med förhandsbilden (Codex 2026-10-04, glapp 3); skarm
 och flode gäller konkreta mönster. Per tjänst körs en egen
-session (Sonnet, läsande; bara tjänstens namngivna verktyg) som gör sökningarna och hämtar skärmbilderna, och svarar
+session (Opus 5.5 sedan ägarens besked 2026-10-12, förut Sonnet; läsande; bara tjänstens namngivna verktyg) som gör sökningarna och hämtar skärmbilderna, och svarar
 strukturerat med träffar (id, titel, sida_url, bild_url, beskrivning). Verktyget räknar anropen ur sessionens
 stream-json-logg (modellens egen uppgift räknas inte), laddar ner bild_url från tjänstens egna bildvärdar
 (images.refero.design, mobbin.com) till underlag/<slug>/referenser/tjanster/<tjanst>/ och skriver TJANSTER.json och
@@ -153,8 +153,12 @@ def miljo_for(tjanst):
     return m
 
 
-MODELL = os.environ.get('NWP_TJANST_MODELL') or 'claude-sonnet-5-5'  # aliaset sonnet pekar på en äldre version
-FRIST = int(os.environ.get('NWP_TJANST_FRIST') or 1800)
+# Urvalet ur tjänsternas träffar görs av sessionen före skaparen: en mindre modell valde bort material (inventeringen
+# 2026-10-12, 3.7), så sedan ägarens besked 2026-10-12 (fria tyglar) Opus 5.5 i stället för Sonnet 5.5, med längre frist
+# och fler turer (före: 1 800 s och 90 turer)
+MODELL = os.environ.get('NWP_TJANST_MODELL') or 'claude-opus-5-5'
+FRIST = int(os.environ.get('NWP_TJANST_FRIST') or 2700)
+MAX_TURER = int(os.environ.get('NWP_TJANST_MAX_TURER') or 150)
 
 
 def kor_session(tjanst, prompt, logg, modell, frist=FRIST):
@@ -171,7 +175,7 @@ def kor_session(tjanst, prompt, logg, modell, frist=FRIST):
     if p_.parents[4] == meddelanden.UNDERLAG.resolve():  # projektets paus: ingen tjänstesession startar bakom den (arbetsytan, B4)
         meddelanden.vanta_vid_start(p_.parents[3].name)
     claude = os.environ.get('NWP_CLAUDE') or 'claude'
-    args = [claude, '-p', '--max-turns', '90', '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
+    args = [claude, '-p', '--max-turns', str(MAX_TURER), '--permission-mode', 'dontAsk', '--output-format', 'stream-json', '--verbose',
             '--setting-sources', 'project,local', '--strict-mcp-config', '--mcp-config', str(MCP / ('%s.json' % tjanst)),
             '--model', modell, '--effort', 'high', '--json-schema', json.dumps(SCHEMA),
             '--settings', kundvakt.installningar(p_.parents[3].name, p_.parents[4]), '--allowedTools', 'ToolSearch',

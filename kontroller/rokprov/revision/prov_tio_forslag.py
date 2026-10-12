@@ -303,8 +303,10 @@ class Uppdragsfixtur(unittest.TestCase):
                     skriv(mal / 'bilder' / 'start' / f.name, f.read_bytes())
             return mal
 
-        def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, blind=None):
-            self.sessioner.append({'prompt': prompt, 'verktyg': list(verktyg), 'schema': schema, 'nekas': list(nekas), 'blind': blind, 'modell': modell})
+        def session(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, blind=None,
+                    webb=False):
+            self.sessioner.append({'prompt': prompt, 'verktyg': list(verktyg), 'schema': schema, 'nekas': list(nekas), 'blind': blind, 'modell': modell,
+                                   'effort': effort, 'webb': webb})
             so = None
             if schema is kd.FORE_EFTER_SCHEMA:
                 so = self.fore_efter_svar
@@ -424,8 +426,13 @@ class RattRollFarRattUnderlag(Uppdragsfixtur):
         self.assertTrue(any(n.startswith('Read(') and n.endswith('kandidater/k01/versioner/**)') for n in s['nekas']), 'granskaren når versionernas kod')
         self.assertFalse([v for v in s['verktyg'] if str(v).startswith(('Write(', 'Edit('))])
         self.assertNotIn('RIKTNING.md', s['prompt'], 'skaparens förklaring nådde granskaren')
-        self.assertEqual(s['modell'], kd.GRANSKARE_MODELL)
+        # domen avgör återställning: skaparens modell på max, inte granskarens mindre (ägarens besked 2026-10-12)
+        self.assertEqual((s['modell'], s['effort']), (atelje.MODELL, 'max'))
+        self.assertNotEqual(s['modell'], kd.GRANSKARE_MODELL)
         self.assertIn('fore_efter', kompetens.BLINDA)
+        self.assertFalse(s['webb'], 'den blinda granskaren får ingen webb')
+        upp = [x for x in self.sessioner if x['schema'] is None]
+        self.assertTrue(upp and all(x['webb'] for x in upp), 'förfiningens session får webben genom kundvakten')
 
     def test_uppdraget_bar_utgangspunkt_och_implementationsgrund(self):
         k = dict({f: '%s A' % f for f, _r in kd.PLANFALT}, titel='A', referensbilder=['underlag/x/referenser/a.png'],

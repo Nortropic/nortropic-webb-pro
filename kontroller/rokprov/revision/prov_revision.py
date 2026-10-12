@@ -3892,10 +3892,20 @@ finally:
 # (8) skrivrätten och nätet: utforskningen skriver inte ateljékatalogen fritt; npm bara typsnittspaket; inga frågesträngar
 vu_ = at_pt.utforska_verktyg('pt-prov')
 assert not any(v.endswith('/atelje/**)') for v in vu_) and 'Write(./underlag/pt-prov/atelje/RIKTNINGAR.md)' in vu_ and 'Bash(.venv/bin/python kontroller/typsnitt.py pt-prov *)' in vu_, vu_
-# omgranskningen, fynd 8: inget npm, npx eller node direkt; paket bara genom typsnitt.py och byggen bara genom förhandsvisningen
+# omgranskningen, fynd 8, ändrad av ägarens besked 2026-10-12 (fria tyglar): den äldre utforskningen har fortfarande inget
+# npm eller node i sin tillåtelse, men npm, npx och node nekas inte längre i NEKAS; kandidatflödets skapare installerar
+# paket i sitt eget projekt genom kandidater.py --paket (exakt version, inga paketskript) och skriver package.json,
+# låset, konfigurationen och public/; byggen går fortfarande bara genom förhandsvisningen
 for v_ in (vu_, at_pt.forfina_verktyg('pt-prov')):
     assert not any(x.startswith(('Bash(npm', 'Bash(npx', 'Bash(node')) for x in v_) and 'Bash(.venv/bin/python kontroller/forhandsvisa.py pt-prov *)' in v_, v_
-assert {'Bash(npm *)', 'Bash(npx *)', 'Bash(node *)'} <= set(at_pt.NEKAS)
+assert not {'Bash(npm *)', 'Bash(npx *)', 'Bash(node *)'} & set(at_pt.NEKAS)
+kv_pt = __import__('kandidater').verktyg('pt-prov', 'k01')
+for r_ in ('Bash(.venv/bin/python kontroller/kandidater.py pt-prov --paket k01 *)', 'Write(./kunder/pt-prov/kandidater/k01/sajt/package.json)',
+           'Edit(./kunder/pt-prov/kandidater/k01/sajt/astro.config.mjs)', 'Write(./kunder/pt-prov/kandidater/k01/sajt/public/**)',
+           'Write(./kunder/pt-prov/kandidater/k01/sajt/package-lock.json)', 'Edit(./kunder/pt-prov/kandidater/k01/sajt/tsconfig.json)',
+           'Write(./kunder/pt-prov/kandidater/k01/sajt/components.json)'):
+    assert r_ in kv_pt, (r_, kv_pt)
+assert not any(x.startswith(('Bash(npm install', 'Bash(npx', 'Bash(node')) for x in kv_pt), kv_pt  # installationen bara genom --paket
 # omgranskning 3, fynd 3: skaparens och domarnas sessioner nekas hemligheterna (sandlådans lista; ägarens egna regler läses inte)
 hem_ = os.path.expanduser('~').strip('/')
 for r_ in ('Read(//%s/.nortropic-hemligheter/**)' % hem_, 'Read(//%s/.ssh/**)' % hem_, 'Read(//%s/.claude.json)' % hem_, 'Read(//**/.env)', 'Read(//**/*.pem)'):
@@ -4513,7 +4523,8 @@ try:
     # granskningen i två pass: det första är blint för uppdraget och anteckningarna, det andra läser dem
     ka_ = [s_ for s_ in sess_kd if s_['schema'] is kd.KRITIK_A_SCHEMA]
     assert ka_ and all(any(n_.endswith('/RIKTNING.md)') for n_ in s_['nekas']) and any(n_.endswith('/UPPDRAG.md)') for n_ in s_['nekas']) for s_ in ka_)
-    assert all('RIKTNING.md' not in s_['prompt'] for s_ in ka_) and all(s_['modell'] == kd.GRANSKARE_MODELL for s_ in ka_) and 'BRIEF.md' in ka_[0]['prompt']
+    assert all('RIKTNING.md' not in s_['prompt'] for s_ in ka_) and all(s_['modell'] == kd.GRANSKARE_MODELL for s_ in ka_) and 'BRIEF.md' in ka_[0]['prompt'], \
+        [(s_['modell'], [r_ for r_ in s_['prompt'].splitlines() if 'RIKTNING.md' in r_][:3]) for s_ in ka_]
     assert all('RIKTNING.md' in s_['prompt'] for s_ in sess_kd if s_['schema'] is kd.KRITIK_B_SCHEMA)
     ka2_ = [s_ for s_ in ka_ if 'kandidater/k02/bilder' in s_['prompt']][-1]  # granskningen efter förbättringsrundan
     for n_ in ('STATUS.json', 'svar-skapa-1.json', 'svar-forbattra.json', 'KRITIK-fore.json', 'svar-kritik-b-1.json', 'versioner/**'):
@@ -5154,7 +5165,11 @@ try:
     finally:
         thr_sk.excepthook = spara_hook_sk
     forskn_sk = (kd.FORSKA_SCHEMA_SKISS, kd.FORSKA_SCHEMA_SKISS_BRED)
-    assert any(s_['schema'] in forskn_sk for s_ in sess_sk) and all(s_['webb'] == (s_['schema'] in forskn_sk) for s_ in sess_sk), 'bara researchen får webben'
+    # webben: researchen och, sedan ägarens besked 2026-10-12 (fria tyglar), skaparens sessioner (utan schema) genom
+    # kundvakten; planen, planprövningen och kritiken får den inte
+    webbsess_sk = lambda s_: s_['schema'] in forskn_sk or (s_['schema'] is None and kd.SKAPARWEBB)  # noqa: E731
+    assert any(s_['schema'] in forskn_sk for s_ in sess_sk) and any(s_['schema'] is None for s_ in sess_sk)
+    assert all(s_['webb'] == webbsess_sk(s_) for s_ in sess_sk), [(s_['schema'] is None, s_['webb']) for s_ in sess_sk if s_['webb'] != webbsess_sk(s_)][:4]
     assert kd.las_status(sl_sk, 'k05')['status'] == 'under_arbete'
     # R01 (GR-20261008-06af6ff-omgranskning-codex): k02:s omplanering gav inget användbart uppdrag; kandidaten stoppas med sitt
     # skäl, och ingen skapare startar med det förkastade uppdraget (bara den lyckade k03 omplaneras)
@@ -5299,7 +5314,7 @@ try:
                  'Granskaren rekommenderade att förkasta riktningen.\nEfter kritiken behöll jag riktningen.\nBedömningen att riktningen var generisk.\n'
                  '\n### Granskningen\n\nGRANSKNINGENS ORD: generisk\n\n## Svar på granskningen\n\nJag står kvar.\n')
 
-    def sess_gk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None, blind=None):
+    def sess_gk_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), slug=None, vid_start=None, blind=None, webb=False):
         sess_gk.append({'prompt': prompt, 'schema': schema, 'nekas': list(nekas), 'frist': frist, 'ut': Path(ut).name, 'blind': blind})
         pages_ = kd.ksajt(sl_sk, 'k02') / 'src' / 'pages'
         so = None
@@ -5425,8 +5440,10 @@ try:
         assert (kd.ksajt(sl_sk, 'k02') / 'node_modules').exists(), 'återställningen rör aldrig node_modules'
         omgang_gk(svar_tidsgrans=True)
         st5b_gk = kd.las_status(sl_sk, 'k02')
-        assert st5b_gk['status'] == 'ofullstandig' and st5b_gk['skisskritik'].get('svaret_aterstallt') and 'räckte inte' in st5b_gk['skisskritik']['svarets_skal'], st5b_gk.get('skisskritik')
+        # kvittot redovisas och fäller inte skissen (ägarens besked 2026-10-12): den återställda skissen är klar och valbar
+        assert st5b_gk['status'] == 'klar' and st5b_gk['skisskritik'].get('svaret_aterstallt') and 'räckte inte' in st5b_gk['skisskritik']['svarets_skal'], st5b_gk.get('skisskritik')
         assert st5b_gk['kompetenskravbrister'], 'en avbruten session utan transkript är inte observerad, även när koden återställts'
+        assert kd.KVITTOVARNING in st5b_gk['skal'], st5b_gk['skal']
         assert (kd.ksajt(sl_sk, 'k02') / 'src' / 'pages' / 'index.astro').read_text() == '<h1>Skiss</h1><p>Köket före svaret.</p>'
         assert not st5b_gk['forsok_tider'][-1]['tidsgrans'], 'svarets tidsgräns gör inte försöket till en tidsgräns: skissen före svaret är hel'
         spara_kor_gk, fall_gk = prova.kor, [True]
@@ -5622,7 +5639,7 @@ def ater_kp_(slug, kid, v):
         raise RuntimeError('bygget föll vid återställningen')
     return kd.satt_status(slug, kid, 'klar', 'återställd', version=v, axe={'allvarliga': 0})
 
-def sess_kp_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
+def sess_kp_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None, webb=False):
     prompt_kp.append(prompt)
     pass_ = next(k_ for k_, n_ in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n_ in prompt)
     filer_ = kd.kompetens.lasfiler(pass_) + kd.kompetens.efterfiler(pass_)
@@ -5670,23 +5687,23 @@ try:
                    session_pid=os.getpid())
     st_kp = kd.kompetenspass(sl_kp, 'k01', 'rorelse', 'fordjupa:c', dom_kp)
     assert ater_kp[-1] == 'v5b' and st_kp['kompetens']['fordjupa:c:rorelse']['genomford'] and 'pass_pagar' not in st_kp, st_kp
-    # ett pass som inte läste hela kärnan får ett omförsök från versionen före passet (R02 i GR-20261008-06af6ff-omgranskning-codex):
-    # det första försökets ändringar återställs, och bara omförsökets session räknas; den nya sessionen läser hela kärnan
+    # ett pass som inte läste hela kärnan: sedan ägarens besked 2026-10-12 ("Insatsen räknas, inte läsningen") redovisas
+    # bristen som varning, och passet får varken ett omförsök eller en återställning (ersätter R02 i
+    # GR-20261008-06af6ff-omgranskning-codex); insatsen (ny version, prövat beteende med bild, observerat verktyg) avgör
     las_kp['saknas_forsta'] = True
-    v_fore_d = kd.las_status(sl_kp, 'k01')['version']
     foto_kp.update(version='v8')  # passet ändrade koden: en ny version (samma version och en tom ingen_andring vore ej genomfört)
     n_ater_d = len(ater_kp)
     st_kp = kd.kompetenspass(sl_kp, 'k01', 'granskning', 'fordjupa:d', dom_kp)
     r_d = st_kp['kompetens']['fordjupa:d:granskning']
-    assert (d_kp / 'svar-pass-fordjupa-d-granskning-2.json').is_file() and r_d['genomford'], r_d['kvitto']
-    assert ater_kp[n_ater_d:n_ater_d + 1] == [v_fore_d] and r_d['kasserade_forsok'][0]['aterstalld_till'] == v_fore_d and r_d['kasserade_forsok'][0]['saknade'], r_d.get('kasserade_forsok')
-    assert len(r_d['kvitto']['per_session']) == 1 and 'Dess ändringar är återställda' in prompt_kp[-1] and 'hela rollens kärna' in prompt_kp[-1], r_d['kvitto'].get('per_session')
-    # omförsöket som bara läser det som saknades: den nya sessionen saknar resten av kärnan, och passet är inte genomfört (R02)
+    assert not (d_kp / 'svar-pass-fordjupa-d-granskning-2.json').is_file() and r_d['genomford'], r_d['kvitto']
+    assert ater_kp[n_ater_d:] == [] and r_d['kasserade_forsok'] == [] and r_d['kvitto']['saknas'], (ater_kp[n_ater_d:], r_d.get('kasserade_forsok'))
+    assert any('kärnan saknas' in x_ for x_ in r_d['kompetenskravbrister']) and kd.KVITTOVARNING in r_d['varning'], r_d['kompetenskravbrister']
+    assert len(r_d['kvitto']['per_session']) == 1 and 'Förra försöket saknade' not in prompt_kp[-1], r_d['kvitto'].get('per_session')
     las_kp['bara_saknade'] = True
     foto_kp.update(version='v8b')
     st_kp = kd.kompetenspass(sl_kp, 'k01', 'granskning', 'fordjupa:d2', dom_kp)
     r_d2 = st_kp['kompetens']['fordjupa:d2:granskning']
-    assert r_d2['genomford'] is False and r_d2['kvitto']['saknas'] and r_d2['kvitto']['per_session'][0]['saknas'], r_d2['kvitto']
+    assert r_d2['genomford'] is True and r_d2['kvitto']['saknas'] and r_d2['kvitto']['per_session'][0]['saknas'], r_d2['kvitto']
     las_kp['bara_saknade'] = False
     kd.satt_status(sl_kp, 'k01', 'forfinad', 'förfinad', version='v8')  # läget före nästa fall, som före omförsöksfallen
     las_kp['saknas_forsta'] = False

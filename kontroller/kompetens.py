@@ -604,15 +604,18 @@ def prompt_rader(pass_, slug, kid=None, k=None):
                       'halva: när sidan har renderats aktiverar du de skillsen och läser filerna hela, gör granskningen på den renderade',
                       'sidan, ändrar det den visar och renderar igen. Den är ingen valfri specialist och ersätter aldrig kärnan före koden.']
     rader += ['Lokala processvillkor gäller även när en skill laddas: ingen svarar i denna session; uppdraget är svaret.',
-              'Skills med rubriken Initial Response läses bara med Read, aldrig med Skill. Deras kunskap används,',
-              'men det inledande väntesvaret och krav på nya användarsvar utförs inte.']
+              'Emils skills aktiveras med Skill som andra skills (ägarens besked 2026-10-12); deras rubrik Initial Response',
+              '(väntesvaret och frågorna till användaren) utförs inte: ställ inga frågor, och redovisa antagandena i ditt arbete.']
+    if vantande_skills():
+        rader += ['Andra skills med rubriken Initial Response läses bara med Read, aldrig med Skill. Deras kunskap används,',
+                  'men det inledande väntesvaret och krav på nya användarsvar utförs inte.']
     if pass_ in ('skapa', 'fordjupa'):
         rader += ['Varven: inget minsta antal i något läge (ägarens uppdrag 2026-10-09). Varje varv är en observerad brist, en ändring',
                   'och en efterkontroll; två varv i rad utan synlig förbättring är rundgång och ett skäl att sluta eller byta grundidé.',
                   'En extern skills varvtak ersätter inte detta, och antal varv bevisar inte kvalitet.']
     elif pass_ in ('rorelse', 'granskning'):
         rader += ['Detta avgränsade specialistpass: rätta i en samlad omgång, bekräfta högst en gång till.']
-    rader += ['En aktiverbar SKILL.md aktiverar du med Skill-verktyget, med undantaget för Initial Response ovan; varje referensfil läses HEL med Read.',
+    rader += ['En aktiverbar SKILL.md aktiverar du med Skill-verktyget (raderna nedan säger vilka som läses i stället); varje referensfil läses HEL med Read.',
               'En aktivering som nekas eller misslyckas redovisas innan beroende arbete fortsätter.',
               'Ett lyckat anrop eller en hel läsning visar laddningen, aldrig tillämpningen eller designkvaliteten.']
     for x in roller:
@@ -642,7 +645,8 @@ def prompt_rader(pass_, slug, kid=None, k=None):
         if x.get('mcp_krav'):
             rader.append('- obligatorisk undersökning före nästa steg: ' + ', '.join(x['mcp_krav']) +
                          '. Gör generiska sökningar, inspektera resultaten och redovisa vad som valdes eller förkastades och varför.'
-                         ' Saknad åtkomst, tomma eller misslyckade resultat är en uppgiftsbrist, aldrig ett genomfört steg.')
+                         ' Saknad åtkomst, ett avbrott eller ett tomt resultat skrivs som det är, en varning och aldrig ett genomfört'
+                         ' steg, och arbetet fortsätter med det som finns (ägarens besked 2026-10-12).')
         if '21st' in x['mcp']:
             rader.append('- 21st: katalogens styrka är marknadsföringsblocken (heroes, features, galleri och portfolio, testimonials,'
                          ' calls to action, pricing och meny, navbars, footers, bakgrunder och shaders, texteffekter) och biblioteken'
@@ -660,8 +664,16 @@ def prompt_rader(pass_, slug, kid=None, k=None):
     return rader
 
 
+# K46 var självpåtaget (kunskap/skillkrockar.md; BESLUT.md 2026-10-08: "inte ett nytt ägarbeslut"), och ägarens besked
+# 2026-10-12 (fria tyglar) släpper Emils skills till Skill-verktyget: de aktiveras som andra skills, och promptens
+# processvillkor (ingen svarar; inga frågor; antagandena redovisas i arbetet) ersätter nekandet. Andra skills med Initial Response
+# läses som förut. Källan har själv gjort tre Emil-skills användaranropade (disable-model-invocation, anvandaranropade):
+# dem vägrar Skill-verktyget fortfarande, och de läses hela.
+SLAPPTA_VANTANDE = ('emil-',)
+
+
 def vantande_skills(root=None):
-    """K46: väntande skillflöden läses som kunskap, de anropas inte i en obevakad session.
+    """K46: väntande skillflöden läses som kunskap, de anropas inte i en obevakad session (utom SLAPPTA_VANTANDE).
 
     Både mappens och frontmatterns namn nekas, med och utan argument. Inga upstream-
     filer ändras och Read förblir tillgängligt. Detta prövar argumenten, inte en verklig
@@ -669,6 +681,8 @@ def vantande_skills(root=None):
     """
     ut = {}
     for f in sorted((Path(root or ROOT) / '.claude/skills').glob('*/SKILL.md')):
+        if f.parent.name.startswith(SLAPPTA_VANTANDE):
+            continue
         text = f.read_text(encoding='utf-8')
         if not re.search(r'^##[ \t]+Initial Response[ \t]*$', text, re.M):
             continue
@@ -900,6 +914,9 @@ def kravbrister(kv, pass_, k=None):
     (disable-model-invocation; de läses hela). Ett
     saknat transkript är okänt och får inte passera som komplett kompetens.
     MCP-krav kommer ur rollens mcp-krav, inte ur hela listan av möjligheter.
+    Bristerna är redovisning (ägarens besked 2026-10-12: "Insatsen räknas, inte läsningen … Det fäller inte en version för
+    oläst material"): skapandeflödet visar dem som varning (kandidater.KVITTOVARNING, korslut) och låter dem aldrig göra en
+    skiss ovalbar, neka ägarens godkännande, kasta en förfining, stoppa researchen eller underkänna helbygget.
     """
     if not isinstance(kv, dict) or not kv.get('verifierad') or kv.get('ofullstandig'):
         return ['kompetensen är inte fullständigt observerad: transkript saknas']

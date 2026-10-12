@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Före/efter-domen kräver observerad rollkompetens och bilder; helt syntetiska sessioner."""
+"""Före/efter-domen kräver bevisligen lästa bilder; rollkompetensens kvitto redovisas som varning och avgör inte
+(ägarens besked 2026-10-12, kandidater.KVITTOVARNING). Domen avgör återställning och körs därför med skaparens modell på
+max, inte granskarens mindre. Helt syntetiska sessioner."""
 import contextlib
 import json
 import os
@@ -54,7 +56,7 @@ class ForeEfterKompetens(unittest.TestCase):
                     (p / ('vy-%s-%s.png' % (bredd, vy))).write_bytes(png(katalog))
         self.stack.enter_context(patch.multiple(kd, fore_efter_prompt=lambda *a: 'syntetiskt',
             blind_nekas=lambda *a: [], blind_tillatet=lambda *a: self.tmp / 'blind.json'))
-        self.stack.enter_context(patch.object(atelje, 'session', return_value={
+        self.session = self.stack.enter_context(patch.object(atelje, 'session', return_value={
             'session_id': 'syntetisk', 'structured_output': {'totalt': 'likvardiga', 'skal': 'syntetiskt', 'fynd': [], 'omraden': []}}))
         self.lasning = self.stack.enter_context(patch.object(bildkedja, 'lasning', return_value={
             'verifierad': True, 'grupper': {g: {'saknas': [], 'kravda': 4, 'lasta': 4} for g in ('X', 'Y')}}))
@@ -63,12 +65,22 @@ class ForeEfterKompetens(unittest.TestCase):
     def kor(self):
         return kd.fore_efter(self.slug, self.kid, 'fore', 'efter')
 
-    def test_saknad_kompetens_ger_ingen_styrande_dom(self):
+    def test_saknad_kompetens_redovisas_och_bildernas_dom_galler(self):
         self.kvitto.return_value = {'verifierad': False}
         post = self.kor()
-        self.assertEqual(post['utfall'], 'oklart')
+        self.assertEqual(post['utfall'], 'likvardig', 'kvittot avgör inte domen; de lästa bilderna gör det')
         self.assertTrue(post['kompetenskravbrister'])
-        self.assertEqual(kd.fore_efter_regel({}, post, {})[0], 'oklart')
+        self.assertIn(kd.KVITTOVARNING, post['skal'])
+        self.assertEqual(kd.fore_efter_regel({}, post, {})[0], 'fora_vidare')
+        self.assertTrue(kd.fore_efter_giltig(post, 'fore', 'efter'))
+
+    def test_domen_kors_med_skaparens_modell_pa_max(self):
+        self.kor()
+        a = self.session.call_args.args
+        self.assertEqual((a[5], a[6]), (kd.fore_efter_modell(), 'max'))
+        self.assertEqual(kd.fore_efter_modell(), atelje.MODELL)
+        self.assertNotIn('sonnet', a[5])
+        self.assertGreaterEqual(kd.FRIST_FORE_EFTER, 1200)
 
     def test_saknad_bildobservation_ger_ingen_styrande_dom(self):
         self.lasning.return_value = None
