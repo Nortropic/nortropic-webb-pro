@@ -86,9 +86,9 @@ integritetssidan byggs i demon; mottagaren med mejl och spamspärr kommer vid la
 
 | Punkt | Fas | Prövas av |
 |---|---|---|
-| 6.1 Ett formulär med få fält (namn, telefon, vad besökaren vill ha hjälp med, valfri bild); det valfria märks, resten krävs. Telefonen får inte vara enda vägen. | D | `standard`, granskaren |
+| 6.1 Ett formulär med få fält (namn, telefon, vad besökaren vill ha hjälp med, valfri bild); det valfria märks, resten krävs. Telefonen får inte vara enda vägen. Telefonfältet har en hjälptext om varför och när ni ringer, och bildfältet typ och storlek före valet (GOV.UK, Telephone numbers och File upload; mallens `telefonHjalp` och `bildHjalp`). | D | `standard`, granskaren |
 | 6.2 `type="tel"`, inputmode, autocomplete och `pattern` (bokstäver går inte igenom); svenska felmeddelanden som text vid fältet med `aria-describedby`, inte bara webbläsarens bubbla (WCAG 3.3.1). | D | `standard`, `axe` |
-| 6.3 Vanlig POST till `/api/forfragan/` fungerar utan JS; knappen låses under sändning; tacksidan säger vad som händer härnäst och när. | D formulär och tacksida, L mottagare | `standard`, demomottagaren |
+| 6.3 Vanlig POST till `/api/forfragan/` fungerar utan JS; knappen låses under sändning; tacksidan säger vad som händer härnäst och när, och ger en kontaktväg om det brådskar (GOV.UK, Confirmation pages). | D formulär och tacksida, L mottagare | `standard`, demomottagaren |
 | 6.4 Servern validerar allt igen, begränsar längd, escapar i mejlmallen. | L | lansering |
 | 6.5 Spamskydd i lager: honeypot och tidsfälla i formuläret; rate limit och Turnstile i mottagaren. | D fällor, L resten | `standard`, lansering |
 | 6.6 Inskicket sparas före sändning och gallras efter integritetssidans lagringstid; transaktionsmejl med SPF, DKIM och DMARC; "skickat" först när mejlet accepterats. Mottagningsbeskedet skiljer bekräftad lagring från okänd avisering; utan lagringskvitto påstås aldrig mottaget. Återhämtning och svar följer `kunskap/forfragan.md`, Vid lansering; mottagen-sidan (sparad, ej aviserad) är förrenderad och nås med 303, aldrig som svar på POST-adressen. | L | lansering |
