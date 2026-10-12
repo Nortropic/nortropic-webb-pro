@@ -5525,6 +5525,9 @@ fäller."
   aldrig kundens färger, typsnitt, komposition eller personlighet. I bandet: underlaget skiljer branschsajter för
   förståelse från inspirationssajter för gestaltningsmöjligheter, art direction och kritiken frågar om designen själv
   visar varför riktningen passar kunden, och kritiken mäter precisionen på ägarens nivå, inte ägarens stil.
+  Ägarens besked samma kväll (ankomst före 2026-10-12T20:08:42Z, ordagrant i MATTSTOCK.md): "Nivån är satt genom mitt
+  Apple/Nike-besked (MATTSTOCK.md). De tio sajterna i "Visa mig nivån" ska jag inte döma". Uppgiften är struken, och
+  måttstocken väntar inte på domar.
 
 ## Tillägg 2026-10-12: full inventering av skills, MCP:er och verktyg
 

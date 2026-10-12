@@ -4,8 +4,8 @@ Frågorna som ds_kritik (designfasen, `kunskap/claude-design.md`) och den blinda
 version i 390, 768 och 1440, efter kvalitetskraven (`kunskap/designregler.md`) och byggstandarden. Underlaget är
 researchpasset 2026-10-12 (ägarens tillägg om best practice; källorna med datum står där och i slutrapporten). En
 modells blick på bilder är en expertbedömning, inte en mätning av hur människor uppfattar sidan på 50 ms, och domen är
-en AI-bedömning, aldrig ägarens. Ägarens måttstock ur "Visa mig nivån" går före när den finns
-(`underlag/niva/MATTSTOCK.md`, privat).
+en AI-bedömning, aldrig ägarens. Ägarens kvalitetsribba går före (`underlag/niva/MATTSTOCK.md`, privat): nivån är satt
+genom ägarens Apple/Nike-besked 2026-10-12, precisionen på den nivån och inte ägarens stil.
 
 **K** = källan säger det. **T** = vår tolkning av källan.
 

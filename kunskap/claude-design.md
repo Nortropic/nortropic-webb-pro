@@ -157,8 +157,9 @@ på annat sätt förs in som manuell överlämning (`designfas.py svar … --utf
 
 **Den kritiska granskaren.** ds_kritik kan köras med Fable 5.1 på max (`designfas.py specialist <slug> B00N --modell
 claude-fable-5-1`; standardmodellen och ansträngningen är ateljéns) på betydande versioner. Den bedömer mot
-kvalitetskraven och standarden och, när ägaren gett den, ägarens måttstock ur "Visa mig nivån"
-(`underlag/niva/MATTSTOCK.md`). Dess dom är en AI-bedömning, märkt så, och ändrar aldrig designen av sig själv.
+kvalitetskraven och standarden och ägarens kvalitetsribba (`underlag/niva/MATTSTOCK.md`, privat): nivån är satt genom
+ägarens Apple/Nike-besked 2026-10-12, som ledtrådar till precisionen och inga mallar, och väntar inte på domar över
+enskilda sajter (ägarens besked samma kväll). Dess dom är en AI-bedömning, märkt så, och ändrar aldrig designen av sig själv.
 
 ## Designsystemet
 

@@ -53,7 +53,7 @@ VERSION = re.compile(r'^v(\d{2,3})$')
 BEST = re.compile(r'^B(\d{3})$')
 KANVAS = re.compile(r'^https://claude\.ai/(?:code/)?artifact/[A-Za-z0-9-]{10,64}$')
 BREDDER = (390, 768, 1440)
-MATTSTOCK = UNDERLAG / 'niva' / 'MATTSTOCK.md'  # ägarens domar ur "Visa mig nivån" (ägarens val 2026-10-12)
+MATTSTOCK = UNDERLAG / 'niva' / 'MATTSTOCK.md'  # ägarens kvalitetsribba, satt genom Apple/Nike-beskedet (ägarens besked 2026-10-12)
 SPARR = ('designfasen i Claude Design är aktiv för %s (underlag/%s/design/DESIGNFAS.json): Code gör research, material, '
          'specialistbedömningar och kontroller, men ingen egen kunddesign; skissen, förfiningen och uppdragen görs på duken av '
          'den utsedda utföraren (kunskap/claude-design.md)')
@@ -608,10 +608,11 @@ def specialist_prompt(slug, b, underlag=None):
         ' och TEXTUNDERLAG.md. Sanning: varje namn, tal och påstående om verksamheten har belägg där. Designreglerna:' % u,
         'kunskap/designregler.md (företrädet: kvalitetskrav, ägarbeslut, kundens behov, hypoteser; en skills standardråd sist).',
         *(['Du bedömer som en besökare: läs inte utförarens anteckningar, beställningens historik eller andra versioner.',
-           ('Ägarens måttstock: %s (ägarens egna domar över webbplatser som når eller inte når nivån). Jämför versionen med den '
-            'och säg för varje dom vilken sajt du jämför med och vad i bilderna jämförelsen bygger på.' % rel(MATTSTOCK))
+           ('Ägarens måttstock: %s, läs den hel. Nivån är satt genom ägarens besked: Apple och Nike är ledtrådar till '
+            'kvalitetsribban, inte mallar; bedöm precisionen på den nivån, inte ägarens stil, och om designen själv visar varför '
+            'riktningen passar kunden. Säg vad i bilderna bedömningen bygger på.' % rel(MATTSTOCK))
            if MATTSTOCK.is_file() else
-           'Ägarens måttstock ur "Visa mig nivån" finns inte än: din ribba är kvalitetskraven, standarden och litteraturen, inte ägarens smak; säg det i sammanfattningen.',
+           'Ägarens måttstock (underlag/niva/MATTSTOCK.md) saknas i den här miljön: din ribba är kvalitetskraven, standarden och litteraturen; säg det i sammanfattningen.',
            'Besvara granskningsfrågorna i kunskap/granskningsfragor.md (läs filen hel), var och en med bredden och bilden svaret bygger på.',
            'Din dom är en AI-bedömning: skriv den som din, aldrig som ägarens, och ändra ingenting.'] if kritik else []),
         '',
