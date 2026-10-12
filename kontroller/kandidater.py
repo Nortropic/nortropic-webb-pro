@@ -537,7 +537,9 @@ def forbered_projekt(slug, kid):
         raise RuntimeError('kunder/%s/sajt saknas eller saknar node_modules: kör kontroller/ny_sajt.py %s --installera' % (slug, slug))
     atelje.saker_vag(huvud, atelje.KUNDER / slug)
     mal.mkdir(parents=True, exist_ok=True)
-    for namn in ('package.json', 'astro.config.mjs', 'tsconfig.json'):
+    # också mallens shadcn-grund (components.json) och npm-inställningarna (.npmrc: exakt version), så att skaparens
+    # komponenter och paket i kandidaten följer samma ordning som sajten (ägarens besked 2026-10-12)
+    for namn in ('package.json', 'astro.config.mjs', 'tsconfig.json', 'components.json', '.npmrc'):
         if (huvud / namn).is_file() and not (huvud / namn).is_symlink():
             shutil.copyfile(huvud / namn, mal / namn)
 
