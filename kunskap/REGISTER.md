@@ -6704,6 +6704,29 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: mekanik prövas separat; kvalitet och verklig effektiv konfiguration ännu oprövade.
 - Backlog: B-20261002-effort-medium-mot-high-i-ett-a-b (återanvänd mekanik, dess historiska klarmarkering är inte ett effektresultat).
 
+### 2026-10-13 · jakubkrehel/skills, state-machine (och better-skillsen till c0588bb) · ja, på ägarens mandat
+- Källa: https://github.com/jakubkrehel/skills @ c0588bb6d654eb725046f0bf9deec338c34891ab (2026-10-10, plugin.json
+  1.10.3), MIT; lästa: `skills/state-machine/` hela (SKILL.md, switcher.md, agents/openai.yaml) och diffarna från
+  267330e och eaf8d1b till c0588bb för better-accessibility, -colors, -interface, -layout, -typography, -ui, -writing,
+  explain-interface och variant.
+- Steg: designfasens band, station formular (state-machine); de nio uppdaterade skillsen där de redan står.
+- Jämfört med i dag: formulärstationen ritar felläget som interaktiv ritning (`kunskap/metodkarta.md`, Bandet:
+  stationerna), men inget i stationen sade hur varje tillstånd tas fram och prövas var för sig; state-machine skriver
+  tillstånden ur koden, renderar dem ett i taget bakom en väljare och prövar alla igen efter varje ändring. Bättre som
+  arbetssätt; oprövat hos oss.
+- Skäl: valideringen 2026-10-12 (better-*, avsnitt 2, åtgärd B1–B4) på ägarens mandat 2026-10-13 ("genomför
+  valideringarnas och regelinventeringens åtgärder"). B1: förorden flyttades till `NORTROPIC.md` så att SKILL.md står
+  ordagrant och underhållets sammanslagning inte krockar; B2: state-machine i formulärstationen; B3: källraderna i
+  better-break och better-interface-review; B4: peek-scrollerns calc (#32) rättad genom B1.
+- Kostnad: state-machine 3 336 token totalt (granska_repo.py), läses bara när stationen väljer den.
+- Säkerhet: förgranskningen LÅG för alla tio mappar vid c0588bb; inga dolda tecken, skript, behörigheter eller krokar.
+  Kända kommandon i texten: curl i explain-interface/no-browser.md (K49) och git i interface-review (K52).
+- Förslag: `.claude/skills/state-machine/` med KALLA.md; alternativ i stationen formular och i rollen granskning
+  (ds_granskning). build-design (med figma.md)
+  togs inte in: ett lyft till ägaren (valideringen, B2 och Figma).
+- Utfall: intagen 2026-10-13 på grenen `claude/better-skills-20261013`; prövas när en riktning med formulär går bandet.
+- Backlog: ingen
+
 ## 2026-10-08 — semantiska resor och obevakade skillvillkor
 
 - Källor: https://playwright.dev/docs/locators (roll, etikett, exakt namn och strictness); https://code.claude.com/docs/en/skills (Skill-tillåtelse med namn och argument); https://web.dev/articles/animations-guide (egenskapers layout/paint/compositing). Relevanta huvudavsnitt lästa 2026-10-08, ingen leverantörskod hämtad eller installerad.

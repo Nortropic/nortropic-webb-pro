@@ -467,7 +467,7 @@ KONCEPT.md.
    ovanpå (bilder, ord, plats, "Bara de har"), så skriv i JAMFORELSE.md vad som kopierades och vad som lades till.
    För luft och hierarki (dimension 4): gå igenom varje
    sida med better-layout i verktygslådan, och detaljerna med better-typography och better-ui, innan JAMFORELSE.md
-   skrivs.
+   skrivs. Husets tillämpning av varje better-skill står i mappens `NORTROPIC.md`; läs den med skillen.
    Två prov på första vyn: fungerar den lika bra om du tänker bort bilden, är bilden för svag; blir sidan bättre av
    att stryka en tredjedel av texten, stryk.
 6. **Oberoende granskning.** Kör `.venv/bin/python kontroller/granska.py <slug>` direkt efter ett snabbprov, med

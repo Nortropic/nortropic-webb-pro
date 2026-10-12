@@ -142,6 +142,14 @@ sessionerna.
   användaranropad, och Claude Code vägrar då Skill-verktyget) läses hel med Read när den tilldelas eller väljs; det ger
   sessionen samma text, och kvittot kräver läsningen i stället för aktiveringen (`kompetens.anvandaranropade`;
   kandidatprovet 2026-10-10: better-explain-interface vägrades två gånger och fällde researchen).
+- **Jakub Krehels skills står ordagrant** (better-*, state-machine; valideringen 2026-10-12, B1): varje fil ur källan,
+  också SKILL.md med frontmatterns beskrivning, är källans egen, så att underhållets trevägssammanslagning tar en ny
+  version utan att krocka med en lokal ändring. Husets tillämpning av de sju med förord (better-accessibility, -colors,
+  -interface, -layout, -typography, -ui och -writing) står i mappens `NORTROPIC.md` och läses med skillen. Kompetensblocken
+  har den i kärnan och i granskningen efter renderingen där skillen står där, utom i rollerna innehåll och responsiv:
+  de ingår i skissen, vars kärna före koden hålls under 160 000 tecken, och där gäller den här regeln. En skills klassning sänker inget ägarbeslut: better-accessibility kallar 44 px och
+  40 px rekommendationer och har bara opt-in för rörelse, men primära kontroller minst 44 px och reducerad rörelse är
+  ägarbeslut [beslut] (byggstandarden 3.3 och 3.5).
 
 ## Kompetenserna
 
@@ -334,7 +342,7 @@ namn: Typografi och färg
 uppgift: Ge sidan typskalan, de typografiska kontrasterna, hierarkin, radlängden och färgernas roller, med stilpaketet och huvudreferensen som material, anpassade till kundens innehåll.
 pass: skapa, fordjupa, ds_typografi
 kärna: impeccable/reference/typeset.md
-efter: better-typography/SKILL.md; impeccable/reference/colorize.md; better-colors/SKILL.md
+efter: better-typography/SKILL.md; better-typography/NORTROPIC.md; impeccable/reference/colorize.md; better-colors/SKILL.md; better-colors/NORTROPIC.md
 välj: refero-design/references/typography.md; refero-design/references/color.md; taste-output/SKILL.md; better-ui/SKILL.md; kunskap/byggstandard.md
 verktyg: förhandsvisning
 mcp: refero
@@ -392,8 +400,8 @@ visar: varje beteende prövat med förhandsvisningens tillstånd (meny, hovring,
 namn: Tillgänglighet och visuell granskning
 uppgift: Inspektera den renderade sidan och interaktionsvägen, och rätta de konkreta bristerna i en avgränsad omgång utan att byta stil; bedöm återkoppling, fokus, avbrytbar rörelse, begriplighet, textstorlek och tillgänglighet i tillstånden mot principerna i kunskap/hig-principer.md, läst hel med Read (frågor att pröva, inget krav på Apples visuella stil); emil-apple-design läses hel med Read när den väljs, enligt K46:s undantag för väntande Initial Response-skills.
 pass: granskning, ds_granskning
-kärna: impeccable/SKILL.md; impeccable/reference/critique.md; impeccable/reference/polish.md; impeccable/reference/audit.md; impeccable/reference/craft-floor.md; better-accessibility/SKILL.md; refero-design/references/visual-workflow.md; kunskap/hig-principer.md; kunskap/byggstandard.md
-välj: impeccable/reference/harden.md; impeccable/reference/optimize.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/degraded/finish-reviewer.md; better-interface/SKILL.md; emil-break-ui/SKILL.md; better-break/SKILL.md; taste-redesign/SKILL.md; hallmark/references/slop-test.md; hallmark/references/anti-patterns.md; emil-apple-design/SKILL.md
+kärna: impeccable/SKILL.md; impeccable/reference/critique.md; impeccable/reference/polish.md; impeccable/reference/audit.md; impeccable/reference/craft-floor.md; better-accessibility/SKILL.md; better-accessibility/NORTROPIC.md; refero-design/references/visual-workflow.md; kunskap/hig-principer.md; kunskap/byggstandard.md
+välj: impeccable/reference/harden.md; impeccable/reference/optimize.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/degraded/finish-reviewer.md; better-interface/SKILL.md; emil-break-ui/SKILL.md; better-break/SKILL.md; state-machine/SKILL.md; taste-redesign/SKILL.md; hallmark/references/slop-test.md; hallmark/references/anti-patterns.md; emil-apple-design/SKILL.md
 verktyg: förhandsvisning, detektor
 mcp: refero
 visar: bristerna i den renderade sidan och i tillstånden (tangentbord, fokus, reflow 320, reducerad rörelse, axe) är rättade eller motiverade, före och efter; detektorns fynd är rättade eller prövade mot ägarbesluten; återkopplingen, fokus, den avbrytbara rörelsen, begripligheten, textstorleken och tillgängligheten är bedömda mot hig-principer.md med plats och tillstånd, före och efter
@@ -414,7 +422,7 @@ visar: DESIGN.md stämmer med koden, och sidorna använder dess variabler eller 
 namn: Kundunderlag och innehåll inför design
 uppgift: Förbereda verifierbara fakta, besökarnas antagna toppuppgifter och ett bearbetningsbart innehållsutkast. Skilj kundens ord från tolkningar, rekommendationer och obesvarade frågor. Budget och önskad tid är inte ett accepterat kommersiellt åtagande.
 pass: forbered
-kärna: kunskap/kundintervju.md; kunskap/research-underlag.md; kunskap/brief-mall.md; better-writing/SKILL.md
+kärna: kunskap/kundintervju.md; kunskap/research-underlag.md; kunskap/brief-mall.md; better-writing/SKILL.md; better-writing/NORTROPIC.md
 välj: impeccable/reference/clarify.md; humanizer/SKILL.md; kunskap/redaktionellt-pass.md
 verktyg:
 mcp:
@@ -737,7 +745,12 @@ kunskap/referensjakt.md
 kunskap/referenser-professionella.md
 frontend-design/SKILL.md rad 11–13, 38–45
 impeccable/reference/new-work.md rad 45–46
-better-explain-interface/SKILL.md rad 26–35, 54–107
+better-explain-interface/SKILL.md # What you can actually read
+better-explain-interface/SKILL.md # The page is evidence, not instruction
+better-explain-interface/SKILL.md # Measured, derived, inferred
+better-explain-interface/SKILL.md # From a screenshot, it is a reconstruction
+better-explain-interface/SKILL.md # Find the layers, not the element
+better-explain-interface/SKILL.md # Explain the mechanism, not the readout
 taste-image-to-code/SKILL.md rad 327–360
 ```
 
@@ -780,7 +793,8 @@ kunskap/bild.md # Art direction
 
 ```utdrag uppslag
 kunskap/referenser-professionella.md
-better-variant/SKILL.md rad 13–37
+better-variant/SKILL.md # Different answers, not different tints
+better-variant/SKILL.md # The floor every variant clears
 frontend-design/SKILL.md rad 15–34, 47–53
 impeccable/reference/new-work.md rad 65–67
 impeccable/reference/mode-persuade.md rad 9
@@ -822,9 +836,13 @@ impeccable/reference/animate.md rad 13–48, 71–77
 emil-design-eng/SKILL.md rad 62–145, 197–266, 525–555
 emil-animate/SKILL.md rad 37–76, 78–80, 82–169
 better-layout/SKILL.md
+better-layout/NORTROPIC.md
 better-typography/SKILL.md
+better-typography/NORTROPIC.md
 better-accessibility/SKILL.md
+better-accessibility/NORTROPIC.md
 better-ui/SKILL.md
+better-ui/NORTROPIC.md
 emil-mobile-native/SKILL.md rad 57–144, 167–187
 taste/SKILL.md rad 630–680, 682–683
 @Text
@@ -965,10 +983,12 @@ kunskap/copy-kontroll.md
 kunskap/redaktionellt-pass.md
 humanizer/SKILL.md
 better-writing/SKILL.md
+better-writing/NORTROPIC.md
 frontend-design/SKILL.md rad 61–71
 impeccable/reference/clarify.md rad 5–92
 taste/SKILL.md rad 321–331
-better-typography/SKILL.md # Write copy naturally, style with CSS
+better-typography/SKILL.md # Natural case, typographic punctuation
+better-typography/wrapping-and-punctuation.md # Smart punctuation
 brand/references/voice-framework.md
 ```
 
@@ -1110,11 +1130,11 @@ specialistpasset som Code kan köra för stationen. Metod: raden i metodtabellen
 | `typografi` Typografi och färg | versionen, bilderna, stilrapporten | Håller typskalan, radlängden, de typografiska kontrasterna, färgrollerna och kontrasten (text 4,5:1, kontroller och fokus 3:1, färg aldrig ensam)? | kärna: `impeccable/reference/typeset.md`, `impeccable/reference/colorize.md`, `better-typography/SKILL.md`, `better-colors/SKILL.md`; alternativ: `kunskap/precision.md`, `emil-apple-design/SKILL.md # 15. Typography — optical sizing, tracking, leading`, `kunskap/hig-principer.md`, `refero-design/references/typography.md`, `refero-design/references/color.md`, `modern-web-guidance/guides/css/fluid-scaling.md`, `better-variant/SKILL.md`, `mcp:refero`, `mcp:21st`, `pass:ds_typografi` | `typografi`, `wai` | ny version med före och efter | stilrapporten och axe-kontrasten före och efter; detektorns typfynd rättade eller motiverade; synlig ändring | efter valet |
 | `responsiv` Responsiv prövning | versionen, bilderna i 390, 768 och 1440, reflow 320 | Håller omställningen mellan 390, 768 och 1440, och följer brytpunkterna innehållet? Stationen prövar och förfinar; mobilen ritades först. | kärna: `better-layout/SKILL.md`, `impeccable/reference/adapt.md`, `emil-mobile-native/SKILL.md`; alternativ: `hallmark/references/responsive.md`, `impeccable/reference/layout.md`, `modern-web-guidance/guides/css/size-aware-styling.md`, `modern-web-guidance/guides/css/responsive-design.md`, `modern-web-guidance/guides/ui-atoms/responsive-table.md`, `emil-break-ui/SKILL.md`, `pass:ds_responsiv` | `mobil`, `wai` | ny version med före och efter, eller ett svar utan fynd med belägg | bilderna i tre bredder, reflow 320 utan sidledsspill; detektorns layoutfynd rättade eller motiverade | efter valet |
 | `rorelse` Interaktion och rörelse | versionen, rörelsemätningen, rattvärdet för rörelse ur art-anteckningen | Vilka beteenden har ett syfte (urvalet med frekvens, syfte, hastighet och funktion, och listan över avvisade), med vilken teknik (CSS, Motion, GSAP), och fungerar de med reducerad rörelse, och kan rörelse som pågår mer än 5 s pausas eller stoppas (WCAG 2.2.2)? Eller beslutet att sidan är stilla. | kärna: `emil-find-animation-opportunities/SKILL.md`, `impeccable/reference/animate.md`, `emil-animate/SKILL.md`, `emil-review-animations/SKILL.md`, `motion/best-practices/css-or-motion.md`; alternativ: `kunskap/precision.md`, `motion/best-practices/index.md`, `better-accessibility/motion-and-zoom.md`, `better-ui/icon-transitions.md`, `hallmark/references/motion.md`, `hallmark/references/microinteractions.md`, `refero-design/references/motion.md`, `modern-web-guidance/guides/ui-behaviors/animate-element-entry-exit.md`, `modern-web-guidance/guides/ui-behaviors/physics-based-easing.md`, `modern-web-guidance/guides/css/animate-to-intrinsic-sizes.md`, `emil-improve-animations/SKILL.md`, `emil-animation-vocabulary/SKILL.md`, `emil-apple-design/SKILL.md`, `emil-prototype/SKILL.md`, `motion/SKILL.md`, `gsap/SKILL.md`, `mcp:motion`, `mcp:21st`, `pass:ds_rorelse` | `rorelse`, `wai` | ny version, eller beslutet "stilla" med skäl i versionens orsak; de valda och de avvisade beteendena står i orsaken | rörelsen med och utan reducerad rörelse; rörelse som pågår mer än 5 s kan pausas eller stoppas | efter valet; stilla är ett beslut |
-| `formular` Formulär och tillstånd | versionen med formuläret, fälten och skälen ur innehållsstationen, designsystemet "Nortropic komponentbeteenden" (Formular) | Har fälten synliga etiketter, felbesked vid fältet efter interaktion och en felsammanfattning, står det skrivna kvar, och säger bekräftelsen vad som händer? | kärna: `better-accessibility/forms.md`, `impeccable/reference/harden.md`, `kunskap/forfragan.md`; alternativ: `kunskap/precision.md`, `impeccable/reference/clarify.md # Errors and permissions`, `hallmark/references/copy.md`, `hallmark/references/interaction-and-states.md`, `impeccable/reference/delight.md rad 37–46`, `refero-design/references/craft-details.md rad 57–191`, `ui-ux-pro-max/references/quick-reference.md rad 162–194`, `modern-web-guidance/guides/forms/required-field-feedback.md`, `modern-web-guidance/guides/forms/validate-input-after-interaction.md`, `modern-web-guidance/guides/accessibility/accessible-error-announcement.md`, `mcp:mobbin`, `mcp:refero`, `mcp:21st`, `pass:ds_granskning` | `formular`, `wai` | ny version med felläget ritat som interaktiv ritning | axe med formuläret skickat tomt; feltillståndet i bilderna | när sidan har ett formulär |
+| `formular` Formulär och tillstånd | versionen med formuläret, fälten och skälen ur innehållsstationen, designsystemet "Nortropic komponentbeteenden" (Formular) | Har fälten synliga etiketter, felbesked vid fältet efter interaktion och en felsammanfattning, står det skrivna kvar, och säger bekräftelsen vad som händer? | kärna: `better-accessibility/forms.md`, `impeccable/reference/harden.md`, `kunskap/forfragan.md`; alternativ: `kunskap/precision.md`, `impeccable/reference/clarify.md # Errors and permissions`, `hallmark/references/copy.md`, `hallmark/references/interaction-and-states.md`, `state-machine/SKILL.md`, `impeccable/reference/delight.md rad 37–46`, `refero-design/references/craft-details.md rad 57–191`, `ui-ux-pro-max/references/quick-reference.md rad 162–194`, `modern-web-guidance/guides/forms/required-field-feedback.md`, `modern-web-guidance/guides/forms/validate-input-after-interaction.md`, `modern-web-guidance/guides/accessibility/accessible-error-announcement.md`, `mcp:mobbin`, `mcp:refero`, `mcp:21st`, `pass:ds_granskning` | `formular`, `wai` | ny version med felläget ritat som interaktiv ritning | axe med formuläret skickat tomt; feltillståndet i bilderna | när sidan har ett formulär |
 | `kritik` Kritik av helheten | bilderna och briefen, aldrig källan eller utförarens text | Håller helheten mot kvalitetskraven och standarden, och mot ägarens skrivna kriterier i måttstocken (AI-bedömning, inte ägarens dom: precisionen på ägarens nivå, inte ägarens stil)? Visar designen själv varför riktningen passar kunden, och skiljer den sig tydligt från de andra? Användbarheten (heuristikerna, genomgången) och den visuella kritiken (granskningsfrågorna) var för sig; och ska bandet gå tillbaka (omtag av underlaget, innehåll och struktur, art direction eller komposition)? | kärna: `kunskap/precision.md`, `impeccable/reference/critique.md`, `kunskap/granskningsfragor.md`, `hallmark/SKILL.md # Disciplines that hold across every verb`, `hallmark/references/slop-test.md`, `pass:ds_kritik`; alternativ: `hallmark/references/anti-patterns.md`, `hallmark/references/verbs/audit.md rad 3–12`, `impeccable/reference/degraded/finish-reviewer.md`, `impeccable/reference/craft-floor.md rad 19–42`, `impeccable/reference/mode-persuade.md`, `refero-design/references/anti-ai-slop.md rad 258–274`, `frontend-design/SKILL.md rad 38–45`, `mcp:refero` | `heuristik`, `genomgang`, `blind`, `varv`, `parallell` | svar med fynd, belägg och återgång, märkt AI-bedömning | varje fynd anger bild och bredd | före valet samlat när alla riktningar finns; efter valet på den valda; alltid före utförarens förklaring |
 | `tillganglighet` Tillgänglighet och tillstånd | versionen, axe i tillstånden, fokusmätningen | Fungerar menyn, fokus (synlig och inte dold under fasta sidhuvuden), kontrasten för text och kontroller, färg som inte bär ensam, träffytorna, reflow och felbeskeden i tillstånden, på hela sidan? | kärna: `better-accessibility/SKILL.md`, `impeccable/reference/audit.md`; alternativ: `ui-ux-pro-max/references/quick-reference.md rad 7–53`, `refero-design/references/craft-details.md rad 7–53`, `hallmark/references/interaction-and-states.md`, `emil-break-ui/SKILL.md`, `better-break/SKILL.md`, `emil-apple-design/SKILL.md`, `kunskap/hig-principer.md`, `pass:ds_granskning` | `wai`, `genomgang` | ny version med rättelserna, eller ett svar med fynd | axe utan allvarliga fel i tillstånden, synlig fokus, menyn öppnar | alltid för den valda riktningen |
 | `polish` Polish och detaljer | versionen, bilderna | Linjering, optiska justeringar, tryck, ikoner, skuggor, textputs och små tillstånd, när bildregi, innehåll och hierarki bär; fokus och träffytor före och efter. | kärna: `impeccable/reference/polish.md`, `impeccable/reference/craft-floor.md rad 5–17`, `emil-design-eng/SKILL.md`, `better-ui/SKILL.md`; alternativ: `kunskap/precision.md`, `kunskap/hig-principer.md`, `hallmark/references/microinteractions.md`, `impeccable/reference/delight.md`, `refero-design/references/icons.md`, `refero-design/references/typography.md rad 418–514` | `detalj`, `varv`, `wai` | ny version med före och efter | synlig ändring i 390 och 1440; fokus och träffytor oförändrade eller bättre | sist, när kritiken inte begär omtag |
-| `jamforelse` Jämförelse av riktningarna | alla riktningars bilder | Vilka par är samma struktur och berättelse med andra färger, typsnitt eller bilder? Skiljer sig varje par i minst två av makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton, och vilket par är för lika och ska göras om innan ägaren ser dem? | kärna: `hallmark/references/macrostructures.md`, `better-variant/SKILL.md rad 13–37`, `pass:ds_jamforelse`; alternativ: `hallmark/references/structure.md`, `hallmark/references/component-cookbook.md rad 91–148`, `impeccable/reference/live.md rad 137–173`, `impeccable/reference/mode-persuade.md`, `refero-design/references/anti-ai-slop.md` | `parallell` | svar med utpekade par och den riktning som görs om | – | när alla tre finns, före valet; igen när ägaren begärt fler |
+| `jamforelse` Jämförelse av riktningarna | alla riktningars bilder | Vilka par är samma struktur och berättelse med andra färger, typsnitt eller bilder? Skiljer sig varje par i minst två av makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton, och vilket par är för lika och ska göras om innan ägaren ser dem? | kärna: `hallmark/references/macrostructures.md`, `better-variant/SKILL.md # Different answers, not different tints`, `better-variant/SKILL.md # The floor every variant clears`, `pass:ds_jamforelse`; alternativ: `hallmark/references/structure.md`, `hallmark/references/component-cookbook.md rad 91–148`, `impeccable/reference/live.md rad 137–173`, `impeccable/reference/mode-persuade.md`, `refero-design/references/anti-ai-slop.md` | `parallell` | svar med utpekade par och den riktning som görs om | – | när alla tre finns, före valet; igen när ägaren begärt fler |
 | `overlamning` Överlämning och designsystem | den godkända versionen | Designvärdena (uppmätta ur den renderade versionen), komponenterna, de responsiva reglerna, tillstånden, fokus- och kontrastreglerna och rörelsen som kontrakt i överlämningen, och kundens designsystem. | kärna: `design-system/SKILL.md`, `impeccable/reference/extract.md`; alternativ: `impeccable/reference/degraded/documenter.md`, `hallmark/references/contract.md`, `hallmark/references/export-formats.md rad 14–43`, `hallmark/references/interaction-and-states.md`, `design-system/references/token-architecture.md`, `design-system/references/semantic-tokens.md`, `better-colors/token-naming.md`, `better-colors/palette-structure.md`, `better-typography/spacing-and-sizing.md`, `emil-animation-vocabulary/SKILL.md`, `emil-review-animations/STANDARDS.md`, `brand/SKILL.md`, `brand/references/logo-usage-rules.md`, `impeccable/reference/document.md` | `kontrakt`, `tema`, `wai` | överlämningspaketet och kundens designsystem | `designfas.py overlamna --prova` utan brister | efter ägarens godkännande |
 
 **Avvikelser och hypoteser.** Där bandet går längre än eller skiljer sig från källorna är det vår hypotes, med skäl
@@ -1206,17 +1226,18 @@ skill:design-system | nextlevelbuilder/ui-ux-pro-max-skill | Design | stationer:
 skill:design | nextlevelbuilder/ui-ux-pro-max-skill | ingen | skäl: bildgenererande skill som kräver en bildgenerator varken duken eller sessionerna har; mappnamnet skuggar /design, så utföraren skapar duken med Artifact-verktyget | ingen uppgift; kollisionen prövad 2026-10-12
 skill:slides | nextlevelbuilder/ui-ux-pro-max-skill | ingen | skäl: presentationer; ägaren väljer på duken. Kan få en station om riktningar ska visas för en kund (Slides-typen finns) | ingen uppgift, prövat mot målflödet 2026-10-12
 skill:canvas-design | anthropics/skills | båda | stationer: komposition; flöden: band, specialistpass; D5, D8 koncept för en bildplats eller ett mönster (ritning eller PNG genom skillskript) → koncept i BILDER.md, aldrig verksamhetens bild | alternativ
-skill:better-typography | jakubkrehel/skills | båda | stationer: typografi, overlamning; flöden: band, specialistpass, overlamning, helbygge; D8 granskning efter renderingen i typografi; ds_typografi → typskala, radlängd och hierarki | aktiverbar
-skill:better-colors | jakubkrehel/skills | båda | stationer: typografi, overlamning; flöden: band, specialistpass, overlamning, helbygge; D8 granskning efter renderingen i färg; ds_typografi → färgroller och kontrast | aktiverbar
-skill:better-accessibility | jakubkrehel/skills | båda | stationer: rorelse, formular, tillganglighet; flöden: band, specialistpass, helbygge; D8 tillgänglighet-kärna; forms.md som formulärets kärna och motion-and-zoom.md (WCAG 2.2.2) i rörelsen; ds_granskning kärna; D11 helbyggets alternativ → tillgänglighetsfynd | aktiverbar
-skill:better-layout | jakubkrehel/skills | båda | stationer: responsiv; flöden: band, specialistpass, helbygge; D5, D8 responsiv kärna hos utföraren; ds_responsiv → brytpunkter och omställning | aktiverbar
-skill:better-ui | jakubkrehel/skills | Design | stationer: rorelse, polish; flöden: band, specialistpass, helbygge; D8 polish-kärna: tryck, ikoner, skuggor och ytor (en källa per värde); icon-transitions.md för menyikonen i rörelsen; D11 helbyggets alternativ | alternativ
-skill:better-writing | jakubkrehel/skills | båda | stationer: innehall; flöden: research, band, specialistpass; D2 förberedelsens kärna; D5 innehall-kärna; ds_innehall → texten i verksamhetens ord | aktiverbar
+skill:better-typography | jakubkrehel/skills | båda | stationer: typografi, overlamning; flöden: band, specialistpass, overlamning, helbygge; D8 granskning efter renderingen i typografi; ds_typografi → typskala, radlängd och hierarki; husets tillämpning i NORTROPIC.md | aktiverbar
+skill:better-colors | jakubkrehel/skills | båda | stationer: typografi, overlamning; flöden: band, specialistpass, overlamning, helbygge; D8 granskning efter renderingen i färg; ds_typografi → färgroller och kontrast; husets tillämpning i NORTROPIC.md | aktiverbar
+skill:better-accessibility | jakubkrehel/skills | båda | stationer: rorelse, formular, tillganglighet; flöden: band, specialistpass, helbygge; D8 tillgänglighet-kärna; forms.md som formulärets kärna och motion-and-zoom.md (WCAG 2.2.2) i rörelsen; ds_granskning kärna; D11 helbyggets alternativ → tillgänglighetsfynd; husets tillämpning i NORTROPIC.md, där 44 px och reducerad rörelse är ägarbeslut fast skillen kallar dem rekommendationer | aktiverbar
+skill:better-layout | jakubkrehel/skills | båda | stationer: responsiv; flöden: band, specialistpass, helbygge; D5, D8 responsiv kärna hos utföraren; ds_responsiv → brytpunkter och omställning; husets tillämpning i NORTROPIC.md | aktiverbar
+skill:better-ui | jakubkrehel/skills | Design | stationer: rorelse, polish; flöden: band, specialistpass, helbygge; D8 polish-kärna: tryck, ikoner, skuggor och ytor (en källa per värde); icon-transitions.md för menyikonen i rörelsen; D11 helbyggets alternativ; husets tillämpning i NORTROPIC.md | alternativ
+skill:better-writing | jakubkrehel/skills | båda | stationer: innehall; flöden: research, band, specialistpass; D2 förberedelsens kärna; D5 innehall-kärna; ds_innehall → texten i verksamhetens ord; husets tillämpning i NORTROPIC.md | aktiverbar
 skill:better-explain-interface | jakubkrehel/skills | Code | stationer: underlag; flöden: research, band, specialistpass; D3 underlaget: gör förebildernas observerbara egenskaper mätta, märkta uppmätta, härledda eller slutna (read-the-system.md tolkar extrahera.mjs, from-an-image.md tjänsternas skärmbilder, också i ds_bild); skriver ingen gränssnittstext | användaranropad: läses hel med Read
-skill:better-interface | jakubkrehel/skills | Code | flöden: specialistpass, helbygge; skäl: laddar sex skills samtidigt, mot bandets en station i taget; tvärgenomgången i bygg-sajt steg 5 före granska.py; ds_granskning alternativ | alternativ i helbygget; oprövad
+skill:better-interface | jakubkrehel/skills | Code | flöden: specialistpass, helbygge; skäl: laddar sex skills samtidigt, mot bandets en station i taget; tvärgenomgången i bygg-sajt steg 5 före granska.py; ds_granskning alternativ; husets tillämpning i NORTROPIC.md | alternativ i helbygget; oprövad
 skill:better-interface-review | jakubkrehel/skills | Code | skäl: kräver en git-diff; kritiken är blind för källan och dukens versioner ligger inte i git; flöden: leverans, underhall; ändringsagenten kan granska sin egen diff före commit, inte inkopplat | ingen station; användaranropad: läses hel med Read; oprövad
-skill:better-variant | jakubkrehel/skills | båda | stationer: komposition, typografi, jamforelse; flöden: band, specialistpass; D6 jämförelsen: axeltabellen och golvet (rad 13–37) som kärna, inte varianterna (skillen väljer ingen vinnare); D8 varianter av en del i komposition och typografi bakom väljaren (picker.md), bara på duken | användaranropad: läses hel med Read
+skill:better-variant | jakubkrehel/skills | båda | stationer: komposition, typografi, jamforelse; flöden: band, specialistpass; D6 jämförelsen: axeltabellen och golvet (rubrikerna Different answers, not different tints och The floor every variant clears) som kärna, inte varianterna (skillen väljer ingen vinnare); D8 varianter av en del i komposition och typografi bakom väljaren (picker.md), bara på duken | användaranropad: läses hel med Read
 skill:better-break | jakubkrehel/skills | Code | stationer: tillganglighet; flöden: band, specialistpass; D8 ds_granskning alternativ: brytprov → robusthetsfynd | användaranropad: läses hel med Read
+skill:state-machine | jakubkrehel/skills | Design | stationer: formular; flöden: band, specialistpass; D8 formulärets tillstånd: varje tillstånd som formuläret redan har (tomt, fel, skickar, klart) renderat för sig bakom en väljare i formulärstationens interaktiva ritning, så att felbeskeden, skickandet och bekräftelsen syns och prövas var för sig; ds_granskning alternativ; intagen 2026-10-13 (valideringen, B2) | användaranropad: läses hel med Read; oprövad
 skill:emil-design-eng | emilkowalski/skills | båda | stationer: polish; flöden: band, specialistpass; D8 polish-kärna: detaljerna i tryck, tillstånd och övergångar; ds_rorelse kärna | aktiverbar
 skill:emil-animate | emilkowalski/skills | båda | stationer: rorelse; flöden: band, specialistpass, helbygge; D8 rörelse-kärna: beteenden och teknikval; RECIPES.md för mobilmenyn, dragspelet och trycket; D11 rörelsens bygge | aktiverbar
 skill:emil-improve-animations | emilkowalski/skills | båda | stationer: rorelse; flöden: band, specialistpass; D8 granskning efter renderingen i rörelse; ds_rorelse → förbättrade förlopp | användaranropad: läses hel med Read
@@ -1285,11 +1306,13 @@ fil:better-colors/* | jakubkrehel/skills | båda | flöden: band, specialistpass
 fil:better-typography/* | jakubkrehel/skills | båda | flöden: band, specialistpass, helbygge; nås genom better-typography/SKILL.md i typografi: typsnittsval, radbrytning och skiljetecken, variabla typsnitt, tillgänglighet; spacing-and-sizing.md har stationen overlamning | uppslag; oprövat i designfasen
 fil:better-ui/* | jakubkrehel/skills | båda | flöden: band, specialistpass, helbygge; nås genom better-ui/SKILL.md i polish och helbygget: ytor, ikoner, in- och utgångar; animations.md och enter-exit.md överlappar emil-animate, som avgör rörelsen (Avgörandena); icon-transitions.md har stationen rorelse | uppslag; oprövat i designfasen
 fil:better-layout/* | jakubkrehel/skills | båda | flöden: band, specialistpass, helbygge; nås genom better-layout/SKILL.md i responsiv: gruppering och linjering, mellanrum och anpassning | uppslag; oprövat i designfasen
+fil:better-writing/* | jakubkrehel/skills | båda | flöden: research, band, specialistpass; nås genom better-writing/SKILL.md i innehåll: patterns.md (destruktiva flöden, statustexter, plural och Intl för svenska datum, priser och öppettider) | uppslag; oprövat i designfasen
 fil:better-explain-interface/* | jakubkrehel/skills | båda | flöden: band, research, specialistpass; nås genom better-explain-interface/SKILL.md i underlag: read-the-system.md tolkar extrahera.mjs, from-an-image.md läser tjänsternas skärmbilder (också i ds_bild), find-the-effect.md för en namngiven effekt hos en förebild | uppslag; oprövat
 fil:better-interface/* | jakubkrehel/skills | Code | flöden: helbygge; review-format.md är formatet för tvärgenomgången i bygg-sajt steg 5 | uppslag; oprövat
 fil:better-interface-review/* | jakubkrehel/skills | Code | skäl: skillens egna filer för en granskning av en git-diff (avgränsning och borttagna signaler); ingen station, se skillens rad | ingen station; oprövat
 fil:better-break/* | jakubkrehel/skills | Code | flöden: band, specialistpass; scenarios.md: brytscenarierna för en enskild komponent i tillgänglighet | uppslag; hur brytprov körs mot en version på duken är oavgjort
 fil:better-variant/* | jakubkrehel/skills | Design | flöden: band, specialistpass; picker.md: väljaren för varianter av en del i förfiningen (komposition och typografi), som bara finns på duken | uppslag; oprövat
+fil:state-machine/* | jakubkrehel/skills | Design | flöden: band, specialistpass; switcher.md: väljaren mellan tillstånden, nås genom state-machine/SKILL.md i formulärstationen | uppslag; oprövat
 fil:emil-animate/* | emilkowalski/skills | båda | flöden: band, specialistpass, helbygge; RECIPES.md: mobilmenyn, dragspelet och trycket i rörelsen och i bygget (förutsätter Base UI:s attribut; överföringen till mallen oprövad) | uppslag; oprövat
 fil:emil-break-ui/* | emilkowalski/skills | Code | flöden: band, specialistpass; CATALOG.md: katalogen över brytfall i responsiv och tillgänglighet | uppslag; oprövat
 fil:emil-prototype/* | emilkowalski/skills | Design | flöden: band; PICKER.md: väljaren för varianter av ett beteende i rörelsen; kundens text i stället för påhittade namn, väljaren bara på duken | uppslag; oprövat

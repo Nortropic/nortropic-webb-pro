@@ -941,6 +941,31 @@ demo_kv = next(r for r in kv['rader'] if r.get('id') == 'skill:demo')
 assert demo_kv['resultat'] == 'avvisad' and 'krockar' in demo_kv['detalj'], demo_kv
 print('fall 3 och intag: skillen uppdaterad trevägs och incheckad; en krock avvisas med felet och syns i kvittot ok')
 
+# husets tillämpning i en egen fil (valideringen 2026-10-12, B1): SKILL.md står ordagrant som källan och förordet i
+# NORTROPIC.md, så samma slags omskrivning av frontmattern och de första raderna som krockade ovan tas in utan krock, och
+# filen som källan inte har rörs inte (en egen källa, så att karenstidens fall nedan ser samma historik)
+upp_n = TMP / 'uppstrom-nortropic'
+(upp_n / 'skills' / 'demo').mkdir(parents=True)
+(upp_n / 'skills' / 'demo' / 'SKILL.md').write_text('---\nname: demo\ndescription: Källans beskrivning.\n---\n# Demo\n\nRad ett.\n')
+sh(*GIT, 'init', '-q', '-b', 'main', cwd=upp_n)
+sh(*GIT, 'add', '-A', cwd=upp_n)
+sh(*GIT, 'commit', '-q', '-m', 'bas', cwd=upp_n)
+bas_n = sh('git', 'rev-parse', 'HEAD', cwd=upp_n).strip()
+demo_n = TMP / 'demo-nortropic'
+demo_n.mkdir()
+shutil.copy2(upp_n / 'skills' / 'demo' / 'SKILL.md', demo_n / 'SKILL.md')
+(demo_n / 'NORTROPIC.md').write_text('# Så används skillen i nortropic-webb-pro\n\nVår anpassning.\n')
+(demo_n / 'KALLA.md').write_text('# Källa\n\n- **Källa:** https://github.com/prov/demo-skill, `skills/demo/`, commit `%s` (prov).\n' % bas_n)
+(upp_n / 'skills' / 'demo' / 'SKILL.md').write_text('---\nname: demo\ndescription: Källans nya beskrivning.\n---\n# Demo, nytt namn\n\nRad ett, omskriven.\n')
+sh(*GIT, 'commit', '-q', '-am', 'omskriven', cwd=upp_n)
+head_n = sh('git', 'rev-parse', 'HEAD', cwd=upp_n).strip()
+plan_n, konflikter_n, andrat_n = uh.plan_for_skill(demo_n, vl.kalla_for(demo_n)[0], upp_n, head_n)
+assert andrat_n and konflikter_n == [] and sorted(plan_n) == ['SKILL.md'], (plan_n, konflikter_n)
+assert plan_n['SKILL.md'] == (upp_n / 'skills' / 'demo' / 'SKILL.md').read_bytes() and 'NORTROPIC.md' in vl.EGNA_TILLAGG
+uh.tillampa(demo_n, plan_n)
+assert (demo_n / 'NORTROPIC.md').read_text() == '# Så används skillen i nortropic-webb-pro\n\nVår anpassning.\n'
+print('fall 3b: förordet i NORTROPIC.md och SKILL.md ordagrant; källans omskrivna SKILL.md tas in utan krock ok')
+
 # karenstiden: källans senaste commit är för färsk, och den senaste mogna (krocken) är redan avvisad; skillen behålls,
 # och den färska commiten avvisas inte (fynd 4, och granskningen av r72, M5)
 (upp / 'skills' / 'demo' / 'ref.md').write_text('Referens, nyast.\n')
