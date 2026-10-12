@@ -261,27 +261,29 @@ class Kompetensflode(unittest.TestCase):
         avsluta.assert_called_once()
         self.assertEqual((kd.kdir(self.SLUG, 'k01') / 'STATUS.json').read_bytes(), fore)
 
-    def test_forberedelsen_sparar_brister_och_publicerar_inget(self):
+    def test_forberedelsen_redovisar_brister_och_publicerar(self):
+        # fria tyglar (ägarens besked 2026-10-12): kvittot redovisas i KOMPETENS.json och skälet, och fäller inte förberedelsen
         status = {}
         with patch.object(forberedelse, 'krav'), patch.object(forberedelse, 'giltig', return_value=False), \
-             patch.object(forberedelse, 'prompt', return_value='förbered'), patch.object(forberedelse, 'publicera') as pub:
+             patch.object(forberedelse, 'prompt', return_value='förbered'), \
+             patch.object(forberedelse, 'publicera', return_value={'status': 'klar'}) as pub:
             self.so = {'klar': True, 'saknas': []}
-            with self.assertRaisesRegex(RuntimeError, 'kompetens'):
-                forberedelse.kor(self.SLUG, status, lambda: None)
-        pub.assert_not_called()
-        self.assertEqual(status['forberedelse']['kompetenskravbrister'], self.brist)
+            forberedelse.kor(self.SLUG, status, lambda: None)
+        pub.assert_called_once()
+        self.assertEqual(status['steg'], 'forberedd')
+        self.assertIn('fäller inte', status['skal'])
         kvitton = list((self.r / 'forberedelse').glob('*/KOMPETENS.json'))
         self.assertEqual(len(kvitton), 1)
         self.assertEqual(json.loads(kvitton[0].read_text())['kompetenskravbrister'], self.brist)
 
-    def test_forberedelsens_publicering_sjalv_nekar_saknat_kvitto(self):
+    def test_forberedelsens_publicering_utan_kvitto_provar_kundforstaelsen(self):
+        # kvittot fäller inte publiceringen, men kundförståelsens sex rubriker krävs fortfarande innan något publiceras
         paket = self.r / 'paket'; paket.mkdir()
         for namn in forberedelse.FILER:
             (paket / namn).write_text('syntetiskt utkast')
-        with self.assertRaisesRegex(ValueError, 'kompetens'):
+        with self.assertRaisesRegex(ValueError, 'KUNDFORSTAELSE.md'):
             forberedelse.publicera(self.SLUG, paket, forberedelse.indata(self.SLUG))
         self.assertFalse((atelje.UNDERLAG / self.SLUG / 'BRIEF.md').exists())
-
 
 if __name__ == '__main__':
     unittest.main()
