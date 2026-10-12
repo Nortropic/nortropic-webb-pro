@@ -204,7 +204,7 @@ class FalskKlient:
         ANROP['21st' if self.tjugo else 'refero'] += 1
 
     def verktyg_fullt(self):
-        return [{'name': n, 'inputSchema': {'type': 'object'}} for n in ('search', 'get_component', 'get_inspiration', 'get_theme', 'get_usage')]
+        return [{'name': n, 'inputSchema': {'type': 'object'}} for n in ('search', 'get_component', 'get_inspiration', 'get_theme', 'search_logo', 'get_usage')]
 
     def kalla_utfall(self, namn, args):
         return False, 'syntetiskt svar', ({'tier': 'syntetisk', 'aiGenerationEnabled': False} if namn == 'get_usage' else None)
