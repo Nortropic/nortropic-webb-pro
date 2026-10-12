@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Tio förslag och den rena designstarten (ägarens uppdrag 2026-10-09 ~17:53Z, punkt 12). Varje fall går genom den
+"""Förslagsomgången och den rena designstarten (ägarens uppdrag 2026-10-09 ~17:53Z, punkt 12; antalet är tre riktningar sedan
+ägarens beslut 2026-10-12, som också kräver minst två av fem skilda axlar, prövat i test_uppdraget_bar_utgangspunkt_och_implementationsgrund). Varje fall går genom den
 verkliga koden med attrapper bara vid modellsessionerna, fotograferingen och återställningen:
 
 - Den rena designstarten: klassningen post för post (kundens fakta, material, lås och kundrepo bevaras; ateljén,
@@ -439,6 +440,14 @@ class RattRollFarRattUnderlag(Uppdragsfixtur):
         self.assertIsNone(kd.planbrist(k))
         self.assertIn('skärmbild', kd.planbrist(dict(k, implementationsgrund=dict(k['implementationsgrund'], kalla='underlag/x/referenser/a.png'))))
         self.assertIn('bara i färg', kd.planbrist(dict(k, skiljer_sig_i=['farg'])))
+        # tre riktningar (ägarens beslut 2026-10-12): minst två av makrostruktur, bildstrategi, typografisk hierarki,
+        # innehållsordning och ton; färg och typsnitt räcker aldrig, och interaktionen räknas inte till de fem
+        for bara in (['typografi', 'farg'], ['komposition'], ['komposition', 'interaktion', 'farg']):
+            self.assertIn('färre än två', kd.planbrist(dict(k, skiljer_sig_i=bara)) or '', bara)
+        self.assertIsNone(kd.planbrist(dict(k, skiljer_sig_i=['innehallshierarki', 'ton'])))
+        self.assertIn('ton', kd.PLAN_SCHEMA['properties']['kandidater']['items']['properties']['skiljer_sig_i']['items']['enum'])
+        if not os.environ.get('NWP_KANDIDATER'):
+            self.assertEqual(kd.ANTAL, 3, 'standardantalet är tre riktningar')
         self.assertIn('bransch', kd.PLAN_SCHEMA['required'])
 
 

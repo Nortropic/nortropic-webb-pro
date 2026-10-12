@@ -8,7 +8,7 @@
   `13ac0ec7e148655948100b6396439e481361d690` (2026-08-06T09:19:18-07:00), SKILL.md version 1.1.0.
 - **Licens:** MIT (`LICENSE` ur repots rot, "Copyright (c) 2026 Hallmark contributors", kopierad till mappen).
 - **Intagen:** 2026-10-05 efter ägarens fråga samma kväll ("har vi fortfarande hallmark också? skillen") och uppdraget
-  18:53Z (full verktygslåda, omkring tio tydligt skilda förslag). Kirurgen bedömde repot 2026-10-03 (`kunskap/REGISTER.md`,
+  18:53Z (full verktygslåda, då omkring tio tydligt skilda förslag; tre riktningar sedan ägarens beslut 2026-10-12). Kirurgen bedömde repot 2026-10-03 (`kunskap/REGISTER.md`,
   AI LABS-videon) och tog då inte in något: kärnan väljer tyst ett av 21 katalogteman och roterar mellan byggen.
   Ordagrant: alla 107 filer i skillmappen, oförändrade. Våra tillägg: `KALLA.md`, `LICENSE`.
 - **Utelämnat:** repots `site/`, `docs/`, `ROADMAP.md`, `package.json` och `vercel.json` (skillens egen webbplats).

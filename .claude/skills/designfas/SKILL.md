@@ -71,9 +71,13 @@ struktur, art direction eller komposition); är helheten svag gör du omtaget in
 versionens BILDER.json och kontroll/. Andra stationer kan också beställas som pass (typen och stationen i tabellen) när
 du vill ha en oberoende insats; svaret förs in i en version med `--bestallning B00N` och bedöms med `designfas.py infor`.
 
-**Omkring tio riktningar.** Varje riktning går underlag, innehåll och struktur, art och komposition. När alla finns
+**Tre riktningar** (ägarens beslut 2026-10-12). De skiljer sig i minst två av makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton, aldrig bara i
+färg och typsnitt, och var och en visar i designen varför den passar kunden. Varje riktning går underlag, innehåll och
+struktur, art och komposition. När alla tre finns
 körs kritiken och jämförelsen samlat, med riktningarna sida vid sida (`--typ kritik --station kritik` och `--typ
-jamforelse --station jamforelse`, med `--ritning '*'`); gör inget omtag per riktning innan de andra finns. Ägaren väljer,
+jamforelse --station jamforelse`, med `--ritning '*'`); gör inget omtag per riktning innan de andra finns, men pekar
+jämförelsen ut två som för lika gör du om den svagare innan ägaren ser dem. Ber ägaren om fler (två åt gången) går de
+samma följd och jämförs med de tidigare. Ägaren väljer,
 och den valda går resten av bandet: typografi, responsiv, rörelse, formulär, kritik, tillgänglighet och polish.
 **Överlämningen** efter ägarens godkännande: `designfas.py overlamna <slug>`, DESIGN.md i paketet ifylld ur den
 godkända versionen, kundens designsystem med Design System-typen, och `overlamna --prova` utan brister.

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """kandidater.py — skapandeflödets utforskning i många kandidater, med ägarens val före förfiningen (ägarens uppdrag via
-Codex 2026-10-05: cirka tio genomarbetade prototyper med kundens riktiga information; ägaren väljer vilken eller vilka
-som utvecklas vidare; panelen granskar och rekommenderar men utser ingen vinnare).
+Codex 2026-10-05: cirka tio genomarbetade prototyper med kundens riktiga information, tre sedan ägarens beslut 2026-10-12;
+ägaren väljer vilken eller vilka som utvecklas vidare; panelen granskar och rekommenderar men utser ingen vinnare).
 
 Skissläget är standard (ägarens uppdrag 2026-10-05 16:25Z, "full verktygslåda, ren arbetsbänk"): första omgången ger
-cirka tio skisser (första vyn, den viktigaste innehållssektionen, navigationen och interaktionerna som behövs för att
+tre skisser (ägarens beslut 2026-10-12; fler på begäran, två åt gången) (första vyn, den viktigaste innehållssektionen, navigationen och interaktionerna som behövs för att
 förstå förslaget, mobil och dator). Varje skapare får en ren arbetskontext: uppdraget, kundens verifierade fakta och
 material, referensbilderna och metodens kärna (kvalitetskraven, besluten med räckvidd, avgörandena) med en förteckning
 att slå upp i; historiken slås upp vid behov. Högst tre samtidigt, 45 minuter per inledande försök med verktygsväntan,
@@ -15,7 +15,8 @@ objektiva kontroller (bygget, konsolen, spill, axe, siffror utan belägg, menyn)
 val kommer den riktade förbättringen som uppdrag (ägarens uppdrag 2026-10-09 ~17:53Z, punkt 8): Rätta, Omarbeta
 designen eller Bygg ut (hela startsidan, undersidan och besökarens centrala flöde), var och en med version, resultat,
 omfattning och det som bevaras, de specialistpass uppdraget begär och en separat före/efter-bedömning (forfina_kandidat).
-Tio förslag är ägarens beslut (2026-10-09). NWP_KANDIDATLAGE=full är en tillfällig växel till förvalet nedan.
+Tre riktningar är ägarens beslut (2026-10-12, ersätter tio förslag från 2026-10-09); fler på ägarens begäran med
+NWP_KANDIDATER, två åt gången. NWP_KANDIDATLAGE=full är en tillfällig växel till förvalet nedan.
 
 Varje kandidat har en stabil identitet (k01–k12) och
 - ett eget litet Astro-projekt, kunder/<slug>/kandidater/<id>/sajt, med sajtens nuvarande src/ och public/ utan
@@ -74,8 +75,9 @@ import skapande  # noqa: E402
 KOD = Path(__file__).resolve().parents[1]  # kunskap/ och kritik/ hör till koden, inte till kundens data
 ID = re.compile(r'^k\d{2}$')
 # NWP_KANDIDATER=1 är den enda prototypen som prövar hela kedjan före uppskalningen (ägarens uppdrag 2026-10-05 18:53Z,
-# punkt 7): referensen och prototypen bredvid varandra i mobil och dator, sedan cirka tio förslag
-ANTAL = max(1, min(12, int(os.environ.get('NWP_KANDIDATER') or 10)))
+# punkt 7): referensen och prototypen bredvid varandra i mobil och dator, sedan tre förslag (ägarens beslut 2026-10-12,
+# ersätter tio; fler på begäran, två åt gången)
+ANTAL = max(1, min(12, int(os.environ.get('NWP_KANDIDATER') or 3)))
 PARALLELLT = max(1, min(5, int(os.environ.get('NWP_KANDIDATER_PARALLELLT') or 3)))
 FRIST_SKAPA = int(os.environ.get('NWP_KANDIDAT_FRIST') or 6000)  # en kandidat per session: 100 minuter, varven inräknade
 FRIST_FORBATTRA = int(os.environ.get('NWP_KANDIDAT_FRIST_FORBATTRA') or 2700)
@@ -947,7 +949,7 @@ def forska_prompt(slug, n, fel=None, skiss=False):
     return '\n'.join([
         *(['Du planerar researchen före skapandeflödets första prototyp för en riktig verksamhet. Ägaren vill först se EN %s' % (
               'skiss (första vyn och den viktigaste sektionen, mobil och dator)' if skiss else 'genomarbetad prototyp'),
-           'med kundens riktiga information och huvudreferensen bredvid, före omkring tio skilda förslag. Researchen ska ge',
+           'med kundens riktiga information och huvudreferensen bredvid, före tre skilda förslag. Researchen ska ge',
            'material för att välja den bärande riktningen och dess huvudreferens: hur jämförbara verksamheter och goda webbplatser berättar, prioriterar']
           if n == 1 else
           ['Du planerar researchen före skapandeflödets utforskning för en riktig verksamhet. Ägaren vill se cirka %d verkligt' % n,
@@ -1279,7 +1281,9 @@ PLANFALT = (('titel', None), ('hypotes', 'Hypotesen: varför lösningen passar v
 # komponentkod är kod att anpassa och en körbar mall är ett projekt som bygger; en skärmbild kallas aldrig en kodmall.
 UTGANGSPUNKTER = ('referenssajt', 'refero_stil', 'refero_skarm', 'mobbin_skarm', 'komponent_21st', 'tema_21st', 'mall', 'egen')
 IMPLEMENTATIONSGRUNDER = ('mall', 'komponenter', 'tema', 'egen')
-DIMENSIONER = ('komposition', 'bildbehandling', 'typografi', 'innehallshierarki', 'interaktion', 'farg')
+DIMENSIONER = ('komposition', 'bildbehandling', 'typografi', 'innehallshierarki', 'ton', 'interaktion', 'farg')
+# ägarens fem axlar 2026-10-12: makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton; minst två
+BARANDE = ('komposition', 'bildbehandling', 'typografi', 'innehallshierarki', 'ton')
 PLAN_SCHEMA = {
     'type': 'object', 'additionalProperties': False, 'required': ['kandidater', 'variation', 'bransch', 'forebilder_utanfor'],
     'properties': {
@@ -1322,7 +1326,7 @@ PLAN_SCHEMA = {
                                          'properties': {'slag': {'type': 'string', 'enum': list(IMPLEMENTATIONSGRUNDER)}, 'kalla': {'type': 'string'},
                                                         'ateranvands': {'type': 'string'}, 'aterskapas_ur_bild': {'type': 'boolean'},
                                                         'insats': {'type': 'string'}}},
-                'skiljer_sig_i': {'type': 'array', 'minItems': 1, 'maxItems': 6, 'items': {'type': 'string', 'enum': list(DIMENSIONER)}},
+                'skiljer_sig_i': {'type': 'array', 'minItems': 2, 'maxItems': 7, 'items': {'type': 'string', 'enum': list(DIMENSIONER)}},
                 # kedjan kundbehov → observerad kvalitet → designbeslut → planerad tillämpning → bedömning, med minst ett
                 # bidrag ur branschen och ett ur den visuella inspirationen (referenskontrakt.kandidatbrister)
                 'referensbidrag': {'type': 'array', 'minItems': 2, 'maxItems': 6, 'items': {
@@ -1345,6 +1349,9 @@ def planbrist(k):
     dim = [d for d in (k.get('skiljer_sig_i') or []) if d in DIMENSIONER]
     if dim and set(dim) <= {'farg'}:
         return 'skiljer sig bara i färg (ett färgbyte på samma sida är inget eget förslag)'
+    if dim and len(set(dim) & set(BARANDE)) < 2:
+        return ('skiljer sig i färre än två av makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton '
+                '(ägarens beslut 2026-10-12; färg och typsnitt räcker aldrig)')
     ig = k.get('implementationsgrund') if isinstance(k.get('implementationsgrund'), dict) else {}
     kalla = str(ig.get('kalla') or '')
     if ig.get('slag') in ('mall', 'komponenter') and re.search(r'\.(png|jpe?g|webp|gif|avif)\b', kalla, re.I):
@@ -1414,7 +1421,7 @@ def plan_prompt(slug, n, skiss=False, fel=None):
         vad = ('skiss (första vyn och den viktigaste innehållssektionen, mobil och dator)' if skiss else 'genomarbetad prototyp')
         intro = ['Du planerar skapandeflödets första prototyp för en riktig verksamhet. Ägaren vill först se EN %s med' % vad,
                  'kundens riktiga information, byggd på en namngiven huvudreferens och visad bredvid den i mobil och dator, innan',
-                 'flödet tar fram omkring tio skilda förslag (metodens "omkring tio uppdrag" gäller den uppskalningen, inte den här',
+                 'flödet tar fram tre skilda förslag (metodens "tre uppdrag" gäller den uppskalningen, inte den här',
                  'planen). Ditt arbete är ett enda uppdrag: den designriktning som bäst besvarar kundens problem, med den',
                  'huvudreferens vars kvalitet kundens material kan bära. Uppdraget går till en skapare med hela faktaunderlaget.', '']
     else:
@@ -1454,8 +1461,8 @@ def plan_prompt(slug, n, skiss=False, fel=None):
         'lösningen passar verksamheten och besökaren (hypotesen visas för ägaren före det första valet: den nämner ingen referens',
         'eller sajt vid namn). Variera det som gör en sida till en egen sida: innehållshierarkin och vad som möter besökaren först;',
         'vad som bär sidan; bildstrategin; det typografiska systemet; navigationen; hur förtroende byggs; färgernas funktion.',
-        'Det är verktyg för att upptäcka falsk variation, ingen checklista där allt måste bytas. Tio färgvarianter av samma',
-        'struktur är inga tio riktningar, och inget uppdrag får vara avsiktligt svagt.']),
+        'Det är verktyg för att upptäcka falsk variation, ingen checklista där allt måste bytas. Tre färgvarianter av samma',
+        'struktur är inga tre riktningar, och inget uppdrag får vara avsiktligt svagt.']),
         'Planen formulerar idén och vad den ska pröva, före någon rendering. Formfälten (det som möter besökaren först, sektionen,',
         'det som bär sidan, ordningen, förtroendet, bilderna, typografin, färgen och navigationen) anger avsikt och skäl, aldrig',
         'exakta värden: inga typsnittsnamn som krav, vikter, färgkoder, pixelmått, koordinater, bildmått eller antal rader och',
@@ -1495,10 +1502,11 @@ def plan_prompt(slug, n, skiss=False, fel=None):
         'och en faktisk implementationsgrund ("implementationsgrund": mall, komponenter, tema eller egen, med källan, det som',
         'återanvänds, om något måste återskapas ur bilder och insatsen det kräver). Återanvänd kod där det går och passar; ett',
         'förslag som kräver omfattande återskapande ur bilder redovisas så, med insatsen synlig. En referensbild är aldrig en',
-        'kodmall. "skiljer_sig_i" säger i vilka av komposition, bildbehandling, typografi, innehallshierarki, interaktion och',
-        'farg uppdraget skiljer sig från de andra; ett uppdrag som bara skiljer sig i färg avvisas. Tio förslag är ägarens',
-        'beslut; går tio verkligt olika inte att göra med underlaget, ge färre och säg varför i "variation", aldrig kosmetiska',
-        'dubbletter.',
+        'kodmall. "skiljer_sig_i" säger i vilka av komposition (makrostrukturen), bildbehandling (bildstrategin), typografi',
+        '(den typografiska hierarkin), innehallshierarki (innehållsordningen), ton, interaktion och farg uppdraget skiljer sig',
+        'från de andra; ett uppdrag som inte skiljer sig i minst två av de fem första avvisas, och färg och typsnitt räcker',
+        'aldrig. Tre riktningar är ägarens beslut (2026-10-12); går tre verkligt olika inte att göra med underlaget, ge färre',
+        'och säg varför i "variation", aldrig kosmetiska dubbletter.',
         *(['Förra planen gick inte att använda: %s. Rätta det.' % fel] if fel else []),
         'Svara med uppdragen i schemat.', atelje.MATERIAL])
 

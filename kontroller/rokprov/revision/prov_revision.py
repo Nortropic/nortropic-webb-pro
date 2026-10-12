@@ -4437,7 +4437,7 @@ try:
     # den enda prototypen före uppskalningen (ägarens uppdrag 2026-10-05 18:53Z, punkt 7): planeraren får ett uppdrag
     pp1_kd = kd.plan_prompt(sl_kd, 1)
     assert 'EN genomarbetad' in pp1_kd and 'verkligt olika sätt' not in pp1_kd and 'valdes framför de andra' in pp1_kd, pp1_kd[:400]
-    assert 'EN skiss' in kd.plan_prompt(sl_kd, 1, skiss=True) and 'omkring tio uppdrag' in pp1_kd, 'läget och uppskalningen i prompten (A5)'
+    assert 'EN skiss' in kd.plan_prompt(sl_kd, 1, skiss=True) and 'tre uppdrag' in pp1_kd and 'omkring tio' not in pp1_kd, 'läget och uppskalningen i prompten (A5; tre riktningar 2026-10-12)'
     assert 'verkligt olika sätt' in kd.plan_prompt(sl_kd, 3) and [kd.minsta_plan(n_) for n_ in (1, 2, 3, 10)] == [1, 2, 2, 5]
     assert 'EN skiss' in kd.forska_prompt(sl_kd, 1, skiss=True) and 'cirka 1 ' not in kd.forska_prompt(sl_kd, 1, skiss=True)
     # planen för den enda prototypen: schemat tar emot och kräver exakt ett uppdrag, och planen skrivs med det (A2)

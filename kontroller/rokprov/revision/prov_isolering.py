@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Kundernas resurser hålls isär på Cloudflare-vägen (uppdraget 2026-10-09, etapp 7, T07, T27, M05, M15): samma paket hos
 två kunder ger egna Workers, egen D1, egen R2-bucket och egna driftvärden utan läckage mellan konfigurationerna; två
-kandidater hos samma kund delar kundens enda uppsättning (identiteten bär ingen kandidat), så att tio förslag aldrig blir
-tio Workers eller databaser; förhandsvisningen är en egen Worker utan kundens databas, bucket, mejl och kundregister."""
+kandidater hos samma kund delar kundens enda uppsättning (identiteten bär ingen kandidat), så att flera förslag aldrig blir
+flera Workers eller databaser; förhandsvisningen är en egen Worker utan kundens databas, bucket, mejl och kundregister."""
 import json
 from pathlib import Path
 import re

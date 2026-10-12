@@ -3,7 +3,7 @@
 Designstudion i portalen (ägarens uppdrag 2026-10-11 med byggpaketet `Nortropic-Designstudio-byggpaket-v1`, ordagrant i
 `BESLUT.md`): riktningarna, den levande förhandsvisningen och återkopplingen på ett ställe, med källbunden visuell
 redigering och strukturella ändringar genom AI-vägen. Studion bygger på skapandeflödet (`kunskap/skapandeflodet.md`):
-Astro, omkring tio riktningar, portalen och leveransvägen består. Claude Design och Lovable var förebilder, inga
+Astro, riktningarna (tre sedan ägarens beslut 2026-10-12, förr omkring tio), portalen och leveransvägen består. Claude Design och Lovable var förebilder, inga
 tjänster. Den gamla mörka arbetsytan finns inte längre som egen vy (ägarens besked samma dag); portalen är den enda
 ramen, och varje funktion därifrån finns i portalen och studion (`kunskap/arbetsyta.md`).
 

@@ -55,7 +55,7 @@ Konversationsvägen kan bli en kompletterande väg för ägarens egen utforsknin
 | D1–D2 Kundunderlag och kundförståelse | Code: `prototyp.py <slug> --forbered` | KUNDFORSTAELSE.md, BRIEF.md, TEXTUNDERLAG.md med flera |
 | D3 Research i tre perspektiv (bransch, visuell inspiration, implementationsgrund) | Code: `designfas.py ny <slug>` och sedan `prototyp.py <slug>` (eller `NWP_KANDIDAT_STOPP_EFTER=forskning`); stannar efter researchen | FORSKNING.md, referenspaketet, tjänsternas svar och bilder |
 | D4 Underlaget på duken | utföraren | dukens sida Underlag: besökarnas uppgifter, det som bara verksamheten har, referenserna med bild och skäl |
-| D5 Riktningarna | utföraren; en representativ riktning först, sedan omkring tio | en ritning per riktning med anteckning; versioner med bilder och kontroller |
+| D5 Riktningarna | utföraren; tre (ägarens beslut 2026-10-12), fler på ägarens begäran två åt gången | en ritning per riktning med anteckning; versioner med bilder och kontroller |
 | D6 Granskning före valet | utföraren efter renderingen; Code: kontrollerna och specialistpassen (kritik, jämförelse) | fynd före och efter; falsk variation utpekad |
 | D7 Ägarens val | ägaren på duken | ägarens ord ordagrant i versionens orsak |
 | D8 Förfining | utföraren med beställningar | nya versioner med bedömning före och efter |
@@ -97,9 +97,13 @@ iteration och utvärdering.
   av renderingen vid varje version.
 - **Synligt för ägaren.** En anteckning per version på duken (id `vNN`); `designfas.py status` visar bandets läge per
   riktning (gjord med synlig ändring och tid, svar med återgång, hoppad med skäl, ej tillämplig, återstår).
-- **Omkring tio riktningar, två följder.** Varje riktning går underlag, innehåll och struktur, art och komposition; när
-  alla finns körs kritiken och jämförelsen samlat, sida vid sida (parallell återkoppling, Dow m.fl. 2010). Ägaren väljer,
-  och den valda går resten av bandet.
+- **Tre riktningar, två följder** (ägarens beslut 2026-10-12, ordagrant i
+  `underlag/uppdrag/PROMPT-Nortropic-Tre-riktningar-20261012.md`; ersätter omkring tio). De tre skiljer sig i minst två av
+  makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton, aldrig bara i färg och typsnitt, och var och en visar i designen varför den passar kunden.
+  Varje riktning går underlag, innehåll och struktur, art och komposition; när alla tre finns körs kritiken och
+  jämförelsen samlat, sida vid sida (parallell återkoppling, Dow m.fl. 2010), och två som är för lika görs om innan ägaren
+  ser dem. Ägaren väljer, och den valda går resten av bandet. Fler riktningar på ägarens begäran, två åt gången, går
+  samma följd och jämförs med de tidigare.
 - **Förmågorna på filnivå.** Inventeringen 2026-10-12 (ordagrant i
   `underlag/uppdrag/PROMPT-Nortropic-Full-inventering-formagor-20261012.md`) placerade varje skill, fil och tjänstverktyg:
   en station kan ha ett radutdrag (`väg rad a–b`), varje rad i designfas-kartan säger sina stationer och flöden
@@ -113,7 +117,7 @@ iteration och utvärdering.
 
 ## Duken
 
-Dukens sidor: **Underlag** (research och referenser, så att ägaren ser grunden), **Riktningar** (omkring tio, sida
+Dukens sidor: **Underlag** (research och referenser, så att ägaren ser grunden), **Riktningar** (tre, sida
 vid sida i samma bredd) och **Förfining** (den valda, med tillstånden som interaktiva ritningar). Varje riktning har en
 anteckning: idén, förebilden och de egenskaper den prövar att föra över, implementationsgrunden, besökarens uppgift och
 primära handling, och antagandena. Ritningarna är sidor (`expand: "fill"`), flytande från 390 till 1440, med riktiga

@@ -4306,7 +4306,8 @@ Genomförarens tillämpning, på det mandatet:
 
 ## Tillägg 2026-10-09 ~17:53Z: ägarens uppdrag om tio förslag och en ren designstart
 
-**Status:** gäller; genomfört 2026-10-09 (lägesrapporten `RAPPORT-2026-10-09-tio-forslag-ren-designstart`). Det ersätter
+**Status:** gäller; genomfört 2026-10-09 (lägesrapporten `RAPPORT-2026-10-09-tio-forslag-ren-designstart`). **Delvis
+ersatt av:** tillägget 2026-10-12 om tre riktningar (antalet tio förslag; standarden är nu tre). Övrigt gäller. Det ersätter
 minimiantalet tre varv, valet som startade fördjupningen och ribban ur de gamla kalibreringsankarna (tabellen Ersatta
 designregler). Inget helbygge och ingen publicering är godkända genom det.
 
@@ -5509,7 +5510,7 @@ fäller."
   fäller; kandidatflödets kvitton är oförändrade): versioner och beställningar bär stationens namn, versionen prövar att
   insatsen syns mot förra versionen av ritningen, specialistpassen får stationens skills i stället för rollens hela kärna,
   och kvittot är redovisning.
-- **Behållet:** omkring tio riktningar, 44 px, inga karuseller, den rena designstarten, ägarens godkännande som eget
+- **Behållet:** omkring tio riktningar (antalet ersatt av tillägget 2026-10-12 om tre riktningar), 44 px, inga karuseller, den rena designstarten, ägarens godkännande som eget
   kommando, egna beslut för byggstart och publicering, granskning före skaparens förklaring, kundvakten och de tekniska
   golven.
 - **Efter den oberoende granskningen** (en AI-bedömning av texten mot primärkällorna, 22 avvikelser): processmodellerna
@@ -5550,3 +5551,32 @@ gör nytta, ner till filnivå, kontrollerbart och utan nytt register.
 - **Lyft till ägaren** (kostnad, konto eller ny tjänst; införs inte på eget initiativ): Figma (`generate_image`, Weave,
   läsvägen för kundfiler), 21st-generering och video, Mobbins läge deep, claude-in-chrome för duken, Claude Docs,
   computer-use, bildgenerering och logotyper, licensfrågan i ui-styling och läsningen av intagskrav 4.
+
+## Tillägg 2026-10-12: tre riktningar i stället för omkring tio
+
+**Status:** gäller; genomfört av Claude i grenen `claude/tre-riktningar-20261012`. Ersätter beslutet 2026-10-09 om tio
+förslag (och omkring tio riktningar i designfasen) i den delen; tilläggen 2026-10-09 ~17:53Z och om produktionsbandet är
+markerade. Ingen omgång med tre riktningar är gjord eller bedömd av ägaren.
+
+Ägarens beslut och uppdrag (inklistrat, ankomst före 2026-10-12T18:47:55Z; ordagrant i
+`underlag/uppdrag/PROMPT-Nortropic-Tre-riktningar-20261012.md`, privat). Ägarens ord, ordagrant:
+
+> Mitt beslut (ersätter beslutet 2026-10-09 om omkring tio riktningar): standarden är tre tydligt olika, kundspecifika riktningar. Jag kan begära fler, två åt gången, när ingen av de tre träffar. Skälet: kvaliteten per riktning är flaskhalsen, inte bredden. Färre riktningar ger mer arbete per riktning, mindre falsk variation, kortare tid och lägre förbrukning, och en jämförelse jag kan göra ordentligt.
+
+> De tre skiljer sig i minst två av dessa: makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton. Aldrig bara i färg och typsnitt. Var och en visar i själva designen varför den passar kunden (min kvalitetsribba i underlag/niva/MATTSTOCK.md). Jämförelsen (stationen jamforelse, ds_jamforelse) körs fortfarande och pekar ut falsk variation. Är två riktningar för lika görs en om innan jag ser dem.
+
+> Påstå inte att färre riktningar ger högre kvalitet förrän jag sett en omgång.
+
+- **Designfasen:** bandet (metodkartan, Bandet: stationerna) har tre riktningar i två följder: före valet underlag,
+  innehåll och struktur, art direction och komposition för var och en; kritiken och jämförelsen samlat när alla tre finns;
+  den valda går resten. Jämförelsens fråga prövar minst två av de fem axlarna och pekar ut den riktning som görs om. Fler
+  riktningar på ägarens begäran, två åt gången, går samma följd och jämförs med de tidigare. Avvikelse 5 och metoden
+  `parallell` säger att antalet är ägarens produktval.
+- **Kandidatflödet:** standardantalet är tre (`kandidater.ANTAL`, `NWP_KANDIDATER` för fler), och `kandidater.planbrist`
+  avvisar ett uppdrag som skiljer sig i färre än två av komposition (makrostrukturen), bildbehandling (bildstrategin),
+  typografi (den typografiska hierarkin), innehallshierarki (innehållsordningen) och ton; axeln ton är ny i planens schema.
+- **Texterna:** designregler, metodkartan, claude-design, skapandeflodet, designstudio, skillen designfas, CLAUDE.md,
+  README:s kedja och två KALLA.md. **Proven:** `prov_tio_forslag` prövar regeln och standardantalet, och `prov_revision`
+  prövar planprompten med tre uppdrag.
+- **Behållet:** ägarens godkännande som eget kommando, byggstart och publicering som egna beslut, 44 px, inga
+  karuseller, den rena designstarten, granskning före skaparens förklaring, kundvakten och de tekniska golven.

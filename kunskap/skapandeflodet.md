@@ -14,7 +14,7 @@ står i egna avsnitt. Ingångarna:
 
 **Normalflödet** (ägarens uppdrag 2026-10-09 ~17:53Z, ordagrant i minnet och sammanfattat i `BESLUT.md`, tillägget samma
 dag): kundunderlag → kundförståelse → starka branschreferenser → visuell inspiration och användbara mallar och
-komponenter → tio kundanpassade förslag → kundens val → riktad förbättring (Rätta, Omarbeta designen, Bygg ut) →
+komponenter → tre kundanpassade riktningar → kundens val → riktad förbättring (Rätta, Omarbeta designen, Bygg ut) →
 helbygge → verifierad leverans. Målet är en snabbare väg till hög kvalitet; antalet rapporter, lästa skills,
 verktygsanrop eller varv är inget kvalitetsmått. Flödet startar från en ren designstart (`kunskap/ren-designstart.md`):
 inget designmaterial från före 2026-10-09 finns i den aktiva miljön.
@@ -45,14 +45,17 @@ material, och installationen av den godkända versionen ersätter dess materialo
 återkommer. Målkonflikter prövas före installationen. Underlagsändringar gör godkännandet inaktuellt. Detta binder
 överlämningen till det bedömda exemplet; det bevisar inte att exemplet når ägarens designribba.
 
-Tio förslag är ägarens beslut (2026-10-09; det tidigare förslaget att minska antalet är inte antaget). Första omgången
-ger tio skisser med jämförbar omfattning: första vyn, den viktigaste innehållssektionen, navigationen och de
+Tre riktningar är ägarens beslut (2026-10-12, ordagrant i `underlag/uppdrag/PROMPT-Nortropic-Tre-riktningar-20261012.md`;
+det ersätter tio förslag från 2026-10-09): "kvaliteten per riktning är flaskhalsen, inte bredden". Ägaren kan begära fler,
+två åt gången, när ingen av de tre träffar, och de går samma väg och jämförs med de tidigare. Första omgången
+ger tre skisser med jämförbar omfattning: första vyn, den viktigaste innehållssektionen, navigationen och de
 interaktioner som behövs för att förstå förslaget, genomarbetade i mobil och dator, med kundens rubriker, erbjudande,
 bilder och kontaktvägar. Varje förslag utgår från en identifierad professionell förebild eller fungerande designgrund
 (`utgangspunkt` i planen) och har en faktisk implementationsgrund (mall, komponenter, tema eller egen implementation;
 `implementationsgrund`), och skillnaden syns i komposition, bildbehandling, typografi, innehållshierarki eller
-interaktion; färgbyten på samma layout är inga olika förslag (`kandidater.planbrist`). Inga tio kompletta sajter byggs
-före valet. Går tio inte att göra inom resurserna redovisas bristen (`brist_mot_begart`), utan kosmetiska dubbletter.
+interaktion; de tre skiljer sig i minst två av makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton, och färg och typsnitt räcker aldrig
+(`kandidater.planbrist`). Inga kompletta sajter byggs före valet. Går tre verkligt olika inte att göra inom resurserna
+redovisas bristen (`brist_mot_begart`), utan kosmetiska dubbletter.
 
 - **Ren arbetskontext.** Skaparen får uppdraget (designuppdraget, besökarens uppgift, den viktigaste sektionen,
   referensbilderna och vad de ska lära), kundens verifierade fakta och material, kundens aktuella domar och metodens
@@ -137,7 +140,7 @@ kandidaterna och granskningarna.
 3. **Plan och planprövning.** Ett planeringspass skriver först branschgenomgången (för varje fångad branschsajt varför den
    är värd att studera, erbjudande, tjänster och priser, förtroende, navigation och kontakt, bilder, mobil, styrkor,
    svagheter och möjligheter för kunden, med belägg i paketets bilder; att något förekommer hos konkurrenter gör det inte
-   till bästa praxis) och förebilderna ur gallerierna, och sedan tio uppdrag (`NWP_KANDIDATER`, högst tolv), vart och ett med
+   till bästa praxis) och förebilderna ur gallerierna, och sedan tre uppdrag (`NWP_KANDIDATER`, högst tolv; fler på ägarens begäran), vart och ett med
    referensbidrag ur både branschen och inspirationen (kedjan kundbehov → observerad kvalitet → designbeslut → tillämpning →
    bedömning; referenskontraktet prövar dem mot paketet, och uppdraget skrivs till skaparen i UPPDRAG.md)
    som besvarar kundens problem på olika sätt: innehållshierarkin, bildstrategin, typografin, navigationen och hur

@@ -2457,7 +2457,7 @@ def arbeta(slug, lage):
             kandidater.forfina_valda(slug, status, skriv)
             return 0
         if status.get('kandidatflode'):
-            # ägarens uppdrag 2026-10-05: cirka tio kandidater i egna projekt, och ägaren väljer före förfiningen; panelen
+            # ägarens uppdrag 2026-10-05: kandidater i egna projekt (tre sedan ägarens beslut 2026-10-12, förr cirka tio), och ägaren väljer före förfiningen; panelen
             # granskar och rekommenderar men utser ingen vinnare (kontroller/kandidater.py)
             import kandidater
             kandidater.kor(slug, status, skriv)

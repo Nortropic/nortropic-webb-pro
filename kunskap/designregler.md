@@ -72,7 +72,7 @@ fäller dem i agenternas texter.
 | Ägaren dömer blint och först; panelens omdöme visas efter (2026-10-03–04) | dashboardens vyer |
 | Den godkända prototypen gäller i bygget; en annan riktning utan nytt godkännande är ett blockerande fynd | byggen efter ett godkännande |
 | Domloggens aktuella domar för en kund (från den senaste som begärde en ny riktning; en förkastning återöppnar bara grundidéerna och referenserna); den senaste går före | den kunden |
-| Tio kundanpassade förslag per omgång, var och en med förebild eller designgrund och implementationsgrund, skilda åt i mer än färg; en brist redovisas, aldrig kosmetiska dubbletter (ägaren 2026-10-09) | skapandeflödet |
+| Tre tydligt olika, kundspecifika riktningar per omgång (ägaren 2026-10-12, ersätter tio förslag från 2026-10-09); fler på ägarens begäran, två åt gången, när ingen av de tre träffar. De skiljer sig i minst två av makrostruktur, bildstrategi, typografisk hierarki, innehållsordning och ton, aldrig bara i färg och typsnitt; var och en visar i själva designen varför den passar kunden (`underlag/niva/MATTSTOCK.md`) och har förebild eller designgrund och implementationsgrund; jämförelsen pekar ut falsk variation, och två som är för lika görs om innan ägaren ser dem; en brist redovisas, aldrig kosmetiska dubbletter | skapandeflödet |
 | Val, uppdrag, före och efter, helbygge och publicering är skilda beslut: godkännandena är ägarens, en AI-bedömning bokförs aldrig som kundens, och en separat före/efter-bedömning styr fortsättningen (ägaren 2026-10-09; `kunskap/skapandeflodet.md`, steg 6–7) | skapandeflödet och leveransen |
 
 ## Kundens behov

@@ -1,7 +1,7 @@
 # nortropic-webb-pro — för sessioner i det här repot
 
 Bygger webbplatser åt riktiga verksamheter. Normalflödet (ägarens uppdrag 2026-10-09): kundunderlag → kundförståelse →
-starka branschreferenser → visuell inspiration och användbara mallar och komponenter → tio kundanpassade förslag →
+starka branschreferenser → visuell inspiration och användbara mallar och komponenter → tre kundanpassade riktningar (ägarens beslut 2026-10-12; fler på begäran, två åt gången) →
 kundens val → riktad förbättring (Rätta, Omarbeta designen, Bygg ut) → helbygge → verifierad leverans
 (`kunskap/skapandeflodet.md`). Formgivningen görs sedan 2026-10-12 i Claude Design: en utsedd utförare (en interaktiv
 session i repots rot, `./design.sh <slug>`, skillen `designfas`) skriver kundens duk, och Code gör research,

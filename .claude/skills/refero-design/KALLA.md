@@ -23,7 +23,7 @@
   `references/visual-workflow.md` är kärna i granskningen.
 - **Krockar med våra beslut:** "Do not use generic frontend/product design skills as a parallel design authority" —
   här fördelar metodkartan rollerna, och Avgörandena avgör krockar. "Default to three reference-locked options and ask
-  the user to choose" — kandidatflödet gör omkring tio och ägaren väljer i dashboarden. "Ask only for missing
+  the user to choose" — flödet gör tre riktningar (ägarens beslut 2026-10-12) och ägaren väljer på duken. "Ask only for missing
   information" — ingen svarar i flödets sessioner; antaganden skrivs i RIKTNING.md. Bildgenerering: flödets sessioner
   har ingen bildgenerator; material som saknas beställs. Listan över "calm editorial"-risker (krämvit yta, serif,
   kursivt ord) är en granskningsfråga, inget förbud (ägarbeslutet 2026-10-03).
