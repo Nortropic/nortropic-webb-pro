@@ -227,7 +227,55 @@ function matPaSidan() {
   if ([...document.querySelectorAll('body *')].some((el) => el.children.length === 0 && (el.textContent || '').trim() && /mono/i.test(getComputedStyle(el).fontFamily))) standardval.push('monospace-etiketter');
   if ([...document.querySelectorAll('a, button')].some((el) => { const r = el.getBoundingClientRect(); return synlig(el) && r.height >= 28 && parseFloat(getComputedStyle(el).borderTopLeftRadius) >= r.height / 2 - 1; })) standardval.push('pillerformade knappar');
   if ([...document.querySelectorAll('body *')].some((el) => el.children.length === 0 && (el.textContent || '').trim().length > 2 && getComputedStyle(el).textTransform === 'uppercase' && parseFloat(getComputedStyle(el).letterSpacing) > 0.5 && parseFloat(getComputedStyle(el).fontSize) < 15)) standardval.push('spärrade versaletiketter');
+  // precisionen på ägarens nivå, mätt ur renderingen (kunskap/precision.md, T1, T3, K2, K3 och P3; information, inga
+  // varningar: talen prövas mot riktningens egen regel, aldrig mot apple.com eller nike.com)
+  const textEl = [...document.querySelectorAll(`${rot} h1, ${rot} h2, ${rot} h3, ${rot} h4, ${rot} p, ${rot} li, ${rot} a, ${rot} button, ${rot} label, ${rot} figcaption, ${rot} dt, ${rot} dd, ${rot} blockquote`)]
+    .filter((el) => synlig(el) && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()));
+  const steg = {};
+  for (const el of textEl) {
+    const s = getComputedStyle(el);
+    const fs = parseFloat(s.fontSize);
+    const lh = s.lineHeight === 'normal' ? 'normal' : Math.round(parseFloat(s.lineHeight) * 100) / 100;
+    const ls = s.letterSpacing === 'normal' ? 0 : Math.round((parseFloat(s.letterSpacing) || 0) / fs * 1000) / 1000;
+    const k = Math.round(fs * 2) / 2;
+    steg[k] = steg[k] || {};
+    steg[k][`${lh}|${ls}`] = (steg[k][`${lh}|${ls}`] || 0) + 1;
+  }
+  const typsteg = Object.keys(steg).map(Number).sort((a, b) => a - b).map((px) => {
+    const [v] = Object.entries(steg[px]).sort((a, b) => b[1] - a[1])[0];
+    const [lh, ls] = v.split('|');
+    return { px, radhojd: lh === 'normal' ? null : +lh, kvot: lh === 'normal' ? null : Math.round(+lh / px * 100) / 100, sparrningEm: +ls,
+      varianter: Object.keys(steg[px]).length, element: Object.values(steg[px]).reduce((a, b) => a + b, 0) };
+  });
+  const kanter = [...new Set(textEl.filter((el) => /^(H[1-4]|P|LI|BLOCKQUOTE|FIGCAPTION)$/.test(el.tagName))
+    .map((el) => Math.round(el.getBoundingClientRect().left)))].sort((a, b) => a - b);
+  const avst = {};
+  for (const el of iMain) {
+    const s = getComputedStyle(el);
+    for (const e of ['marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'rowGap', 'columnGap']) {
+      const v = Math.round(parseFloat(s[e]) || 0);
+      if (v > 0) avst[v] = (avst[v] || 0) + 1;
+    }
+  }
+  const avstSort = Object.entries(avst).sort((a, b) => b[1] - a[1]);
+  const avstSum = avstSort.reduce((a, [, n]) => a + n, 0);
+  const handl = {};
+  for (const el of [...document.querySelectorAll('button, [role="button"], a[href]')].filter(synlig)) {
+    const s = getComputedStyle(el);
+    const yta = rgb(s.backgroundColor);
+    const under = (el.parentElement && rgb(getComputedStyle(el.parentElement).backgroundColor)) || bodyBg;
+    if (!(el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || (yta && yta.join() !== under.join()) || parseFloat(s.borderTopWidth) > 0)) continue;
+    const k = `${Math.round(el.getBoundingClientRect().height)}|${Math.round(parseFloat(s.borderTopLeftRadius) || 0)}`;
+    handl[k] = (handl[k] || 0) + 1;
+  }
+  const precision = { grader: typsteg.length, typsteg, stegMedFleraVarianter: typsteg.filter((x) => x.varianter > 1).map((x) => x.px),
+    radhojdUtanHelaPx: Object.keys(steg).map(Number).sort((a, b) => a - b).filter((px) => Object.keys(steg[px])
+      .some((v) => { const lh = v.split('|')[0]; return lh !== 'normal' && Math.abs(+lh - Math.round(+lh)) > 0.01; })),
+    vansterkanter: kanter.length, vansterkanterPx: kanter.slice(0, 12), avstandsvarden: avstSort.length,
+    tioVanligasteTacker: avstSum ? Math.round(100 * avstSort.slice(0, 10).reduce((a, [, n]) => a + n, 0) / avstSum) : null,
+    handlingar: Object.entries(handl).sort((a, b) => b[1] - a[1]).map(([k, n]) => { const [h, r] = k.split('|'); return { hojd: +h, radie: +r, antal: n }; }) };
   return {
+    precision,
     typsnitt, ytor: [...ytor.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k),
     bakgrund: hex(bodyBg), text: text ? hex(text) : null, accent: accent ? hex(accent) : null, gradient,
     radier: [...radier.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r, n]) => ({ px: r, antal: n })),
@@ -360,6 +408,12 @@ const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val 
   ...(mobilStart ? [`- Sidhuvud: ${mobilStart.sidhuvud ?? '-'} px; meny: ${mobilStart.hamburgare ? 'hamburgare' : mobilStart.menyLankar + ' synliga länkar'}; numret ${mobilStart.telIForsta ?? 0} gånger och ${mobilStart.dubbla?.length ?? 0} upprepade länkar i första vyn`,
     `- Eget foto i första skärmen: ${mobilStart.fotoIForsta ? 'ja' : 'nej'} (${mobilStart.bilder} bilder i main)`,
     `- Fast list längst ned: ${mobilStart.fastList ? [mobilStart.fastList.ring && 'Ring', mobilStart.fastList.skriv && 'Skriv'].filter(Boolean).join(' och ') || 'utan Ring och Skriv' : 'ingen'}`] : ['- startsidan mättes inte']), '',
+  '## Precision (kunskap/precision.md: T1, T3, K2, K3, P3; information)', '',
+  '| Sida | Vy | Grader | Steg med flera varianter, px | Radhöjd utan hela px, vid px | Vänsterkanter | Avståndsvärden (de tio vanligaste täcker) | Handlingar, höjd/radie × antal |',
+  '|---|---|---|---|---|---|---|---|',
+  ...rader.filter((r) => r.precision).map((r) => { const p = r.precision; return `| ${r.sida} | ${r.vy} | ${p.grader} | ${p.stegMedFleraVarianter.join(', ') || '-'} | ${p.radhojdUtanHelaPx.join(', ') || '-'} | ${p.vansterkanter} | ${p.avstandsvarden} (${p.tioVanligasteTacker ?? '-'} %) | ${p.handlingar.slice(0, 4).map((h) => h.hojd + '/' + h.radie + ' × ' + h.antal).join(', ') || '-'} |`; }), '',
+  ...rader.filter((r) => r.sida === '/' && r.precision).flatMap((r) => [`Typstegen på startsidan i ${r.vy} (px: radhöjd, kvot, spärrning i em): ` +
+    r.precision.typsteg.map((x) => `${x.px}: ${x.radhojd ?? 'normal'}, ${x.kvot ?? '-'}, ${x.sparrningEm}`).join('; '), '']),
   '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',
   '## Klickytor under 24 px i 390 (byggstandarden 3.3)', '', ...(smaYtor.length ? smaYtor.map((y) => `- ${y.sida}: "${y.text}" ${y.bredd}×${y.hojd}`) : ['Inga.']), '',
   '## Knappar, ring- och mejllänkar under 44 px i 390 (kandidater: byggstandarden 3.3 kräver minst 44×44 för primära interaktiva kontroller, som granskaren pekar ut; WCAG:s minimum är 24 px)', '',

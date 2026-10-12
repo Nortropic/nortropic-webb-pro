@@ -414,6 +414,17 @@ with prova.Server(d) as srv:
 m = next(x for x in json.loads((d / 'ut2' / 'STIL.json').read_text())['rader'] if x['vy'] == '390')['mobil']
 assert len(m['menyDolda']) >= 2 and m['telIForsta'] == 3 and m['dubbla'] == ['https://boka.example/x'], m
 assert not ren['varningar'] or not any('utanför skärmen' in v or 'gånger i startsidans' in v or 'två gånger' in v or 'inte ryms' in v or '320×180-vy' in v for v in ren['varningar']), ren['varningar']
+# precisionen (kunskap/precision.md T1, T3, K2, K3, P3): typstegen som par, radhöjd i hela px, vänsterkanter, avstånd, handlingar
+(d / 'precision').mkdir(); (d / 'precision' / 'index.html').write_text('<!doctype html><html lang=\"sv\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>P</title><style>body{margin:0;font:16px sans-serif;background:#fff}main{padding:0 24px}h1{font-size:40px;line-height:44px;letter-spacing:-0.02em;margin:0 0 24px}h2{font-size:24px;line-height:30px;margin:48px 0 12px}p{font-size:16px;line-height:24px;margin:0 0 12px}p.b{line-height:25.6px}p.c{margin-left:40px}.k{display:inline-block;height:44px;border-radius:8px;background:#0b57d0;color:#fff;padding:0 16px;line-height:44px}button{height:40px;border-radius:4px;font-size:16px;line-height:24px}</style></head><body><main><h1>Rubrik</h1><p>Ett stycke.</p><p>Ett till.</p><p class=\"b\">Ett annat stycke.</p><p class=\"c\">Indraget.</p><h2>Mellan</h2><a class=\"k\" href=\"/x/\">Boka</a> <button>Skicka</button></main></body></html>')
+with prova.Server(d) as srv:
+    subprocess.run(['node', '$ROOT/kontroller/stil.mjs', '--url=' + srv.url, '--sidor=/precision/', '--ut=' + str(d / 'ut3')], check=True, capture_output=True)
+p = next(x for x in json.loads((d / 'ut3' / 'STIL.json').read_text())['rader'] if x['vy'] == '1440')['precision']
+st = {x['px']: x for x in p['typsteg']}
+assert p['grader'] == 3 and st[40]['kvot'] == 1.1 and st[40]['sparrningEm'] == -0.02 and st[16]['radhojd'] == 24, p
+assert p['stegMedFleraVarianter'] == [16] and p['radhojdUtanHelaPx'] == [16], p
+assert p['vansterkanter'] == 2 and p['vansterkanterPx'] == [24, 64], p
+assert {(h['hojd'], h['radie']) for h in p['handlingar']} == {(44, 8), (40, 4)}, p
+assert '## Precision' in (d / 'ut3' / 'STIL.md').read_text()
 " || { echo "FEL: stilrapportens nya mätningar"; exit 1; }
 echo "   stilrapporten ok"
 

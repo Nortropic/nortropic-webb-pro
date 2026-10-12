@@ -114,5 +114,8 @@ plattformsnormer och inga krav på webben.
 - C3. Vilka detaljer avslöjar slarv (P1–P4)? (Craft)
 - C4. Vilken känsla förmedlas, och passar den kunden? Står dekor i vägen för uppgiften? (Delight)
 
-Frågorna T1, T3, K2, K3 och P3 går att mäta ur renderingen, och stilrapporten (`kontroller/stil.mjs`) har redan
-delar av underlaget. De övriga kräver bilderna och en bedömning, som är en AI-bedömning och aldrig ägarens dom.
+Frågorna T1, T3, K2, K3 och P3 mäts ur renderingen av stilrapporten (`kontroller/stil.mjs`, avsnittet Precision i
+STIL.md och fältet `precision` i STIL.json): typstegen som par av storlek, radhöjd och spärrning med antalet varianter per
+grad, graderna med radhöjd utan hela pixlar, vänsterkanterna, avståndsvärdena med de tio vanligastes täckning och
+handlingarnas höjd och radie. Talen prövas mot riktningens egen regel, aldrig mot apple.com eller nike.com. De övriga
+frågorna kräver bilderna och en bedömning, som är en AI-bedömning och aldrig ägarens dom.
