@@ -8075,7 +8075,9 @@ def skisskontrollerna():
         proj_ = tmp / 'skk-projekt' / '-x'
         proj_.mkdir(parents=True)
         bk_s.PROJEKT = proj_.parent
-        fore_ = next(f_['fil'] for f_ in md_s.leverera('skiss', tmp / 'skk-metod')['filer'] if f_['del'] == 'före')
+        # före-delen kan vara packad i flera filer (METOD-skiss.md, METOD-skiss-2.md …; metod.packa): bild.md står hel i en av dem
+        fore_alla_ = [f_['fil'] for f_ in md_s.leverera('skiss', tmp / 'skk-metod')['filer'] if f_['del'] == 'före']
+        fore_ = next((f_ for f_ in fore_alla_ if re.search(r'^### kunskap/bild\.md · rad 1–\d+ · sha', f_.read_text(), re.M)), fore_alla_[0])
         rubrik_ = re.search(r'^### kunskap/bild\.md · rad 1–\d+ · sha [0-9a-f]{12}$', fore_.read_text(), re.M)
         assert rubrik_ and 'kunskap/bild.md' in kp_s.lasfiler('skapa'), 'METOD-skiss.md bär kunskap/bild.md hel, och den är skaparens kärna'
         src_ = 'kunder/%s/kandidater/k01/sajt/src/' % slug_

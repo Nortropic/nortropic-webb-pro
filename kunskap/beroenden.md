@@ -71,9 +71,10 @@ under byggstandardens 200 kB (3.7), men GSAP är det tyngsta valet och bär sig 
 - **GSAP:** `import gsap from 'gsap'` (och `import { ScrollTrigger } from 'gsap/ScrollTrigger'` med
   `gsap.registerPlugin`) i ett `<script>`. Varje rörelse står innanför `gsap.matchMedia()` med
   `(prefers-reduced-motion: no-preference)`, så att den som bett om mindre rörelse får sidan färdig och stilla
-  (mallens `Bas.astro` stänger CSS-övergångar, inte skriptdriven rörelse; rökprovets `/rorelse/` prövar det). Ingen
-  ScrollSmoother eller annan mjuk scroll (metodkartans Avgöranden, WCAG 2.2.2); det ScrollTrigger avtäcker syns
-  också utan skript. Skillen `.claude/skills/gsap/` (gsap-skills, MIT) med vårt index.
+  (mallens `Bas.astro` stänger CSS-övergångar, inte skriptdriven rörelse; rökprovets `/rorelse/` prövar det). Mjuk
+  scroll (ScrollSmoother, Lenis) är ett designval: avstängd vid reducerad rörelse, utan att ta över tangentbordet och
+  ankarlänkarna; WCAG 2.2.2 gäller rörelse som pågår mer än 5 s och kräver att den kan pausas eller stoppas. Det
+  ScrollTrigger avtäcker syns också utan skript. Skillen `.claude/skills/gsap/` (gsap-skills, MIT) med vårt index.
 - **Valet per beteende (ägarens uppdrag 2026-10-07, punkt 5C):** rollen rorelse väljer tekniken per beteende ur
   designens och implementationens behov och skriver valet med skäl i passets `teknikval` och i RIKTNING.md: CSS först
   när den räcker (tillstånd, enkla övergångar, `@starting-style`, korta staggers med `transition-delay`), Motion för
@@ -81,8 +82,22 @@ under byggstandardens 200 kB (3.7), men GSAP är det tyngsta valet och bär sig 
   (ScrollTrigger). Ett genomtänkt beslut kan vara att något ska vara stilla, och ingen rörelse läggs till för att fylla
   en kvot. Beslutstabellen är `motion/best-practices/css-or-motion.md` (läses hel före valet i passet rörelse)
   tillsammans med raden ovan.
-- **Komponentbibliotek** som kräver nya paket (shadcn/ui med Radix, Fluent, Carbon) finns inte i låset. Ett behov
-  förbereds som ett nytt beroende nedan; mönstren går ofta att bygga som Astro-komponenter med de låsta paketen.
+- **Komponentbibliotek och 21st.** shadcn-grunden finns i mallen: aliaset `@/*`, `components.json` med registren för
+  magicui och aceternity, `cn()` i `src/lib/utils.ts` och paketen clsx, tailwind-merge, class-variance-authority,
+  radix-ui, @radix-ui/react-slot och lucide-react. WebGL har three, @react-three/fiber och ogl. **Porteringsreceptet
+  för ett 21st-block** (valideringen 2026-10-12):
+  1. Hämta koden med `get_component` och läs licensen på komponentsidan; svaret saknar licens.
+  2. Härled beroendena ur kodens importer, inte ur svarets lista, och installera dem med exakt version.
+  3. Lägg komponenten under `src/components/ui/` och behåll `@/lib/utils` som import.
+  4. Lägg CSS i en fil, aldrig i inline-`<style>`, och använd lokala bilder genom `astro:assets`.
+  5. Gör en React-ö (`client:visible`) bara när blocket har tillstånd eller rörelse.
+  6. Mappa shadcn-rollerna (background, foreground, primary, muted, accent, border, ring) till DESIGN.md:s variabler.
+  7. Pröva i 390 och 1440 med reducerad rörelse.
+
+  Shaders i första vyn görs med ren WebGL eller ogl, och three efter LCP (`client:idle` eller `client:visible`), så
+  att Lighthouse ≥ 90 håller.
+  **CSP:n:** mallens CSP stoppar i dag Radix skrollås, WebAssembly, `blob:`-workers och externa bilder (mätt
+  2026-10-12). Ändringen ligger hos ägaren (se morgonrapporten 2026-10-13).
 
 ## Kvalitetskraven som består (inte teknikval)
 
@@ -93,8 +108,11 @@ på den sidan, hur bra det än ser ut.
 
 ## Ett nytt beroende
 
-Flödets sessioner kör aldrig npm, npx eller node direkt (`kontroller/atelje.py`, NEKAS); typsnitt går genom
-`kontroller/typsnitt.py`. Ett nytt beroende förbereds utanför flödet, i den här ordningen:
+Paket väljs fritt när de höjer kvaliteten. Inget av det är ägarens beslut (ägarens besked 2026-10-12, ordagrant i
+`underlag/uppdrag/PROMPT-Nortropic-Fria-tyglar-regelinventering-20261012.md`: "Inga av sådana här beroenden eller andra
+är mitt beslut, det skall utnyttjas för det är ju de här sakerna som är kvalité och premium hemsidor"). Det som består är
+exakt version i låset, källan och licensen i RIKTNING.md, och kvalitetskraven ovan. Ett paket som flera sajter behöver
+läggs i mallen, i den här ordningen:
 
 1. Installera i en kopia av mallen (`npm install --ignore-scripts`), exakt version i `package.json`.
 2. Granska: licensen för paketet och dess beroenden ur låset, installationsskripten (`hasInstallScript` i låset),

@@ -178,9 +178,10 @@ def fall3():
     assert any(HIG in x and 'har ändrats' in x for x in fel2), fel2
     fel3, _ = metod.prova(las={k_: v for k_, v in las.items() if k_ != HIG})
     assert any(HIG in x and 'saknas i låset' in x for x in fel3), fel3
-    # kärnan växer med filen, men kritikens kärna håller sig under 70 000 tecken (mätningen 107–109 s gällde 58 850)
+    # kärnan växer med filen; kritikens kärna hålls under 80 000 tecken (mätningen 107–109 s gällde 58 850; taket höjt
+    # 2026-10-12 när designreglerna fick regeln om tre riktningar, ägarens besked om fria tyglar i skapandet)
     n = kompetens.storlek(kompetens.lasfiler('skisskritik', k))
-    assert len(t) <= 12000 and n <= 70000, (len(t), n)
+    assert len(t) <= 12000 and n <= 80000, (len(t), n)
 
 
 # ===== 4. koncept, aldrig prototyp =====

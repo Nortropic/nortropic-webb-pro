@@ -68,7 +68,9 @@ Källa: https://developer.apple.com/design/human-interface-guidelines/accessibil
 ## Typografi och textstorlek: hierarki och faktisk förstoring
 
 Bedöm läsbarhet med sidans typsnitt, vikt, kontrast, radlängd och verkliga innehåll i mobil och dator. Apples
-native-mått i pt översätts inte till CSS-px som ett nytt minimikrav. Tunna små tecken behöver prövas särskilt.
+mått i pt går att jämföra direkt i 390, eftersom 1 CSS-px = 1 pt i Safari på iPhone med `width=device-width`. De är
+plattformsnormer och inga nya minimikrav på webben. Tunna små tecken behöver prövas särskilt. Precisionen i typsteg,
+spärrning och radhöjd står i `kunskap/precision.md`.
 Använd relativa storlekar och undvik att viewport-enheter ensamma hindrar textförstoring.
 
 WCAG 1.4.4 kräver att text kan förstoras till 200 % utan förlust av innehåll eller funktion, med kriteriets
@@ -90,8 +92,11 @@ bedöms enligt 1.4.11 och våra befintliga designregler, inte genom att tillämp
 
 Träffytor följer befintlig byggstandard 3.3: 24 × 24 CSS-px för allt och 44 × 44 för primära knappar i 390.
 Det är vår regel. WCAG 2.5.8 har även undantag för bland annat tillräckligt mellanrum, löptext och likvärdiga
-kontroller; redovisa skillnaden mellan standardkravet och vår ribba. Apples native-mått är ingen enhetskonvertering
-för dessa webbmått.
+kontroller; redovisa skillnaden mellan standardkravet och vår ribba. Ägarens 44 px för primära kontroller är samma som
+Apples standardstorlek, och WCAG:s 24 px ligger under Apples minimum på 28 pt. Mellanrummet mellan kontroller
+(omkring 12 px med ram och 24 px utan, i 390) är Apples norm och vår ribba, inget WCAG-krav. Tre HIG-mönster förs inte
+över till webben: platshållaren som ledtråd (etiketten står alltid kvar), den avstängda Nästa-knappen och HIG:s 3:1 för
+fet text i alla grader (WCAG kräver minst 14 pt).
 
 Axe hittar vissa maskinellt upptäckbara fel. Ett grönt resultat bevisar inte WCAG AA eller att sidan är användbar.
 Det behövs mänsklig bedömning och funktionella prov, bland annat tangentbord, hjälpmedel, zoom, begriplighet och
