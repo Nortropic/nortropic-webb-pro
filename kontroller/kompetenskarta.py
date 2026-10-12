@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # flödets ordning (kunskap/skapandeflodet.md): underlaget, researchen, planen, skissen med kritiken, jämförelsen och
 # granskningens två pass före ägarens val, sedan fördjupningen, passen efter den och helbygget
 FLODE = ('forbered', 'forska', 'planera', 'planprovning', 'skapa', 'skisskritik', 'jamforelse', 'kritik_a', 'kritik_b', 'fordjupa',
-         'rorelse', 'granskning', 'fore_efter', 'helbygge')
+         'rorelse', 'granskning', 'fore_efter', 'helbygge') + kompetens.DESIGNSTOD  # designfasens specialistpass (kunskap/claude-design.md)
 # kvittofilerna utanför kandidaternas STATUS.json: (mönster under underlag/<slug>/atelje, pass, vägen till kvittot), som
 # kandidater.py och forberedelse.py skriver dem. Planeringens och omplaneringens kvitton läses ur PLANERING.json och
 # OMPLANERING-kompetens.json, som skrivs också när planen stoppas; KANDIDATPLAN.json bär samma kvitton och läses bara för

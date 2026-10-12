@@ -49,7 +49,10 @@ try {
   await page.locator('[data-kk-flik="luckor"]').focus();
   await page.keyboard.press('ArrowRight');
   assert.equal(await page.evaluate(() => document.activeElement.dataset.kkFlik), 'flodet');
-  assert.equal(await page.locator('.kk-steg').count(), 14, 'varje steg i flödet');
+  // ett steg per pass i kompetenskarta.FLODE, designfasens specialistpass med (2026-10-12); antalet ur API:t, inte ett fast tal
+  const flode = (await page.evaluate(async () => (await fetch('/api/kompetenskarta')).json())).steg;
+  assert(flode.length >= 24 && flode.some((s) => s.pass === 'ds_kritik'), 'flödet i API:t: ' + flode.map((s) => s.pass).join(', '));
+  assert.equal(await page.locator('.kk-steg').count(), flode.length, 'varje steg i flödet');
   assert.match(await page.locator('.kk-steg').first().textContent(), /Förberedelsen av kundunderlaget/);
   assert.match(await page.locator('.kk-steg').filter({ hasText: 'Researchen' }).textContent(), /mobbin: använt med resultat ×1/);
   await prova('flodet');
