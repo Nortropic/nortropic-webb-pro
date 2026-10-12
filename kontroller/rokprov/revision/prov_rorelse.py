@@ -425,7 +425,9 @@ def _dokumentationen():
         assert ord_ in b, ord_
     k = (KOPIA / 'kunskap' / 'metodkarta.md').read_text(encoding='utf-8')
     assert 'GSAP finns inte bland de låsta' not in k, 'listan Ingen uppgift säger inte längre att GSAP saknas i låset'
-    assert 'Motion och GSAP (`kunskap/beroenden.md`)' in k and 'fylla en kvot' in k and 'Framer Motion' in k, 'Avgörandena Teknik'
+    k_ = ' '.join(k.split())
+    assert ('Motion, GSAP och WebGL' in k_ and 'nya paket väljs fritt (`kunskap/beroenden.md`' in k_
+            and 'fylla en kvot' in k_ and 'Framer Motion' in k_), 'Avgörandena Teknik'
     aktivering = re.sub(r'\s+', ' ', k)
     assert ('aktivera kärnskills och valda alternativ uttryckligen med Skill' in aktivering
             and 'med Read-undantagen ovan' in aktivering

@@ -83,8 +83,8 @@ sessionerna.
   det äldre namnet är Framer Motion) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer och
   scrollsekvenser; valet skrivs med skäl av rollen rorelse, och ingen rörelse läggs till för att fylla en kvot (ägarens
   uppdrag 2026-10-07, punkt 5C). Innehållet och navigationen fungerar utan JavaScript, rörelse respekterar
-  `prefers-reduced-motion`, prestandabudgeten håller, inget hämtas från ett CDN, inget rör sig av sig självt utan paus
-  och scrollningen följer webbläsaren (WCAG 2.2.2; K14–K21, K40).
+  `prefers-reduced-motion`, prestandabudgeten håller, inget hämtas från ett CDN, och det som rör sig mer än 5 s kan
+  pausas eller stoppas (WCAG 2.2.2; K14–K21, K40). Mjuk scroll är ett designval med villkoren i `kunskap/beroenden.md`.
 - **Referens och stil (ägarbeslut 2026-10-03):** huvudreferensen får bära layout, palett och typografi, och särprägeln
   ligger i vår touch och verksamhetens material. Skillsens listor över förbjudna paletter, typsnitt, centrering,
   etiketter över rubriker, gradienter och pilar är granskningsfrågan "valt av vana utan skäl?", aldrig förbud eller
