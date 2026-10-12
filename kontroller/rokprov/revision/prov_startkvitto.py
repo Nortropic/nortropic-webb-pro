@@ -759,11 +759,7 @@ def _roller():
     assert kv3['mcp_anrop'] == {'mcp__refero__refero_search_screens': 1}, kv3['mcp_anrop']
     roll3 = {r['roll']: r for r in kv3['tillstand']}
     assert roll3['innehall']['karna']['tillstand'] == T['ej_observerat'] and roll3['innehall']['mcp']['mobbin']['tillstand'] == T['ej_observerat'], roll3['innehall']
-    # aktiveringen prövas på en roll med en kärnskill (komposition: frontend-design); innehållets kärna är sedan 2026-10-11
-    # bara kunskapsfiler och har ingen aktivering att observera
-    assert roll3['typografi']['mcp']['refero']['tillstand'] == T['ej_observerat'], roll3['typografi']['mcp']
-    assert roll3['komposition']['nivaer']['aktivering'] == T['ej_observerat'], roll3['komposition']['nivaer']
-    assert 'inga Skill-aktiveringar' in roll3['innehall']['nivaer']['aktivering'], roll3['innehall']['nivaer']
+    assert roll3['typografi']['mcp']['refero']['tillstand'] == T['ej_observerat'] and roll3['innehall']['nivaer']['aktivering'] == T['ej_observerat'], roll3['typografi']['mcp']
     assert not kv_['ofullstandig'] and kv_['sessioner'] == {'forvantade': 1, 'sedda': 1, 'saknade': []}, kv_['sessioner']
 
 

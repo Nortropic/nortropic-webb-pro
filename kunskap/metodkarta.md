@@ -216,21 +216,16 @@ stilvarianter och recept för olika riktningar: sessionen väljer de som passar 
 valet med skäl, eller skriver varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller kundens
 behov avgörs av Avgörandena ovan, designreglerna och kundens aktuella domar, som varje session med en roll får.
 
-**Skissen och fördjupningen: kärnan först, specialisten efter problemet** (ägarens uppdrag 2026-10-11 om designflödet:
-kompetenserna ska få relevanta uppgifter, inte bli obligatoriska stationer som varje pass besöker; Emil, Motion och GSAP
-vid behov, ingen obligatorisk animation; högst en Taste-variant åt gången). I passen skapa och fordjupa
-(`kompetens.BEHOVSSTYRDA`) är kärnan det som varje skiss och fördjupning behöver före första ändringen: art direction
-(frontend-design), hantverksgolvet och bildreglerna, typografins grund, sanningen och tonen i texten och layouten; i
-skissen också interaktionens behovsprövning (rollen interaktion), i fördjupningen leveransens tre (rollen leverans). Alternativen är specialisterna: skaparen bygger, renderar, ser det största problemet,
-väljer specialisten som problemet kräver, läser eller aktiverar den hel när beslutet står och kontrollerar effekten i
-nästa varvs bilder. Kvittot kräver kärnan före första ändringen och en vald specialist aktiverad eller läst hel, men
-inte före första ändringen; ett val som redovisas utan att observeras är fortfarande en brist. Förut var hela
-skaparkärnan 18 filer och 159 956 tecken före första ändringen, rörelsens 44 036 inräknade; nu 8 filer och omkring
-43 000 tecken. Fördjupningens kärna gick från 18 filer och 137 473 tecken till 10 och 59 307 (de valbara är desamma).
-Passet rörelse efter fördjupningen behåller hela rörelsekärnan, och passen utanför skissen och fördjupningen kräver
-ett valt alternativ aktiverat före första ändringen som förut. Kandidatprovet 2026-10-11 visade varför:
-skaparen (Opus 5.5) läste 7 av 18 kärnfiler, 3 före första ändringen, och hade en bedömbar skiss efter åtta minuter, som
-arbetskravet sedan märkte ofullständig.
+**Granskningen efter renderingen** (ägarens besked 2026-10-12, guidens ordning; `BESLUT.md`). En roll i ett ändrande
+pass kan också ha `efter:`, den andra halvan av kärnan: det som granskar den renderade sidan. Skissen gör den i ordningen
+Impeccables critique (med Referos visuella kontroll mot referensbilderna), audit, layout, typeset och colorize med
+better-typography och better-colors, Emils rörelsepass, webbläsarprovet och polish sist, och skriver varje steg i
+RIKTNING.md under "Granskning". Taste är art director före koden: designspråket och rattarna variation, rörelse och
+täthet står i RIKTNING.md under "Taste" innan något byggs. Granskningens filer läses hela och dess skills aktiveras i
+någon av passets sessioner; saknas något fäller det arbetskravet som en oläst kärna (`kompetens.efterfiler`,
+`kompetens.kravbrister`). Kvittot visar läsningen och aktiveringen, inte att granskningen gjordes efter renderingen
+eller att den förbättrade sidan; det visar sidan. Skissens kärna före koden hålls under 160 000 tecken (fördjupningens
+är större, med Taste); granskningen räknas inte i taket men läses i samma frist.
 
 **Aktivering, användning och bedömning** (ägarens förtydligande 2026-10-07, ~15:20Z, ordagrant i `BESLUT.md`). En skill
 i kärnan eller bland alternativen aktiveras med Skill-verktyget, som `-p`-sessionerna har: prövat 2026-10-07 i en
@@ -290,7 +285,7 @@ syns i svaret och hanteras innan beroende arbete fortsätter. En tilldelad verkt
 först genom ett faktiskt anrop med ett kontrollerat resultat och en redovisning av hur resultatet användes; att
 verktyget finns räcker inte, och kvittot skiljer aktivering, lyckad användning och bedömd kvalitet åt (ägarens
 förtydligande 2026-10-07; `kontroller/kompetens.py`, `nivaer`). Externa designtjänster och Motions dokumentations-MCP
-når aldrig kundens uppgifter (kontroller/kundvakt.py). Varje block nedan: rollen, uppgiften, passen, kärnan,
+når aldrig kundens uppgifter (kontroller/kundvakt.py). Varje block nedan: rollen, uppgiften, passen, kärnan, granskningen efter renderingen (`efter:`),
 alternativen, verktygen, MCP:erna och vad passet visar.
 
 Sammanfattningen kräver aktiverbara kärnskills och de alternativ som observerats fullständigt lästa; Read är inte Skill. Sparade kvitton
@@ -324,8 +319,9 @@ visar: varje uppdrag formulerar en idé, vad den prövar och en uppgift för bes
 namn: Design och komposition
 uppgift: Forma en sammanhängande, kundspecifik riktning ur referenserna, kundens material och besökarens uppgift, och pröva referensens kvalitet (proportioner, komposition, bildstorlek och beskärning, komponenternas form) i kundens innehåll, eller ersätt den med något lika genomarbetat.
 pass: skapa, fordjupa
-kärna: frontend-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md
-välj: refero-design/SKILL.md; hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md; canvas-design/SKILL.md; kunskap/skillskript.md; kunskap/materialtransport.md; kunskap/referensprofil.md
+kärna: taste/SKILL.md; frontend-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md
+efter: refero-design/SKILL.md; impeccable/SKILL.md; impeccable/reference/critique.md; impeccable/reference/polish.md
+välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md; canvas-design/SKILL.md; kunskap/skillskript.md; kunskap/materialtransport.md; kunskap/referensprofil.md
 verktyg: uxsok, förhandsvisning, material, skillskript
 mcp: refero, mobbin, 21st
 visar: riktningen syns i den renderade sidan i mobil, mellanbredd och dator; referensens bärande kvaliteter är prövade eller ersatta med något lika genomarbetat; RIKTNING.md säger vilken synlig förbättring varje kompetens gav; skissen skiljer sig från de andra i komposition, berättelse och bildanvändning; ett koncept ur canvas-design står i BILDER.md med källa, version och Egen nej och är aldrig prototypen (metodkartan, Grafiska koncept ur canvas-design)
@@ -336,7 +332,8 @@ namn: Typografi och färg
 uppgift: Ge sidan typskalan, de typografiska kontrasterna, hierarkin, radlängden och färgernas roller, med stilpaketet och huvudreferensen som material, anpassade till kundens innehåll.
 pass: skapa, fordjupa
 kärna: impeccable/reference/typeset.md
-välj: impeccable/reference/colorize.md; better-typography/SKILL.md; better-colors/SKILL.md; refero-design/references/typography.md; refero-design/references/color.md; taste-output/SKILL.md; better-ui/SKILL.md
+efter: better-typography/SKILL.md; impeccable/reference/colorize.md; better-colors/SKILL.md
+välj: refero-design/references/typography.md; refero-design/references/color.md; taste-output/SKILL.md; better-ui/SKILL.md
 verktyg: förhandsvisning
 mcp: refero
 visar: typskalan, radlängden och färgrollerna i den renderade sidan, med stilpaketets värden eller ett skäl att avvika
@@ -346,8 +343,8 @@ visar: typskalan, radlängden och färgrollerna i den renderade sidan, med stilp
 namn: Innehåll och UX
 uppgift: Göra erbjudandet begripligt och besökarens viktigaste uppgift enkel, i verksamhetens egna ord och med verifierade fakta.
 pass: skapa, fordjupa
-kärna: kunskap/copy-kontroll.md; kunskap/redaktionellt-pass.md
-välj: impeccable/reference/clarify.md; better-writing/SKILL.md; humanizer/SKILL.md; impeccable/reference/distill.md; better-explain-interface/SKILL.md; refero-design/references/copywriting.md; hallmark/references/copy.md
+kärna: impeccable/reference/clarify.md; better-writing/SKILL.md; kunskap/copy-kontroll.md; kunskap/redaktionellt-pass.md
+välj: humanizer/SKILL.md; impeccable/reference/distill.md; better-explain-interface/SKILL.md; refero-design/references/copywriting.md; hallmark/references/copy.md
 verktyg: förhandsvisning
 mcp: mobbin
 visar: besökarens viktigaste uppgift går att lösa från första vyn; rubriker, knappar och etiketter säger vad som händer; texten låter som verksamheten
@@ -357,29 +354,32 @@ visar: besökarens viktigaste uppgift går att lösa från första vyn; rubriker
 namn: Responsiv implementation
 uppgift: Bygga komponenterna och layouten så att mobilens omställning är genomtänkt och 390, 768, 1280 och 1440 håller ihop, i en implementation som är enkel att underhålla.
 pass: skapa, fordjupa
-kärna: impeccable/reference/layout.md
-välj: impeccable/reference/adapt.md; better-layout/SKILL.md; emil-mobile-native/SKILL.md; ui-styling/SKILL.md; better-ui/SKILL.md; hallmark/references/responsive.md; hallmark/references/layout-and-space.md
+kärna: impeccable/reference/adapt.md; better-layout/SKILL.md
+efter: impeccable/reference/audit.md; impeccable/reference/layout.md
+välj: emil-mobile-native/SKILL.md; ui-styling/SKILL.md; better-ui/SKILL.md; hallmark/references/responsive.md; hallmark/references/layout-and-space.md
 verktyg: förhandsvisning
 mcp: mobbin
 visar: mobilen och datorn, och mellanbredden där layouten byter form, i den renderade sidan; komponenterna och stilarna i egna filer där de återanvänds
 ```
 
-```kompetens interaktion
-namn: Interaktion i skissen, och rörelse när ett beteende har ett syfte
-uppgift: Bygga de interaktioner som behövs för att förstå förslaget (menyn på mobilen, den primära handlingen, fokus och tangentbord) och avgöra om något beteende har ett syfte som kräver rörelse; ett genomtänkt beslut kan vara att sidan är stilla, och ingen rörelse läggs till för att signalera kvalitet (ägarens uppdrag 2026-10-11 om designflödet). Väljs ett rörligt beteende läses Emils och Motions material hela vid beslutet, CSS först när den räcker (motion/best-practices/css-or-motion.md), och beteendet prövas med reducerad rörelse. Passet rörelse efter fördjupningen är specialistens eget pass med hela kärnan.
+```kompetens rorelseskiss
+namn: Interaktion och rörelse i skissen
+uppgift: Bygga de interaktioner som behövs för att förstå förslaget (menyn på mobilen, den primära handlingen, fokus och tangentbord), avgöra med impeccables animate före koden vilka beteenden som har ett syfte, och efter första renderingen göra Emils rörelsepass på det som byggts (emil-design-eng, emil-animate, emil-improve-animations och emil-review-animations), lästa hela; ett genomtänkt beslut kan vara att sidan är stilla. CSS först när den räcker, Motion eller GSAP med skäl (motion/best-practices/css-or-motion.md), alltid med reducerad rörelse. Passet rörelse efter fördjupningen är specialistens eget pass.
 pass: skapa
 kärna: impeccable/reference/animate.md
-välj: emil-design-eng/SKILL.md; emil-animate/SKILL.md; motion/best-practices/css-or-motion.md; motion/SKILL.md; motion/best-practices/index.md; motion/best-practices/motion.md; motion/best-practices/react.md; gsap/SKILL.md; gsap/gsap-core/SKILL.md; gsap/gsap-timeline/SKILL.md; gsap/gsap-scrolltrigger/SKILL.md; gsap/gsap-performance/SKILL.md; emil-find-animation-opportunities/SKILL.md; emil-review-animations/SKILL.md; emil-improve-animations/SKILL.md; emil-animation-vocabulary/SKILL.md; emil-apple-design/SKILL.md; refero-design/references/motion.md; hallmark/references/microinteractions.md; hallmark/references/interaction-and-states.md
+efter: emil-design-eng/SKILL.md; emil-animate/SKILL.md; emil-improve-animations/SKILL.md; emil-review-animations/SKILL.md
+välj: motion/best-practices/css-or-motion.md; motion/SKILL.md; motion/best-practices/index.md; motion/best-practices/motion.md; motion/best-practices/react.md; gsap/SKILL.md; gsap/gsap-core/SKILL.md; gsap/gsap-timeline/SKILL.md; gsap/gsap-scrolltrigger/SKILL.md; gsap/gsap-performance/SKILL.md; emil-find-animation-opportunities/SKILL.md; emil-review-animations/SKILL.md; emil-improve-animations/SKILL.md; emil-animation-vocabulary/SKILL.md; emil-apple-design/SKILL.md; refero-design/references/motion.md; hallmark/references/microinteractions.md; hallmark/references/interaction-and-states.md
 verktyg: förhandsvisning
 mcp: refero, motion
-visar: menyn och den primära handlingen prövade i förhandsvisningens tillstånd (meny, fokus, tangentbord, reducerad rörelse); varje rörligt beteende har ett syfte och ett teknikval med skäl i RIKTNING.md, eller står beslutet att sidan är stilla där
+visar: menyn och den primära handlingen prövade i förhandsvisningens tillstånd (meny, fokus, tangentbord, reducerad rörelse); varje rörligt beteende har ett syfte och ett teknikval med skäl i RIKTNING.md, eller står beslutet att sidan är stilla där, och Emils granskning står under Granskning
 ```
 
 ```kompetens rorelse
 namn: Interaktion och rörelse
-uppgift: Välja och genomföra de beteenden som passar sidan, var och en med ett syfte, och välja tekniken per beteende med skäl: CSS först när den räcker, Motion (motion i ett <script>, motion/react i en React-ö) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer och scrollsekvenser; ett genomtänkt beslut kan vara att något ska vara stilla, och ingen rörelse läggs till för att fylla en kvot (ägarens uppdrag 2026-10-07, punkt 5C). Beslutstabellen motion/best-practices/css-or-motion.md läses hel före valet i passet rörelse. Motions dokumentations-MCP har sin uppgift bara genom ett faktiskt anrop med kontrollerat resultat när ett beteende byggs med Motion.
+uppgift: Välja och genomföra de beteenden som passar sidan, var och en med ett syfte, och välja tekniken per beteende med skäl: CSS först när den räcker, Motion (motion i ett <script>, motion/react i en React-ö) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer och scrollsekvenser; ett genomtänkt beslut kan vara att något ska vara stilla, och ingen rörelse läggs till för att fylla en kvot (ägarens uppdrag 2026-10-07, punkt 5C). Beslutstabellen motion/best-practices/css-or-motion.md läses hel före valet i passet rörelse (i skissen när rörelse väljs). Motions dokumentations-MCP har sin uppgift bara genom ett faktiskt anrop med kontrollerat resultat när ett beteende byggs med Motion.
 pass: rorelse
 kärna: impeccable/reference/animate.md; emil-design-eng/SKILL.md; emil-animate/SKILL.md
+efter: emil-improve-animations/SKILL.md; emil-review-animations/SKILL.md
 välj: motion/best-practices/css-or-motion.md; motion/SKILL.md; motion/best-practices/index.md; motion/best-practices/motion.md; motion/best-practices/react.md; gsap/SKILL.md; gsap/gsap-core/SKILL.md; gsap/gsap-timeline/SKILL.md; gsap/gsap-scrolltrigger/SKILL.md; gsap/gsap-performance/SKILL.md; emil-find-animation-opportunities/SKILL.md; emil-review-animations/SKILL.md; emil-improve-animations/SKILL.md; emil-animation-vocabulary/SKILL.md; emil-apple-design/SKILL.md; refero-design/references/motion.md; hallmark/references/microinteractions.md; hallmark/references/interaction-and-states.md
 verktyg: förhandsvisning
 mcp: refero, motion
@@ -830,10 +830,9 @@ besökaren förstår verksamheten och löser sin viktigaste uppgift, i mobil och
 
 **Underlag:** UPPDRAG.md (designuppdraget, besökarens uppgift, referensbilderna och vad de ska lära), kundens fakta
 (VERKSAMHET.json, textunderlaget, RESEARCH.md) och bilder (BILDER.md), och den här filen: kvalitetskraven, besluten med
-räckvidd och avgörandena. Kompetenserna (avsnittet Kompetenserna) gäller: skaparen läser rollernas kärna med passet
-skapa (art direction, hantverksgolvet och bilden, typografin, texten, layouten och interaktionen) hel före första
-ändringen och väljer specialisterna bland alternativen efter det problem renderingen visar, lästa med sina skills
-fullständiga instruktioner när de väljs, i en sammanhängande skiss. Före beställarens val ändrar ingen annan session skissen;
+räckvidd och avgörandena. Kompetenserna (avsnittet Kompetenserna) är obligatoriska: skaparen tillämpar rollerna med
+passet skapa (art direction och typografi, layout och bild, innehåll, responsivitet och rörelse) med sina skills
+fullständiga instruktioner i en sammanhängande skiss. Före beställarens val ändrar ingen annan session skissen;
 specialistpassen interaktion och rörelse och tillgänglighet och visuell granskning görs bara när ett uppdrag begär dem.
 Material från före den rena designstarten 2026-10-09 finns inte i den aktiva miljön och slås inte upp.
 

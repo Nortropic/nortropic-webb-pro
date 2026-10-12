@@ -74,9 +74,6 @@ GRANSKANDE = ('skisskritik', 'jamforelse', 'kritik_a', 'kritik_b', 'fore_efter')
 # blinda för skaparens text, uppdrag, referenspaket och kod; före/efter-bedömningen ser bara de två versionernas bilder
 # (ägarens uppdrag 2026-10-09, punkt 10: bilderna bedöms före skaparens förklaring)
 BLINDA = ('skisskritik', 'kritik_a', 'fore_efter')
-# Passen där alternativen är specialister för ett observerat problem: kärnan läses före första ändringen, ett valt
-# alternativ när beslutet står (ägarens uppdrag 2026-10-11 om designflödet; kunskap/metodkarta.md, Kompetenserna)
-BEHOVSSTYRDA = ('skapa', 'fordjupa')
 FORSKANDE = ('forska', 'forbered')  # forskar och ändrar aldrig sidan
 FORHAND = '.venv/bin/python kontroller/forhandsvisa.py <slug> --kandidat <id>'
 
@@ -219,9 +216,11 @@ def tolka(text=None):
             k[nyckel.strip()] = varde.strip()
         lista = lambda s, sep: [x.strip() for x in str(s or '').split(sep) if x.strip()]  # noqa: E731
         karna = lista(k.get('kärna') or k.get('läs'), ';')
+        efter = [f for f in lista(k.get('efter'), ';') if f not in karna]
         ut[k['id']] = {'id': k['id'], 'namn': k.get('namn', k['id']), 'uppgift': k.get('uppgift', ''),
-                       'pass': lista(k.get('pass'), ','), 'karna': karna,
-                       'valj': [f for f in lista(k.get('välj'), ';') if f not in karna],
+                       'pass': lista(k.get('pass'), ','), 'karna': karna, 'efter': efter,
+                       'efter_i_karna': [f for f in lista(k.get('efter'), ';') if f in karna],
+                       'valj': [f for f in lista(k.get('välj'), ';') if f not in karna and f not in efter],
                        'verktyg': lista(k.get('verktyg'), ','), 'mcp': lista(k.get('mcp'), ','),
                        'mcp_krav': lista(k.get('mcp-krav'), ','), 'visar': k.get('visar', '')}
     return ut
@@ -231,7 +230,7 @@ PROCESSKILLS = ('bygg-sajt', 'kirurg', 'backlog', 'writing-for-agents')  # flöd
 
 
 def skillstatus(skills=None, k=None, karta=None):
-    """Varje installerad skill och dess plats: roll (kärna eller alternativ i ett kompetensblock, med rollerna), process
+    """Varje installerad skill och dess plats: roll (kärna, granskning efter renderingen eller alternativ i ett kompetensblock, med rollerna), process
     (flödets och systemarbetets egna skills), skäl (namnet står under "Ingen uppgift i flödet" i metodkartan) eller utan
     (varken roll eller skäl: ny och obedömd). Startkontrollens rad "skills utan roll eller skäl" och kompetenskartan
     läser samma regel."""
@@ -241,11 +240,13 @@ def skillstatus(skills=None, k=None, karta=None):
     utan = karta.split('**Ingen uppgift i flödet**', 1)[-1].split('\n## ', 1)[0]
     roller = {}
     for kid, x in k.items():
-        for f in x['karna'] + x['valj']:
+        for f in x['karna'] + x.get('efter', []) + x['valj']:
             if f.startswith(('kunskap/', 'kritik/', 'mall/')):
                 continue
             r = roller.setdefault(f.split('/')[0], {})
-            r[kid] = 'karna' if f in x['karna'] or r.get(kid) == 'karna' else 'valj'
+            # en skill med flera filer i rollen: kärnan går före granskningen, granskningen före alternativen
+            r[kid] = ('karna' if f in x['karna'] or r.get(kid) == 'karna'
+                      else 'efter' if f in x.get('efter', []) or r.get(kid) == 'efter' else 'valj')
     ut = {}
     for d in sorted(skills.iterdir()) if skills.is_dir() else []:
         if not d.is_dir() or d.is_symlink():
@@ -336,7 +337,7 @@ def prova(text=None):
     if not k:
         return ['metodkartan saknar kompetensblock']
     for kid, x in k.items():
-        for f in x['karna'] + x['valj']:
+        for f in x['karna'] + x.get('efter', []) + x['valj']:
             p = metod.kalla(f)
             if not p.is_file() or p.is_symlink():
                 fel.append('%s: %s finns inte' % (kid, f))
@@ -346,10 +347,14 @@ def prova(text=None):
         fel += ['%s: MCP-kravet %s saknar tilldelad tjänst' % (kid, m) for m in x.get('mcp_krav', []) if m not in x['mcp']]
         if not x['uppgift'] or not x['karna']:
             fel.append('%s: uppgiften eller kärnan saknas' % kid)
+        fel += ['%s: %s står både i kärnan och i granskningen efter renderingen' % (kid, f) for f in x.get('efter_i_karna', [])]
         for p_ in (p_ for p_ in x['pass'] if p_ in BLINDA):  # ett verktyg som ger kod eller skaparens text är ett läckage
             fel += ['%s: verktyget %s ger den blinda granskaren i %s kod eller skaparens text (blindsäkra: %s)' % (kid, v, p_, ', '.join(BLINDSAKRA))
                     for v in x['verktyg'] if v not in BLINDSAKRA]
     fel += ['passet %s har ingen roll' % p_ for p_ in PASS if not for_pass(p_, k)]
+    for p_ in PASS:  # en fil som en roll läser före koden och en annan först i granskningen: kraven säger emot varandra
+        fel += ['passet %s: %s är kärna i en roll och granskning i en annan' % (p_, f)  # efterfiler() tar bort dem tyst
+                for f in sorted(set(lasfiler(p_, k)) & {vag(f) for x in for_pass(p_, k) for f in x['efter']})]
     return fel + sessionsfel(text) + tjanstverktyg_fel(text)
 
 
@@ -453,9 +458,23 @@ def lasfiler(pass_, k=None):
     return ut
 
 
+def efterfiler(pass_, k=None):
+    """Granskningen efter första renderingen (ägarens besked 2026-10-12 och guidens ordning: Taste före koden, sedan bygget,
+    Impeccables critique, audit, layout, typeset och polish och Emils rörelsegranskning): filerna som passet läser hela
+    och tillämpar på den renderade sidan, i rollernas ordning. De är lika obligatoriska som kärnan men görs efter första
+    renderingen, i något av passets sessioner."""
+    karna, ut = set(lasfiler(pass_, k)), []
+    for x in for_pass(pass_, k):
+        for f in x.get('efter') or []:
+            v = vag(f)
+            if v not in karna and v not in ut:
+                ut.append(v)
+    return ut
+
+
 def valbara(pass_, k=None):
     """Alternativen i passet (vägar relativt roten), utom det som redan är kärna."""
-    karna, ut = set(lasfiler(pass_, k)), []
+    karna, ut = set(lasfiler(pass_, k)) | set(efterfiler(pass_, k)), []
     for x in for_pass(pass_, k):
         for f in x['valj']:
             v = vag(f)
@@ -559,25 +578,19 @@ def prompt_rader(pass_, slug, kid=None, k=None):
                  'vana utan skäl?", aldrig ensam grund för ett fynd. Beskriver en skill ett eget arbetsflöde (underagenter, källkod,',
                  'frågor till användaren, sparade rapporter) gäller dess bedömning, inte flödet: du arbetar i den här sessionen med',
                  'verktygen nedan och svarar i schemat.']
-    elif pass_ in BEHOVSSTYRDA:  # skissen och fördjupningen: kärnan först, specialisten efter det observerade problemet
-        rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Aktivera rollernas kärnskills' % PASSNAMN[pass_],
-                 'med skillverktyget (Skill) och läs kärnans referensfiler HELA med Read innan du ändrar något (en fil större än en',
-                 'läsning läses i delar med offset och limit tills alla rader är lästa); en aktivering eller läsning som misslyckas',
-                 'skriver du i svaret innan beroende arbete fortsätter. Alternativen är specialisterna: när en rendering visar ett',
-                 'problem väljer du den specialist som problemet kräver, aktiverar eller läser den hel när beslutet står, och skriver',
-                 'problemet, specialisten och ändringen i varvet; ett val som inte behövs görs inte. Ett recept som säger emot ett',
-                 'annat, ett ägarbeslut eller kundens behov avgörs av Avgörandena i metoden, designreglerna och kundens aktuella domar',
-                 'ovan. Följ arbetsflödet: craft-floor.md direkt före ändringar i gränssnittet, sedan bygg, rendera, se det största',
-                 'problemet, välj relevant kompetens, ändra och kontrollera effekten i mobil och dator tillsammans.']
     else:
-        rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Aktivera varje rolls skills' % PASSNAMN[pass_],
-                 'med skillverktyget (Skill) och läs rollens referensfiler HELA med Read innan du ändrar något (en fil större än en',
+        rader = ['Rollerna i %s (kunskap/metodkarta.md, Kompetenserna) är dina arbetsinstruktioner. Aktivera varje rolls kärnskills' % PASSNAMN[pass_],
+                 'med skillverktyget (Skill) och läs kärnans referensfiler HELA med Read innan du ändrar något (en fil större än en',
                  'läsning läses i delar med offset och limit tills alla rader är lästa); en aktivering eller läsning som misslyckas',
                  'skriver du i svaret innan beroende arbete fortsätter. Välj sedan bland alternativen de som passar riktningen, aktivera',
                  'eller läs dem hela, och skriv valet med skäl, eller varför inget passade. Ett recept som säger emot ett annat, ett ägarbeslut eller kundens behov',
                  'avgörs av Avgörandena i metoden, designreglerna och kundens aktuella domar ovan. Följ arbetsflödet: rätt metod för',
                  'uppgiften, craft-floor.md direkt före ändringar i gränssnittet, och kontroll i avgränsade omgångar (bygg, inspektera',
                  'mobil och dator tillsammans, rätta allt i en omgång).']
+        if any(x.get('efter') for x in roller):  # guidens ordning (ägarens besked 2026-10-12)
+            rader += ['Granskningen efter första renderingen (raden "granskningen efter första renderingen" per roll) är kärnans andra',
+                      'halva: när sidan har renderats aktiverar du de skillsen och läser filerna hela, gör granskningen på den renderade',
+                      'sidan, ändrar det den visar och renderar igen. Den är ingen valfri specialist och ersätter aldrig kärnan före koden.']
     rader += ['Lokala processvillkor gäller även när en skill laddas: ingen svarar i denna session; uppdraget är svaret.',
               'Skills med rubriken Initial Response läses bara med Read, aldrig med Skill. Deras kunskap används,',
               'men det inledande väntesvaret och krav på nya användarsvar utförs inte.']
@@ -593,9 +606,10 @@ def prompt_rader(pass_, slug, kid=None, k=None):
     for x in roller:
         rader += ['', '%s: %s' % (x['namn'], x['uppgift'])]
         rader.append('- kärnan, hel före arbetet: ' + aktiveringstext(x['karna']))
+        if x.get('efter') and pass_ not in GRANSKANDE + FORSKANDE:
+            rader.append('- granskningen efter första renderingen, hel när steget görs och tillämpad på sidan: ' + aktiveringstext(x['efter']))
         if x['valj']:
-            rader.append('- %s: ' % ('alternativen, välj efter det du bedömer' if pass_ in GRANSKANDE else 'specialisterna, välj efter det observerade problemet'
-                                     if pass_ in BEHOVSSTYRDA else 'alternativen, välj efter riktningen') + aktiveringstext(x['valj']))
+            rader.append('- alternativen, välj efter %s: ' % ('det du bedömer' if pass_ in GRANSKANDE else 'riktningen') + aktiveringstext(x['valj']))
         for v in x['verktyg']:
             if v == 'design' and not kid:
                 continue
@@ -689,11 +703,11 @@ def arvet(sid, filer, vy=None):
 
 
 def avtryck(pass_, k=None):
-    """sha256 över rollens kärna och alternativ (vägarna och innehållet) för passet: en fortsättning ärver läsningen bara
+    """sha256 över rollens kärna, granskning och alternativ (vägarna och innehållet) för passet: en fortsättning ärver läsningen bara
     när avtrycket är detsamma som när ursprunget startade."""
     import hashlib
     h = hashlib.sha256()
-    for f in sorted({f for x in for_pass(pass_, k) for f in x['karna'] + x['valj']}):  # rollernas egna vägar (metod.kalla)
+    for f in sorted({f for x in for_pass(pass_, k) for f in x['karna'] + x.get('efter', []) + x['valj']}):  # rollernas egna vägar (metod.kalla)
         p = metod.kalla(f)
         h.update(f.encode() + b'\0' + (hashlib.sha256(p.read_bytes()).digest() if p.is_file() else b'-'))
     return h.hexdigest()
@@ -715,7 +729,7 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
     utfall (bild returnerad, anrop lyckades, tomt resultat, fel, nekat) och sessionens MCP-läge, så att ett tomt svar och
     en tjänst som sessionen aldrig fick inte ser ut som använda (granskningen GR-20261007-r102, B3)."""
     import bildkedja
-    filer, val = lasfiler(pass_, k), valbara(pass_, k)
+    filer, val, eft = lasfiler(pass_, k), valbara(pass_, k), efterfiler(pass_, k)
     lasta, fore, skill, skill_fel, mcp, sedda, egna = set(), set(), [], [], [], 0, set()
     utfall, lage, observerad, verktyg_anrop = {}, {}, True, {}
     forvantade, saknade, per, sedda_id, samma = 0, [], [], set(), 0
@@ -729,7 +743,7 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
             saknade.append({'session': None, 'skal': 'sessionen fick aldrig ett session-id'})
             continue
         sedda_id.add(str(sid))
-        ml = bildkedja.metodlasning(sid, filer + val, skrivprefix=skrivprefix)
+        ml = bildkedja.metodlasning(sid, filer + eft + val, skrivprefix=skrivprefix)
         if not ml.get('verifierad'):
             saknade.append({'session': str(sid), 'skal': str(ml.get('skal') or 'transkriptet kunde inte läsas')[:200]})
             continue
@@ -737,7 +751,7 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
         las_s, fore_s = set((ml.get('fore') or []) + (ml.get('efter') or [])), set(ml.get('fore') or [])
         t = bildkedja.transkript(sid)  # för en fortsättning bara dess egna rader (bildkedja.transkript)
         h = bildkedja.handelser(t) if t else []
-        arv = arvet(sid, filer + val, t)
+        arv = arvet(sid, filer + eft + val, t)
         skill_s, skill_fore_s = set(ml.get('skill_anrop') or []), set(ml.get('skill_fore') or [])
         if arv and arv['giltigt']:  # ärvt i samma konversation: läst före allt i fortsättningen, och redovisat för sig
             las_s |= set(arv['lasta'])
@@ -763,6 +777,7 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
                          'skill_anrop': sorted(skill_s),
                          'skill_fore': sorted(skill_fore_s),
                          'valda': [f for f in val if f in las_s and f not in (ml.get('via_metod') or [])],
+                         'efter_lasta': [f for f in eft if f in las_s],
                          'underagenter': ua, 'underagentuppdrag': bildkedja.uppdragsanrop(h)}, **({'arv': arv} if arv else {})))
         fore.update(ml.get('fore') or [])
         lasta.update((ml.get('fore') or []) + (ml.get('efter') or []))
@@ -808,7 +823,9 @@ def kvitto(sessioner, pass_, skrivprefix=None, k=None):
             lage[s_] = st_ if lage.get(s_) != 'ansluten' else 'ansluten'
     alla_lasta = [f for f in filer if per and all(f in p_['lasta'] for p_ in per)]  # läst i varje sedd session (R02)
     alla_fore = [f for f in filer if per and all(f in p_['fore_forsta_andring'] for p_ in per)]
+    efter_lasta = [f for f in eft if any(f in (p_.get('efter_lasta') or []) for p_ in per)]  # i någon av passets sessioner
     ut = {'verifierad': sedda > 0, 'filer': filer, 'lasta': alla_lasta, 'saknas': [f for f in filer if f not in alla_lasta],
+          'efter': eft, 'efter_lasta': efter_lasta, 'efter_saknas': [f for f in eft if f not in efter_lasta],
           'fore_forsta_andring': alla_fore, 'per_session': per, 'samma_kontext': samma, 'valda': [f for f in val if f in egna],
           'skill_anrop': sorted(set(skill)), 'skill_fel': sorted(set(skill_fel)), 'mcp_anrop': {m: mcp.count(m) for m in sorted(set(mcp))},
           'verktyg_anrop': verktyg_anrop, 'sessioner': {'forvantade': forvantade, 'sedda': sedda, 'saknade': saknade},
@@ -904,16 +921,21 @@ def kravbrister(kv, pass_, k=None):
                     fel.append('session %d: %s läses hel med Read (skillen är användaranropad hos källan och Skill-verktyget vägrar den)' % (i, f))
             sedda = {bildkedja.skillnamn(n) for n in p.get('skill_anrop') or []}
             tidiga = {bildkedja.skillnamn(n) for n in p.get('skill_fore') or []}
-            karnskills = set(aktiverbara(karna)[0])
             for namn in krav:
                 if namn not in sedda:
                     fel.append('session %d: Skill-aktivering saknas: %s' % (i, namn))
-                elif skrivande and p.get('andrade') and (namn in karnskills or pass_ not in BEHOVSSTYRDA) and namn not in tidiga:
-                    # bara kärnan före första ändringen; ett valt alternativ är specialisten för ett observerat problem och
-                    # aktiveras när beslutet står (ägarens uppdrag 2026-10-11 om designflödet: bygg, rendera, se det största
-                    # problemet, välj relevant kompetens, ändra, kontrollera effekten)
+                elif skrivande and p.get('andrade') and namn not in tidiga:
                     fel.append('session %d: Skill aktiverades inte före första ändringen: %s' % (i, namn))
-            fel += underagentbrister(p, i, karnafiler, karna, alternativ, pass_)
+            fel += underagentbrister(p, i, karnafiler, karna, alternativ)
+    eft = efterfiler(pass_, k)
+    if eft and isinstance(per, list) and per:
+        # granskningen efter renderingen (guidens ordning): varje fil läst hel och varje skill bland dem aktiverad, i någon
+        # av passets sessioner; den görs efter första renderingen och prövas därför inte mot läsordningen
+        lasta_e = {f for p in per if isinstance(p, dict) for f in (p.get('efter_lasta') or [])}
+        fel += ['granskningen efter renderingen saknas: %s' % f for f in eft if f not in lasta_e]
+        sedda_e = {bildkedja.skillnamn(n) for p in per if isinstance(p, dict) for n in (p.get('skill_anrop') or [])}
+        fel += ['granskningens Skill-aktivering saknas: %s' % n
+                for n in aktiverbara([f for r in roller for f in r.get('efter') or []])[0] if n not in sedda_e]
     for m in dict.fromkeys(m for r in roller for m in r.get('mcp_krav', [])):
         utfall = kv.get('mcp_utfall')
         lyckade = sum(n for a, u in (utfall or {}).items() if a.startswith('mcp__%s__' % m)
@@ -956,7 +978,7 @@ def redovisade_brister(kv, pass_, so, k=None):
     if not isinstance(kv, dict) or not kv.get('verifierad'):
         return ['redovisade skills kan inte prövas: kompetensen är inte observerad']
     k = tolka() if k is None else k
-    filer = list(dict.fromkeys([f for r in for_pass(pass_, k) for f in r['karna'] + r['valj']]))
+    filer = list(dict.fromkeys([f for r in for_pass(pass_, k) for f in r['karna'] + r.get('efter', []) + r['valj']]))
     kontexter = [p for p in kv.get('per_session') or [] if isinstance(p, dict)]
     kontexter += [u for p in kontexter for u in (p.get('underagenter') or []) if isinstance(u, dict)]
     lasta = {f for p in kontexter for f in (p.get('lasta') or []) + (p.get('valda') or [])} | set(kv.get('valda') or [])
@@ -1004,7 +1026,7 @@ def redovisat_i_text(kv, pass_, text, k=None):
     return [f.split(': ', 1)[1] for f in redovisade_brister(kv, pass_, {'valda': rader}, k) if ': ' in f]
 
 
-def underagentbrister(p, i, karnafiler, karna, alternativ, pass_=None):
+def underagentbrister(p, i, karnafiler, karna, alternativ):
     """Underagenternas egna krav (lucka 1 i GR-20261010-kompetens-integration): en underagent ser varken huvudsessionens
     skills eller läsningar, så en underagent som ändrar i koden läser kärnan och aktiverar rollens skills själv före sin
     första ändring. En läsande underagent (till exempel ett blint rubrikprov) har inga krav men står i kvittot. Fler
@@ -1022,13 +1044,9 @@ def underagentbrister(p, i, karnafiler, karna, alternativ, pass_=None):
         namn_u = 'session %d, underagent %s' % (i, str(u.get('agent') or '?')[:12])
         fel += ['%s: ändrade utan kärnan före första ändringen: %s' % (namn_u, Path(f).name)
                 for f in sorted(karnafiler - set(u.get('fore_forsta_andring') or []))]
-        karnskills, _ = aktiverbara(karna)
-        valda, _ = aktiverbara([f for f in alternativ if vag(f) in (u.get('valda') or [])])
+        krav, _ = aktiverbara(karna + [f for f in alternativ if vag(f) in (u.get('valda') or [])])
         tidiga = {bildkedja.skillnamn(n) for n in u.get('skill_fore') or []}
-        sedda = {bildkedja.skillnamn(n) for n in u.get('skill_anrop') or []}
-        fore = karnskills if pass_ in BEHOVSSTYRDA else list(dict.fromkeys(karnskills + valda))  # utanför skissen och fördjupningen som förut
-        fel += ['%s: Skill aktiverades inte före första ändringen: %s' % (namn_u, n) for n in fore if n not in tidiga]
-        fel += ['%s: Skill-aktivering saknas: %s' % (namn_u, n) for n in valda if n not in fore and n not in sedda]
+        fel += ['%s: Skill aktiverades inte före första ändringen: %s' % (namn_u, n) for n in krav if n not in tidiga]
     return fel
 
 
@@ -1107,8 +1125,10 @@ def tillstand(kv, pass_, k=None, mcp_lage=None):
     for x in for_pass(pass_, k):
         karna = [vag(f) for f in x['karna']]
         n = sum(1 for f in karna if f in lasta)
-        erbjudna, _ = aktiverbara(x['karna'] + x['valj'])
-        skills, _ = aktiverbara(x['karna'] + [f for f in x['valj'] if vag(f) in valda])
+        eft = [vag(f) for f in x.get('efter', [])]
+        n_e = sum(1 for f in eft if f in lasta)
+        erbjudna, _ = aktiverbara(x['karna'] + x.get('efter', []) + x['valj'])
+        skills, _ = aktiverbara(x['karna'] + x.get('efter', []) + [f for f in x['valj'] if vag(f) in valda])
         anrop = {m: sum(v for a, v in mcp.items() if str(a).startswith('mcp__%s__' % m)) for m in x['mcp']}
         valt = [f for f in (vag(f) for f in x['valj']) if f in valda]
         mcp_rader = {m: mcp_tillstand(m, a, utfall, lage, helt) for m, a in anrop.items()}
@@ -1125,6 +1145,9 @@ def tillstand(kv, pass_, k=None, mcp_lage=None):
         ut.append({
             'roll': x['id'], 'namn': x['namn'], 'tilldelat': TILLSTAND['tilldelat'],
             'karna': {'filer': len(karna), 'lasta': n, 'tillstand': karna_t, **({'fore_forsta_andring': n_fore} if n_fore is not None else {})},
+            **({'granskning': {'filer': len(eft), 'lasta': n_e, 'tillstand': TILLSTAND['ej_observerat'] if not helt
+                               else LASKVITTO if n_e == len(eft) else inget if not n_e
+                               else 'läst %d av %d filer (%s)' % (n_e, len(eft), LASBELAGG)}} if eft else {}),
             'alternativ': {'valda': valt, 'tillstand': LASKVITTO if valt else inget},
             'skillverktyget': {'anrop': aktiverade, 'misslyckade': misslyckade, 'tillstand': LASKVITTO if aktiverade else inget},
             'mcp': mcp_rader,

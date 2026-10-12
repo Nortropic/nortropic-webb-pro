@@ -25,13 +25,15 @@ if '--bas' in sys.argv:
 
 
 def kvitto(pass_):
-    filer = kompetens.lasfiler(pass_)
-    skills, _ = kompetens.aktiverbara([f for r in kompetens.for_pass(pass_) for f in r['karna']])
+    eft = getattr(kompetens, 'efterfiler', lambda p: [])(pass_)  # granskningen efter renderingen (guidens ordning)
+    filer = kompetens.lasfiler(pass_) + eft
+    skills, _ = kompetens.aktiverbara([f for r in kompetens.for_pass(pass_) for f in r['karna'] + r.get('efter', [])])
     return {'verifierad': True, 'ofullstandig': False, 'filer': filer, 'lasta': filer[:], 'saknas': [],
             'fore_forsta_andring': filer[:], 'skill_anrop': skills[:],
             'sessioner': {'forvantade': 1, 'sedda': 1, 'saknade': []},
             'per_session': [{'session': 'syntetisk-session', 'lasta': filer[:], 'fore_forsta_andring': filer[:],
-                             'skill_anrop': skills[:], 'skill_fore': skills[:], 'andrade': True, 'valda': []}],
+                             'skill_anrop': skills[:], 'skill_fore': skills[:], 'andrade': True, 'valda': [],
+                             'efter_lasta': eft[:]}],
             'mcp_utfall': {f'mcp__{m}__search': {'anrop lyckades': 1} for m in ('refero', 'mobbin', '21st')}}
 
 
@@ -124,78 +126,64 @@ class Krav(unittest.TestCase):
         }, {'21st': 'ansluten'}, True)
         self.assertEqual(ut.get('med_innehall'), 5)
 
-    # Ägarens uppdrag 2026-10-11 om designflödet: i skissen och fördjupningen är kärnan det som läses före första
-    # ändringen, och ett valt alternativ är specialisten för ett observerat problem, aktiverad när beslutet står.
-    def test_specialist_vald_efter_forsta_andringen_ar_godkand(self):
+
+def metod_karta():
+    return (ROOT / 'kunskap' / 'metodkarta.md').read_text(encoding='utf-8')
+
+
+class Guideordning(unittest.TestCase):
+    """Ägarens besked 2026-10-12: skillsen är inte valfria. Kärnan (med Taste) före koden, granskningen efter
+    renderingen; båda fäller arbetskravet när de saknas. Rött mot HEAD med --bas (där var granskningen ett val)."""
+
+    CRITIQUE = '.claude/skills/impeccable/reference/critique.md'
+
+    def test_granskningen_finns_i_skissens_roller(self):
+        eft = kompetens.efterfiler('skapa')
+        for f in ('impeccable/reference/critique.md', 'impeccable/reference/audit.md', 'impeccable/reference/layout.md',
+                  'impeccable/reference/colorize.md', 'impeccable/reference/polish.md', 'emil-improve-animations/SKILL.md',
+                  'emil-review-animations/SKILL.md'):
+            self.assertIn('.claude/skills/' + f, eft)
+        self.assertIn('.claude/skills/taste/SKILL.md', kompetens.lasfiler('skapa'), 'Taste är art director före koden')
+        self.assertEqual(kompetens.prova(), [], 'kartan håller, också att ingen fil är kärna i en roll och granskning i en annan')
+        self.assertFalse(hasattr(kompetens, 'BEHOVSSTYRDA'), 'specialisten efter behov är borttagen')
+
+    def test_oläst_granskning_fäller_kravet(self):
         kv = kvitto('skapa')
-        p = kv['per_session'][0]
-        p['valda'] = ['.claude/skills/better-typography/SKILL.md']  # läst efter första renderingen
-        p['skill_anrop'] = p['skill_anrop'] + ['better-typography']  # aktiverad, men inte före första ändringen
-        self.assertEqual(kompetens.kravbrister(kv, 'skapa'), [])
+        kv['per_session'][0]['efter_lasta'] = [f for f in kv['per_session'][0]['efter_lasta'] if f != self.CRITIQUE]
+        self.assertIn('granskningen efter renderingen saknas: ' + self.CRITIQUE, kompetens.kravbrister(kv, 'skapa'))
+        self.assertEqual(kompetens.kravbrister(kvitto('skapa'), 'skapa'), [], 'negativ kontroll: hel granskning')
 
-    def test_vald_specialist_som_aldrig_aktiverades_ar_en_brist(self):
+    def test_granskningen_räknas_över_passets_sessioner(self):
         kv = kvitto('skapa')
-        kv['per_session'][0]['valda'] = ['.claude/skills/better-typography/SKILL.md']
-        self.assertIn('session 1: Skill-aktivering saknas: better-typography', kompetens.kravbrister(kv, 'skapa'))
+        p = copy.deepcopy(kv['per_session'][0]); p['session'] = 'svaret'
+        kv['per_session'][0]['efter_lasta'] = []  # skapare utan granskning, svaret på kritiken gör den
+        kv['per_session'].append(p)
+        kv['sessioner'].update(forvantade=2, sedda=2)
+        self.assertEqual([b for b in kompetens.kravbrister(kv, 'skapa') if 'granskning' in b], [])
+        p['efter_lasta'] = []
+        self.assertTrue([b for b in kompetens.kravbrister(kv, 'skapa') if b.startswith('granskningen efter renderingen saknas')])
 
-    def test_karnan_ar_fortfarande_kravd_fore_forsta_andringen(self):
+    def test_granskningens_skill_måste_aktiveras(self):
         kv = kvitto('skapa')
-        p = kv['per_session'][0]
-        p['fore_forsta_andring'] = [f for f in p['fore_forsta_andring'] if not f.endswith('craft-floor.md')]
-        p['skill_fore'] = [n for n in p['skill_fore'] if n != 'frontend-design']
-        fel = kompetens.kravbrister(kv, 'skapa')
-        self.assertIn('session 1: .claude/skills/impeccable/reference/craft-floor.md (läst först efter första ändringen)', fel)
-        self.assertIn('session 1: Skill aktiverades inte före första ändringen: frontend-design', fel)
+        kv['per_session'][0]['skill_anrop'] = [n for n in kv['per_session'][0]['skill_anrop'] if n != 'impeccable']
+        self.assertIn('granskningens Skill-aktivering saknas: impeccable', kompetens.kravbrister(kv, 'skapa'))
 
-    def test_utanfor_skissen_och_fordjupningen_aktiveras_ett_valt_alternativ_fore_forsta_andringen(self):
-        # granskningen 2026-10-11: lättnaden gäller bara kompetens.BEHOVSSTYRDA; passen rörelse och helbygge som förut
-        for pass_ in ('rorelse', 'helbygge'):
-            with self.subTest(pass_=pass_):
-                kv = kvitto(pass_)
-                alt = [f for r in kompetens.for_pass(pass_) for f in r['valj']]
-                skills, _ = kompetens.aktiverbara(alt)
-                self.assertTrue(skills, 'passet har ett aktiverbart alternativ')
-                f = next(a for a in alt if a == '%s/SKILL.md' % skills[0])
-                p = kv['per_session'][0]
-                p['valda'] = [kompetens.vag(f)]
-                p['skill_anrop'] = p['skill_anrop'] + [skills[0]]
-                self.assertIn('session 1: Skill aktiverades inte före första ändringen: %s' % skills[0], kompetens.kravbrister(kv, pass_))
-
-    def test_underagent_utanfor_skissen_aktiverar_ett_valt_alternativ_fore_forsta_andringen(self):
-        kv = kvitto('helbygge')
-        karna = [f for r in kompetens.for_pass('helbygge') for f in r['karna']]
-        karnskills, _ = kompetens.aktiverbara(karna)
-        alt = [f for r in kompetens.for_pass('helbygge') for f in r['valj']]
-        valt = next(f for f in alt if f.endswith('/SKILL.md') and kompetens.aktiverbara([f])[0])
-        namn = kompetens.aktiverbara([valt])[0][0]
-        filer = kompetens.lasfiler('helbygge')
-        kv['per_session'][0]['underagenter'] = [{'agent': 'syntetisk', 'andrade': True, 'lasta': filer, 'fore_forsta_andring': filer,
-                                                 'skill_anrop': karnskills + [namn], 'skill_fore': karnskills, 'valda': [kompetens.vag(valt)]}]
-        self.assertIn('session 1, underagent syntetisk: Skill aktiverades inte före första ändringen: %s' % namn, kompetens.kravbrister(kv, 'helbygge'))
-
-    def test_underagentens_karna_och_val(self):
+    def test_taste_före_koden(self):
         kv = kvitto('skapa')
-        karnskills, _ = kompetens.aktiverbara([f for r in kompetens.for_pass('skapa') for f in r['karna']])
-        filer = kompetens.lasfiler('skapa')
-        ua = {'agent': 'syntetisk', 'andrade': True, 'lasta': filer, 'fore_forsta_andring': filer,
-              'skill_anrop': karnskills + ['better-typography'], 'skill_fore': [], 'valda': ['.claude/skills/better-typography/SKILL.md']}
-        kv['per_session'][0]['underagenter'] = [ua]
-        fel = kompetens.kravbrister(kv, 'skapa')
-        self.assertIn('session 1, underagent syntetisk: Skill aktiverades inte före första ändringen: frontend-design', fel)
-        self.assertFalse(any('better-typography' in f for f in fel), 'en vald specialist får aktiveras efter första ändringen')
-        ua['skill_anrop'] = karnskills
-        self.assertIn('session 1, underagent syntetisk: Skill-aktivering saknas: better-typography', kompetens.kravbrister(kv, 'skapa'))
+        for p_ in kv['per_session']:
+            p_['skill_fore'] = [n for n in p_['skill_fore'] if n != 'taste']
+        self.assertIn('session 1: Skill aktiverades inte före första ändringen: taste', kompetens.kravbrister(kv, 'skapa'))
 
-    def test_skissens_karna_ar_den_lilla_och_rorelsepasset_behaller_sin(self):
-        karna = kompetens.lasfiler('skapa')
-        for f in ('.claude/skills/frontend-design/SKILL.md', '.claude/skills/impeccable/reference/craft-floor.md',
-                  'kunskap/bild.md', 'kunskap/copy-kontroll.md'):
-            self.assertIn(f, karna)
-        for f in ('.claude/skills/emil-design-eng/SKILL.md', '.claude/skills/emil-animate/SKILL.md'):
-            self.assertNotIn(f, karna, 'rörelse vid behov i skissen, ingen obligatorisk animation')
-            self.assertIn(f, kompetens.valbara('skapa'))
-            self.assertIn(f, kompetens.lasfiler('rorelse'), 'specialistens eget pass har hela kärnan')
-        self.assertLess(sum(len((ROOT / f).read_text(encoding='utf-8')) for f in karna), 50000)
+    @unittest.skipIf(not hasattr(kompetens, 'efterfiler'), 'basen har ingen granskning efter renderingen')
+    def test_kartan_vagrar_motsagda_halvor(self):
+        karta = metod_karta()
+        i_samma = karta.replace('efter: refero-design/SKILL.md;', 'efter: taste/SKILL.md; refero-design/SKILL.md;', 1)
+        self.assertNotEqual(i_samma, karta)
+        self.assertIn('komposition: taste/SKILL.md står både i kärnan och i granskningen efter renderingen', kompetens.prova(i_samma))
+        mellan = karta.replace('efter: impeccable/reference/audit.md;', 'efter: impeccable/reference/clarify.md; impeccable/reference/audit.md;', 1)
+        self.assertNotEqual(mellan, karta)
+        self.assertIn('passet skapa: .claude/skills/impeccable/reference/clarify.md är kärna i en roll och granskning i en annan',
+                      kompetens.prova(mellan))
 
 
 if __name__ == '__main__':

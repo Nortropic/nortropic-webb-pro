@@ -253,16 +253,7 @@ def metodrader(steg):
     if k is None:
         m = METOD[steg]
         return ['- ' + f for f in m['filer']] + ['- skillen %s (.claude/skills/%s/SKILL.md med Read)' % (s, s) for s in m['skills']]
-    rader = ['- %s%s' % (v, (' (%s)' % d) if d else '') for v, d in k]
-    try:  # specialisterna efter det observerade problemet (kompetens.BEHOVSSTYRDA); metodkvittot prövar bara kärnan (metod_filer)
-        import kompetens
-        pass_ = {'utforska': 'skapa', 'forfina': 'fordjupa'}.get(steg)
-        spec = kompetens.valbara(pass_) if pass_ in kompetens.BEHOVSSTYRDA else []
-    except Exception:  # noqa: BLE001 — utan kartan gäller listan ovan
-        spec = []
-    if spec:
-        rader.append('- specialisterna, lästa hela när det observerade problemet kräver dem: ' + ', '.join(spec))
-    return rader
+    return ['- %s%s' % (v, (' (%s)' % d) if d else '') for v, d in k]
 
 
 def metod_filer(steg):

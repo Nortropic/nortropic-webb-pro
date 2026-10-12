@@ -18,11 +18,12 @@ import kompetens
 import korregister
 
 def giltigt_kvitto(pass_):
-    filer = kompetens.lasfiler(pass_)
+    eft = kompetens.efterfiler(pass_)  # granskningen efter renderingen (guidens ordning)
+    filer = kompetens.lasfiler(pass_) + eft
     roller = kompetens.for_pass(pass_)
-    skills, _ = kompetens.aktiverbara([f for r in roller for f in r['karna']])
+    skills, _ = kompetens.aktiverbara([f for r in roller for f in r['karna'] + r['efter']])
     per = {'session': 'syntetisk', 'lasta': filer, 'saknas': [], 'fore_forsta_andring': filer,
-           'skill_anrop': skills, 'skill_fore': skills, 'andrade': False, 'valda': []}
+           'skill_anrop': skills, 'skill_fore': skills, 'efter_lasta': eft, 'andrade': False, 'valda': []}
     return {'verifierad': True, 'ofullstandig': False, 'filer': filer, 'lasta': filer, 'saknas': [],
             'fore_forsta_andring': filer, 'skill_anrop': skills, 'skill_fel': [], 'per_session': [per],
             'sessioner': {'forvantade': 1, 'sedda': 1, 'saknade': []}, 'valda': [], 'mcp_utfall': {}}

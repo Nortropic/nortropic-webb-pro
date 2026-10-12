@@ -174,12 +174,12 @@ def prova(karta_text=None, las=None):
                     fel.append('%s: %s' % (rubrik, e))
                     continue
                 kallor[u['vag']] = u['sha']
-    # rollernas filer (kärna och alternativ i kompetensblocken) hör till samma versionsunderlag: körningar under en fryst
+    # rollernas filer (kärna, granskning efter renderingen och alternativ i kompetensblocken) hör till samma versionsunderlag: körningar under en fryst
     # metod går då att jämföra (Codex via ägaren 2026-10-05: 33 av 60 kompetensfiler låg utanför låset; granskning 4, G20)
     try:
         import kompetens
         for x in kompetens.tolka(text).values():
-            for f in x['karna'] + x['valj']:
+            for f in x['karna'] + x.get('efter', []) + x['valj']:
                 p = kalla(f)
                 if p.is_file() and not p.is_symlink():
                     kallor.setdefault(f, sha(p.read_text(encoding='utf-8')))

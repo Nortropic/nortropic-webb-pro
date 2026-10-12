@@ -218,7 +218,7 @@ def aktiveringsrader(sess, ateljen, vag=None):
     i_sess = set((sess or {}).get('skills') or [])
     klass, motsagelser = {'aktiveras': set(), 'anvandaranropade': set(), 'vantande': set(), 'dokument': set()}, []
     for x in valda:
-        aktiveras, las = kompetens.aktiverbara(x['karna'] + x['valj'])
+        aktiveras, las = kompetens.aktiverbara(x['karna'] + x.get('efter', []) + x['valj'])
         for f in las:
             d_ = f.split('/')
             slag = ('anvandaranropade' if d_[0] in anvandar else 'vantande' if d_[0] in vantande else 'dokument') \
@@ -494,7 +494,7 @@ def roller(sess, rader, ateljen):
     ordning = ('blockerat', 'ej_observerat', 'tillgangligt', 'provat')
     ut = []
     for kid, x in kompetens.tolka().items():
-        filer = x['karna'] + x['valj']
+        filer = x['karna'] + x.get('efter', []) + x['valj']
         skills = sorted({f.split('/')[0] for f in filer if not f.startswith(('kunskap/', 'kritik/', 'mall/'))})
         filer_saknas = [f for f in filer if not metod.kalla(f).is_file()]
         ute = [s for s in skills if s not in i_sess] if sess_ok else []
@@ -509,7 +509,7 @@ def roller(sess, rader, ateljen):
                 verktyg[v] = 'tillgangligt' if (vl.ROOT / 'kontroller' / skript.get(v, v + '.py')).is_file() else 'blockerat'
         alla = [sk_t] + [m['tillstand'] for m in mcp.values()] + list(verktyg.values())
         ut.append({'roll': kid, 'namn': x['namn'], 'pass': x['pass'], 'uppgift': x['uppgift'],
-                   'tilldelat': {'tillstand': 'tilldelat', 'karna': len(x['karna']), 'valj': len(x['valj']), 'skills': skills,
+                   'tilldelat': {'tillstand': 'tilldelat', 'karna': len(x['karna']), 'efter': len(x.get('efter', [])), 'valj': len(x['valj']), 'skills': skills,
                                  'verktyg': x['verktyg'], 'mcp': x['mcp']},
                    'atkomst': {'tillstand': min(alla, key=ordning.index),
                                'skills': {'tillstand': sk_t, 'i_sessionen': len(skills) - len(ute) if sess_ok else None, 'av': len(skills),

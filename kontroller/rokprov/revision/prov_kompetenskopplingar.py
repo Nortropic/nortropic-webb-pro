@@ -71,6 +71,27 @@ class Kopplingar(unittest.TestCase):
             profil2.assert_not_called()
             pool.assert_called_once()
 
+    def test_skissens_granskning_i_guidens_ordning(self):
+        # Ägarens besked 2026-10-12: Taste före koden, sedan critique, audit, layout, typeset, Emil, webbläsarprovet och
+        # polish sist, på den renderade sidan; rollernas rader säger vilka filer. Den verkliga prompten, bara metodens
+        # leverans och historiken ersatta.
+        kd.satt_status(self.slug, 'k01', 'planerad', 'uppdraget skrivet', forsok=0)
+        with patch.multiple(kd, metodinfo=lambda *a: {'sha': 'metod', 'delar': {'före': ['METOD-skiss.md']}},
+                            uppdragsmaterial_rader=lambda *a: [], historik_rader=lambda *a: [], metodvariant=lambda *a: 'grund'), \
+             patch.object(skapande, 'kritikrader', lambda *a, **k: []):
+            prompt = kd.skiss_prompt(self.slug, 'k01')
+        steg = prompt[prompt.index('3. Granskningen efter första renderingen'):]
+        ordning = [steg.index(x) for x in ('critique.md', 'audit.md', 'layout.md', 'typeset.md', 'emil-review-animations',
+                                            '--tillstand tangentbord,reflow', 'polish.md')]
+        self.assertEqual(ordning, sorted(ordning), 'stegen i guidens ordning')
+        self.assertLess(prompt.index('"Taste"'), prompt.index('3. Granskningen'), 'Taste-rattarna före bygget')
+        self.assertIn('Alla steg krävs: en skiss där någon av granskningens filer inte lästs hel är ofullständig', prompt,
+                      'prompten säger det som kravet fäller (granskningen 2026-10-12, fynd 2)')
+        self.assertNotIn('Hinner du inte alla steg', prompt)
+        self.assertIn('- granskningen efter första renderingen, hel när steget görs och tillämpad på sidan:', prompt)
+        self.assertIn('.claude/skills/emil-review-animations/SKILL.md', prompt, 'rollens rad bär Emils granskning')
+        self.assertNotIn('Specialisterna bland', prompt, 'inget val av specialist efter behov')
+
     def test_brist_sparas_och_blir_inte_bara_ett_undantag(self):
         import referensprofil
         with patch.object(referensprofil, 'forbered', return_value={'ok': False, 'brister': ['syntetisk brist'], 'kandidater': {}}):

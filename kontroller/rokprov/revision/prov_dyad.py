@@ -148,10 +148,11 @@ def png(bredd, hojd, farg):
 
 
 def kompetensplan(pass_):
-    """Skriptets faktiska verktygsanrop ur rollens aktuella kärna, aldrig ett syntetiskt godkänt kvitto."""
+    """Skriptets faktiska verktygsanrop ur rollens aktuella kärna och granskning efter renderingen, aldrig ett
+    syntetiskt godkänt kvitto."""
     import bildkedja
     import kompetens
-    filer = list(dict.fromkeys(f for roll in kompetens.for_pass(pass_) for f in roll['karna']))
+    filer = list(dict.fromkeys(f for roll in kompetens.for_pass(pass_) for f in roll['karna'] + roll['efter']))
     skills, las = kompetens.aktiverbara(filer)
     namn = [bildkedja.skillkommando(s) for s in skills]
     if any(n is None for n in namn):
@@ -205,7 +206,7 @@ class AttrappensArbete(unittest.TestCase):
             with self.subTest(pass_=pass_):
                 plan = kompetensplan(pass_)
                 laddade = ['.claude/skills/%s/SKILL.md' % bildkedja.skillnamn(s) for s in plan['skills']]
-                self.assertEqual(set(plan['las_fore'] + laddade), set(kompetens.lasfiler(pass_)))
+                self.assertEqual(set(plan['las_fore'] + laddade), set(kompetens.lasfiler(pass_) + kompetens.efterfiler(pass_)))
                 self.assertTrue(all((ROT / f).is_file() for f in plan['las_fore']))
 
 

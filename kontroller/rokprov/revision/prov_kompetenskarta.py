@@ -66,10 +66,13 @@ class Kompetenskartan(unittest.TestCase):
         k = kompetens.tolka()
         self.assertEqual(set(d['roller']), set(k))
         filer = {f['fil'] for f in d['filer']}
-        self.assertEqual(filer, {f for x in k.values() for f in x['karna'] + x['valj']})
+        self.assertEqual(filer, {f for x in k.values() for f in x['karna'] + x['efter'] + x['valj']})
         for f in d['filer']:  # varje fil har sina roller med rätt slag
             for roll, slag in f['roller'].items():
-                self.assertIn(f['fil'], k[roll]['karna'] if slag == 'karna' else k[roll]['valj'])
+                self.assertIn(f['fil'], k[roll]['karna'] if slag == 'karna' else k[roll]['efter'] if slag == 'efter' else k[roll]['valj'])
+        # guidens ordning (ägarens besked 2026-10-12): Emils granskning är skissens krav efter renderingen, inte ett alternativ
+        self.assertEqual(d['filer'][[f['fil'] for f in d['filer']].index('emil-review-animations/SKILL.md')]['roller'].get('rorelseskiss'), 'efter')
+        self.assertEqual(d['skills']['emil-review-animations']['roller'].get('rorelseskiss'), 'efter')
         self.assertTrue({'refero', 'mobbin', '21st', 'motion'} <= {t['id'] for t in d['tjanster']})
         self.assertEqual(set(d['skills']), {p.name for p in (ROOT / '.claude' / 'skills').iterdir() if p.is_dir()}, 'varje installerad skill')
         self.assertFalse([n for n, x in d['skills'].items() if x['plats'] == 'utan'], 'i repot har varje skill en roll eller ett skäl')

@@ -173,13 +173,13 @@ def karta(root=None, underlag=None, kunder=None):
     k = kompetens.tolka()
     T = kompetens.TILLSTAND
     steg = [{'pass': p, 'namn': kompetens.PASSNAMN.get(p, p), 'roller': [x['id'] for x in kompetens.for_pass(p, k)]} for p in FLODE]
-    roller = {kid: {'id': kid, 'namn': x['namn'], 'uppgift': x['uppgift'], 'pass': x['pass'], 'karna': x['karna'], 'valj': x['valj'],
-                    'verktyg': x['verktyg'], 'mcp': x['mcp'], 'mcp_krav': x['mcp_krav']} for kid, x in k.items()}
+    roller = {kid: {'id': kid, 'namn': x['namn'], 'uppgift': x['uppgift'], 'pass': x['pass'], 'karna': x['karna'], 'efter': x['efter'],
+                    'valj': x['valj'], 'verktyg': x['verktyg'], 'mcp': x['mcp'], 'mcp_krav': x['mcp_krav']} for kid, x in k.items()}
     filer = {}
     for kid, x in k.items():
-        for f in x['karna'] + x['valj']:
+        for f in x['karna'] + x['efter'] + x['valj']:
             e = filer.setdefault(f, {'fil': f, 'typ': _typ(f), 'skill': None if f.startswith(('kunskap/', 'kritik/')) else f.split('/')[0], 'roller': {}})
-            e['roller'][kid] = 'karna' if f in x['karna'] else 'valj'
+            e['roller'][kid] = 'karna' if f in x['karna'] else 'efter' if f in x['efter'] else 'valj'
     skills = kompetens.skillstatus(root / '.claude' / 'skills', k)
     beslut = kompetens.tjanstverktyg()
     tjanster = []

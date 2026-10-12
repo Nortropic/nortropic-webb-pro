@@ -4329,7 +4329,7 @@ try:
     def kompetens_kd(pass_, filer=None):
         """Framgångsfixtur: riktiga syntetiska Skill/Read-händelser, aldrig en bortmockad kravgrind."""
         steg = [(n, d, False) for n, d in kompetenssteg(pass_) if n == 'Skill']
-        steg += [('Read', {'file_path': f}, False) for f in kd.kompetens.lasfiler(pass_)]
+        steg += [('Read', {'file_path': f}, False) for f in kd.kompetens.lasfiler(pass_) + kd.kompetens.efterfiler(pass_)]
         if filer is not None:
             # De negativa kärnläsproven behåller exakt de filer som fallet låter modellen läsa.
             tillatna = {bk_pt.relativ(f) for f in filer}
@@ -5098,7 +5098,7 @@ try:
             kid_ = re.search(r'Kandidaten (k\d\d)', prompt).group(1)
             pass_ = next(k_ for k_, n_ in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n_ in prompt)
             index_ = kd.ksajt(sl_sk, kid_) / 'src' / 'pages' / 'index.astro'
-            filer_ = kd.kompetens.lasfiler(pass_)
+            filer_ = kd.kompetens.lasfiler(pass_) + kd.kompetens.efterfiler(pass_)
             if kid_ == 'k02' and pass_ == 'mobil' and 'Förra försöket saknade:' not in prompt:
                 filer_ = filer_[1:]  # läser inte alla: ett omförsök
             if kid_ == 'k03' and pass_ == 'kritik':
@@ -5490,10 +5490,10 @@ assert '.claude/skills/impeccable/reference/critique.md' in kp_k3.lasfiler('gran
 assert set(kp_k3.PASS) == {p_ for x_ in kp_k3.tolka().values() for p_ in x_['pass']}, 'varje pass har en roll'
 # Codex punkt 7: kärnan är en sammanhängande metod; stilvarianterna och recepten är alternativ att välja
 assert '.claude/skills/taste-soft/SKILL.md' not in kp_k3.lasfiler('skapa') and '.claude/skills/taste-soft/SKILL.md' in kp_k3.valbara('skapa')
-# ägarens uppdrag 2026-10-11 om designflödet: refero-design (researchmetoden) är planens kärna och skissens specialist;
-# skissens kärna är art direction (frontend-design) med hantverksgolvet
-assert '.claude/skills/refero-design/SKILL.md' in kp_k3.lasfiler('planera') and '.claude/skills/refero-design/SKILL.md' in kp_k3.valbara('skapa') \
-    and '.claude/skills/frontend-design/SKILL.md' in kp_k3.lasfiler('skapa') and '.claude/skills/hallmark/references/macrostructures.md' in kp_k3.valbara('planera')
+# guidens ordning (ägarens besked 2026-10-12): refero-design är skissens visuella kontroll mot referenserna efter renderingen,
+# lika obligatorisk som kärnan; researchen har den i sin kärna före planen
+assert '.claude/skills/refero-design/SKILL.md' in kp_k3.efterfiler('skapa') and '.claude/skills/refero-design/SKILL.md' in kp_k3.lasfiler('forska')
+assert '.claude/skills/hallmark/references/macrostructures.md' in kp_k3.valbara('planera')
 assert kp_k3.storlek(kp_k3.lasfiler('skapa')) < 160000, kp_k3.storlek(kp_k3.lasfiler('skapa'))
 v_k3 = kp_k3.verktyg('skapa', 'x', 'k01')
 assert 'Skill' in v_k3 and not any(x_.startswith('mcp__') for x_ in v_k3) and any('kontroller/uxsok.py' in x_ for x_ in v_k3)
@@ -5625,7 +5625,7 @@ def ater_kp_(slug, kid, v):
 def sess_kp_(prompt, verktyg, ut, schema=None, max_turer=200, modell=None, effort=None, frist=None, nekas=(), vid_start=None, slug=None):
     prompt_kp.append(prompt)
     pass_ = next(k_ for k_, n_ in kd.kompetens.PASSNAMN.items() if 'specialisten för %s' % n_ in prompt)
-    filer_ = kd.kompetens.lasfiler(pass_)
+    filer_ = kd.kompetens.lasfiler(pass_) + kd.kompetens.efterfiler(pass_)
     if las_kp['saknas_forsta'] and 'Förra försöket saknade:' not in prompt:
         filer_ = filer_[1:]
     elif las_kp['saknas_forsta'] and las_kp.get('bara_saknade'):  # omförsöket läser bara det som saknades: den nya sessionen saknar resten (R02)

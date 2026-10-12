@@ -5315,6 +5315,8 @@ standardgrenen stod kvar, så grenbyte ingår inte):
 
 **Status:** gäller; genomfört av Claude i grenen `claude/designflode-20261011`, prövat mekaniskt och i ett verkligt
 kandidatprov (baslinje och pilot, nedan). Designen är inte bedömd av ägaren.
+**Delvis ersatt av:** Tillägg 2026-10-12: designflödet i guidens ordning (punkten Kärnan först, specialisten efter
+problemet, och ägarens dom över Lerverkets skisser). Övrigt gäller.
 
 Ägarens meddelande ~21:10Z, ordagrant (uppdragsfilen `PROMPT-Nortropic-Designflode-Audit-Atgard.md` och den länkade
 guiden ordagrant i sessionens privata minne):
@@ -5385,3 +5387,66 @@ skissens kvitto.
   rendering; flytten till skissen kräver ett eget försök med allt annat lika). awesome-design-md (dömd nej 2026-10-01 i
   Kirurgens register; katalogen saknar lokala hantverksverksamheter) och Vercels riktlinjer (helbyggets steg 6, lokal
   kopia e3d624ba saknar en senare regel) är oförändrade.
+
+## Tillägg 2026-10-12: designflödet i guidens ordning — varje skill körd, kärnan före koden och granskningen efter renderingen
+
+**Status:** gäller; genomfört av Claude i grenen `claude/guideordning-20261012`, prövat mekaniskt. Det verkliga provet
+på ett nytt lokalt företag med egna bilder står i rapporten när det har körts. Designen är inte bedömd av ägaren.
+
+Ägarens svar på designflödesrapportens frågor 1–4 (ankomst före 2026-10-12T04:53Z), ordagrant:
+
+> 1. nej, lerverket ser ju generisk och katastrofal ut
+> 2. se 1
+> 3. vad menar du
+> 4 vad menar du
+>
+> driver du med mig ? varför öppnade du inte google dokumentet
+
+Claude föreslog därefter att ändringen som gjort skillsen valfria tas bort, att skaparen arbetar i guidens ordning med
+varje skill faktiskt körd (Taste före koden, bygget, Impeccables critique, audit, layout, typeset och polish, Emils
+rörelsepass och webbläsarprovet), och att det prövas på ett fall med riktiga bilder. Ägarens svar, ordagrant: "ja, ta
+nåt lokalt företag", och när Claude började se på de tidigare fallen: "nej, ta någon ny".
+
+**Ägarens dom:** Lerverkets skisser (k01 och k02, 2026-10-11) är generiska och katastrofala; att alla skills är
+tillgängliga och väljs efter behov räcker inte. Tolkningen i tillägget 2026-10-11 (Konflikten, redovisad: "läses som
+tillgång och användning i rätt steg") gäller inte längre. Guiden (KILLED Guide, inspirationsunderlag och inte en
+specifikation) ger ordningen; dess fasta sektionsordning, HTML/Netlify och "kör tills noll" är inte överförda.
+
+**Genomförarens tillämpning (Claude):**
+- **`kompetens.BEHOVSSTYRDA` är borttagen**; skissens och fördjupningens krav är åter hela rollerna, nu i två halvor.
+  **Kärnan** läses hel och aktiveras före första ändringen, som förut: Taste (art director: designspråket och rattarna
+  variation, rörelse och täthet i RIKTNING.md under "Taste" före koden), frontend-design, craft-floor, bild.md, typeset,
+  clarify, better-writing, copy-kontroll, redaktionellt-pass, adapt, better-layout och impeccables animate.
+  **Granskningen efter första renderingen** (nytt fält `efter:` i kompetensblocken, `kompetens.efterfiler`) läses hel
+  och aktiveras i någon av passets sessioner: impeccable med critique och polish, Referos visuella kontroll, audit,
+  layout, colorize, better-typography, better-colors och Emils design-eng, animate, improve-animations och
+  review-animations. Saknas en fil eller en aktivering fäller det arbetskravet som en oläst kärna
+  (`kompetens.kravbrister`: "granskningen efter renderingen saknas", "granskningens Skill-aktivering saknas").
+- **Skissens steg** (`kandidater.skiss_prompt`): granskningen görs på den renderade sidan i ordningen critique (med
+  Refero mot referensbilderna; generisk betyder ny grundidé före finputs), audit, layout, typeset och colorize, Emils
+  rörelsepass, webbläsarprovet (`forhandsvisa.py --mellan --tillstand tangentbord,reflow`, med `--meny`) och polish
+  sist, och varje steg skrivs i RIKTNING.md under "Granskning" med fynd, ändring och nästa rendering.
+- **Rörelsen i skissen** har en egen roll (`rorelseskiss`, passet skapa) med animate före koden och Emils fyra skills
+  efter renderingen; passet rörelse efter fördjupningen behåller sin roll med hela kärnan och får Emils granskning efter.
+- **Taket 160 000 tecken** (tillägget 2026-10-07 och ändringen 2026-10-11) gäller kärnan före första ändringen: skissens
+  kärna är 12 filer och 155 947 tecken (före 2026-10-11: 18 och 159 956). Granskningen kommer ovanpå med 13 filer och
+  177 946 tecken, läst efter renderingen. Skissens session läser alltså omkring dubbelt så mycket som förut; om det ryms
+  i skaparens frist (2 700 s) är inte mätt, och provet på det nya företaget är mätningen. Fördjupningens kärna växer
+  från 137 473 till 172 272 tecken (Taste), med 122 652 i granskningen; ingen verklig fördjupning är körd med den.
+- **Kompetenskartan** visar granskningen som ett eget slag (◆), och en skill i granskningen har en roll. Granskningens
+  filer ingår i metodlåset, fortsättningens avtryck, startkontrollens aktiveringskrav och rollens tillstånd i kvittot
+  (`granskning`), och `kompetens.prova` vägrar en fil som är kärna i en roll och granskning i samma roll eller en annan
+  roll i passet.
+- **Fördjupningen** (Rätta, Omarbeta designen, Bygg ut) får samma granskning efter första renderingen, avgränsad till
+  uppdragets omfattning och det som ska bevaras; alla steg krävs.
+- **Vad kraven inte prövar, redovisat:** kvittot ser att granskningens filer lästs hela och dess skills aktiverats i
+  någon av passets sessioner, inte att det skedde efter renderingen; ordningen står i skaparens prompt. I läget full
+  (inte standard) prövas förbättringsrundan mot hela skissens krav. Ett sparat kvitto prövas mot dagens karta: skisser
+  gjorda före ändringen (Lerverkets k01 och k02, med den mindre kärnan) uppfyller inte de nya kraven och kan inte tas
+  vidare till godkännande; ägaren har dömt dem.
+- **Bevarat:** referensprofilen som underlag och granskarens kritik trots redovisningsbrist (tillägget 2026-10-11),
+  research och referenser före förslagen, tio förslag, referenskontraktet, planprövningen, kundvakten, blindheten,
+  låsen och ägarens val och godkännande. Kvittot visar läsning och aktivering, aldrig att granskningen tillämpades eller
+  att sidan blev bättre; det visar bara sidan och ägaren.
+- **Rättelse av rapporten 2026-10-11 (privat):** en rubrik i k02 flaggades där felaktigt som ett antagande;
+  provfallets uppdragsunderlag stöder den.

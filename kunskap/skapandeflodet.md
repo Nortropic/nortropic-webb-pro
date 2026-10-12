@@ -178,8 +178,10 @@ kandidaterna och granskningarna.
    spärr (ägarens uppdrag 2026-10-11 om designflödet): skaparen startar, får bristen i sin prompt och arbetar från
    referensbilderna och SEKTIONER.md; ingen rapport eller ett uppdrag som ändrades under profileringen stoppar
    kandidaten som förut, och nästa start profilerar en gång till. Profilerna når skaparen i uppdragets prompt (`kandidater.profil_rader`), bundna till
-   uppdraget, så att UPPDRAG.md inte skrivs om. Skaparen läser kärnan före första ändringen och väljer specialisterna
-   efter det problem renderingen visar (metodkartan, Kompetenserna: kärnan först, specialisten efter problemet).
+   uppdraget, så att UPPDRAG.md inte skrivs om. Skaparen arbetar i guidens ordning (ägarens besked 2026-10-12): Taste
+   sätter designspråket och rattarna före koden, kärnan läses hel före första ändringen, och efter första renderingen
+   görs hela granskningen på sidan, critique, audit, layout, typeset och colorize, Emils rörelsepass, webbläsarprovet
+   och polish (metodkartan, Kompetenserna: Granskningen efter renderingen).
    Försökets förutsättningar fryses när det startar (`underlag_vid_start`: uppdraget, materialet, profilerna och
    paketet); en annan kandidats komplettering ändrar dem inte, och en ändring före nästa försök står i statusen
    (`underlag_andrat`). Skaparen skriver RIKTNING.md först

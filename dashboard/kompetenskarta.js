@@ -85,11 +85,12 @@
       ${mcp || vk ? `<span class="kk-chips">${mcp}${vk}</span>` : ''}`;
   }
   function flodet(d) {
-    return `<p class="kk-under">Stegen i flödets ordning, med rollerna som arbetar där. Kärnan läses hel innan rollen ändrar eller bedömer något; alternativen väljs efter riktningen. MCP med krav måste anropas med resultat före nästa steg.</p>
+    return `<p class="kk-under">Stegen i flödets ordning, med rollerna som arbetar där. Kärnan läses hel innan rollen ändrar eller bedömer något; granskningen efter första renderingen läses hel och görs på sidan; alternativen väljs efter riktningen. MCP med krav måste anropas med resultat före nästa steg.</p>
       <ol class="kk-stegen">${d.steg.map((s) => `<li class="kk-steg"><h2 class="kk-h2">${e_(stegnamn(s))} <span class="kk-pass">${e_(s.pass)}</span></h2>
         ${s.roller.map((id) => { const r = d.roller[id]; return `<div class="kk-roll"><h3 class="kk-h3">${e_(r.namn)}</h3>
           <dl class="kk-dl">
             <dt>Kärna</dt><dd class="kk-chips">${r.karna.map((f) => chip(filnamn(f), 'karna', f)).join('')}</dd>
+            ${(r.efter || []).length ? `<dt>Granskning</dt><dd class="kk-chips">${r.efter.map((f) => chip(filnamn(f), 'karna', f)).join('')}</dd>` : ''}
             ${r.valj.length ? `<dt>Alternativ</dt><dd><details><summary>${r.valj.length} att välja efter riktningen</summary><span class="kk-chips">${r.valj.map((f) => chip(filnamn(f), '', f)).join('')}</span></details></dd>` : ''}
             <dt>Verktyg</dt><dd class="kk-chips">${r.verktyg.length ? r.verktyg.map((v) => chip(v)).join('') : '<span class="kk-dov">inga</span>'}</dd>
             <dt>MCP</dt><dd class="kk-chips">${r.mcp.length ? r.mcp.map((m) => chip(m + (r.mcp_krav.includes(m) ? ' (krav)' : ''), r.mcp_krav.includes(m) ? 'krav' : '')).join('') : '<span class="kk-dov">inga</span>'}</dd>
@@ -104,11 +105,12 @@
     const texter = d.filer.filter((f) => f.typ === 'kunskap' || f.typ === 'kritik');
     const huvud = `<tr><th scope="col" class="kk-namnkol">Kompetens</th>${roller.map((r) => `<th scope="col" class="kk-rollkol"><span title="${e_(r.namn)}">${e_(r.id)}</span></th>`).join('')}<th scope="col">Aktiverad</th></tr>`;
     const cell = (v) => v === 'karna' ? '<td class="kk-cell"><span class="kk-prick karna" title="kärna">●</span><span class="pt-dold-text">kärna</span></td>'
+      : v === 'efter' ? '<td class="kk-cell"><span class="kk-prick karna" title="granskning efter renderingen">◆</span><span class="pt-dold-text">granskning</span></td>'
       : v === 'valj' ? '<td class="kk-cell"><span class="kk-prick" title="alternativ">○</span><span class="pt-dold-text">alternativ</span></td>' : '<td class="kk-cell"></td>';
     const rader = skillrader.map(([n, x]) => `<tr class="${x.plats === 'roll' ? '' : 'kk-utan-roll'}"><th scope="row" class="kk-namnkol">${e_(n)}${x.plats !== 'roll' ? `<span class="kk-plats ${x.plats === 'utan' ? 'kk-rod' : ''}">${e_(PLATS[x.plats])}</span>` : ''}</th>
       ${roller.map((r) => cell(x.roller[r.id])).join('')}<td class="kk-cell kk-akt">${aktiv[n] ? '×' + aktiv[n] : ''}</td></tr>`).join('');
     const textrader = texter.map((f) => `<tr><th scope="row" class="kk-namnkol">${e_(f.fil)}</th>${roller.map((r) => cell(f.roller[r.id])).join('')}<td class="kk-cell"></td></tr>`).join('');
-    return `<p class="kk-under">Varje skill och kunskapstext mot rollerna: ● kärna, ○ alternativ. Aktiverad räknar skillverktygets observerade anrop i kvittona. En skill utan roll har antingen ett skäl i metodkartan eller saknar plats, och då är det en lucka.</p>
+    return `<p class="kk-under">Varje skill och kunskapstext mot rollerna: ● kärna, ◆ granskning efter renderingen, ○ alternativ. Aktiverad räknar skillverktygets observerade anrop i kvittona. En skill utan roll har antingen ett skäl i metodkartan eller saknar plats, och då är det en lucka.</p>
       <div class="kk-tabell" role="region" aria-label="Kompetenserna mot rollerna" tabindex="0"><table>
         <thead>${huvud}</thead>
         <tbody><tr class="kk-grupprad"><th scope="rowgroup" colspan="${roller.length + 2}">Skills</th></tr>${rader}

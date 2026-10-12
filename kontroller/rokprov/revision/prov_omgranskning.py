@@ -44,9 +44,9 @@ def transkript(steg):
 def kompetenssteg(pass_):
     """Det giltiga modellunderlaget i fixturen aktiverar rollen och läser dess filer före arbetet."""
     roller = kompetens.for_pass(pass_)
-    skills, _ = kompetens.aktiverbara([f for roll in roller for f in roll['karna']])
+    skills, _ = kompetens.aktiverbara([f for roll in roller for f in roll['karna'] + roll['efter']])
     return [('Skill', {'skill': bildkedja.skillkommando(s) or s}) for s in skills] + [
-        ('Read', {'file_path': str(atelje.ROOT / f)}) for f in kompetens.lasfiler(pass_)]
+        ('Read', {'file_path': str(atelje.ROOT / f)}) for f in kompetens.lasfiler(pass_) + kompetens.efterfiler(pass_)]
 
 
 class Lasordning(unittest.TestCase):

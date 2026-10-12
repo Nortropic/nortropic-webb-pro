@@ -827,9 +827,9 @@ class Aterupptag(Grund):
 
     def kompetens_steg(self):
         roller = kompetens.for_pass('skapa')
-        skills, _ = kompetens.aktiverbara([f for roll in roller for f in roll['karna']])
+        skills, _ = kompetens.aktiverbara([f for roll in roller for f in roll['karna'] + roll['efter']])
         return [('Skill', {'skill': self.bk.skillkommando(s) or s}) for s in skills] + [
-            ('Read', {'file_path': str(atelje.ROOT / f)}) for f in kompetens.lasfiler('skapa')]
+            ('Read', {'file_path': str(atelje.ROOT / f)}) for f in kompetens.lasfiler('skapa') + kompetens.efterfiler('skapa')]
 
     def par(self, komprimera=False, avtryck_lika=True):
         import uuid as uuid_
@@ -980,10 +980,11 @@ class Kontrollerna(unittest.TestCase):
         # skaparen eller kritiken har saknas i sessionen och stoppar ändå före researchen
         _r, efter = startkontroll.fasens_roller({'id': 'kandidatflodet', 'fas': 'efter_research'})
         _r, fore = startkontroll.fasens_roller(vag)
-        bara_efter = sorted({s_ for x in efter for s_ in kompetens.aktiverbara(x['karna'] + x['valj'])[0]}
-                            - {s_ for x in fore for s_ in kompetens.aktiverbara(x['karna'] + x['valj'])[0]})
+        filer_ = lambda x: x['karna'] + x['efter'] + x['valj']  # noqa: E731  granskningen efter renderingen hör till rollen
+        bara_efter = sorted({s_ for x in efter for s_ in kompetens.aktiverbara(filer_(x))[0]}
+                            - {s_ for x in fore for s_ in kompetens.aktiverbara(filer_(x))[0]})
         self.assertTrue(bara_efter)
-        alla = sorted({s_ for x in efter + fore for s_ in kompetens.aktiverbara(x['karna'] + x['valj'])[0]})
+        alla = sorted({s_ for x in efter + fore for s_ in kompetens.aktiverbara(filer_(x))[0]})
         fel = startkontroll.aktiveringsrader(dict(c, skills=[s_ for s_ in alla if s_ != bara_efter[0]]), True, vag)
         self.assertEqual(fel[0]['resultat'], 'fel', fel)
         self.assertIn(bara_efter[0], fel[0]['detalj'])
