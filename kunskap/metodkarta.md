@@ -674,18 +674,22 @@ tillämpats, och ett lyckat anrop säger inte att svaret blev användbart materi
 **Ingen uppgift i flödet**, den enda listan över skills utan roll (de finns i verktygslådan; en skill i ett
 kompetensblock ovan har sin uppgift där): emil-write-swift (Swift), emil-animate-expo (React Native och Expo),
 emil-ask-sonner (en toast i en app), slides (presentationer), taste-imagegen-frontend-mobile (appskärmar),
-emil-pick-ui-library (paketval görs utanför flödet, `kunskap/beroenden.md`), emil-prototype (kandidaterna är
-varianterna), taste-v1 (ersatt av taste), taste-gpt (fast AIDA-ordning mot K22; dess GSAP-recept används inte heller
+emil-pick-ui-library (paketval görs utanför flödet, `kunskap/beroenden.md`), emil-prototype (i kandidatflödet är
+kandidaterna varianterna; i designfasens band har den en station i rörelsen, designfas-kartan), taste-v1 (ersatt av taste),
+taste-stitch (kräver Stitch och ett eget format; överlämningen följer kundens designsystem, K55), ui-styling (varken
+Tailwind 3-konfigen eller shadcn används i mallen; licensfrågan är lyft till ägaren), better-interface-review (kräver en
+git-diff; kritiken är blind för källan och dukens versioner ligger inte i git; inventeringen 2026-10-12), taste-gpt (fast AIDA-ordning mot K22; dess GSAP-recept används inte heller
 sedan GSAP togs in 2026-10-07, eftersom rollen rorelse väljer CSS, Motion eller GSAP per beteende med skillen gsap och
 `kunskap/beroenden.md`). Bildgenererande skills (design, taste-brandkit, taste-imagegen-frontend-web, taste-image-to-code) kräver
 en bildgenerator som flödets sessioner inte har; illustrativt material som inte utger sig för att visa verksamheten
 beställs som material (Avgörandena, Bilder). Ur taste-image-to-code används bara listan för bildanalys (rad 327–360),
 som ett uppslag i Researchen. Flödets egna processkills styr arbetet: bygg-sajt ingår i helbyggets arbetskrav; kirurg, backlog och writing-for-agents
 används i systemarbetet, inte som formgivningskompetens. writing-for-agents är för den som skriver om kartan, förorden
-eller en skill. modern-web-guidance ingår i helbygget; ett införande i skisskapandet kräver fortfarande det avgränsade
-försöket i intagskrav 4. Övriga
+eller en skill. modern-web-guidance ingår i helbygget och som uppslag i bandets stationer; en plats i en kärna kräver fortfarande det
+avgränsade försöket i intagskrav 4. Övriga
 MCP-anslutningar (Gmail, Google Drive, GitHub, Resend, Jotform, Railway, Claude Docs med flera) rör kunddata, utskick
-eller drift och har ingen uppgift i skapandet; sessionerna nekar dem. Trybloom används inte (ägarens ord 2026-10-05) och
+eller drift och har ingen uppgift i skapandet; sessionerna nekar dem (designfas-kartan har raderna för de anslutningar
+som finns i miljön, med det som är lyft till ägaren). Trybloom används inte (ägarens ord 2026-10-05) och
 nekas likaså. Figma ingår bara i ett pilotprov, utanför normalflödet (`kunskap/skapandeflodet.md`, Figma).
 
 ## Research
