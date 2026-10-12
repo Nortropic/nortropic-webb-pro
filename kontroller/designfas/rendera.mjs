@@ -90,7 +90,8 @@ for (const r of ritningar) {
         const x = e.getBoundingClientRect(); return x.width > 0 && x.height > 0 && (x.width < 24 || x.height < 24);
       }).length;
       return { h1, sidled: document.documentElement.scrollWidth > innerWidth + 1, hojd: document.documentElement.scrollHeight,
-        menyknapp: !!synlig, bilder, sma_klickytor: sma, lang: document.documentElement.lang, titel: document.title };
+        menyknapp: !!synlig, bilder, sma_klickytor: sma, lang: document.documentElement.lang, titel: document.title,
+        formular: document.forms.length };
     }, MENY);
     // bildernas storlek mot visad storlek (× pixeltäthet) och LCP-kandidaten; rörelsen nu och efter 5,5 s
     const matt = await pg.evaluate(() => {

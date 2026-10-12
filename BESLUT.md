@@ -5481,3 +5481,34 @@ samtidigt utveckla en konkurrerande kunddesign." "Designgodkännande, byggstart 
   överlämning (`designfas.godkand_giltig`), och provet jämför bygget med förlagans bilder.
 - **Kandidatflödet i Code** (skissläget, ateljén, studion) står kvar oförändrat för kunder utan designfas och kan
   användas igen; det är inte längre normalflödet för formgivningen.
+
+## Tillägg 2026-10-12: designfasen som produktionsband
+
+**Status:** gäller; genomfört av Claude i grenen `claude/produktionsband-20261012`. Mekaniken prövad (`prov_designfas`);
+bandet prövat mot primärkällorna av en oberoende granskare och på Navets representativa riktning, redovisat i
+slutrapporten. Ingen design är bedömd av ägaren.
+
+Ägarens uppdrag i två versioner (inklistrade, ankomst före 2026-10-12T17:35:44Z och före 17:46:33Z; den andra ersätter
+den första; ordagrant i `underlag/uppdrag/PROMPT-Nortropic-Designfasen-produktionsband-20261012.md` och
+`…-produktionsband-v2-20261012.md`, privat). Den andra versionen lägger till att varje station knyts till metodtabellen och
+varje metod till en station, att ordningen följer processmodellen (förstå, innehåll och struktur, komposition, visuell
+form, interaktion, utvärdering, iteration; content first, mobilen först, tillgänglighet under utformningen), att
+kritiken kan skicka bandet tillbaka, och att en oberoende granskare prövar bandet mot primärkällorna före merge. Ordagrant:
+"Litteraturen säkrar golvet: begriplighet, tillgänglighet, iteration och utvärdering." Ur den första versionen: Ur uppdraget, ordagrant: "Läsning är
+ingen insats. Skills som säger emot varandra och läses samtidigt drar mot en säker mittenform." "Insatsen räknas, inte
+läsningen." Om punkt 4: "Punkt 4 ändrar ett eget tidigare beslut, nämligen att kärnan måste läsas hel och att kvittot
+fäller."
+
+- **Bandet** står som en tabell i metodkartan (Designfasen i Claude Design, Bandet: stationerna), den enda definitionen:
+  tretton stationer i processmodellens ordning med indata, fråga, skills och tjänster (kärna och alternativ, bara i
+  stationen), metod i metodtabellen (som fått id:n och sex nya rader: processmodellen, art direction, typografi, rörelse,
+  formulär och detaljarbete), synlig utdata, kontroll i renderingen och när den körs; avvikelserna från källorna står som
+  hypoteser under tabellen. Varje skill i kompetensplaceringen har minst en station eller ett skrivet
+  skäl, och `designfas.py karta --prova` fäller en rad som inte stämmer med tabellen.
+- **Insatsen räknas, inte läsningen** (ersätter för designfasen kravet att rollens kärna läses hel och att kvittot
+  fäller; kandidatflödets kvitton är oförändrade): versioner och beställningar bär stationens namn, versionen prövar att
+  insatsen syns mot förra versionen av ritningen, specialistpassen får stationens skills i stället för rollens hela kärna,
+  och kvittot är redovisning.
+- **Behållet:** omkring tio riktningar, 44 px, inga karuseller, den rena designstarten, ägarens godkännande som eget
+  kommando, egna beslut för byggstart och publicering, granskning före skaparens förklaring, kundvakten och de tekniska
+  golven.

@@ -1,97 +1,82 @@
 ---
 name: designfas
-description: Utförarens arbetsinstruktion i Nortropics designfas i Claude Design - riktningar, förfining och överlämning på en Design-duk för en kund, med Nortropics skills, tjänster och specialistpass. Används när ägaren startar ./design.sh <slug> eller ber om designarbete för en kund i Claude Design.
+description: Utförarens arbetsinstruktion i Nortropics designfas i Claude Design - riktningar och förfining på en Design-duk som ett produktionsband, där varje skill gör en synlig insats i sin station. Används när ägaren startar ./design.sh <slug> eller ber om designarbete för en kund i Claude Design.
 ---
 
-# Designfasen i Claude Design — utförarens instruktion
+# Designfasen i Claude Design — bandet
 
 Du är den utsedda utföraren för en kunds duk i Claude Design: den enda som skriver dukens versioner. Ägaren ser,
-jämför, kommenterar och väljer på duken. Code gör research, material, specialistbedömningar och kontroller och lämnar
-underlag; ingen annan session gör en konkurrerande kunddesign. Hela flödet, miljön och reglerna: `kunskap/claude-design.md`.
-Placeringen av varje metod och kompetens: `kunskap/metodkarta.md`, Designfasen i Claude Design.
+jämför, kommenterar och väljer på duken. Code gör research, specialistbedömningar och kontroller och lämnar underlag.
+Sidan skapas på ett band: varje station har sin fråga och sina skills, och dess insats ska synas på sidan. Läsning är
+ingen insats. Hela flödet: `kunskap/claude-design.md`. Bandet: `kunskap/metodkarta.md`, Bandet: stationerna.
 
-Argumentet är kundens slug. Arbetsfilerna ligger privat i `underlag/<slug>/design/`; `designfas.py` håller spåret
-(`.venv/bin/python kontroller/designfas.py status <slug>`).
+Argumentet är kundens slug. Spåret: `.venv/bin/python kontroller/designfas.py status <slug>` (versionerna och bandets
+läge per riktning).
 
-## Före duken
+## Din grund (kort)
 
-1. Läs `underlag/<slug>/KUNDFORSTAELSE.md` först, sedan `BRIEF.md`, `VERKSAMHET.json`, `bilder/BILDER.md`, kundens
-   domar (`DESIGNDOMAR.jsonl`), `kunskap/designregler.md` och researchen (`atelje/FORSKNING.md`, referenspaketet
-   `referenser/paket-vNN/` med SEKTIONER.md och EXTRAKT.md, tjänsternas svar i `referenser/tjanster/`). Saknas
-   KUNDFORSTAELSE.md eller researchen: säg det och be ägaren köra förberedelsen eller researchen; formge inte utan dem.
-2. Läs duken om den finns (`designfas.py status`; Artifact `read` av `project/canvas.json`). Finns ingen: skapa den med
-   Artifact-verktyget och Design-typen (`https://claude.ai/artifact/QKN21svewxgyPb6SYRqWnd`, titel "<Verksamhet> –
-   designfas"), aldrig med `/design` (repots skill med samma namn skuggar kommandot). Registrera den:
-   `designfas.py ny <slug> --kanvas <url> --release <typens release>`. Läs typens `artifact-type/dc-runtime.js` med
-   Artifact `read` och spara den: `designfas.py runtime <slug> --fil <sparad fil> --release <release>`.
-3. Ladda upp kundens bilder som tillgångar (Artifact `publish` med `asset: true`) och registrera varje:
-   `designfas.py tillgang <slug> --blob <id> --fil underlag/<slug>/bilder/<fil> --kalla "<rad ur BILDER.md>"`.
+Läs `underlag/<slug>/KUNDFORSTAELSE.md`, `kunskap/designregler.md` och bandets tabell. Mer läser du inte i förväg:
+varje station ger dig sina skills när det är dess tur. Säger två skills emot varandra avgör metodkartans Avgöranden och
+designreglerna, aldrig vilken skill du läste sist. Saknas KUNDFORSTAELSE.md eller researchen (`atelje/FORSKNING.md`,
+referenspaketet): säg det och be ägaren köra dem; formge inte utan dem.
 
-## Steg och kompetens
+## Före bandet
 
-Aktivera skills med Skill-verktyget innan du gör det steget gäller (en användaranropad skill läses hel med Read);
-skriv vad du aktiverade, valde och varför i dukens anteckning för riktningen eller i ditt svar. En aktivering som
-misslyckas står som det den är.
+1. Läs duken om den finns (`designfas.py status`). Finns ingen: skapa den med Artifact-verktyget och Design-typen
+   (`https://claude.ai/artifact/QKN21svewxgyPb6SYRqWnd`, titel "<Verksamhet> – designfas"), aldrig med `/design`
+   (repots skill med samma namn skuggar kommandot). Registrera den: `designfas.py ny <slug> --kanvas <url> --release
+   <typens release>`. Läs typens `artifact-type/dc-runtime.js` och spara den: `designfas.py runtime <slug> --fil <fil>
+   --release <release>`. Läs typens `artifact-type/reference/format.md` och `craft.md`.
+2. Ladda upp kundens bilder som tillgångar och registrera varje: `designfas.py tillgang <slug> --blob <id> --fil
+   underlag/<slug>/bilder/<fil> --kalla "<rad ur BILDER.md>"`.
 
-- **D4 Underlag på duken.** En sida "Underlag" med en ritning eller anteckningar: besökarnas viktigaste uppgifter,
-  det som bara verksamheten har, och referenserna i tre perspektiv (bransch, visuell inspiration, implementationsgrund)
-  med bild, vad de visar och varför de valdes. Observation, rekommendation och belagd effekt hålls isär; en känd sajt är
-  ingen belagd effekt. Skills: refero-design.
-- **D5 Riktningarna.** Omkring tio riktningar på sidan "Riktningar", en ritning per riktning (sida: `expand: "fill"`),
-  med kundens verkliga innehåll: första vyn, den viktigaste sektionen och navigationen, i mobil och dator. De skiljer sig
-  i komposition, bildstrategi, typografisk hierarki, innehållsordning eller interaktion, aldrig bara färg och typsnitt.
-  Varje riktning har en anteckning: idé, förebild och de egenskaper den prövar att föra över, implementationsgrund,
-  besökarens uppgift och primära handling, antaganden. Kärnan före ritningen: taste (rattarna), frontend-design,
-  impeccable `reference/shape.md` och `craft-floor.md`, `kunskap/bild.md`, typeset, clarify och better-writing,
-  better-layout och adapt; planen med hallmark `references/macrostructures.md`. Alternativen efter riktningen
-  (metodkartan, rollerna komposition, typografi, innehall, responsiv, rorelseskiss). Den första riktningen görs, sparas
-  och prövas hel innan de andra (ägarens krav: en representativ riktning före större körningar).
-- **D6 Granskning efter renderingen.** Efter varje version: läs bilderna i `versioner/<v>/bilder/` (390, 768, 1440,
-  menyn öppen) och kontrollerna i `versioner/<v>/kontroll/`, och granska i ordningen impeccable critique (med Referos
-  visuella kontroll mot referensbilderna), audit, layout, typeset och colorize med better-typography och better-colors,
-  Emils rörelsepass och polish. Beställ ds_kritik på varje riktning och ds_jamforelse när alla finns. Gör om
-  kompositionen när helheten är svag; lägg inte varven på marginaler medan bildregi, innehåll eller hierarki brister.
-- **D7 Ägarens val.** Ägaren väljer, kommenterar eller underkänner alla. Skriv ägarens ord ordagrant i ditt svar och
-  i versionens orsak; inget val görs åt ägaren.
-- **D8 Förfining.** Den valda riktningen fördjupas: hela startsidan, tillstånden (meny, fokus, formulärfel) som
-  interaktiva ritningar (`is_interactive`), rörelsen med syfte. Specialistinsatser beställs (nedan) och förs in i nästa
-  version med bedömningen före och efter.
-- **D10 Överlämningen**, efter ägarens godkännande: `designfas.py overlamna <slug>`, fyll i `DESIGN.md` i paketet ur
-  den godkända versionen (varje värde `uppmätt:` ur renderingen eller `valt:` i designen), och formalisera kundens
-  designsystem med Design System-typen (`kunskap/claude-design.md`, Designsystemet). `designfas.py overlamna <slug>
-  --prova` ska sluta utan brister.
+## En station i taget
 
-## Varje version
+För varje riktning (en ritning, en sida med `expand: "fill"`) går du bandet i tabellens ordning, som följer
+processmodellen: förstå (underlag), innehåll och struktur, art direction, komposition, visuell form, interaktion,
+utvärdering, iteration. Mobilen bär formen från första ritningen: rita och pröva 390 först. Tillgängligheten är ett
+krav i varje station från art direction och framåt (riktiga element, kontrast, fokus, 44 px, reflow, reducerad rörelse).
 
-Efter varje publicering: läs tillbaka dukens filer (Artifact `read` med `paths: ["project/canvas.json", "project/<ritning>.dc.html", …]`
-och `out_dir` i scratchpaden) och spara versionen:
-`designfas.py version <slug> --fran <out_dir> --artifact-version <versions-id ur publiceringen> --orsak "<vad den svarar på>" [--bestallning B00N]`.
-Den kopierar filerna oförändrade, renderar dem med Design-typens körmiljö i 390/768/1440 och med menyn öppen, och kör
-axe och stilrapporten. Har ägaren redigerat på duken sedan förra versionen: läs om filerna, och spara ägarens ändring
-som en egen version med `--av agaren` innan du ändrar något.
+1. `designfas.py station <slug> <station> --ritning <fil>` ger stationens arbetsinstruktion: frågan, skills och
+   tjänster bara för stationen, indata, utdata och kontroll.
+2. Gör stationen. En station som ändrar ritningen görs helst av en underagent (Agent-verktyget) som får
+   instruktionen, aktiverar stationens skills med Skill (en användaranropad skill läses hel med Read), ändrar bara det
+   stationen gäller och lämnar en ändrad ritning och en kort redovisning. Du granskar ändringen mot frågan.
+3. Publicera och lägg en anteckning på duken med versionens id (`status` visar nästa), till exempel
+   `"v04":{"x":…,"y":…,"text":"v04 · Typografi: rubrikskalan 1,25 → 1,33, radlängd 66 tecken","w":360,"fill":"blue"}`
+   intill ritningen.
+4. Läs tillbaka dukens filer (Artifact `read` med `paths` och `out_dir`) och spara versionen:
+   `designfas.py version <slug> --fran <out_dir> --artifact-version <id> --station <station> --ritning <fil> --orsak
+   "<vad stationen ändrade och varför>"`. Den renderar i 390/768/1440 med menyn öppen, kör kontrollerna och prövar om
+   insatsen syns mot förra versionen av ritningen (`insats`). Syns den inte: säg varför (stationen fann inget att göra,
+   med skäl) eller gör om.
+5. En station som inte gäller sidan hoppas över med skälet på nästa version: `--hoppa <station>="<skäl>"`. Stationen
+   rörelse gäller alltid: ingen rörelse är beslutet "stilla", med skäl i orsaken. Kritiken och tillgängligheten körs
+   alltid och kan inte hoppas över.
 
-## Specialistinsatser
+**Innehåll och struktur** ger riktningens första version: strukturen med det verkliga innehållet (content first),
+och **art** ger den sitt språk. **Kritiken** är ett specialistpass som ser bilderna och briefen före din förklaring:
+`designfas.py bestall <slug> --typ kritik --station kritik --version <v> --ritning <fil> --uppgift "…"` och
+`designfas.py specialist <slug> B00N`. Svaret säger om bandet ska gå tillbaka (`atergang`: innehåll och struktur, art
+direction eller komposition); är helheten svag gör du omtaget innan du lägger varven på detaljer. **Tillgängligheten** utgår från renderingens axe, fokus och reflow i
+versionens BILDER.json och kontroll/. Andra stationer kan också beställas som pass (typen och stationen i tabellen) när
+du vill ha en oberoende insats; svaret förs in i en version med `--bestallning B00N` och bedöms med `designfas.py infor`.
 
-En insats som kräver den lokala verktygslådan beställs, utförs i Code och förs in av dig:
-`designfas.py bestall <slug> --typ <typ> --version <v> --ritning <fil> --uppgift "<vad och varför>" [--material <fil>]`,
-sedan `designfas.py specialist <slug> B00N` (ett pass i repot med rollens kompetensblock och kvitto; svaret i
-`svar/B00N/SVAR.md`). Typerna: referenser, komponent (21st), typografi, innehall, responsiv, rorelse, granskning
-(t.ex. ett formulär), kritik, bild (bildurval), jamforelse. Läs svaret och bilderna, för in det du bedömer bär i nästa
-version med `--bestallning B00N`, och skriv bedömningen: `designfas.py infor <slug> B00N --version <v> --bedomning "…"`.
-Parallella pass lämnar underlag; bara du ändrar duken.
+**Omkring tio riktningar.** Varje riktning går underlag, innehåll och struktur, art, komposition och kritik innan
+ägaren väljer; den valda går resten av bandet. När flera riktningar finns körs jämförelsen (`--typ jamforelse --station jamforelse`).
+**Överlämningen** efter ägarens godkännande: `designfas.py overlamna <slug>`, DESIGN.md i paketet ifylld ur den
+godkända versionen, kundens designsystem med Design System-typen, och `overlamna --prova` utan brister.
 
 ## Gränser
 
 - Godkännandet är ägarens: säg till ägaren att köra `! .venv/bin/python kontroller/designfas.py godkann <slug> <v>
-  --ritning <fil>` (du nekas kommandot). Designgodkännande, byggstart och publicering är tre beslut; du startar inget bygge.
-- Externa tjänster (Refero, Mobbin, 21st, Motion, webben) får bara generiska frågor; kundvakten stoppar kundens namn,
-  orter och nummer.
+  --ritning <fil>` (du nekas kommandot). Designgodkännande, byggstart och publicering är tre beslut.
+- Ägarens kommentarer på duken (Send to Claude) når dig medan sessionen lever: svara på svenska i tråden med vad du
+  gör, gör ändringen som en ny version och stäng tråden när den är åtgärdad.
+- Externa tjänster får bara generiska frågor; kundvakten stoppar kundens namn, orter och nummer.
 - Sanning: varje namn, tal och påstående om verksamheten har belägg i underlaget; saknat står som märkt platshållare.
   Verksamhetens bilder är dess egna; inget stockfoto eller genererad bild utger sig för att visa verksamheten.
-- Underkända tidigare Nortropic-byggen och ersatta domar är aldrig förebilder (`kunskap/ren-designstart.md`).
-- Dukens ritningar följer Design-typens format (läs `artifact-type/reference/format.md` och `craft.md` på duken) och
-  våra kvalitetskrav (kontrast 4,5:1, riktiga knappar och länkar, primära kontroller minst 44 px, inget sidledsspill).
-- Ägarens kommentarer på duken (Send to Claude) når dig medan sessionen lever: läs tråden, svara på svenska i tråden med
-  vad du gör, gör ändringen som en ny version och stäng tråden när den är åtgärdad.
-- Skriv till ägaren vad som händer på duken, inte mekaniken; redovisa tillgång, aktivering, användning, belagd
-  tillämpning och bedömd kvalitet var för sig, och märk din egen bedömning som din.
+- Kvalitetskraven gäller i varje station: kontrast 4,5:1, riktiga knappar och länkar, primära kontroller minst 44 px,
+  inga karuseller, inget sidledsspill. Underkända tidigare byggen är aldrig förebilder (`kunskap/ren-designstart.md`).
+- Redovisa tillgång, aktivering, användning och bedömd kvalitet var för sig; din bedömning är din, märkt som sådan.
+  Påstå ingen kvalitetshöjning förrän ägaren sett sidan.

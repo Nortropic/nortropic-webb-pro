@@ -8,10 +8,12 @@ kunddesign. Det här verktyget håller designfasens spår på disken, privat i u
     ny <slug> [--kanvas URL] [--release R]      designfasen startar: DESIGNFAS.json; kandidatflödet stannar efter researchen
     runtime <slug> --fil dc-runtime.js --release R      Design-typens körmiljö för den lokala renderingen (privat kopia)
     tillgang <slug> --blob ID --fil BILD [--kalla TEXT]  en uppladdad tillgång: dukens /_blob/<id> ↔ den lokala filen
-    version <slug> --fran KATALOG --artifact-version ID --orsak TEXT [--bestallning B001 …] [--av utforaren|agaren]
-                                                vNN ur dukens återlästa filer (KATALOG/project/), renderad i 390/768/1440
+    version <slug> --fran KATALOG --artifact-version ID --orsak TEXT [--station S --ritning R] [--hoppa S="skäl" …]
+            [--bestallning B001 …] [--av utforaren|agaren]   vNN ur dukens återlästa filer, renderad i 390/768/1440, med
+                                                stationens insats prövad mot förra versionen av ritningen
     rendera <slug> vNN [--kontroll]             om renderingen (och axe med meny och formulärfel, stilrapporten)
-    bestall <slug> --typ T --version vNN --ritning R --uppgift TEXT [--material …]   en specialistbeställning BNNN
+    station <slug> <station> --ritning R     stationens arbetsinstruktion ur metodkartans band (en station i taget)
+    bestall <slug> --typ T --version vNN --ritning R --uppgift TEXT [--station S] [--material …]   en specialistbeställning BNNN
     specialist <slug> BNNN                      kör beställningen som ett pass i repot (rollens kompetensblock, kvitto)
     svar <slug> BNNN --fil SVAR.md --utforare TEXT       ett svar som gjorts på annat sätt (manuell överlämning)
     infor <slug> BNNN --version vNN --bedomning TEXT     beställningens resultat infört i en version, med bedömningen
@@ -65,6 +67,10 @@ TYPER = {
     'bild': ('ds_bild', False, 'bildregi och bildurval: kundens bilder, beskärning och bildernas uppgift mot referensens kvalitet'),
     'jamforelse': ('ds_jamforelse', False, 'falsk variation mellan riktningarna: par som bara skiljer sig i färg, typsnitt eller bilder'),
 }
+# beställningstypens station i bandet när ingen anges (metodkartan, Bandet: stationerna)
+STATION_FOR_TYP = {'referenser': 'underlag', 'komponent': 'komposition', 'bild': 'komposition', 'typografi': 'typografi',
+                   'innehall': 'innehall', 'responsiv': 'responsiv', 'rorelse': 'rorelse', 'granskning': 'tillganglighet',
+                   'kritik': 'kritik', 'jamforelse': 'jamforelse'}
 SVAR_SCHEMA = {
     'type': 'object', 'additionalProperties': False,
     'required': ['sammanfattning', 'fynd', 'forslag', 'referenser', 'begransningar', 'kompetens'],
@@ -84,6 +90,9 @@ SVAR_SCHEMA = {
                                       'bild_url': {'type': 'string'}, 'visar': {'type': 'string'}, 'anvandning': {'type': 'string'},
                                       'licens': {'type': 'string'}, 'kod': {'type': 'string'}}}},
         'begransningar': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 12},
+        'atergang': {'type': 'object', 'additionalProperties': False, 'required': ['till', 'skal'],
+                     'properties': {'till': {'type': 'string', 'enum': ['fortsatt', 'innehall', 'art', 'komposition']},
+                                    'skal': {'type': 'string', 'maxLength': 800}}},
         'kompetens': {'type': 'object', 'additionalProperties': False, 'required': ['aktiverade', 'lasta', 'valda'],
                       'properties': {'aktiverade': {'type': 'array', 'items': {'type': 'string'}},
                                      'lasta': {'type': 'array', 'items': {'type': 'string'}},
@@ -108,6 +117,59 @@ OVERLAMNING_RUBRIKER = ('Designvärden', 'Komponenter', 'Responsiva regler', 'In
 
 class Fel(Exception):
     pass
+
+
+ALLTID = ('kritik', 'tillganglighet')  # körs alltid och kan inte hoppas över (ägarens uppdrag 2026-10-12 ~17:35Z, punkt 3)
+TOKEN = re.compile(r'`([^`]+)`')
+
+
+def stationer(text=None):
+    """Bandets stationer i ordning ur metodkartans tabell (avsnittet Designfasen i Claude Design, Bandet: stationerna):
+    {id: {namn, indata, fraga, karna, alternativ, mcp, pass, utdata, kontroll, kors}}. Tabellen är den enda definitionen."""
+    text = KARTA.read_text(encoding='utf-8') if text is None else text
+    del_ = text.split('### Bandet: stationerna', 1)
+    if len(del_) < 2:
+        return {}
+    ut = {}
+    for rad in del_[1].split('\n### ', 1)[0].splitlines():
+        m = re.match(r'^\| `([a-z]+)` ([^|]+)\|', rad)
+        if not m:
+            continue
+        celler = [c.strip() for c in rad.strip().strip('|').split('|')]
+        if len(celler) != 8:
+            raise Fel('stationen %s har inte åtta kolumner i metodkartan' % m.group(1))
+        karna_t, _, alt_t = celler[3].partition('alternativ:')
+        def dela(t):
+            toks = TOKEN.findall(t)
+            return ([x for x in toks if not x.startswith(('mcp:', 'pass:'))], [x[4:] for x in toks if x.startswith('mcp:')],
+                    [x[5:] for x in toks if x.startswith('pass:')])
+        kf, km, kp = dela(karna_t)
+        af, am, ap = dela(alt_t)
+        ut[m.group(1)] = {'id': m.group(1), 'namn': m.group(2).strip(), 'indata': celler[1], 'fraga': celler[2], 'karna': kf,
+                          'alternativ': af, 'mcp': km + am, 'pass': kp + ap, 'metoder': TOKEN.findall(celler[4]), 'utdata': celler[5],
+                          'kontroll': celler[6], 'kors': celler[7]}
+    return ut
+
+
+def metoder(text=None):
+    """Metodtabellen i samma avsnitt (Metoderna i arbetet): {id: {'kalla': första kolumnen, 'princip'}}."""
+    text = KARTA.read_text(encoding='utf-8') if text is None else text
+    del_ = text.split('### Metoderna i arbetet', 1)
+    if len(del_) < 2:
+        return {}
+    ut = {}
+    for rad in del_[1].split('\n### ', 1)[0].splitlines():
+        m = re.match(r'^\| `([a-z]+)` ([^|]+)\| ([^|]+)\|', rad)
+        if m:
+            ut[m.group(1)] = {'id': m.group(1), 'kalla': m.group(2).strip(), 'princip': m.group(3).strip()}
+    return ut
+
+
+def station(sid, text=None):
+    st = stationer(text)
+    if sid not in st:
+        raise Fel('okänd station %r; bandet har %s' % (sid, ', '.join(st)))
+    return st[sid]
 
 
 def nu():
@@ -256,10 +318,28 @@ def nasta(slug, underlag=None):
     return 'v%02d' % (int(vs[-1][1:]) + 1 if vs else 1)
 
 
-def version(slug, fran, artifact_version, orsak, bestallningar=(), av='utforaren', bilder=True, underlag=None):
+def version(slug, fran, artifact_version, orsak, bestallningar=(), av='utforaren', bilder=True, underlag=None, station_=None,
+            ritning=None, hoppade=()):
     """En ny version ur dukens återlästa filer (Artifact read med out_dir: KATALOG/project/canvas.json och ritningarna).
-    Filerna kopieras oförändrade, hashas och renderas; versionen kan inte skrivas om (en ändring blir nästa version)."""
+    Filerna kopieras oförändrade, hashas och renderas; versionen kan inte skrivas om (en ändring blir nästa version). En
+    version från utföraren bär bandets station och riktningens ritning (vilken station gjorde vad), och hoppade stationer
+    med skäl; insatsen prövas i renderingen mot förra versionen av samma ritning, och dukens notering för versionen läses."""
     d = designfas(slug, underlag)
+    if station_:
+        station(station_)
+        if not ritning:
+            raise Fel('en station gäller en riktning: ange --ritning')
+    hopp = {}
+    for h in hoppade:
+        sid, _, skal = str(h).partition('=')
+        station(sid)
+        if sid in ALLTID:
+            raise Fel('stationen %s körs alltid och kan inte hoppas över' % sid)
+        if len(skal.strip()) < 15:
+            raise Fel('en överhoppad station behöver sitt skäl (--hoppa %s="varför sidan inte har det stationen gäller")' % sid)
+        hopp[sid] = skal.strip()[:400]
+    if hopp and not ritning:
+        raise Fel('en överhoppad station gäller en riktning: ange --ritning')
     if av not in ('utforaren', 'agaren', 'okand'):
         raise Fel('--av är utforaren, agaren eller okand')
     if not re.fullmatch(r'[0-9]{6,16}-[0-9a-f]{3,8}', str(artifact_version or '')):
@@ -276,6 +356,8 @@ def version(slug, fran, artifact_version, orsak, bestallningar=(), av='utforaren
     saknas = [b for b in index['boards'] if b not in ritningar]
     if saknas or any(not NAMN.match(r) for r in ritningar):
         raise Fel('ritningar som indexet nämner saknas (%s), eller ett filnamn duger inte' % ', '.join(saknas))
+    if ritning and ritning not in ritningar:
+        raise Fel('ritningen %s finns inte på duken' % ritning)
     for b in bestallningar:
         if not (rot(slug, underlag) / 'bestallningar' / ('%s.json' % b)).is_file():
             raise Fel('beställningen %s finns inte' % b)
@@ -298,15 +380,80 @@ def version(slug, fran, artifact_version, orsak, bestallningar=(), av='utforaren
             'ritningar': [{'fil': b, 'titel': (index['boards'][b] or {}).get('title'), 'w': (index['boards'][b] or {}).get('w'),
                            'h': (index['boards'][b] or {}).get('h'), 'sida': (index['boards'][b] or {}).get('expand') == 'fill',
                            'interaktiv': bool((index['boards'][b] or {}).get('is_interactive'))} for b in index['boards']],
-            'tillgangar': refs, 'okanda_tillgangar': [b for b in refs if b not in kanda]}
+            'tillgangar': refs, 'okanda_tillgangar': [b for b in refs if b not in kanda],
+            'station': station_, 'ritning': ritning, 'hoppade': hopp, 'notering': notering(index, v),
+            'sekunder_sedan_forra': sekunder_mellan((las(rot(slug, underlag) / 'versioner' / vs[-1] / 'VERSION.json') or {}).get('tid') if vs else None, None)}
+    post['varningar'] = [] if post['notering'] or av != 'utforaren' else [
+        'dukens notering för %s saknas: lägg en anteckning med id "%s" (station, vad som ändrades) i canvas.json' % (v, v)]
     skriv(vk / 'VERSION.json', post)
     with open(rot(slug, underlag) / 'VERSIONER.jsonl', 'a', encoding='utf-8') as fh:
-        fh.write(json.dumps({k: post[k] for k in ('version', 'tid', 'artifact_version', 'av', 'orsak', 'bestallningar')}, ensure_ascii=False) + '\n')
+        fh.write(json.dumps({k: post[k] for k in ('version', 'tid', 'artifact_version', 'av', 'orsak', 'bestallningar', 'station', 'ritning', 'hoppade')},
+                            ensure_ascii=False) + '\n')
     for b in bestallningar:
         uppdatera_bestallning(slug, b, underlag, status='inford', inford_i=v)
     if bilder:
         post['rendering'] = rendera(slug, v, kontroll=True, underlag=underlag)
+        if ritning:
+            post['insats'] = insats(slug, v, ritning, underlag)
+            skriv(vk / 'VERSION.json', post)
     return post
+
+
+def notering(index, v):
+    """Dukens anteckning för versionen (canvas.json notes med id v eller en text som börjar med v), eller None."""
+    notes = (index or {}).get('notes') or {}
+    if not isinstance(notes, dict):
+        return None
+    n = notes.get(v)
+    if not isinstance(n, dict):
+        n = next((x for x in notes.values() if isinstance(x, dict) and str(x.get('text') or '').strip().startswith(v + ' ')), None)
+    return str(n.get('text'))[:600] if isinstance(n, dict) and n.get('text') else None
+
+
+def sekunder_mellan(a, b):
+    try:
+        t0 = datetime.strptime(a, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc)
+        t1 = datetime.strptime(b, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc) if b else datetime.now(timezone.utc)
+        return int((t1 - t0).total_seconds())
+    except (TypeError, ValueError):
+        return None
+
+
+def forra_med(slug, v, ritning, underlag=None):
+    """Den senaste versionen före v som har ritningen och bilder av den."""
+    vs = versioner(slug, underlag)
+    for v_ in reversed(vs[:vs.index(v)] if v in vs else vs):
+        b = (las(rot(slug, underlag) / 'versioner' / v_ / 'BILDER.json') or {}).get('ritningar') or {}
+        if ritning in b:
+            return v_
+    return None
+
+
+def insats(slug, v, ritning, underlag=None):
+    """Syns stationens insats? Ritningens helsida i 390 och 1440 mot förra versionen av samma ritning (jamfor.mjs):
+    andelen pixlar som skiljer sig och höjdskillnaden. Mäter förändring, inte kvalitet."""
+    f = forra_med(slug, v, ritning, underlag)
+    if not f:
+        return {'jamfort_med': None, 'synlig': None, 'skal': 'riktningens första version'}
+    stam = ritning[:-len('.dc.html')]
+    ut, synlig = {'jamfort_med': f, 'bredder': {}}, False
+    for w in (390, 1440):
+        a_ = rot(slug, underlag) / 'versioner' / f / 'bilder' / ('%s-%d.png' % (stam, w))
+        b_ = rot(slug, underlag) / 'versioner' / v / 'bilder' / ('%s-%d.png' % (stam, w))
+        if not a_.is_file() or not b_.is_file():
+            ut['bredder'][str(w)] = {'fel': 'bild saknas'}
+            continue
+        r = subprocess.run(['node', str(ROOT / 'kontroller' / 'webblasare' / 'jamfor.mjs'), '--a', str(a_), '--b', str(b_)],
+                           capture_output=True, text=True, timeout=120)
+        rad = next((x for x in reversed((r.stdout or '').strip().splitlines()) if x.startswith('{')), '')
+        try:
+            res = json.loads(rad)
+            ut['bredder'][str(w)] = {k: res.get(k) for k in ('andel', 'hojdskillnad', 'breddskillnad')}
+            synlig = synlig or (res.get('andel') or 0) > 0.0005 or bool(res.get('hojdskillnad'))
+        except ValueError:
+            ut['bredder'][str(w)] = {'fel': (r.stderr or r.stdout or 'inget svar')[-200:]}
+    ut['synlig'] = synlig
+    return ut
 
 
 def bygg_sida(slug, v, underlag=None):
@@ -384,10 +531,13 @@ def uppdatera_bestallning(slug, bid, underlag=None, **falt):
     return d
 
 
-def bestall(slug, typ, v, ritning, uppgift, material=(), underlag=None):
+def bestall(slug, typ, v, ritning, uppgift, material=(), underlag=None, station_=None):
     d = designfas(slug, underlag)
     if typ not in TYPER:
         raise Fel('okänd typ %r; välj %s' % (typ, ', '.join(TYPER)))
+    st = station(station_ or STATION_FOR_TYP[typ])
+    if TYPER[typ][0] not in st['pass']:
+        raise Fel('stationen %s har inte passet %s (typen %s); stationens pass: %s' % (st['id'], TYPER[typ][0], typ, ', '.join(st['pass']) or 'inga'))
     if v not in versioner(slug, underlag):
         raise Fel('versionen %s finns inte; beställningen gäller en sparad version' % v)
     vpost = las(rot(slug, underlag) / 'versioner' / v / 'VERSION.json')
@@ -400,14 +550,13 @@ def bestall(slug, typ, v, ritning, uppgift, material=(), underlag=None):
     if not d['kanvas'].get('url'):
         raise Fel('duken är inte registrerad: designfas.py ny %s --kanvas <url>' % slug)
     post = {'schema': 1, 'id': bid, 'projekt': slug, 'kanvas': d['kanvas']['url'], 'version': v, 'ritning': ritning,
-            'typ': typ, 'pass': TYPER[typ][0], 'uppgift': uppgift.strip()[:3000], 'material': [str(m)[:300] for m in material][:20],
+            'typ': typ, 'pass': TYPER[typ][0], 'station': st['id'], 'uppgift': uppgift.strip()[:3000], 'material': [str(m)[:300] for m in material][:20],
             'tid': nu(), 'status': 'bestalld', 'resultat': None}
     skriv(rot(slug, underlag) / 'bestallningar' / ('%s.json' % bid), post)
     return post
 
 
 def specialist_prompt(slug, b, underlag=None):
-    import kompetens
     vk = rot(slug, underlag) / 'versioner' / b['version']
     bild = las(vk / 'BILDER.json') or {}
     rader = []
@@ -450,7 +599,7 @@ def specialist_prompt(slug, b, underlag=None):
            'Besvara granskningsfrågorna i kunskap/granskningsfragor.md (läs filen hel), var och en med bredden och bilden svaret bygger på.',
            'Din dom är en AI-bedömning: skriv den som din, aldrig som ägarens, och ändra ingenting.'] if kritik else []),
         '',
-        *kompetens.prompt_rader(b['pass'], slug),
+        *station_rader(station(b.get('station') or STATION_FOR_TYP[b['typ']])),
         '',
         'Externa tjänster (Refero, Mobbin, 21st, Motion, webben) får bara generiska frågor: bransch, uppgift och stil, aldrig kundens'
         ' namn, orter, nummer eller citat (kundvakten stoppar annat). En referens är en observation med plats, aldrig belägg för en'
@@ -458,6 +607,43 @@ def specialist_prompt(slug, b, underlag=None):
         'Svara i schemat: fynden med plats, tillstånd och belägg (allvar 0–4 enligt Nielsen), förslagen med skäl och källa'
         ' (skill, tjänst eller verktyg), referenserna med id, adress, bild_url när tjänsten gav en, vad de visar och hur de kan'
         ' användas (kod och licens för en komponent), begränsningarna, och i kompetens det du faktiskt aktiverade, läste och valde.'])
+
+
+def station_rader(st):
+    """Stationens arbetsinstruktion: frågan, skills och tjänster bara för stationen, utdata och kontroll (en station i taget;
+    ägarens uppdrag 2026-10-12 ~17:35Z, punkt 2)."""
+    import kompetens
+    anrop = set(kompetens.anvandaranropade(ROOT))
+    def visa(f):
+        namn = f.split('/')[0]
+        return '%s (%s)' % (f, 'läs hel med Read' if f.startswith(('kunskap/', 'kritik/')) or '/reference' in f or namn in anrop
+                            or not f.endswith('SKILL.md') else 'aktivera med Skill')
+    ordning = list(stationer())
+    met = metoder()
+    a11y = st['id'] in ordning and 'art' in ordning and ordning.index(st['id']) >= ordning.index('art') and st['id'] not in ('jamforelse', 'overlamning')
+    return ['Stationen %s, %s (kunskap/metodkarta.md, Bandet: stationerna).' % (st['id'], st['namn']),
+            'Stationens fråga: ' + st['fraga'],
+            'Stationens metod (metodtabellen, källa och princip): ' + '; '.join(
+                '%s: %s, %s' % (x, met[x]['kalla'], met[x]['princip']) for x in st.get('metoder') or [] if x in met) + '.',
+            *(['Tillgängligheten är ett krav också i den här stationen (W3C WAI, under utformningen): riktiga knappar, länkar och fält, '
+               'kontrast 4,5:1, synlig fokus, primära kontroller minst 44 px, reflow i 320 och reducerad rörelse; renderingen prövar det '
+               'vid varje version. Rita och pröva 390 först.'] if a11y else []),
+            'Stationens skills, bara för den här frågan: ' + '; '.join(visa(f) for f in st['karna']) + '.',
+            *(['Alternativ efter riktningen: ' + '; '.join(visa(f) for f in st['alternativ']) + '.'] if st['alternativ'] else []),
+            *(['Tjänster (bakom kundvakten, generiska frågor): ' + ', '.join(st['mcp']) + '.'] if st['mcp'] else []),
+            'Andra skills är inte stationens auktoritet här; säger stationens skills emot en annan regel avgör metodkartans Avgöranden och'
+            ' kunskap/designregler.md. En aktivering eller läsning som misslyckas skriver du i svaret.',
+            'Stationens utdata: ' + st['utdata'] + '. Kontrollen i renderingen: ' + st['kontroll'] + '.']
+
+
+def kvitto_station(sessioner, pass_, st):
+    """Kvittot mot stationens skills (inte rollens hela kärna): tillgång, aktivering och läsning, anrop och utfall var för
+    sig. Det fäller ingenting; läsning är ingen insats (ägarens uppdrag 2026-10-12 ~17:35Z, punkt 4)."""
+    import kompetens
+    k = {st['id']: {'id': st['id'], 'namn': st['namn'], 'uppgift': st['fraga'], 'pass': [pass_], 'karna': st['karna'], 'efter': [],
+                    'efter_i_karna': [], 'valj': st['alternativ'], 'verktyg': [], 'mcp': st['mcp'], 'mcp_krav': [], 'visar': st['kontroll']}}
+    kv = kompetens.kvitto(sessioner, pass_, k=k)
+    return kv, kompetens.kravbrister(kv, pass_, k=k)
 
 
 def specialist(slug, bid, underlag=None, modell=None, frist=None):
@@ -477,10 +663,11 @@ def specialist(slug, bid, underlag=None, modell=None, frist=None):
                           sk / 'svar-session.json', SVAR_SCHEMA, 120, modell or atelje.MODELL, atelje.EFFORT,
                           frist or 2400, slug=slug, webb=webb)
     so = svar.get('structured_output') if isinstance(svar, dict) else None
-    kv = kompetens.kvitto([svar], pass_)
-    brister = kompetens.kravbrister(kv, pass_)
-    post = {'schema': 1, 'id': bid, 'pass': pass_, 'session_id': svar.get('session_id'), 'start': t0, 'slut': nu(),
-            'utfall': 'levererad' if isinstance(so, dict) else 'fel', 'svar': so, 'kvitto': kv, 'kravbrister': brister,
+    st = station(b.get('station') or STATION_FOR_TYP[b['typ']])
+    kv, ej_observerat = kvitto_station([svar], pass_, st)
+    post = {'schema': 1, 'id': bid, 'pass': pass_, 'station': st['id'], 'session_id': svar.get('session_id'), 'start': t0, 'slut': nu(),
+            'sekunder': sekunder_mellan(t0, nu()), 'utfall': 'levererad' if isinstance(so, dict) else 'fel', 'svar': so, 'kvitto': kv,
+            'ej_observerat': ej_observerat,
             'nivaer': 'tillgång, aktivering och läsning, verktygsanrop och resultat står i kvittot; tillämpning i designen och '
                       'kvalitet bedöms först i versionen som för in svaret, av utföraren och ägaren',
             'kostnad_listpris_usd': svar.get('total_cost_usd')}
@@ -489,7 +676,7 @@ def specialist(slug, bid, underlag=None, modell=None, frist=None):
     skriv(sk / 'SVAR.json', post)
     (sk / 'SVAR.md').write_text(svar_md(b, post), encoding='utf-8')
     uppdatera_bestallning(slug, bid, underlag, status='levererad' if isinstance(so, dict) else 'fel',
-                          resultat={'fil': rel(sk / 'SVAR.md'), 'kravbrister': brister, 'session': svar.get('session_id')})
+                          resultat={'fil': rel(sk / 'SVAR.md'), 'ej_observerat': ej_observerat, 'session': svar.get('session_id')})
     return post
 
 
@@ -518,7 +705,7 @@ def ladda_referensbilder(sk, refs):
 def svar_md(b, post):
     so = post.get('svar') or {}
     kv = post.get('kvitto') or {}
-    rader = ['# Svar %s · %s (%s)' % (b['id'], b['typ'], post.get('pass')), '',
+    rader = ['# Svar %s · station %s · %s (%s)' % (b['id'], post.get('station') or b.get('station'), b['typ'], post.get('pass')), '',
              'Beställning: %s, version %s, ritning %s. Uppgift: %s' % (b['projekt'], b['version'], b['ritning'], b['uppgift']), '',
              'Utfört av: %s · session %s · %s–%s · utfall %s' % (b.get('utforare') or post.get('pass'), post.get('session_id'),
                                                                 post.get('start'), post.get('slut'), post.get('utfall')), '',
@@ -531,10 +718,14 @@ def svar_md(b, post):
     rader += ['', '## Referenser', '']
     rader += ['- %s `%s`%s: %s → %s%s' % (r['kalla'], r['id'], (' ' + r['adress']) if r.get('adress') else '', r['visar'], r['anvandning'],
                                           (' · licens ' + r['licens']) if r.get('licens') else '') for r in so.get('referenser') or []] or ['- inga']
+    if so.get('atergang'):
+        rader += ['', '## Återgång', '', '- %s: %s' % ({'fortsatt': 'fortsätt bandet', 'innehall': 'omtag av innehåll och struktur',
+                                                        'art': 'omtag av art direction', 'komposition': 'omtag av kompositionen'}
+                                                       .get(so['atergang'].get('till'), so['atergang'].get('till')), so['atergang'].get('skal'))]
     rader += ['', '## Begränsningar', ''] + (['- ' + x for x in so.get('begransningar') or []] or ['- inga redovisade'])
     rader += ['', '## Kompetens (kvittot ur transkriptet, inte passets egen uppgift)', '',
               '- Skill-aktiveringar: %s' % ', '.join(kv.get('skill_anrop') or []) if isinstance(kv, dict) else '- kvitto saknas',
-              '- Arbetskravens brister: %s' % ('; '.join(post.get('kravbrister') or []) or 'inga'),
+              '- Inte observerat i transkriptet (information, fäller ingenting): %s' % ('; '.join(post.get('ej_observerat') or []) or 'inget'),
               '- Passets egen redovisning (märkt som sådan): aktiverade %s; lästa %s; valda %s' % (
                   ', '.join((so.get('kompetens') or {}).get('aktiverade') or []) or '–', ', '.join((so.get('kompetens') or {}).get('lasta') or []) or '–',
                   ', '.join((so.get('kompetens') or {}).get('valda') or []) or '–'), '']
@@ -755,20 +946,101 @@ def jamfor_bygget(slug, insp, ut, dist_sha=None, underlag=None):
 
 # ---- status, kvitto, karta och start --------------------------------------------------------------------------------
 
+def band(slug, underlag=None):
+    """Bandets läge per riktning (ritning i senaste versionen): varje station i ordning som gjord (version, synlig ändring,
+    tid), svar (beställning), hoppad (skäl), ej tillämplig (formulär utan formulär, jämförelse med en riktning,
+    överlämning före godkännandet) eller återstår (ägarens uppdrag 2026-10-12 ~17:35Z, punkt 5)."""
+    r = rot(slug, underlag)
+    vs = [las(r / 'versioner' / v / 'VERSION.json') or {'version': v} for v in versioner(slug, underlag)]
+    if not vs:
+        return {}
+    bs = [bestallning(slug, b, underlag) for b in bestallningar(slug, underlag)]
+    sista = vs[-1]
+    ritningar = [x['fil'] for x in sista.get('ritningar') or []]
+    bild = (las(r / 'versioner' / sista['version'] / 'BILDER.json') or {}).get('ritningar') or {}
+    godkand = (las(r / 'GODKANNANDE.json') or {}).get('version')
+    ut = {}
+    for rit in ritningar:
+        rad = []
+        for sid in stationer():
+            post = {'station': sid}
+            gjorda = [x for x in vs if x.get('station') == sid and x.get('ritning') == rit]
+            svar_ = [b for b in bs if b.get('station') == sid and b.get('ritning') in (rit, '*') and b.get('status') in ('levererad', 'inford')]
+            hopp = [x for x in vs if sid in (x.get('hoppade') or {}) and x.get('ritning') == rit]
+            if gjorda:
+                g = gjorda[-1]
+                post.update(lage='gjord', version=g['version'], synlig=(g.get('insats') or {}).get('synlig'),
+                            sekunder=g.get('sekunder_sedan_forra'), notering=bool(g.get('notering')))
+            elif svar_:
+                post.update(lage='svar', bestallning=svar_[-1]['id'], inford_i=svar_[-1].get('inford_i'))
+                ag = ((las(r / 'svar' / svar_[-1]['id'] / 'SVAR.json') or {}).get('svar') or {}).get('atergang')
+                if ag:
+                    post['atergang'] = ag
+            elif hopp:
+                post.update(lage='hoppad', skal=hopp[-1]['hoppade'][sid], version=hopp[-1]['version'])
+            elif sid == 'formular' and not any((x or {}).get('formular') for x in ((bild.get(rit) or {}).get('bilder') or {}).values()):
+                post.update(lage='ej tillämplig', skal='ritningen har inget formulär')
+            elif sid == 'jamforelse' and len(ritningar) < 2:
+                post.update(lage='ej tillämplig', skal='bara en riktning på duken')
+            elif sid == 'overlamning' and not godkand:
+                post.update(lage='väntar', skal='efter ägarens godkännande')
+            else:
+                post['lage'] = 'återstår'
+            rad.append(post)
+        ut[rit] = rad
+    return ut
+
+
 def status(slug, underlag=None):
     d = designfas(slug, underlag)
     r = rot(slug, underlag)
     vs = [las(r / 'versioner' / v / 'VERSION.json') or {'version': v} for v in versioner(slug, underlag)]
     ok, skal, g = godkand_giltig(slug, underlag)
-    return {'designfas': d, 'versioner': [{k: x.get(k) for k in ('version', 'tid', 'artifact_version', 'av', 'orsak', 'bestallningar')} for x in vs],
-            'bestallningar': [{k: bestallning(slug, b, underlag).get(k) for k in ('id', 'typ', 'version', 'status', 'inford_i')} for b in bestallningar(slug, underlag)],
+    return {'designfas': d, 'nasta_version': nasta(slug, underlag),
+            'versioner': [{k: x.get(k) for k in ('version', 'tid', 'artifact_version', 'av', 'station', 'ritning', 'orsak', 'bestallningar', 'hoppade')}
+                          for x in vs],
+            'bestallningar': [{k: bestallning(slug, b, underlag).get(k) for k in ('id', 'station', 'typ', 'version', 'status', 'inford_i')}
+                              for b in bestallningar(slug, underlag)],
+            'band': band(slug, underlag),
             'godkannande': {'giltigt': ok, 'skal': skal, 'version': (g or {}).get('version')}}
 
 
-def kvitto(sid, pass_='skapa'):
+def station_brief(slug, sid, ritning, underlag=None):
+    """Arbetsinstruktionen för en station på en riktning: frågan och skills ur metodkartans tabell, versionens filer och
+    bilder, och hur insatsen sparas. Till utföraren eller till den underagent som gör stationen."""
+    st = station(sid)
+    vs = versioner(slug, underlag)
+    if not vs:
+        raise Fel('ingen version än: stationen gäller en sparad version')
+    v = vs[-1]
+    vk = rot(slug, underlag) / 'versioner' / v
+    bild = ((las(vk / 'BILDER.json') or {}).get('ritningar') or {}).get(ritning)
+    if not bild:
+        raise Fel('ritningen %s finns inte i %s' % (ritning, v))
+    return '\n'.join([
+        'Station %s på %s, version %s (%s).' % (st['id'], ritning, v, nasta(slug, underlag) + ' blir nästa'),
+        *station_rader(st),
+        'Indata: ' + st['indata'] + '.',
+        'Ritningens källa: %s' % rel(vk / 'kanvas' / ritning),
+        'Bilderna: ' + ', '.join('%s %s' % (k, rel(vk / x['fil'])) for k, x in (bild.get('bilder') or {}).items()),
+        'Mätningar och varningar: %s (ritningen %s)' % (rel(vk / 'BILDER.json'), ritning),
+        'Underlaget: underlag/%s/KUNDFORSTAELSE.md och kunskap/designregler.md.' % slug,
+        'Insatsen: ändra bara det stationen gäller och lämna resten orört. Efter publiceringen sparas den som '
+        '`designfas.py version %s --station %s --ritning %s --fran <återläst katalog> --artifact-version <id> --orsak "<vad stationen '
+        'ändrade och varför>"`, med dukens anteckning "%s · %s: <vad som ändrades>" (id %s). Hoppas stationen över: `--hoppa %s="<skäl>"` '
+        'på nästa version.' % (slug, st['id'], ritning, nasta(slug, underlag), st['namn'], nasta(slug, underlag), st['id'])])
+
+
+def kvitto(sid, pass_='skapa', station_=None):
+    """Utförarens eller ett pass kvitto ur transkriptet: mot stationens skills när station anges, annars mot rollernas block
+    i passet. Redovisning, inte en grind."""
     import kompetens
-    kv = kompetens.kvitto([{'session_id': sid}], pass_)
-    return {'pass': pass_, 'kvitto': kv, 'kravbrister': kompetens.kravbrister(kv, pass_)}
+    if station_:
+        kv, ej = kvitto_station([{'session_id': sid}], pass_, station(station_))
+    else:
+        kv = kompetens.kvitto([{'session_id': sid}], pass_)
+        ej = kompetens.kravbrister(kv, pass_)
+    return {'pass': pass_, 'station': station_, 'kvitto': kv, 'ej_observerat': ej}
 
 
 KARTBLOCK = re.compile(r'^```designfas-karta[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
@@ -807,6 +1079,48 @@ def karta_prova(text=None):
     for t, (p_, _, _) in TYPER.items():
         if 'pass:' + p_ not in rader:
             fel.append('specialistpasset %s (typen %s) saknar rad i designfas-karta' % (p_, t))
+    # bandet: varje skill har en station eller ett skrivet skäl, och raden och tabellen säger samma sak
+    import metod
+    try:
+        st = stationer(text)
+    except Fel as e:
+        return fel + [str(e)]
+    if not st:
+        return fel + ['metodkartan saknar bandets tabell (Bandet: stationerna)']
+    per = {}
+    for sid, x in st.items():
+        for f in x['karna'] + x['alternativ']:
+            p = metod.kalla(f)
+            if not p.is_file():
+                fel.append('stationen %s: %s finns inte' % (sid, f))
+            if not f.startswith(('kunskap/', 'kritik/')):
+                per.setdefault('skill:' + f.split('/')[0], set()).add(sid)
+        for m_ in x['mcp']:
+            if m_ not in set(kompetens.MCP) | {'chrome-devtools'}:
+                fel.append('stationen %s: okänd tjänst %s' % (sid, m_))
+            per.setdefault('mcp:' + m_, set()).add(sid)
+        for p_ in x['pass']:
+            if p_ not in kompetens.DESIGNSTOD:
+                fel.append('stationen %s: okänt pass %s' % (sid, p_))
+            per.setdefault('pass:' + p_, set()).add(sid)
+        if not x['karna']:
+            fel.append('stationen %s saknar kärna' % sid)
+    met = metoder(text)
+    for sid, x in st.items():  # varje station har sin källa i metodtabellen, och varje metod har en station (bandet v2, punkt 1)
+        if not x['metoder']:
+            fel.append('stationen %s saknar metod i metodtabellen' % sid)
+        fel += ['stationen %s: metoden %s finns inte i metodtabellen' % (sid, m_) for m_ in x['metoder'] if m_ not in met]
+    anvanda = {m_ for x in st.values() for m_ in x['metoder']}
+    fel += ['metoden %s har ingen station i bandet' % m_ for m_ in met if m_ not in anvanda]
+    for namn, delar in rader.items():
+        m_ = re.match(r'^stationer: ([a-z, ]+);', delar[3])
+        angivna = {x.strip() for x in m_.group(1).split(',')} if m_ else set()
+        if angivna - set(st):
+            fel.append('%s: okänd station %s' % (namn, ', '.join(sorted(angivna - set(st)))))
+        if namn in per and angivna != per[namn]:
+            fel.append('%s: raden säger stationerna %s men tabellen %s' % (namn, ', '.join(sorted(angivna)) or 'inga', ', '.join(sorted(per[namn]))))
+        if namn.startswith('skill:') and namn not in per and not delar[3].startswith('skäl:'):
+            fel.append('%s har varken en station eller ett skrivet skäl' % namn)
     return fel
 
 
@@ -841,10 +1155,11 @@ def main(argv=None):
     a.add_argument('--artifact-version', required=True); a.add_argument('--orsak', required=True)
     a.add_argument('--bestallning', action='append', default=[]); a.add_argument('--av', default='utforaren')
     a.add_argument('--utan-bilder', action='store_true')
+    a.add_argument('--station'); a.add_argument('--ritning'); a.add_argument('--hoppa', action='append', default=[])
     a = s.add_parser('rendera'); a.add_argument('slug'); a.add_argument('version'); a.add_argument('--kontroll', action='store_true')
     a = s.add_parser('bestall'); a.add_argument('slug'); a.add_argument('--typ', required=True, choices=list(TYPER))
     a.add_argument('--version', required=True); a.add_argument('--ritning', required=True); a.add_argument('--uppgift', required=True)
-    a.add_argument('--material', action='append', default=[])
+    a.add_argument('--material', action='append', default=[]); a.add_argument('--station')
     a = s.add_parser('specialist'); a.add_argument('slug'); a.add_argument('bestallning'); a.add_argument('--modell')
     a = s.add_parser('svar'); a.add_argument('slug'); a.add_argument('bestallning'); a.add_argument('--fil', required=True)
     a.add_argument('--utforare', required=True)
@@ -855,6 +1170,8 @@ def main(argv=None):
     a = s.add_parser('overlamna'); a.add_argument('slug'); a.add_argument('--prova', action='store_true')
     a = s.add_parser('status'); a.add_argument('slug')
     a = s.add_parser('kvitto'); a.add_argument('slug'); a.add_argument('--session', required=True); a.add_argument('--pass', default='skapa')
+    a.add_argument('--station')
+    a = s.add_parser('station'); a.add_argument('slug'); a.add_argument('station'); a.add_argument('--ritning', required=True)
     a = s.add_parser('karta'); a.add_argument('--prova', action='store_true')
     a = s.add_parser('start'); a.add_argument('slug'); a.add_argument('--skriv-bara', action='store_true')
     x = p.parse_args(argv)
@@ -867,19 +1184,21 @@ def main(argv=None):
         elif x.cmd == 'tillgang':
             ut(tillgang(x.slug, x.blob, x.fil, x.kalla))
         elif x.cmd == 'version':
-            post = version(x.slug, x.fran, x.artifact_version, x.orsak, x.bestallning, x.av, not x.utan_bilder)
-            ut({k: post.get(k) for k in ('version', 'artifact_version', 'filer', 'okanda_tillgangar', 'rendering')})
+            post = version(x.slug, x.fran, x.artifact_version, x.orsak, x.bestallning, x.av, not x.utan_bilder, station_=x.station,
+                           ritning=x.ritning, hoppade=x.hoppa)
+            ut({k: post.get(k) for k in ('version', 'station', 'ritning', 'hoppade', 'artifact_version', 'filer', 'okanda_tillgangar', 'rendering',
+                                         'insats', 'notering', 'varningar')})
             return 0 if (post.get('rendering') or {}).get('slutkod', 0) == 0 and not post['okanda_tillgangar'] else 1
         elif x.cmd == 'rendera':
             r = rendera(x.slug, x.version, x.kontroll)
             ut(r)
             return 0 if r['slutkod'] == 0 and not r['saknade_tillgangar'] else 1
         elif x.cmd == 'bestall':
-            ut(bestall(x.slug, x.typ, x.version, x.ritning, x.uppgift, x.material))
+            ut(bestall(x.slug, x.typ, x.version, x.ritning, x.uppgift, x.material, station_=x.station))
         elif x.cmd == 'specialist':
             post = specialist(x.slug, x.bestallning, modell=x.modell)
-            ut({k: post.get(k) for k in ('id', 'pass', 'session_id', 'utfall', 'kravbrister')})
-            return 0 if post['utfall'] == 'levererad' and not post['kravbrister'] else 1
+            ut({k: post.get(k) for k in ('id', 'station', 'pass', 'session_id', 'utfall', 'sekunder', 'ej_observerat')})
+            return 0 if post['utfall'] == 'levererad' else 1
         elif x.cmd == 'svar':
             ut(svar(x.slug, x.bestallning, x.fil, x.utforare))
         elif x.cmd == 'infor':
@@ -897,7 +1216,9 @@ def main(argv=None):
         elif x.cmd == 'status':
             ut(status(x.slug))
         elif x.cmd == 'kvitto':
-            ut(kvitto(x.session, getattr(x, 'pass')))
+            ut(kvitto(x.session, getattr(x, 'pass'), x.station))
+        elif x.cmd == 'station':
+            print(station_brief(x.slug, x.station, x.ritning))
         elif x.cmd == 'karta':
             f = karta_prova()
             print('\n'.join(f) if f else 'designfas-karta: varje skill, tjänst och specialistpass har sin rad')

@@ -13,6 +13,8 @@ ingångarna, med attrapper bara för det externa (Design-typens körmiljö, sess
   eller en senare dom gör det ogiltigt; kor.sh tar vid från ett giltigt designgodkännande.
 - F: kompetensplaceringen (designfas-karta) har en rad per skill, tjänst och specialistpass.
 - G: startkommandot: kundvakten, flödets tjänster med --strict-mcp-config och godkännandet nekat för sessionen.
+- H: produktionsbandet: stationerna i processmodellens ordning med metod, versioner med stationen, insatsen synlig,
+  hoppade stationer, kritikens återgång, bandets läge och kvittot som redovisar utan att fälla.
 """
 import contextlib
 import json
@@ -89,12 +91,12 @@ class Grund(unittest.TestCase):
         df.runtime(SLUG, rt, rel)
         df.tillgang(SLUG, BLOBB, self.bild, kalla='bilder/verkstad.png, verksamhetens egen (fiktiv i provet)')
 
-    def las_tillbaka(self, namn='fran', ritning=RITNING, extra=None):
+    def las_tillbaka(self, namn='fran', ritning=RITNING, extra=None, notes=None):
         p = self.tmp / namn / 'project'
         p.mkdir(parents=True)
         boards = {'Main.dc.html': {'x': 0, 'y': 0, 'w': 1440, 'h': 900, 'expand': 'fill', 'title': 'Riktning A'}}
         boards.update(extra or {})
-        (p / 'canvas.json').write_text(json.dumps({'v': 3, 'title': 'Prov', 'boards': boards, 'order': list(boards)}))
+        (p / 'canvas.json').write_text(json.dumps({'v': 3, 'title': 'Prov', 'boards': boards, 'order': list(boards), 'notes': notes or {}}))
         (p / 'Main.dc.html').write_text(ritning)
         return p.parent
 
@@ -338,9 +340,108 @@ class E_Godkannande(Grund):
         self.assertIn('Claude Design', s)
 
 
+class H_Band(Grund):
+    """Produktionsbandet (ägarens uppdrag 2026-10-12, version 2): stationerna ur metodkartans tabell i processmodellens
+    ordning, varje station med en metod, versioner som bär stationen, insatsen prövad i renderingen, överhoppade stationer
+    med skäl, kritikens återgång, bandets läge per riktning och ett kvitto som redovisar utan att fälla."""
+
+    def test_tabellen_i_litteraturens_ordning(self):
+        st = df.stationer()
+        ordning = list(st)
+        self.assertEqual(ordning[:4], ['underlag', 'innehall', 'art', 'komposition'], 'content first, art direction före kompositionen')
+        self.assertLess(ordning.index('komposition'), ordning.index('typografi'))
+        self.assertLess(ordning.index('rorelse'), ordning.index('kritik'))
+        self.assertIn('taste/SKILL.md', st['art']['karna'])
+        self.assertIn('ds_kritik', st['kritik']['pass'])
+        self.assertEqual(df.station('rorelse')['mcp'], ['motion'])
+        met = df.metoder()
+        self.assertIn('process', met)
+        for sid, x in st.items():
+            self.assertTrue(x['metoder'] and all(m in met for m in x['metoder']), sid)
+        self.assertTrue(any('W3C WAI' in r for r in df.station_rader(st['typografi'])), 'tillgängligheten är ett krav i stationen')
+        self.assertFalse(any('under utformningen' in r for r in df.station_rader(st['innehall'])), 'före art direction')
+        with self.assertRaisesRegex(df.Fel, 'okänd station'):
+            df.station('smak')
+
+    def test_bandet_pa_en_riktning(self):
+        self.duk()
+        v1 = df.version(SLUG, self.las_tillbaka('f1', notes={'v01': {'x': 0, 'y': -200, 'text': 'v01 · Innehåll och struktur: sektionerna'}}),
+                        '1791822460-0589', 'struktur med verkligt innehåll', station_='innehall', ritning='Main.dc.html')
+        self.assertEqual((v1['station'], v1['notering'], v1['varningar']), ('innehall', 'v01 · Innehåll och struktur: sektionerna', []))
+        self.assertEqual(v1['insats']['skal'], 'riktningens första version')
+        ny = RITNING.replace('<h1>Provrubrik</h1>', '<h1 style="font-size:72px;line-height:1">Provrubrik i ny skala</h1>')
+        v2 = df.version(SLUG, self.las_tillbaka('f2', ritning=ny), '1791822470-0600', 'typskalan', station_='typografi',
+                        ritning='Main.dc.html', hoppade=['art=provets ritning prövar bara mekaniken, inget språk'])
+        self.assertTrue(v2['insats']['synlig'], v2['insats'])
+        self.assertEqual(v2['insats']['jamfort_med'], 'v01')
+        self.assertTrue(any('notering' in x for x in v2['varningar']), 'utan anteckning på duken varnar versionen')
+        band = df.band(SLUG)['Main.dc.html']
+        lage = {x['station']: x['lage'] for x in band}
+        self.assertEqual((lage['innehall'], lage['typografi'], lage['art']), ('gjord', 'gjord', 'hoppad'))
+        self.assertEqual(lage['formular'], 'ej tillämplig', 'provritningen har inget formulär')
+        self.assertEqual(lage['jamforelse'], 'ej tillämplig')
+        self.assertEqual(lage['overlamning'], 'väntar')
+        self.assertEqual(lage['kritik'], 'återstår')
+        self.assertTrue(next(x for x in band if x['station'] == 'typografi')['synlig'])
+        self.assertIn('band', df.status(SLUG))
+
+    def test_kritik_och_tillganglighet_hoppas_inte_over(self):
+        self.duk()
+        for sid in df.ALLTID:
+            with self.assertRaisesRegex(df.Fel, 'körs alltid'):
+                df.version(SLUG, self.las_tillbaka('f-' + sid), '1791822460-0589', 'x', bilder=False, ritning='Main.dc.html',
+                           hoppade=[sid + '=ett skäl som är långt nog att godtas'])
+        with self.assertRaisesRegex(df.Fel, 'skäl'):
+            df.version(SLUG, self.las_tillbaka('f-kort'), '1791822460-0589', 'x', bilder=False, ritning='Main.dc.html', hoppade=['polish=nej'])
+        with self.assertRaisesRegex(df.Fel, 'ritning'):
+            df.version(SLUG, self.las_tillbaka('f-utan'), '1791822460-0589', 'x', bilder=False, station_='art')
+
+    def test_stationens_instruktion_och_bestallning(self):
+        self.duk()
+        df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'första', bilder=False)
+        (self.u / SLUG / 'design' / 'versioner' / 'v01' / 'BILDER.json').write_text(json.dumps(
+            {'ritningar': {'Main.dc.html': {'bilder': {'390': {'fil': 'bilder/Main-390.png'}}}}}))
+        t = df.station_brief(SLUG, 'typografi', 'Main.dc.html')
+        for del_ in ('Station typografi', 'impeccable/reference/typeset.md', 'better-typography/SKILL.md (aktivera med Skill)',
+                     'Stationens metod', '--station typografi --ritning Main.dc.html', 'v02'):
+            self.assertIn(del_, t)
+        b = df.bestall(SLUG, 'komponent', 'v01', 'Main.dc.html', 'En tjänstelista ur 21st som implementationsgrund för huvudsektionen')
+        self.assertEqual(b['station'], 'komposition')
+        with self.assertRaisesRegex(df.Fel, 'har inte passet'):
+            df.bestall(SLUG, 'typografi', 'v01', 'Main.dc.html', 'En typografisk analys som är lång nog att godtas', station_='komposition')
+
+    def test_kvittot_faller_inte_och_kritiken_kan_skicka_tillbaka(self):
+        self.duk()
+        df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'första', bilder=False, station_='innehall', ritning='Main.dc.html')
+        df.bestall(SLUG, 'kritik', 'v01', 'Main.dc.html', 'Kritik av versionen som en besökare ser den, före förklaringen')
+        so = {'sammanfattning': 's', 'fynd': [], 'forslag': [], 'referenser': [], 'begransningar': [],
+              'kompetens': {'aktiverade': [], 'lasta': [], 'valda': []}, 'atergang': {'till': 'komposition', 'skal': 'hierarkin bär inte'}}
+        with patch.object(atelje, 'session', return_value={'session_id': '00000000-0000-4000-8000-000000000002', 'structured_output': so}), \
+                patch.object(kompetens, 'kvitto', return_value={}), \
+                patch.object(kompetens, 'kravbrister', return_value=['kärnan lästes inte hel']):
+            post = df.specialist(SLUG, 'B001')
+        self.assertEqual((post['utfall'], post['station'], post['ej_observerat']), ('levererad', 'kritik', ['kärnan lästes inte hel']))
+        self.assertEqual(df.bestallning(SLUG, 'B001')['status'], 'levererad', 'oläst material fäller inte svaret')
+        md = (self.u / SLUG / 'design' / 'svar' / 'B001' / 'SVAR.md').read_text()
+        self.assertIn('fäller ingenting', md)
+        self.assertIn('omtag av kompositionen', md)
+        kritik = next(x for x in df.band(SLUG)['Main.dc.html'] if x['station'] == 'kritik')
+        self.assertEqual((kritik['lage'], kritik['atergang']['till']), ('svar', 'komposition'))
+
+
 class F_Karta(unittest.TestCase):
     def test_kartan_har_en_rad_per_kompetens(self):
         self.assertEqual(df.karta_prova(), [])
+
+    def test_raden_tabellen_och_metoderna_sager_samma_sak(self):
+        text = df.KARTA.read_text(encoding='utf-8')
+        fel_ = df.karta_prova(text.replace('skill:taste | Leonxlnx/taste-skill | båda | stationer: art;',
+                                           'skill:taste | Leonxlnx/taste-skill | båda | stationer: polish;'))
+        self.assertTrue(any('skill:taste' in x and 'tabellen' in x for x in fel_), fel_)
+        utan = text.replace('skill:slides | nextlevelbuilder/ui-ux-pro-max-skill | ingen | skäl:', 'skill:slides | nextlevelbuilder/ui-ux-pro-max-skill | ingen | ')
+        self.assertTrue(any('skill:slides har varken en station' in x for x in df.karta_prova(utan)))
+        ensam = text.replace('| `detalj`, `varv` | ny version med före och efter |', '| `varv` | ny version med före och efter |')
+        self.assertTrue(any('metoden detalj har ingen station' in x for x in df.karta_prova(ensam)))
 
     def test_en_saknad_skill_falls(self):
         text = df.KARTA.read_text(encoding='utf-8')

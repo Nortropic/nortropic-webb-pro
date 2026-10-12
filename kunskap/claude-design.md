@@ -63,6 +63,42 @@ Konversationsvägen kan bli en kompletterande väg för ägarens egen utforsknin
 | D10 Överlämning och kundens designsystem | utföraren: `designfas.py overlamna <slug>`, DESIGN.md i paketet, Design System-artefakten | `design/overlamning/<v>/`; `overlamna --prova` utan brister |
 | D11 Helbygge, verifiering, leverans | ägaren startar `./kor.sh <slug> "<verksamhet>"`; publicering enligt `kunskap/lansering.md` | sajten implementerad efter förlagan; provet jämför med förlagans bilder |
 
+## Bandet
+
+Sedan ägarens uppdrag 2026-10-12 (ordagrant i `underlag/uppdrag/PROMPT-Nortropic-Designfasen-produktionsband-v2-20261012.md`,
+som ersätter den första bandprompten samma dag) går formgivningen på ett produktionsband (`kunskap/metodkarta.md`,
+Bandet: stationerna) i processmodellens ordning: underlag (förstå), innehåll och struktur, art direction, komposition,
+typografi och färg, responsiv prövning, rörelse, formulär, kritik, tillgänglighet och polish, och jämförelsen och
+överlämningen när de gäller. Varje station har indata, en fråga, sina skills och tjänster (bara där), sin metod i
+metodtabellen (källa, slag och princip), en synlig utdata och en kontroll i renderingen. Skälet: läsning är ingen
+insats, och skills som säger emot varandra och läses samtidigt drar mot en säker mittenform; konditoriet gick igenom
+alla skills i guidens ordning och blev ändå underkänt. Litteraturen säkrar golvet: begriplighet, tillgänglighet,
+iteration och utvärdering.
+
+- **Ordningen efter litteraturen.** Innehållet och strukturen kommer före kompositionen (riktningens första version är
+  strukturen med det verkliga innehållet); mobilen bär formen från första ritningen och stationen responsiv prövar och
+  förfinar; tillgängligheten är ett krav i varje station från art direction och prövas av renderingen vid varje version.
+  Där bandet avviker från källorna står avvikelsen som hypotes med skäl under tabellen.
+- **En station i taget.** `designfas.py station <slug> <id> --ritning <fil>` ger stationens arbetsinstruktion ur
+  tabellen (frågan, skills, metod, tillgänglighetskravet). En station som ändrar ritningen görs helst av en underagent
+  med bara stationens skills; utföraren granskar, publicerar och sparar. Utförarens egen grund är kort.
+- **Insatsen räknas.** En station är genomförd när dess utdata finns: en version med stationens namn och bilder före och
+  efter (`version --station --ritning`), eller ett svar med fynd och belägg (`bestall --station`, `specialist`).
+  Versionen prövar om insatsen syns (pixeljämförelsen mot förra versionen av samma ritning, `insats`). Kvittot redovisar
+  tillgång, aktivering, användning och bedömd kvalitet var för sig och fäller ingenting (ägarens beslut, punkt 6).
+- **Iterationen.** Varje version utvärderas i renderingen; kritikens svar säger om bandet ska gå tillbaka till innehåll
+  och struktur, art direction eller komposition (`atergang`), och omtaget görs före detaljerna.
+- **Behovsstyrt men fullständigt.** En station som inte gäller sidan hoppas över med skälet i versionens orsak
+  (`--hoppa <id>="<skäl>"`); formulärstationen gäller en sida med formulär; rörelsestationen ger alltid ett beslut
+  (rörelse med syfte eller "stilla"); kritiken och tillgängligheten kan inte hoppas över, och tillståndskontrollen görs
+  av renderingen vid varje version.
+- **Synligt för ägaren.** En anteckning per version på duken (id `vNN`); `designfas.py status` visar bandets läge per
+  riktning (gjord med synlig ändring och tid, svar med återgång, hoppad med skäl, ej tillämplig, återstår).
+- **Omkring tio riktningar.** Varje riktning går underlag, innehåll och struktur, art, komposition och kritik innan
+  ägaren väljer; den valda går resten av bandet.
+- **Oberoende prövning.** Bandet prövades mot primärkällorna av en oberoende granskare före merge; utfallet står i
+  slutrapporten. AI-bedömning, ägarens bedömning och användarprov är olika belägg.
+
 ## Duken
 
 Dukens sidor: **Underlag** (research och referenser, så att ägaren ser grunden), **Riktningar** (omkring tio, sida
