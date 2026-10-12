@@ -15,7 +15,7 @@
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
 import { join, extname, resolve, dirname, sep } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
@@ -209,13 +209,25 @@ post.tillgangar_begarda = [...new Set(begarda)].sort();
 
 if (kontroll) {
   const kontroller = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  // Kontrollerna körs asynkront: sidan serveras av servern i den här processen, och ett synkront barn (spawnSync)
+  // blockerar händelseloopen, så att axe, stilrapporten och detektorn aldrig fick någon sida (ERR_FAILED; upptäckt
+  // 2026-10-13, provet krävde bara att nyckeln fanns).
+  const kor = (cmd, args, timeout) => new Promise((klar) => {
+    let stdout = '', stderr = '', slut = false;
+    const p = spawn(cmd, args, { env: process.env });
+    const t = setTimeout(() => p.kill('SIGKILL'), timeout);
+    p.stdout.on('data', (d) => { stdout += d; });
+    p.stderr.on('data', (d) => { stderr += d; });
+    const avsluta = (status, extra = '') => { if (!slut) { slut = true; clearTimeout(t); klar({ status, stdout, stderr: stderr + extra }); } };
+    p.on('error', (e) => avsluta(null, String(e)));
+    p.on('close', (code) => avsluta(code));
+  });
   const sidor = ritningar.map((r) => '/' + r).join(',');
   const k = join(ut, 'kontroll');
   mkdirSync(k, { recursive: true });
   post.kontroll = {};
   for (const [namn, skript, extra] of [['axe', 'axe.mjs', ['--tillstand=meny,formularfel']], ['stil', 'stil.mjs', []]]) {
-    const r = spawnSync(process.execPath, [join(kontroller, skript), `--url=${bas}`, `--sidor=${sidor}`, `--ut=${join(k, namn)}`, ...extra],
-      { encoding: 'utf-8', timeout: 300000, env: process.env });
+    const r = await kor(process.execPath, [join(kontroller, skript), `--url=${bas}`, `--sidor=${sidor}`, `--ut=${join(k, namn)}`, ...extra], 300000);
     post.kontroll[namn] = { slutkod: r.status, utdata: (r.stdout || '').slice(-1500), fel: (r.stderr || '').slice(-1500) };
   }
   // impeccables detektor på den renderade ritningen i 390 och 1440 (critique.md: "A skipped detector is a failed critique
@@ -224,22 +236,22 @@ if (kontroll) {
     const d = join(k, 'detektor');
     mkdirSync(d, { recursive: true });
     post.kontroll.detektor = {};
-    const detektera = (vp, r, scope) => {
-      const x = spawnSync(process.env.IMPECCABLE_MOTOR, ['detect', '--json', '--no-config', ...(scope ? ['--scope', scope] : []), '--viewport', vp,
-        `${bas}/${r}`], { encoding: 'utf-8', timeout: 240000, env: process.env });
+    const detektera = async (vp, r, scope) => {
+      const x = await kor(process.env.IMPECCABLE_MOTOR, ['detect', '--json', '--no-config', ...(scope ? ['--scope', scope] : []), '--viewport', vp,
+        `${bas}/${r}`], 240000);
       let fynd = null;
       try { const j = JSON.parse(x.stdout || '[]'); fynd = Array.isArray(j) ? j : (j.findings || j.results || []); } catch { /* */ }
       return [x, fynd && fynd.filter((f) => f && typeof f === 'object')];
     };
     for (const r of ritningar) {
       for (const vp of ['390x844', '1440x900']) {
-        let [x, fynd] = detektera(vp, r);
+        let [x, fynd] = await detektera(vp, r);
         // området per regel ur motorns --scope (type, layout), så att stationerna typografi, komposition och responsiv läser
         // sina fynd (valideringen 2026-10-12, skills del 1 åtgärd 4); en regel utanför båda har inget område
         const omrade = {};
         if (fynd && fynd.length) {
           for (const [sc, namn] of [['type', 'typografi'], ['layout', 'layout']]) {
-            for (const f of detektera(vp, r, sc)[1] || []) if (f.antipattern) omrade[f.antipattern] = namn;
+            for (const f of (await detektera(vp, r, sc))[1] || []) if (f.antipattern) omrade[f.antipattern] = namn;
           }
         }
         // bara regelkatalogens fält: kodutdrag och sidans text får aldrig nå den blinda kritiken (detektor.for_granskaren)
@@ -247,8 +259,9 @@ if (kontroll) {
           ...['antipattern', 'rule', 'name', 'description', 'severity', 'category', 'advisory'].filter((n) => f[n] !== undefined).map((n) => [n, f[n]]),
           ...(omrade[f.antipattern] ? [['omrade', omrade[f.antipattern]]] : [])]));
         const fil = join(d, `${r}-${vp.split('x')[0]}.json`);
-        writeFileSync(fil, JSON.stringify(fynd ?? { fel: (x.stderr || '').slice(-800), slutkod: x.status }, null, 1) + '\n');
-        post.kontroll.detektor[`${r} ${vp}`] = fynd ? { fynd: fynd.length, slutkod: x.status } : { fel: 'motorn gav inget läsbart svar', slutkod: x.status };
+        writeFileSync(fil, JSON.stringify(fynd && x.status !== 1 ? fynd : { fel: (x.stderr || '').slice(-800), slutkod: x.status }, null, 1) + '\n');
+        post.kontroll.detektor[`${r} ${vp}`] = fynd && x.status !== 1 ? { fynd: fynd.length, slutkod: x.status }
+          : { fel: fynd ? 'motorn kunde inte skanna sidan (slutkod 1)' : 'motorn gav inget läsbart svar', slutkod: x.status };
       }
     }
   }

@@ -160,6 +160,9 @@ class B_Version(Grund):
         motor.parent.mkdir(parents=True, exist_ok=True)
         logg = self.tmp / 'motor' / 'anrop.log'
         motor.write_text('#!%s\nimport json, sys\na = sys.argv[1:]\nopen(%r, "a").write(" ".join(a) + "\\n")\n'
+                         'import urllib.request\n'
+                         'try:\n    urllib.request.urlopen(a[-1], timeout=20).read()\n'
+                         'except Exception:\n    sys.exit(1)  # som motorn: sidan kunde inte skannas\n'
                          'sc = a[a.index("--scope") + 1] if "--scope" in a else None\n'
                          'alla = [{"antipattern": "flat-type-hierarchy", "name": "Flat", "description": "d", "severity": "warning", '
                          '"category": "quality", "snippet": "SIDTEXT-SOM-INTE-FAR-NA-KRITIKEN", "file": "/x", "line": 3},\n'
@@ -172,6 +175,13 @@ class B_Version(Grund):
         with patch.dict(os.environ, IMPECCABLE_BIN=str(motor)):
             post = df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'första riktningen')
         vk = self.u / SLUG / 'design' / 'versioner' / 'v01'
+        # kontrollerna når sidan: renderingens server betjänar barnen medan de kör (ett synkront barn blockerade den, och
+        # axe, stilen och detektorn fick ERR_FAILED; upptäckt 2026-10-13). Motorns attrapp hämtar sidan över HTTP och
+        # svarar 1 utan den; axe och stilen vägras här av slugvakten (provets rot ligger utanför repot), aldrig ERR_FAILED
+        k = json.loads((vk / 'BILDER.json').read_text())['kontroll']
+        for n in ('axe', 'stil'):
+            self.assertNotIn('ERR_FAILED', k[n]['utdata'] + k[n]['fel'], n)
+        self.assertTrue(all(x.get('slutkod') == 2 and x.get('fynd') == 3 for x in k['detektor'].values()), k['detektor'])
         for w in ('390', '1440'):
             fynd = json.loads((vk / 'kontroll' / 'detektor' / ('Main.dc.html-%s.json' % w)).read_text())
             self.assertEqual({f['antipattern']: f.get('omrade') for f in fynd},
