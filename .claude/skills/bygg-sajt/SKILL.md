@@ -289,8 +289,8 @@ rapporten är aldrig en grind). Ett kundcitat får aldrig berömma något som sa
 platsannons eller ett erbjudande, får datumet noterat i rapporten så att det kan tas bort i tid. Läs sedan texten högt för dig själv som en kund i orten:
 kunde en mening som ska säga varför just de stå hos en konkurrent? Skriv om den. Ett praktiskt svar skrivs inte om
 för att låta annorlunda; det ska vara rätt och lätt att använda. Gå sedan igenom texten med skillen `humanizer` i
-verktygslådan, med briefens fem formuleringar som röstprov, och kör copykontrollen igen. Gå igenom Belägg-raderna en
-sista gång: rösten får ändra orden, aldrig vad som påstås.
+verktygslådan (läs först dess `NORTROPIC.md`), med briefens fem formuleringar som röstprov, och kör copykontrollen
+igen. Gå igenom Belägg-raderna en sista gång: rösten får ändra orden, aldrig vad som påstås.
 
 ## Steg 5 — Koncept och bygge (design)
 

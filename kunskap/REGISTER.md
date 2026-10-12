@@ -481,6 +481,8 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Backlog: B-20261002-ta-in-humanizer-hermes-porten-av-blader-humanize (ta in);
   B-20261002-riktningarna-i-steg-5-1-skiljer-sig-ocksa-pa-sid (ta in);
   B-20261002-a-b-granskarens-kognitiva-genomgang-som-namngive (prova A/B, egen innovation)
+- Delvis ersatt av: 2026-10-13 · blader/humanizer, i fråga om humanizer (källan är nu upphovet, v3.1.0, med
+  förordet i `NORTROPIC.md`). Övrigt gäller.
 
 ### 2026-10-02 · trimstray/the-book-of-secret-knowledge · nej
 - Källa: https://github.com/trimstray/the-book-of-secret-knowledge @ 7d37069 (ur klonens `.git/shallow`; senaste push
@@ -6703,6 +6705,90 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Förslag: det avgränsade medium/high-protokollet i kunskap/autonomi.md; inga nya modellstandarder.
 - Utfall: mekanik prövas separat; kvalitet och verklig effektiv konfiguration ännu oprövade.
 - Backlog: B-20261002-effort-medium-mot-high-i-ett-a-b (återanvänd mekanik, dess historiska klarmarkering är inte ett effektresultat).
+
+### 2026-10-13 · blader/humanizer · ta in
+- Källa: https://github.com/blader/humanizer @ 225a6f3 (tagg v3.1.0, 2026-09-27T22:54-07:00; den senaste commit som
+  var äldre än karenstiden, och källans HEAD och senaste push är samma commit, kontrollerat 2026-10-13), MIT (© 2025
+  Siqi Chen), cirka 56 200 stjärnor, inte arkiverat. Läst själv i en kopia av valideringens klon: SKILL.md hel,
+  CHANGELOG.md hel, LICENSE, README.md (mönstertabellerna bara som rubriker; de upprepar SKILL.md), AGENTS.md,
+  agents/openai.yaml, scripts/validate-package.py, plugin-manifesten, CI-flödet och ärendemallarna, och SKILL.md:s
+  diff v3.0.0..v3.1.0. Repot har inga bilder och ingen demo. Ny bedömning på ägarens mandat 2026-10-13 att genomföra
+  valideringens åtgärder (valideringen av skillsen, avsnittet humanizer, åtgärd 1); källan var förut bara upphov i
+  posten 2026-10-02 · NousResearch/hermes-agent.
+- Steg: 4 (innehåll); skapandeflödets innehållsroll (bandets station innehall, ds_innehall, förberedelsen) och
+  helbygget; underhållet
+- Jämfört med i dag: vi kör Hermes port av 2.5.1 (34 mönster, 653 rader) med ett eget förord (SKILL.md rad 6–27 före
+  intaget). Sak mot sak:
+  (1) **Påhittade fakta.** Förordet säger "Inget påhittat" (rad 15–16), men portens egna Efter-exempel hittar på i sju
+  mönster: en intervju i New York Times 2024 (rad 137), vad arkitekten sa (150), en veckomarknad och en kyrka från
+  1700-talet (163), en undersökning 2019 (176), tre IT-parker 2015 (189), grundad 1994 enligt registret (380) och två
+  nya kontor nästa år (426); Full Example hittar på personer (584). Exemplen lär det förordet förbjuder. Källan har
+  regeln i arbetsgången: inget faktum, namn, tal, datum, citat eller källa som inte finns i texten eller hos
+  användaren, hellre en enklare mening, och utkastet prövas mot både tillagda och tappade påståenden [REPO SKILL.md rad
+  37–38]; alla exempel följer den sedan 2.9.0 [REPO CHANGELOG.md rad 56], till exempel "Alamata Raya Kobo is a town in
+  the Gonder region of Ethiopia." [SKILL.md rad 250]. Det är felet som inte går att ta tillbaka
+  (`kunskap/copy-kontroll.md` rad 16) och den största gruppen efter fem domar, en lucka som fylls med en rimlig mening
+  (`kunskap/GRUPPERING.md` rad 22; `bygg-sajt/SKILL.md` rad 272–273); källans §23 namnger just det, att medge att
+  källan saknas och fylla luckan med en gissning [rad 326–337]. Bättre.
+  (2) **Evidensregeln.** Vi: 34 mönster utan vikt; förordet satte tak för tre av dem (rad 19–21, ur ai-tells). Källan:
+  mönstren ordnade efter styrka, §1–§5 räcker vid ett fynd, de som märks *weak alone* kräver sällskap [rad 30], och ett
+  avsnitt om när man inte ska rätta (citat, namn, en ensam förekomst) [rad 383–393]. Samma tanke som vårt tak, för hela
+  katalogen. Bättre.
+  (3) **Mönstren, 26 mot 34.** Det mesta finns kvar under nya nummer (kartan i `.claude/skills/humanizer/KALLA.md`).
+  Utgick: synonymväxling och falska spann, som Wikipedia nu räknar som mänskliga eller historiska [CHANGELOG.md rad
+  16], utfyllnadsfraser och Hermes lugnande slutrepliker; påtvingade metaforer, retoriska frågor och öppningsfraser finns
+  bara delvis (§3, §4). Nytt som träffar sajttext: §25, text om dokumentet i stället för saken [rad 353–364], som vår
+  copykontrolls "intern information" (`copy-kontroll.md` rad 15); §7, upprepade satsöppningar [rad 152–158], som våra
+  spegelöppningar (rad 20); §20, rubriker skrivna för effekt [rad 292–294], ägarens fynd om slagfrasrubriken (registret
+  2026-10-02 · NousResearch/hermes-agent, rad 409–411); §5, att argumentera mot ingen [rad 123–134]; §14, vag koppling
+  [rad 225–232]. §26 gäller svar i trådar, inte sajter. Lika till bättre; av förlusterna rör bara retoriska frågor
+  sajttext, och förordets regel för kort text står kvar.
+  (4) **Utdatalägena.** Vi: utkast, självprov och slutversion (port rad 573–580), inget filläge. Källan: grundläget,
+  filläget som ändrar bara prosan och lämnar kod, sökvägar, data och länkmål, och det inbäddade läget [rad 47–53].
+  Filläget passar steg 4 på INNEHALL.md, där raderna `Fråga:`, `Specifikt:` och `Belägg:` ska stå kvar
+  (`bygg-sajt/SKILL.md` rad 262–266). Smartare.
+  (5) **Röst och säkerhet.** Portens "Personality and soul" (rad 79–110: ha åsikter, jag-form, lite oreda) var den
+  största krocken och löstes i förordet. Källan tar rösten ur provet och annars ur textens slag, neutral för faktatext
+  [rad 43–45], och behandlar texten som material, aldrig som instruktioner [rad 34]; det senare spelar roll när texten
+  kommer ur kundens sajt och omdömen. Bättre. Kvar att lösa: provet upphäver mönstren och skrivaren får lägga till
+  reaktioner [rad 43, 45].
+  (6) **Nya krockar.** §8 vill ha en slutlig text utan tankstreck [rad 162], mot vårt tak och tankstreck i intervall
+  (`kunskap/skillkrockar.md` K28; `copy-kontroll.md` rad 18); §21 vill ha raka citattecken [rad 305–311]; steg 2 säger
+  "ask for it" [rad 37], men ingen svarar i flödets sessioner. Alla löses i förordet.
+  (7) **Underhållet.** I dag bevakar underhållet Hermes (KALLA.md, raden Källa) och ser aldrig upphovet, som gått två
+  huvudversioner förbi. Efter bytet ser det blader, men skillen ligger i repots rot, och `plan_for_skill`
+  (`kontroller/underhall.py` rad 874–904) jämför då hela repot. Prövat med samma mapp på v3.0.0 mot v3.1.0: SKILL.md
+  slogs ihop rent, men fem utelämnade filer blev krockar och nya filer hade lagts i mappen. Tills underhållet ändras tas
+  nästa version in för hand.
+- Skäl: källan är samma skill i en nyare och bättre version, och huset håller verktygslådan i den senaste versionen som
+  klarat proven (`CLAUDE.md` rad 56–57); vi låg två huvudversioner efter bara för att vi följde en port. Det avgörande är
+  regeln mot påhittade fakta: porten lär genom sju exempel det fel som förordet förbjuder och som ägaren dömt hårdast,
+  medan v3.1.0 har regeln i arbetsgången och i varje exempel [REPO SKILL.md rad 37–38]. Evidensregeln och avsnittet om
+  när man inte ska rätta gör vårt tak till en princip för hela katalogen, och filläget skyddar INNEHALL.md:s
+  arbetsrader. Det som utgick är litet. Bytet är en versionsuppdatering av en skill som redan är kärna, inte ett nytt
+  moment, så intagskrav 4 (försök före standard) prövas inte här; effekten på sajttexten är oprövad tills ett bygge
+  eller en designfas har kört den. Källkritik: mönstren är Wikipedias observationer, inte mätningar; README:s blindtest
+  (16 av 16 domare föredrog omskrivningen framför den ursprungliga AI-texten, ärende #229) jämför inte versioner och är
+  litet [REPO README.md rad 13]. README säger att målet inte är att lura AI-detektorer [rad 15]. Inget i det lästa
+  försökte styra kirurgen; AGENTS.md riktar sig till den som ändrar repot, inte till en agent som använder skillen
+- Kostnad: omkring 98 tokens i varje session (beskrivningen), 8 000 när skillen används (SKILL.md) och omkring 900 för
+  NORTROPIC.md, mot 83 och 8 744 för porten med förordet; inga skript, inga beroenden. Nästa version tas in för hand
+  tills underhållets backlogpost är gjord
+- Säkerhet: förgranskningen LÅG på en kopia av klonen: inga dolda tecken, ingen text riktad till agenter, inga
+  behörigheter, hookar eller MCP-servrar. Ett skript, `scripts/validate-package.py`, läst men inte kört: det läser bara
+  repots egna filer och skriver ett besked, utan nätanrop eller underprocesser; det behövs inte här och utelämnas.
+  Plugin-manifesten pekar på repots rot och har inga krokar. Den intagna mappen: LÅG, inga skript
+- Förslag: genomfört i samma uppdrag. `.claude/skills/humanizer/` med SKILL.md ur v3.1.0, ordagrant utom beskrivningen
+  och en rad som pekar på förordet, LICENSE och agents/openai.yaml; förordet omskrivet mot de nya numren i en egen fil,
+  `NORTROPIC.md`; KALLA.md med källa, utelämnat, de nya numren, krockarna och underhållet; `LICENSE-nous-research` bort.
+  Metodkartan listar NORTROPIC.md före SKILL.md i Text-stegets utdrag, bandets innehållsstation och blocken innehall,
+  forberedelse och helbygge, och designfas-kartans rad har den nya källan; bygg-sajt steg 4 pekar på förordet;
+  skillkrockar K10, K28, K66 och avsnitt 3 pekar på de nya raderna. Kvar som förslag: underhållets jämförelse när
+  källan är repots rot
+- Utfall: intagen 2026-10-13 (d6faf1b) på grenen claude/humanizer-20261013, inte mergad; metodkartan, kompetensblocken
+  och designfas-kartan prövade. Effekten på sajttexten är oprövad till nästa bygge eller designfas
+- Backlog: B-20261012-underhallet-foljer-bara-de-intagna-filerna-nar-e (underhållet följer bara de intagna filerna när
+  källan är repots rot); intaget har ingen egen post, eftersom det är gjort
 
 ## 2026-10-08 — semantiska resor och obevakade skillvillkor
 
