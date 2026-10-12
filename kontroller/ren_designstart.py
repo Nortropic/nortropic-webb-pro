@@ -342,9 +342,34 @@ def register(root=None):
         return None
 
 
+def forberedelsernas_fore(root):
+    """{relativ väg: sha256} för förberedelsens säkerhetskopia av kundens arbetsfiler (kontroller/forberedelse.py,
+    paket/fore/<fil>), så som förberedelsens kvitto registrerade dem i arbetsunderlag_fore. Kundens arbetsfiler (BRIEF.md,
+    RESEARCH.md m.fl.) stod kvar i den aktiva miljön vid den rena designstarten; en äldre förberedelses kopia av dem i den
+    arkiverade ateljén har därför samma sha256. Kopian är kundens underlag, inte återkommet designmaterial (drift
+    2026-10-12: Navets andra förberedelse stoppades av sin egen första förberedelses fore/). Bara filer vars sha256 är just
+    den kvittot registrerade släpps; allt annat i fore/ prövas som förut."""
+    ut = {}
+    for slug_dir in sorted((root / 'underlag').glob('*/atelje')):
+        kvitton = [slug_dir / 'FORBEREDELSE.json', *sorted(slug_dir.glob('forberedelse/*/fore/FORBEREDELSE.json'))]
+        for kv in kvitton:
+            try:
+                post = json.loads(kv.read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                continue
+            paket, fore = post.get('paket'), post.get('arbetsunderlag_fore')
+            if not isinstance(paket, str) or not isinstance(fore, dict) or '..' in Path(paket).parts:
+                continue
+            for namn, h in fore.items():
+                if isinstance(namn, str) and isinstance(h, str) and '/' not in namn:
+                    ut[str(Path(paket) / 'fore' / namn)] = h
+    return ut
+
+
 def prova(root=None):
     """Vakten: fynd när arkiverat material kommit tillbaka i den aktiva miljön. En post som finns igen räknas bara när den
-    innehåller en fil med samma sha256 som en arkiverad fil (utom mallens egna filer och node_modules), eller när den
+    innehåller en fil med samma sha256 som en arkiverad fil (utom mallens egna filer, node_modules och förberedelsens
+    kopia av kundens arbetsfiler med den sha256 som kvittot registrerade, forberedelsernas_fore), eller när den
     skapats före brytpunkten; en ny körnings sajt ur mallen är nytt material. Dessutom: inga länkar in i arkivet, inget
     arkiv inne i repot, ingen kalibrering eller visuell-niva.md, och LARDOMAR.md utan domar från före brytpunkten."""
     root = Path(root or ROOT)
@@ -372,6 +397,7 @@ def prova(root=None):
             ds[:] = [d for d in ds if d != 'node_modules']
             mall.update(sha256(Path(r) / n) for n in fs if not os.path.islink(os.path.join(r, n)))
     bryt = reg.get('brytpunkt') or ''
+    kundkopior = forberedelsernas_fore(root)
     for p in reg.get('poster') or []:
         if p.get('fel') or not p.get('verifierad') or str(p.get('sokvag', '')).startswith(('tmp/', 'git/')):
             continue
@@ -392,6 +418,8 @@ def prova(root=None):
             except OSError:
                 continue
             if h in hashar and h not in mall:
+                if rel and kundkopior.get('%s/%s' % (p['sokvag'], rel)) == h:
+                    continue
                 ut.append({'vad': 'arkiverat material har kommit tillbaka', 'detalj': '%s/%s' % (p['sokvag'], rel)})
                 break
     for topp in ('underlag', 'kunder'):

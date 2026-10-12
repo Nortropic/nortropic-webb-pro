@@ -62,7 +62,10 @@ ligger kvar i arkivet.
 `kontroller/ren_designstart.py --prova` (startkontrollen kör den före varje start, raden "gammalt designmaterial i den
 aktiva miljön"): en arkiverad post som finns igen räknas när den skapats före brytpunkten eller innehåller en fil med
 samma sha256 som en arkiverad fil (utom mallens egna filer och node_modules); dessutom länkar in i arkivet, ett arkiv
-inne i repot och en spårad fil i sin gamla version. `kontroller/styrning.py` fäller de ersatta reglerna i agenternas
+inne i repot och en spårad fil i sin gamla version. Förberedelsens kopia av kundens arbetsfiler (`paket/fore/`, med den
+sha256 som förberedelsens kvitto registrerade i `arbetsunderlag_fore`) är kundens underlag och räknas inte: arbetsfilerna
+stod kvar vid brytpunkten, så en äldre förberedelses kopia i den arkiverade ateljén har samma innehåll (drift 2026-10-12,
+Navets andra förberedelse). `kontroller/styrning.py` fäller de ersatta reglerna i agenternas
 texter (minimiantalet varv, nivåfilen, ett val som startar fördjupningen).
 
 ## Kalibreringen efter brytpunkten
