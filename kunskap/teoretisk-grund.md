@@ -72,8 +72,8 @@ M: Lab (Lighthouse/PSI) och fält (CrUX/RUM); budget som CI-gate; bildpipeline. 
 Kadlec (2013); Nielsen (1993); Walton (2020).
 
 **5 Tillgänglighet.** P: POUR (WCAG 2.2); Inclusive Design Principles – likvärdig upplevelse, ge kontroll, prioritera
-innehåll (Swan m.fl. 2017); universell utformning – det som byggs för få hjälper alla. M: WCAG-EM 1.0 – avgränsa,
-utforska, välj urval, granska, rapportera (W3C 2014); automatik hittar bara en del, manuell tangentbords- och
+innehåll (Swan m.fl. 2017); universell utformning – det som byggs för få hjälper alla. M: WCAG-EM 2.0 (W3C Group Note 2026) – avgränsa,
+utforska, välj urval, granska, rapportera (W3C 2014; 2.0 2026-07-23, som låter en liten sajt prövas hel); automatik hittar bara en del, manuell tangentbords- och
 skärmläsarkoll är obligatorisk; DIGG:s webbriktlinjer som svensk tolkning. L: W3C (2023); W3C (2014); ETSI EN 301 549
 (2021); Pickering (2016); Kalbag (2017); Swan m.fl. (2017); Lag (2023:254).
 
@@ -232,7 +232,7 @@ Silver, A. (2018). Form Design Patterns. Smashing Magazine.
 Souders, S. (2007). High Performance Web Sites. O'Reilly.
 Spencer, D. (2009). Card Sorting. Rosenfeld Media.
 Stickdorn, M., Hormess, M., Lawrence, A. & Schneider, J. (2018). This Is Service Design Doing. O'Reilly.
-Swan, H., Pouncey, I., Pickering, H. & Watson, L. (2017). Inclusive Design Principles. inclusivedesignprinciples.org.
+Swan, H., Pouncey, I., Pickering, H. & Watson, L. (2017). Inclusive Design Principles. inclusivedesignprinciples.info (den gamla .org-adressen är i dag en spelsajt; kontrollerat 2026-10-12).
 Tidwell, J., Brewer, C. & Valencia, A. (2020). Designing Interfaces. 3 uppl. O'Reilly.
 Tuch, A.N., Presslaber, E.E., Stöcklin, M., Opwis, K. & Bargas-Avila, J.A. (2012). The role of visual complexity and prototypicality regarding first impression of websites. International Journal of Human-Computer Studies, 70(11).
 W3C (2014). Website Accessibility Conformance Evaluation Methodology (WCAG-EM) 1.0.
