@@ -23,8 +23,13 @@ Använd tre källroller, med uppgiftsmotiverat urval. Samma källa får bära fl
 Skilj marknadsposition, företagsomdömen, designutmärkelser och själv observerad kvalitet. Betyg kan ge en
 branschobservation men är inget designfilter. En utmärkelse är en sökingång, inte bevis på användarnytta.
 **Gallerierna är obligatoriska sökingångar** (ägarens beslut 2026-10-10): Awwwards ingår i varje ny designomgång,
-kompletterat med minst ett av SiteInspire, Land-book, Godly, FWA, CSS Design Awards, Httpster och One Page Love. De är
-ingen stilhierarki och inget facit: tillgänglighet, användbarhet och lämplighet för kunden bedöms ändå. Mobbin (flöden och sektioner ur riktiga produkter; dimension 7, mobil ergonomi)
+kompletterat med minst ett av SiteInspire, Land-book, Minimal Gallery, FWA, CSS Design Awards, One Page Love och Godly.
+För lokala verksamheter är ingångarna (kontrollerade 2026-10-12): Land-book Industry → Local Business och närliggande
+branscher (Food & Drinks, Health & Fitness, Medical, Beauty) med vyerna Mobile och Sections, där betalmallar väljs bort;
+SiteInspires ämneskategorier (architecture, food-and-drink, health-and-fitness, craft, interior-design, property); Minimal
+Gallerys branschkategorier (food-drink, healthcare, hotel-venue, law-firm, architecture-interior-design, real-estate);
+och Awwwards kategorisidor. Httpster har inte publicerat sedan 2025-05-26 och ger bara äldre objekt, och Godly gick inte
+att nå härifrån 2026-10-12. De är ingen stilhierarki och inget facit: tillgänglighet, användbarhet och lämplighet för kunden bedöms ändå. Mobbin (flöden och sektioner ur riktiga produkter; dimension 7, mobil ergonomi)
 och Refero (stilar, skärmar, flöden, med en beslutsliggare som arbetssätt) är sökingångar i rollerna hantverk och
 UX/funktion när de är anslutna; de saknar hantverkare och lokala tjänster och ger därför inte branschrollen. Ett litet företag får ha avancerat hantverk när uppgift, budget och drift
 bär det. Följ galleri till faktisk sajt när slutsatsen gäller beteende eller responsivitet.

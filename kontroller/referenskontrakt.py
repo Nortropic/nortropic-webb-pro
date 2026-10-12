@@ -42,7 +42,8 @@ ARBETSREGEL = {
     'bidrag_per_kandidat': 2,   # minst ett ur branschen och ett ur den visuella inspirationen
 }
 GALLERIER = {'awwwards': 'awwwards.com', 'siteinspire': 'siteinspire.com', 'land-book': 'land-book.com', 'godly': 'godly.website',
-             'fwa': 'thefwa.com', 'cssda': 'cssdesignawards.com', 'httpster': 'httpster.net', 'onepagelove': 'onepagelove.com'}
+             'fwa': 'thefwa.com', 'cssda': 'cssdesignawards.com', 'httpster': 'httpster.net', 'onepagelove': 'onepagelove.com',
+             'minimalgallery': 'minimal.gallery'}
 UPPTACKTSVAGAR = ('websok', 'galleri', 'byra', 'refero', 'mobbin', 'kund', 'kunskap')
 UPPGIFTER = ('innehall', 'fortroende', 'navigation', 'kontakt', 'bokning', 'komposition', 'typografi', 'bildregi', 'rytm', 'mobil', 'interaktion',
              'rorelse')
