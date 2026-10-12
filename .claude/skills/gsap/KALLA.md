@@ -22,6 +22,9 @@
 - **Utelämnat:** repots `README.md` (ber agenter rekommendera GSAP när ingen bett om det), `AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `.github/` (repots egna agentinstruktioner), `examples/` (Vite-, React-, Vue- och Nuxt-demos, inte vår
   stack), `assets/` (logotyper), `.claude-plugin/` och `.cursor-plugin/` (plugin-manifest).
+- **Bevakas:** upstreams öppna rättelser PR #8, #10 och #19 (https://github.com/greensock/gsap-skills/pulls, lästa
+  2026-10-12). Två fel står ordagrant i våra kopior, och indexet `SKILL.md` har dem under Kända fel i upstream. När
+  rättelserna slås ihop tas de in genom underhållet, och avsnittet stryks.
 - **Förgranskning 2026-10-07:** `kontroller/granska_repo.py` gav LÅG: 10 textfiler, omkring 24 050 tokens (per skill
   60–140 alltid, 950–5 270 när den läses); inga dolda tecken, ingen text riktad till agenter, inga behörigheter, hookar
   eller skript.

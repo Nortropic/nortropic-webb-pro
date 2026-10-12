@@ -16,7 +16,7 @@ den som gäller beteendet du bygger, hel:
 | `gsap-performance/SKILL.md` | transforms före layoutegenskaper, will-change, batching |
 | `gsap-plugins/SKILL.md` | plugins (Flip, Draggable, SplitText, MotionPath …); prövas i rökprovets provbygge innan de används i en sajt |
 | `gsap-utils/SKILL.md` | `gsap.utils`: clamp, mapRange, snap, toArray, wrap |
-| `gsap-react/SKILL.md` | React; `@gsap/react` (useGSAP) finns inte i låset, så i en React-ö används `gsap.context()` med städning i `useEffect`, eller hellre Motion |
+| `gsap-react/SKILL.md` | React; `@gsap/react` (useGSAP) installeras med exakt version när en React-ö behöver det (`kunskap/beroenden.md`, Ett nytt beroende), annars `gsap.context()` med städning i `useEffect` |
 | `gsap-frameworks/SKILL.md` | Vue, Svelte, Nuxt (ingen uppgift hos oss; Astro är stacken) |
 
 `llms.txt` är upstreams eget index med utlösande ord.
@@ -34,14 +34,31 @@ passets `teknikval` och i RIKTNING.md.
 ## Kraven i en sajt
 
 - `import gsap from 'gsap'` (och `import { ScrollTrigger } from 'gsap/ScrollTrigger'` med `gsap.registerPlugin`) i
-  ett `<script>` i sidan eller komponenten: Astro bundlar och hashar det i sajtens CSP. Inget hämtas från ett CDN och
-  inget installeras: paketet är låst i `mall/astro/package.json`.
+  ett `<script>` i sidan eller komponenten: Astro bundlar och hashar det i sajtens CSP. Inget hämtas från ett CDN:
+  paketet är låst i `mall/astro/package.json`, och ett nytt paket väljs fritt med exakt version (`kunskap/beroenden.md`,
+  Ett nytt beroende).
 - Varje rörelse står innanför `const mm = gsap.matchMedia(); mm.add('(prefers-reduced-motion: no-preference)', …)`,
   och den som bett om mindre rörelse får sidan färdig och stilla direkt (byggstandarden 3.5). Mallens `Bas.astro`
   stänger CSS-övergångar, men inte skriptdriven rörelse: det gör matchMedia.
 - Innehållet och navigationen fungerar utan JavaScript: det som ScrollTrigger avtäcker ska synas också utan skript.
-  Ingen ScrollSmoother eller annan mjuk scroll (Avgörandena: scrollningen följer webbläsaren, WCAG 2.2.2); pinning
+  Mjuk scroll (ScrollSmoother) är ett designval med villkoren i `kunskap/beroenden.md`: avstängd vid reducerad
+  rörelse, utan att ta över tangentbordet och ankarlänkarna (WCAG 2.2.2 kräver paus eller stopp, inget förbud); pinning
   och scrub bara när rörelsen bär designen.
 - Prestandabudgeten (byggstandarden 3.7): gsap-kärnan kostar 27 kB gzip per sida (69,8 kB rå), med ScrollTrigger
   44 kB gzip (112,5 kB rå); hela `motion` 19 kB gzip (uppmätt 2026-10-07, `kunskap/beroenden.md`). GSAP är det tyngsta
   valet och bär sig bara när beteendet kräver det. En sida utan rörelse får inga skript.
+
+## Kända fel i upstream
+
+Undermapparna är orörda kopior av gsap-skills `aed9cfd`, och upstream har öppna rättelser som inte är sammanslagna
+(PR #8, #10 och #19, https://github.com/greensock/gsap-skills/pulls; lästa 2026-10-12). Två fel står ordagrant hos oss:
+
+- `gsap-scrolltrigger/SKILL.md` rad 235, den horisontella scrollen: `Max.max` ger ReferenceError, och värdet är pixlar
+  men står som `xPercent`. Skriv `x: () => -Math.max(0, scrollingEl.scrollWidth - window.innerWidth)` med
+  `invalidateOnRefresh: true` i ScrollTrigger (vår rättelse).
+- `gsap-plugins/SKILL.md` rad 333: `MotionPathHelper.create(".dot", "#path", …)` ska vara
+  `MotionPathHelper.create(".dot", { path: "#path", end: 0.5 })` (PR #19).
+
+PR #19 rättar också Flips `scale` (standardvärdet är `false`), Observers `type` (standardvärdet är
+`"wheel,touch,pointer"`), ScrollToPlugin (ingen flagga `element`) och ScrollTriggers `containerAnimation`-exempel,
+valfria `trigger` och refresh-ordning. Pröva ett plugin i rökprovets provbygge innan det används i en sajt.
