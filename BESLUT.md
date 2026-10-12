@@ -5348,7 +5348,16 @@ inga hinder), men skaparen hade läst 7 av 18 kärnfiler (3 före första ändri
 den ofullständig 21:33:32Z och den gick inte att välja; granskarens kritik ("fortsätt", inte generisk) kastades för att
 granskaren skrivit "Inte valda eller lästa: …" i schemafältet valda; k02 stoppades för andra gången av ett DevTools-spår
 som inte blev klart (CSS-reglerna var uppmätta). 0 av 2 valbara, 15 minuter. Efter renstarten 2026-10-09 hade ingen av
-elva körningar nått en skiss; varje stopp låg i en grind före renderingen.
+elva körningar nått en skiss; åtta av dem stannade i en grind före renderingen.
+
+**Piloten** (en kandidat, samma uppdrag, research, plan, material, modell och budget som baslinjens k01, i en
+arbetskopia med den ändrade metoden): skaparen läste alla 8 kärnfiler före första ändringen i båda sessionerna, valde
+ingen specialist ("det största problemet i varv 1 var en rad i griden"), var bedömbar efter 6 min 24 s (baslinjen 8 min
+07 s), granskarens kritik ("fortsätt", inte generisk) levererades och skaparen svarade i tre varv; slutversionen är
+valbar (axe 0, inga hinder). Listpris 5,49 USD mot baslinjens 3,85, eftersom kritiken och svaret faktiskt kördes. Ett par
+är inget statistiskt mått, och designen är inte bedömd av ägaren. Den oberoende granskningen (två omgångar, 11 fynd,
+inga blockerare) är rättad utom en lucka: en specialist som RIKTNING.md påstår men som inte observerats märks inte i
+skissens kvitto.
 
 **Genomförarens tillämpning (Claude):**
 - **Kärnan först, specialisten efter problemet** (`kunskap/metodkarta.md`, Kompetenserna; `kompetens.BEHOVSSTYRDA`): i
