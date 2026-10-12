@@ -171,6 +171,15 @@ class B_Version(Grund):
         self.assertIn('inte en skärmbild', b['kalla'])
         self.assertEqual(b['runtime']['release'], 'prov-release-1')
         self.assertIn('axe', b['kontroll'])
+        # tilläggets kontroller (punkt 5): LCP-kandidat, bildstorlekar, rörelse med och utan reducerad rörelse, reflow, fokus, stillhet
+        m = r['matt']['390']
+        self.assertEqual(m['lcp']['tagg'], 'h1', 'den största ytan i provritningen är rubriken')
+        self.assertTrue(any(x['kvot'] == 0 or x['kvot'] < 0.9 for x in m['bildstorlekar']))
+        self.assertTrue(any('suddig' in v for v in r['varningar']), 'en bild på 1 px som visas stort flaggas')
+        self.assertEqual(r['reflow_320']['sidledsspill_px'], 0)
+        self.assertTrue(r['stillhet']['390']['lika_6_och_7_s'])
+        self.assertIn('reducerad', r['reducerad_rorelse']['1440'])
+        self.assertTrue(r['fokus']['1440'] and all(x['synlig'] for x in r['fokus']['1440']), r['fokus'])
 
     def test_dubblett_saknad_ritning_och_okand_tillgang(self):
         self.duk()

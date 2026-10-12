@@ -91,5 +91,7 @@ Parallella pass lämnar underlag; bara du ändrar duken.
 - Underkända tidigare Nortropic-byggen och ersatta domar är aldrig förebilder (`kunskap/ren-designstart.md`).
 - Dukens ritningar följer Design-typens format (läs `artifact-type/reference/format.md` och `craft.md` på duken) och
   våra kvalitetskrav (kontrast 4,5:1, riktiga knappar och länkar, primära kontroller minst 44 px, inget sidledsspill).
+- Ägarens kommentarer på duken (Send to Claude) når dig medan sessionen lever: läs tråden, svara på svenska i tråden med
+  vad du gör, gör ändringen som en ny version och stäng tråden när den är åtgärdad.
 - Skriv till ägaren vad som händer på duken, inte mekaniken; redovisa tillgång, aktivering, användning, belagd
   tillämpning och bedömd kvalitet var för sig, och märk din egen bedömning som din.

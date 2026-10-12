@@ -8,7 +8,9 @@
 // (aria-expanded i sidhuvudet eller navigationen) finns, och <ut>/BILDER.json med mätningarna per bredd: LCP-kandidaten,
 // layoutskiften, bildernas storlek mot visad storlek, rörelsen vid laddningen och efter 5,5 s, och samma rörelse med
 // prefers-reduced-motion: reduce i 390 och 1440 (varningar, inte fel); med --kontroll också axe (med menyn öppen och
-// formulären skickade tomma) och stilrapporten i <ut>/kontroll/. LCP och CLS här gäller ritningen lokalt, inte fältdata. Exit 0 när allt renderades, 1 när en ritning föll
+// formulären skickade tomma) och stilrapporten i <ut>/kontroll/. Dessutom reflow i 320, synlig fokus för de tio första
+// tabbstegen i 390 och 1440 (bild med och utan fokus) och om sidan förändras mellan 6 och 7 s utan interaktion. LCP och
+// CLS här gäller ritningen lokalt, inte fältdata. Exit 0 när allt renderades, 1 när en ritning föll
 // (sidfel, ingen h1, sidledsspill), 2 vid fel i anropet. Inget lämnar maskinen utom Google Fonts-länkar som ritningen själv har.
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
@@ -131,6 +133,57 @@ for (const r of ritningar) {
       rp.bilder[`${w}-meny`] = { fil: `bilder/${mfil}`, aria_expanded_efter_klick: oppen };
       if (oppen !== 'true') rp.fel.push(`${w}: menyknappen öppnade inget (aria-expanded ${oppen})`);
     }
+    await ctx.close();
+  }
+  // reflow i 320 (WCAG 1.4.10), synlig fokus vid tabb (2.4.7) och förändring utan interaktion efter 5 s (2.2.2; fångar också
+  // rörelse som skript driver med requestAnimationFrame, som getAnimations inte ser)
+  {
+    const ctx = await b.newContext({ viewport: { width: 320, height: 640 } });
+    const pg = await ctx.newPage();
+    await pg.goto(`${bas}/${r}`, { waitUntil: 'networkidle', timeout: 60000 });
+    await pg.waitForTimeout(500);
+    const spill = await pg.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    rp.reflow_320 = { sidledsspill_px: spill };
+    if (spill > 1) rp.varningar.push(`320: sidledsspill ${spill} px (WCAG 1.4.10)`);
+    await ctx.close();
+  }
+  rp.fokus = {};
+  rp.stillhet = {};
+  for (const w of bredder.filter((x) => x === 390 || x === 1440)) {
+    const ctx = await b.newContext({ viewport: { width: w, height: 900 } });
+    const pg = await ctx.newPage();
+    await pg.goto(`${bas}/${r}`, { waitUntil: 'networkidle', timeout: 60000 });
+    await pg.waitForTimeout(6000);
+    const a1 = await pg.screenshot();
+    await pg.waitForTimeout(1000);
+    const a2 = await pg.screenshot();
+    rp.stillhet[w] = { lika_6_och_7_s: a1.equals(a2) };
+    if (!a1.equals(a2)) rp.varningar.push(`${w}: sidan förändras mellan 6 och 7 s utan interaktion (WCAG 2.2.2 kräver paus, stopp eller dölj)`);
+    const resultat = [];
+    for (let i = 0; i < 10; i++) {
+      await pg.keyboard.press('Tab');
+      await pg.waitForTimeout(120);
+      const box = await pg.evaluate(() => {
+        const e = document.activeElement;
+        if (!e || e === document.body) return null;
+        e.scrollIntoView({ block: 'center' });
+        const x = e.getBoundingClientRect();
+        return { tagg: e.tagName.toLowerCase(), text: (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 40),
+          x: Math.max(0, x.left - 8), y: Math.max(0, x.top - 8), w: x.width + 16, h: x.height + 16 };
+      });
+      if (!box || box.w < 4 || box.h < 4) break;
+      const clip = { x: box.x, y: box.y, width: Math.min(box.w, w - box.x), height: Math.min(box.h, 900 - box.y) };
+      if (clip.width < 4 || clip.height < 4) continue;
+      const med = await pg.screenshot({ clip });
+      await pg.evaluate(() => document.activeElement && document.activeElement.blur());
+      await pg.waitForTimeout(80);
+      const utan = await pg.screenshot({ clip });
+      await pg.evaluate((t) => { const e = [...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')].find((x) => (x.getAttribute('aria-label') || x.textContent || '').trim().slice(0, 40) === t); if (e) e.focus({ focusVisible: true }); }, box.text);
+      resultat.push({ tagg: box.tagg, text: box.text, synlig: !med.equals(utan) });
+    }
+    rp.fokus[w] = resultat;
+    const osynliga = resultat.filter((x) => !x.synlig);
+    if (osynliga.length) rp.varningar.push(`${w}: ${osynliga.length} av ${resultat.length} tabbade element ändrar inget synligt vid fokus (${osynliga.map((x) => x.tagg + ' "' + x.text + '"').join(', ').slice(0, 200)})`);
     await ctx.close();
   }
   rp.reducerad_rorelse = {};

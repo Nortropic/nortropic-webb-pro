@@ -67,5 +67,7 @@ const google = verifiering && typeof verifiering.google === 'string' && /^[A-Za-
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    /* övergångar mellan sidor når inte återställningen ovan (mätt 2026-10-12 i Chromium och WebKit) */
+    ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   }
 </style>

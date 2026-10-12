@@ -333,7 +333,7 @@ uppgift: Ge sidan typskalan, de typografiska kontrasterna, hierarkin, radlängde
 pass: skapa, fordjupa, ds_typografi
 kärna: impeccable/reference/typeset.md
 efter: better-typography/SKILL.md; impeccable/reference/colorize.md; better-colors/SKILL.md
-välj: refero-design/references/typography.md; refero-design/references/color.md; taste-output/SKILL.md; better-ui/SKILL.md
+välj: refero-design/references/typography.md; refero-design/references/color.md; taste-output/SKILL.md; better-ui/SKILL.md; kunskap/byggstandard.md
 verktyg: förhandsvisning
 mcp: refero
 visar: typskalan, radlängden och färgrollerna i den renderade sidan, med stilpaketets värden eller ett skäl att avvika
@@ -356,7 +356,7 @@ uppgift: Bygga komponenterna och layouten så att mobilens omställning är geno
 pass: skapa, fordjupa, ds_responsiv
 kärna: impeccable/reference/adapt.md; better-layout/SKILL.md
 efter: impeccable/reference/audit.md; impeccable/reference/layout.md
-välj: emil-mobile-native/SKILL.md; ui-styling/SKILL.md; better-ui/SKILL.md; hallmark/references/responsive.md; hallmark/references/layout-and-space.md
+välj: emil-mobile-native/SKILL.md; ui-styling/SKILL.md; better-ui/SKILL.md; hallmark/references/responsive.md; hallmark/references/layout-and-space.md; kunskap/byggstandard.md
 verktyg: förhandsvisning
 mcp: mobbin
 visar: mobilen och datorn, och mellanbredden där layouten byter form, i den renderade sidan; komponenterna och stilarna i egna filer där de återanvänds
@@ -378,7 +378,7 @@ visar: menyn och den primära handlingen prövade i förhandsvisningens tillstå
 namn: Interaktion och rörelse
 uppgift: Välja och genomföra de beteenden som passar sidan, var och en med ett syfte, och välja tekniken per beteende med skäl: CSS först när den räcker, Motion (motion i ett <script>, motion/react i en React-ö) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer och scrollsekvenser; ett genomtänkt beslut kan vara att något ska vara stilla, och ingen rörelse läggs till för att fylla en kvot (ägarens uppdrag 2026-10-07, punkt 5C). Beslutstabellen motion/best-practices/css-or-motion.md läses hel före valet i passet rörelse (i skissen när rörelse väljs). Motions dokumentations-MCP har sin uppgift bara genom ett faktiskt anrop med kontrollerat resultat när ett beteende byggs med Motion.
 pass: rorelse, ds_rorelse
-kärna: impeccable/reference/animate.md; emil-design-eng/SKILL.md; emil-animate/SKILL.md
+kärna: impeccable/reference/animate.md; emil-design-eng/SKILL.md; emil-animate/SKILL.md; kunskap/byggstandard.md
 efter: emil-improve-animations/SKILL.md; emil-review-animations/SKILL.md
 välj: motion/best-practices/css-or-motion.md; motion/SKILL.md; motion/best-practices/index.md; motion/best-practices/motion.md; motion/best-practices/react.md; gsap/SKILL.md; gsap/gsap-core/SKILL.md; gsap/gsap-timeline/SKILL.md; gsap/gsap-scrolltrigger/SKILL.md; gsap/gsap-performance/SKILL.md; emil-find-animation-opportunities/SKILL.md; emil-review-animations/SKILL.md; emil-improve-animations/SKILL.md; emil-animation-vocabulary/SKILL.md; emil-apple-design/SKILL.md; refero-design/references/motion.md; hallmark/references/microinteractions.md; hallmark/references/interaction-and-states.md
 verktyg: förhandsvisning
@@ -390,7 +390,7 @@ visar: varje beteende prövat med förhandsvisningens tillstånd (meny, hovring,
 namn: Tillgänglighet och visuell granskning
 uppgift: Inspektera den renderade sidan och interaktionsvägen, och rätta de konkreta bristerna i en avgränsad omgång utan att byta stil; bedöm återkoppling, fokus, avbrytbar rörelse, begriplighet, textstorlek och tillgänglighet i tillstånden mot principerna i kunskap/hig-principer.md, läst hel med Read (frågor att pröva, inget krav på Apples visuella stil); emil-apple-design läses hel med Read när den väljs, enligt K46:s undantag för väntande Initial Response-skills.
 pass: granskning, ds_granskning
-kärna: impeccable/SKILL.md; impeccable/reference/critique.md; impeccable/reference/polish.md; impeccable/reference/audit.md; impeccable/reference/craft-floor.md; better-accessibility/SKILL.md; refero-design/references/visual-workflow.md; kunskap/hig-principer.md
+kärna: impeccable/SKILL.md; impeccable/reference/critique.md; impeccable/reference/polish.md; impeccable/reference/audit.md; impeccable/reference/craft-floor.md; better-accessibility/SKILL.md; refero-design/references/visual-workflow.md; kunskap/hig-principer.md; kunskap/byggstandard.md
 välj: impeccable/reference/harden.md; impeccable/reference/optimize.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/degraded/finish-reviewer.md; better-interface-review/SKILL.md; better-interface/SKILL.md; emil-break-ui/SKILL.md; better-break/SKILL.md; taste-redesign/SKILL.md; hallmark/references/slop-test.md; hallmark/references/anti-patterns.md; emil-apple-design/SKILL.md
 verktyg: förhandsvisning, detektor
 mcp: refero
@@ -437,7 +437,7 @@ uppgift: Bedöma den renderade sidan som en besökare ser den, mot ribban, besö
 blind: i underlag/<slug> läser rollen bara briefen och kundens fakta och material (BRIEF.md, VERKSAMHET.json, RESEARCH.md, texten, BESTALLNING.md, bilder/), metoden och kandidatens egna bilder; kunder/<slug>, de andra kandidaterna, research på begäran (REFERENSUPPDRAG-*, TJANSTEUPPDRAG-*, också när de uppstår under sessionen), referensbeslutet, referenspaketet och de läsande skalkommandona nekas (kandidater.blind_nekas). Riktningshistoriken och domloggen nekas som filer (RIKTNINGSHISTORIK.json, DESIGNDOMAR.jsonl): ägarens beslut 2026-10-07 ("Ja, neka historiken"; GR-20261007-r103#K4). Ägarens aktuella domar står i uppdraget, och kritiken dömer mot dem och ribban, inte mot tidigare riktningar (ägaren 2026-10-06: "Mina tidigare underkännanden ska inte omvandlas till en allt smalare uppsättning tillåtna uttryck"). Ändras i kandidater.BLIND_HISTORIK, i uppgiften ovan och på den här raden.
 pass: skisskritik, kritik_a, fore_efter, ds_kritik
 kärna: kunskap/designregler.md; kunskap/referenser-professionella.md; impeccable/reference/critique.md; impeccable/reference/craft-floor.md; kunskap/hig-principer.md
-välj: hallmark/references/slop-test.md; hallmark/references/anti-patterns.md; refero-design/references/anti-ai-slop.md; kritik/GRANSKARE.md; frontend-design/SKILL.md; better-interface-review/SKILL.md; better-accessibility/SKILL.md; emil-break-ui/SKILL.md; ui-ux-pro-max/references/quick-reference.md; impeccable/reference/audit.md
+välj: hallmark/references/slop-test.md; hallmark/references/anti-patterns.md; refero-design/references/anti-ai-slop.md; kritik/GRANSKARE.md; frontend-design/SKILL.md; better-interface-review/SKILL.md; better-accessibility/SKILL.md; emil-break-ui/SKILL.md; ui-ux-pro-max/references/quick-reference.md; impeccable/reference/audit.md; kunskap/byggstandard.md; kunskap/granskningsfragor.md
 verktyg: förhandsvisning, detektor
 mcp: refero, mobbin
 visar: svaret belägger kandidatens version och bilderna som bedömdes; en bredd (390, 768, 1280, 1440) eller ett tillstånd (menyn öppen, tangentbordet, reflow 320) räknas som bedömt bara ur en bild som lästes och inte är tom, också när svaret nämner det; kvittot visar kärnan, de valda alternativen, verktygsanropen och tjänsternas anrop med utfall; varje synligt problem har plats, bredd och vad, det största först; förebilderna står med vad jämförelsen visade; skissens rekommendation är fortsätt, byt komposition eller förkasta riktningen, och första passet i läget full ger nivån mot ribban

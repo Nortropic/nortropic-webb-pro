@@ -19,6 +19,11 @@ helbygge → verifierad leverans. Målet är en snabbare väg till hög kvalitet
 verktygsanrop eller varv är inget kvalitetsmått. Flödet startar från en ren designstart (`kunskap/ren-designstart.md`):
 inget designmaterial från före 2026-10-09 finns i den aktiva miljön.
 
+**Sedan 2026-10-12 görs formgivningen i Claude Design** (`kunskap/claude-design.md`): för en kund med aktiv designfas
+(`underlag/<slug>/design/DESIGNFAS.json`) gör flödet här bara förberedelsen och researchen (steg 1–2; körningen stannar i
+steget `forskad`), och riktningarna, valet, förfiningen och godkännandet sker på duken. Skissläget nedan står kvar för
+kunder utan designfas och som återställningsväg.
+
 Sammanhållningen följer ett välgrundat val, och iterationen får ändra grundidén. Därför utforskas skilda grundidéer
 först, och huvudreferensen blir den valda riktningens referens efteråt. Beställaren (ägaren, eller kunden med belägg)
 väljer själv bland förslagen innan något förbättras; ingen panel utser en vinnare.

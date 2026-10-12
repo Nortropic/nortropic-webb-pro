@@ -19,7 +19,7 @@ briefen §5: `lokal`, `varumärke/portfölj`, `hybrid` eller `ingen`. Verktyg: `
 - Crawlning och indexering: `robots.txt` med `Sitemap:`-rad; `sitemap.xml` ur sidorna; förhandsvisning bär
   `noindex` och `Disallow: /`, lanseringskonfigurationen tvärtom — de två hålls isär (lansering.md).
 - Canonical absolut per sida; en kanonisk domänvariant (www eller apex), den andra omdirigerar 301.
-- Metadata: unik `title` (omkring 60 tecken) och `description` (omkring 155) per sida, sanningsenliga, utan
+- Metadata: unik `title` och `description` per sida utan fast teckengräns (Google anger ingen, Search Central 2025-12-10 och 2026-04-20; omkring 60 och 155 tecken är praxis och information, byggstandarden 7.1), sanningsenliga, utan
   superlativ och utan ortstoppning; sociala metadata (Open Graph) med bild.
 - `html lang`, en `h1` per sida, rubrikordning, alt-texter (bild.md), svenska filnamn på bilder.
 - hreflang bara vid verkliga språkvarianter, bidirektionellt med `x-default`; ingen hreflang på enspråkig sajt.

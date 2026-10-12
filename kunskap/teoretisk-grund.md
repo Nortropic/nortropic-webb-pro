@@ -101,7 +101,9 @@ beroendeskanning; header-skanning; registerförteckning (GDPR art. 30); IMY:s v�
 (2016/679).
 
 **9 Innehåll och konvertering.** P: Självklara sidor, skanning, satisficing (Krug 2014); webbtrovärdighet –
-presumerad, ryktesbaserad, ytlig, förtjänad (Fogg m.fl. 2003) → riktiga bilder, org.nr, omdömen; tillit driver
+presumerad, ryktesbaserad, ytlig, förtjänad (Fogg & Tseng 1999; att det som syns först styr omdömet: Fogg m.fl. 2003);
+första intrycket på 50 ms (Lindgaard m.fl. 2006) och låg visuell komplexitet med igenkännbar struktur (Tuch m.fl. 2012),
+båda estetiska bedömningar, inte mått på kontakt; pragmatisk och hedonisk kvalitet bedöms var för sig (Hassenzahl 2004) → riktiga bilder, org.nr, omdömen; tillit driver
 köpavsikt (Gefen, Karahanna & Straub 2003); beteende = motivation × förmåga × trigger (Fogg 2009) → CTA är triggern,
 få fält är förmågan; socialt bevis och auktoritet (Cialdini 2021); signifiers och återkoppling (Norman 2013);
 klarspråk (Språkrådet). M: 5-sekunderstest av startsidan; innehållsinventering; JTBD-intervjuer; läsbarhet
@@ -142,7 +144,7 @@ modellprov och observation av verkliga användare redovisas var för sig
 1 Försöker användaren uppnå rätt effekt? 2 Ser användaren att rätt handling finns? 3 Kopplar användaren handlingen
 till effekten? 4 Får användaren begriplig återkoppling på att det gick framåt?
 
-## B.4 WCAG-EM 1.0 (W3C 2014) – fem steg
+## B.4 WCAG-EM (W3C 2014; version 2.0 som Group Note 2026-07-23) – fem steg
 
 1 Avgränsa · 2 Utforska sajten · 3 Välj representativt urval (start, formulär eller kontakt, tjänstesida, 404) ·
 4 Granska urvalet mot WCAG 2.2 AA · 5 Rapportera. Automatiska verktyg hittar bara en del – manuell koll krävs.
@@ -154,7 +156,11 @@ Bedöms efter frekvens (hur många drabbas), konsekvens (hur illa) och persisten
 från praxis utan direkt affärsförlust · 1 låg: kosmetiskt · 0 inget problem.
 
 Regelverk: Lag (2023:254) om vissa produkters och tjänsters tillgänglighet (mikroföretag undantagna; lagkrav i
-praktiken WCAG 2.1 AA via EN 301 549 v3.2.1, byggmål 2.2 AA); GDPR; DIGG:s webbriktlinjer.
+praktiken WCAG 2.1 AA via EN 301 549 V3.2.1 tills V4.1.1 med WCAG 2.2, publicerad 2026-09-02, citeras i EUT; byggmål 2.2 AA;
+mikroföretagen undantas för tjänster, och lagen gäller vissa konsumenttjänster, för våra kunder främst e-handel); lag
+(2018:1937) om tillgänglighet till digital offentlig service, som också gäller privata utförare inom skola, vård,
+tandvård och socialtjänst; GDPR; DIGG:s webbriktlinjer. WCAG-EM 2.0 låter en sajt med få sidor prövas hel, utan urval
+(byggstandarden, rättelserna; kontrollerat 2026-10-12).
 
 ## C. Referenser (Harvard)
 
@@ -170,10 +176,12 @@ Doherty, W.J. & Thadani, A.J. (1982). The economic value of rapid response time.
 Fitts, P.M. (1954). The information capacity of the human motor system in controlling the amplitude of movement. Journal of Experimental Psychology, 47(6).
 Fogg, B.J. (2009). A behavior model for persuasive design. Persuasive '09. ACM.
 Fogg, B.J. m.fl. (2003). How do users evaluate the credibility of Web sites? DUX '03. ACM.
+Fogg, B.J. & Tseng, H. (1999). The elements of computer credibility. CHI '99. ACM.
 Forsgren, N., Humble, J. & Kim, G. (2018). Accelerate. IT Revolution.
 Fowler, M. (2006). Continuous Integration. martinfowler.com.
 Frost, B. (2016). Atomic Design. Brad Frost.
 Gefen, D., Karahanna, E. & Straub, D.W. (2003). Trust and TAM in online shopping. MIS Quarterly, 27(1).
+Hassenzahl, M. (2004). The interplay of beauty, goodness, and usability in interactive products. Human-Computer Interaction, 19(4).
 Gothelf, J. & Seiden, J. (2021). Lean UX. 3 uppl. O'Reilly.
 Grigorik, I. (2013). High Performance Browser Networking. O'Reilly.
 Gustafson, A. (2015). Adaptive Web Design. 2 uppl. New Riders.
@@ -193,6 +201,7 @@ Krug, S. (2010). Rocket Surgery Made Easy. New Riders.
 Krug, S. (2014). Don't Make Me Think, Revisited. 3 uppl. New Riders.
 Kurosu, M. & Kashimura, K. (1995). Apparent usability vs. inherent usability. CHI '95. ACM.
 Lidwell, W., Holden, K. & Butler, J. (2010). Universal Principles of Design. Rev. uppl. Rockport.
+Lindgaard, G., Fernandes, G., Dudek, C. & Brown, J. (2006). Attention web designers: You have 50 milliseconds to make a good first impression! Behaviour & Information Technology, 25(2).
 Marcotte, E. (2010). Responsive Web Design. A List Apart, 306.
 Martin, R.C. (2008). Clean Code. Prentice Hall.
 Mavin, A., Wilkinson, P., Harwood, A. & Novak, M. (2009). Easy Approach to Requirements Syntax (EARS). RE '09. IEEE.
@@ -203,6 +212,7 @@ Nielsen, J. (1994). 10 Usability Heuristics for User Interface Design. Nielsen N
 Nielsen, J. (2006). F-Shaped Pattern for Reading Web Content. Nielsen Norman Group.
 Nielsen, J. & Landauer, T.K. (1993). A mathematical model of the finding of usability problems. INTERCHI '93. ACM.
 Nielsen, J. & Molich, R. (1990). Heuristic evaluation of user interfaces. CHI '90. ACM.
+Norman, D.A. (2004). Emotional Design. Basic Books.
 Norman, D.A. (2013). The Design of Everyday Things. Rev. uppl. Basic Books.
 Nygard, M.T. (2018). Release It! 2 uppl. Pragmatic Bookshelf.
 OWASP (2025). OWASP Top 10:2025; OWASP Application Security Verification Standard 5.0.
@@ -224,6 +234,7 @@ Spencer, D. (2009). Card Sorting. Rosenfeld Media.
 Stickdorn, M., Hormess, M., Lawrence, A. & Schneider, J. (2018). This Is Service Design Doing. O'Reilly.
 Swan, H., Pouncey, I., Pickering, H. & Watson, L. (2017). Inclusive Design Principles. inclusivedesignprinciples.org.
 Tidwell, J., Brewer, C. & Valencia, A. (2020). Designing Interfaces. 3 uppl. O'Reilly.
+Tuch, A.N., Presslaber, E.E., Stöcklin, M., Opwis, K. & Bargas-Avila, J.A. (2012). The role of visual complexity and prototypicality regarding first impression of websites. International Journal of Human-Computer Studies, 70(11).
 W3C (2014). Website Accessibility Conformance Evaluation Methodology (WCAG-EM) 1.0.
 W3C (2023). Web Content Accessibility Guidelines (WCAG) 2.2.
 Walton, P. (2020). Web Vitals. web.dev.

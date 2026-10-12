@@ -79,6 +79,16 @@ Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sa
 | 8. Exporten till kundrepo | Byggflöde → Exportera till kundrepot, `prototyp.py <slug> --exportera --start-id <id>`, eller `exportera.py <slug> [--git]`; kundrepot (`kunder/<slug>/kundrepo`, ett eget git-repo med kort CLAUDE.md) skapas av `kontroller/kundrepo.py` när sajten skapas, och en verklig verksamhet får det privata `Nortropic/kund-<slug>` | en commit i kundrepot per export (pushad när fjärrepot är bundet; projektstart, push och fjärrepo prövas först med läckagekontrollen, som vid push gäller hela historiken som skickas: varje commit, fil och commitmeddelande, bunden till den commit som pushas), byggprov och privat EXPORT.json per export med käll- och exporthash, commit och godkännandenas omfattning; identiteten i `kunder/<slug>/KUNDREPO.json`; tidigare export bevaras i git | en testexport får göras utan godkännande, men är aldrig i sig en kundklar leverans; en fiktiv verksamhet får aldrig ett fjärrepo; extern publicering återstår |
 | 9. Leveransen: förhandsvisning, skydd och DNS | Byggflöde → Förhandsvisa exportens commit, `prototyp.py <slug> --preview --start-id <id>` eller `kundrepo.py <slug> --preview` (Wrangler i Nortropics Cloudflare-konto ur den privata `cloudflare.env`, Workern `kund-<slug>-forhandsvisning` bakom Cloudflare Access, metadata commit och export); produktion, D1, R2, Access och domänen: människa med ägarens ja (`kunskap/lansering.md`, Cloudflare-steget) | privat `kunder/<slug>/leverans/PREVIEW-<tid>.json` med adress, versions-id, commit, export, det frysta underlagets sha256, skyddet före och efter och status (`vantar_pa_konto` utan konto, `vantar_pa_skydd` när Access saknas för en verklig verksamhet); uppladdningen går ur commitens filer under kundens lås; Flöde visar den | en förhandsvisning är inte produktion; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut; Workern är prövad lokalt i workerd, men verklig driftsättning är inte prövad: kontot är inte anslutet |
 
+
+**Designfasen i Claude Design** (normalflödet för formgivningen sedan 2026-10-12; `kunskap/claude-design.md`) ersätter
+steg 2–5 för formgivningen men inte för researchen: `designfas.py ny <slug>` och sedan `prototyp.py <slug>` gör
+researchen och stannar i steget `forskad`; ägaren startar utföraren med `./design.sh <slug>`, som skapar eller öppnar
+kundens duk på claude.ai (privat). Riktningarna, valet och förfiningen görs på duken; specialistinsatser beställs med
+`designfas.py bestall` och körs med `designfas.py specialist`; ägaren godkänner en exakt version med sitt eget kommando
+`designfas.py godkann <slug> <v> --ritning <fil>`, och överlämningen (`designfas.py overlamna <slug>`) är det kor.sh tar
+vid från i steg 6. Spåret står i `underlag/<slug>/design/` (versioner med bilder i 390/768/1440, kontroller,
+beställningar och svar, GODKANNANDE.json och `overlamning/<v>/`). Chat-knappen på duken och Remote Control är oprövade.
+
 Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
 tills grindarna är gröna och två oberoende granskare godkänt, eller tills taket nås (slutkod 1), och skriver `kunder/<slug>/RAPPORT.md` och sina egna
 frågor till dig. Rapporten gäller bara när den skrivits i körningen; ett tidigare bygges rapport flyttas till

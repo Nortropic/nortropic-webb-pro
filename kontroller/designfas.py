@@ -91,6 +91,16 @@ SVAR_SCHEMA = {
                                      'misslyckade': {'type': 'array', 'items': {'type': 'string'}}}},
     },
 }
+# byggstandardens avsnitt som varje specialistpass bedömer mot (tillägget 2026-10-12, punkt 5), utöver rollens kärna
+STANDARD = {
+    'ds_granskning': '2 (HTML och semantik), 3.3 och 3.4 (träffytor, kontrast, fokus), 5 (tillgänglighet) och 6 (formulär)',
+    'ds_rorelse': '3.5 (rörelse) och 3.8 (webbläsarstöd)',
+    'ds_responsiv': '3.2 och 3.3 (mobilen först, sidledsspill, träffytor), 3.8 och 4.2 och 4.7 (bilder och laddning) och 5.8 (reflow)',
+    'ds_typografi': '3.1 (tokens och skala), 3.4 (kontrast) och 4.3 (typsnitt)',
+    'ds_kritik': '0 (principer), 9 (innehåll och konvertering) och 3.3–3.5, 5.2 och 5.7 så långt bilderna visar dem',
+    'ds_innehall': '9 (innehåll och konvertering) och 7.5 (en sida per tjänst)',
+    'ds_bild': '2.4 och 4.2 (bilder) och 9.3 (förtroende, egna bilder)',
+}
 OVERLAMNING_RUBRIKER = ('Designvärden', 'Komponenter', 'Responsiva regler', 'Interaktionstillstånd och beteenden',
                         'Innehåll, bilder och typsnitt med ursprung', 'Prototypkod som kan återanvändas', 'Öppna frågor',
                         'Endast simulerat')
@@ -336,6 +346,16 @@ def rendera(slug, v, kontroll=False, underlag=None):
                         '--ritningar', ','.join(x['fil'] for x in post['ritningar'])] + (['--kontroll'] if kontroll else []),
                        capture_output=True, text=True, timeout=900, env=env, cwd=str(ROOT))
     b = las(vk / 'BILDER.json') or {}
+    ax = las(vk / 'kontroll' / 'axe' / 'axe.json') if kontroll else None
+    if isinstance(ax, dict):  # axe:s "incomplete" för kontrast (t.ex. color-mix()) släpps av grinden: här blir det en varning
+        ofull = ['%s %s%s' % (r.get('vy'), r.get('sida'), (' [%s]' % r['tillstand']) if r.get('tillstand') not in (None, 'sida') else '')
+                 for r in ax.get('rader') or [] for v in r.get('ofullstandiga') or [] if v.get('id') == 'color-contrast']
+        b['axe'] = {'allvarliga': ax.get('allvarliga'), 'totalt': ax.get('totalt'), 'fel': ax.get('fel'), 'ofullstandig_kontrast': ofull,
+                    'version': ax.get('axeVersion')}
+        for r_, rp_ in (b.get('ritningar') or {}).items():
+            if any(('/' + r_) in x for x in ofull):
+                rp_.setdefault('varningar', []).append('axe kunde inte avgöra textkontrasten (incomplete) i %s; ge text och bakgrund färdiga '
+                                                      'färgvärden (byggstandarden 3.4)' % ', '.join(x for x in ofull if ('/' + r_) in x)[:300])
     b.update({'runtime': {'release': rtpost.get('release'), 'sha256': rtpost.get('sha256')}, 'saknade_tillgangar': saknade,
               'slutkod': r.returncode, 'utdata': (r.stdout or '')[-800:], 'fel': (r.stderr or '')[-800:]})
     skriv(vk / 'BILDER.json', b)
@@ -413,6 +433,11 @@ def specialist_prompt(slug, b, underlag=None):
         *rader,
         '' if kritik else 'Versionens källa (ritningarnas .dc.html, dukens format): %s/' % rel(vk / 'kanvas'),
         'Kontrollerna mot samma rendering (axe med menyn öppen och formulären skickade tomma, stilrapporten): %s/' % rel(vk / 'kontroll'),
+        'Mätningarna och varningarna per ritning och bredd i %s: LCP-kandidaten, layoutskiften, bildernas storlek mot visad storlek,'
+        ' rörelsen vid laddningen, efter 5,5 s och med reducerad rörelse, reflow i 320, synlig fokus för de tio första tabbstegen och'
+        ' om sidan förändras mellan 6 och 7 s. Varningarna är underlag att pröva i bilderna, inte domar.' % rel(vk / 'BILDER.json'),
+        *(['Bedöm mot kunskap/byggstandard.md, avsnitten %s: läs dem innan du bedömer, och ange punktens nummer i varje fynd som gäller'
+           ' den.' % STANDARD[b['pass']]] if b['pass'] in STANDARD else []),
         '',
         'Kundens underlag: %s/KUNDFORSTAELSE.md först, sedan BRIEF.md, VERKSAMHET.json, bilder/BILDER.md och vid behov RESEARCH.md'
         ' och TEXTUNDERLAG.md. Sanning: varje namn, tal och påstående om verksamheten har belägg där. Designreglerna:' % u,
@@ -422,6 +447,7 @@ def specialist_prompt(slug, b, underlag=None):
             'och säg för varje dom vilken sajt du jämför med och vad i bilderna jämförelsen bygger på.' % rel(MATTSTOCK))
            if MATTSTOCK.is_file() else
            'Ägarens måttstock ur "Visa mig nivån" finns inte än: din ribba är kvalitetskraven, standarden och litteraturen, inte ägarens smak; säg det i sammanfattningen.',
+           'Besvara granskningsfrågorna i kunskap/granskningsfragor.md (läs filen hel), var och en med bredden och bilden svaret bygger på.',
            'Din dom är en AI-bedömning: skriv den som din, aldrig som ägarens, och ändra ingenting.'] if kritik else []),
         '',
         *kompetens.prompt_rader(b['pass'], slug),

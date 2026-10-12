@@ -185,7 +185,8 @@ def fasens_roller(vag=None):
     elif (vag.get('id'), vag.get('fas')) == ('kandidatflodet', 'fore_research'):
         valda = kompetens.for_pass('forska', roller)
     elif (vag.get('id'), vag.get('fas')) == ('kandidatflodet', 'efter_research'):
-        valda = [x for x in roller.values() if set(x['pass']) & (set(kompetens.PASS) - {'forska', 'forbered', 'helbygge'})]
+        # kandidatflödets pass efter researchen; designfasens specialistpass (kompetens.DESIGNSTOD) körs utanför kandidatflödet
+        valda = [x for x in roller.values() if set(x['pass']) & (set(kompetens.PASS) - {'forska', 'forbered', 'helbygge'} - set(kompetens.DESIGNSTOD))]
     elif (vag.get('id'), vag.get('fas')) in (('aldre', 'fore_utforskning'), ('aldre', 'efter_val')):
         valda = kompetens.for_pass('skapa' if vag['fas'] == 'fore_utforskning' else 'fordjupa', roller)
     else:

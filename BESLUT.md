@@ -5450,3 +5450,34 @@ specifikation) ger ordningen; dess fasta sektionsordning, HTML/Netlify och "kör
   att sidan blev bättre; det visar bara sidan och ägaren.
 - **Rättelse av rapporten 2026-10-11 (privat):** en rubrik i k02 flaggades där felaktigt som ett antagande;
   provfallets uppdragsunderlag stöder den.
+
+## Tillägg 2026-10-12: designfasen i Claude Design, med hela kompetens- och verktygskedjan
+
+**Status:** gäller; genomfört av Claude i grenen `claude/claude-design-20261012`. Mekaniken prövad (`prov_designfas`),
+miljön prövad med en provduk; det fiktiva fallet och vad som är oprövat står i slutrapporten
+(`underlag/rapporter/RAPPORT-2026-10-12-claude-design.md`, privat). Ingen design är bedömd av ägaren.
+
+Ägarens uppdrag (inklistrat, ankomst före 2026-10-12T16:18:56Z; ordagrant i
+`underlag/uppdrag/PROMPT-Nortropic-Claude-Design-konvertering-20261012.md`, privat), med tillägget om best practice 2026
+(ankomst före 16:58:51Z; `…-tillagg-best-practice-2026-20261012.md`). Ur uppdraget, ordagrant: "Claude Design
+ansvarar för den löpande formgivningen och är min arbetsyta för att se, jämföra, kommentera och välja." "Code ska inte
+samtidigt utveckla en konkurrerande kunddesign." "Designgodkännande, byggstart och publicering är separata beslut."
+
+- **Miljön** (`kunskap/claude-design.md`, Målmiljön): Design-typen driven från en interaktiv Claude Code-session i
+  repots rot. Den fristående claude.ai/design stängs 2026-12-14; en Claude-konversation når varken repots skills, de
+  lokala verktygen eller kundvakten. Prövat 2026-10-12: duk, tillgångar, versions-id, återläsning, bevakning, lokal
+  rendering med typens körmiljö; `claude -p` saknar Artifact-verktyget, så utföraren är en interaktiv session som ägaren
+  startar (`./design.sh <slug>`), och repots skill `design` skuggar `/design`.
+- **En utförare per duk.** Bara utföraren skriver dukens versioner; specialistpassen (`designfas.py specialist`,
+  ds_* i metodkartans block) lämnar underlag. En aktiv designfas (`underlag/<slug>/design/DESIGNFAS.json`) stoppar
+  kandidatflödet efter researchen (`steg forskad`; samma stopp på begäran med `NWP_KANDIDAT_STOPP_EFTER=forskning`), och
+  ateljén nekar skiss, förfining och uppdrag i Code.
+- **Versioner och observation:** varje publicering sparas som `design/versioner/vNN/` med dukens filer oförändrade,
+  hashar, bilder i 390/768/1440 och med menyn öppen, mätningar (LCP-kandidat, layoutskiften, bildstorlekar, rörelse med
+  och utan reducerad rörelse), axe i tillstånden och stilrapporten. Code ser dukens filer och renderingen, inte Designs
+  gränssnitt.
+- **Godkännandet är ägarens eget kommando** (`designfas.py godkann`, nekat sessionerna i projektets inställningar och i
+  utförarens), skrivet i domloggen och bundet till versionens filer och bilder; kor.sh tar vid bara med en komplett
+  överlämning (`designfas.godkand_giltig`), och provet jämför bygget med förlagans bilder.
+- **Kandidatflödet i Code** (skissläget, ateljén, studion) står kvar oförändrat för kunder utan designfas och kan
+  användas igen; det är inte längre normalflödet för formgivningen.
