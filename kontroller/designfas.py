@@ -505,6 +505,11 @@ def rendera(slug, v, kontroll=False, underlag=None):
     s, saknade, rtpost = bygg_sida(slug, v, underlag)
     post = las(vk / 'VERSION.json')
     env = dict(os.environ, NWP_SLUG=slug)
+    if kontroll:  # impeccables detektor i kontrollen (valideringen 2026-10-12); utan motor körs resten som förut
+        import detektor
+        m = detektor.motor()
+        if m:
+            env.update(IMPECCABLE_MOTOR=str(m), IMPECCABLE_SKILL_DIR=str(detektor.SKILL))
     r = subprocess.run(['node', str(ROOT / 'kontroller' / 'designfas' / 'rendera.mjs'), '--sida', str(s), '--ut', str(vk),
                         '--ritningar', ','.join(x['fil'] for x in post['ritningar'])] + (['--kontroll'] if kontroll else []),
                        capture_output=True, text=True, timeout=900, env=env, cwd=str(ROOT))
@@ -597,7 +602,9 @@ def specialist_prompt(slug, b, underlag=None):
         'du läst:',
         *rader,
         '' if kritik else 'Versionens källa (ritningarnas .dc.html, dukens format): %s/' % rel(vk / 'kanvas'),
-        'Kontrollerna mot samma rendering (axe med menyn öppen och formulären skickade tomma, stilrapporten): %s/' % rel(vk / 'kontroll'),
+        'Kontrollerna mot samma rendering (axe med menyn öppen och formulären skickade tomma, stilrapporten och impeccables'
+        ' detektor i 390 och 1440 under detektor/, med regel, allvar och kategori men utan kodutdrag): %s/. Pröva varje'
+        ' detektorfynd mot bilderna och ägarbesluten; ett fynd rättas eller motiveras med namngivet belägg.' % rel(vk / 'kontroll'),
         'Mätningarna och varningarna per ritning och bredd i %s: LCP-kandidaten, layoutskiften, bildernas storlek mot visad storlek,'
         ' rörelsen vid laddningen, efter 5,5 s och med reducerad rörelse, reflow i 320, synlig fokus för de tio första tabbstegen och'
         ' om sidan förändras mellan 6 och 7 s. Varningarna är underlag att pröva i bilderna, inte domar.' % rel(vk / 'BILDER.json'),

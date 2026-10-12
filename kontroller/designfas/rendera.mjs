@@ -8,7 +8,7 @@
 // (aria-expanded i sidhuvudet eller navigationen) finns, och <ut>/BILDER.json med mätningarna per bredd: LCP-kandidaten,
 // layoutskiften, bildernas storlek mot visad storlek, rörelsen vid laddningen och efter 5,5 s, och samma rörelse med
 // prefers-reduced-motion: reduce i 390 och 1440 (varningar, inte fel); med --kontroll också axe (med menyn öppen och
-// formulären skickade tomma) och stilrapporten i <ut>/kontroll/. Dessutom reflow i 320, synlig fokus för de tio första
+// formulären skickade tomma), stilrapporten och impeccables detektor (med IMPECCABLE_MOTOR) i <ut>/kontroll/. Dessutom reflow i 320, synlig fokus för de tio första
 // tabbstegen i 390 och 1440 (bild med och utan fokus) och om sidan förändras mellan 6 och 7 s utan interaktion. LCP och
 // CLS här gäller ritningen lokalt, inte fältdata. Exit 0 när allt renderades, 1 när en ritning föll
 // (sidfel, ingen h1, sidledsspill), 2 vid fel i anropet. Inget lämnar maskinen utom Google Fonts-länkar som ritningen själv har.
@@ -217,6 +217,27 @@ if (kontroll) {
     const r = spawnSync(process.execPath, [join(kontroller, skript), `--url=${bas}`, `--sidor=${sidor}`, `--ut=${join(k, namn)}`, ...extra],
       { encoding: 'utf-8', timeout: 300000, env: process.env });
     post.kontroll[namn] = { slutkod: r.status, utdata: (r.stdout || '').slice(-1500), fel: (r.stderr || '').slice(-1500) };
+  }
+  // impeccables detektor på den renderade ritningen i 390 och 1440 (critique.md: "A skipped detector is a failed critique
+  // run"; valideringen 2026-10-12): motorn får versionens adress och läser sidan i sin egen webbläsare
+  if (process.env.IMPECCABLE_MOTOR) {
+    const d = join(k, 'detektor');
+    mkdirSync(d, { recursive: true });
+    post.kontroll.detektor = {};
+    for (const r of ritningar) {
+      for (const vp of ['390x844', '1440x900']) {
+        const x = spawnSync(process.env.IMPECCABLE_MOTOR, ['detect', '--json', '--no-config', '--viewport', vp, `${bas}/${r}`],
+          { encoding: 'utf-8', timeout: 240000, env: process.env });
+        let fynd = null;
+        try { const j = JSON.parse(x.stdout || '[]'); fynd = Array.isArray(j) ? j : (j.findings || j.results || []); } catch { /* */ }
+        // bara regelkatalogens fält: kodutdrag och sidans text får aldrig nå den blinda kritiken (detektor.for_granskaren)
+        if (fynd) fynd = fynd.filter((f) => f && typeof f === 'object').map((f) => Object.fromEntries(
+          ['antipattern', 'rule', 'name', 'description', 'severity', 'category', 'advisory'].filter((n) => f[n] !== undefined).map((n) => [n, f[n]])));
+        const fil = join(d, `${r}-${vp.split('x')[0]}.json`);
+        writeFileSync(fil, JSON.stringify(fynd ?? { fel: (x.stderr || '').slice(-800), slutkod: x.status }, null, 1) + '\n');
+        post.kontroll.detektor[`${r} ${vp}`] = fynd ? { fynd: fynd.length, slutkod: x.status } : { fel: 'motorn gav inget läsbart svar', slutkod: x.status };
+      }
+    }
   }
 }
 srv.close();

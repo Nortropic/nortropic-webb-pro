@@ -63,10 +63,18 @@ const google = verifiering && typeof verifiering.google === 'string' && /^[A-Za-
 <style is:global>
   .skiplank { position: absolute; left: 0.5rem; top: -100%; padding: 0.75rem 1rem; background: #fff; color: #000; z-index: 1000; }
   .skiplank:focus { top: 0.5rem; }
-  /* Byggstandarden 3.5: den som har bett om mindre rörelse får inga övergångar, animationer eller mjuk skroll. */
+  /* Mobilgrunderna (emil-mobile-native, better-accessibility; valideringen 2026-10-12): inget grått tryckblink, ingen
+     dubbeltrycksfördröjning på kontroller, fält i minst 16 px så att iOS inte zoomar, och fokus som aldrig döljs under
+     ett fast sidhuvud (WCAG 2.4.11; sätt --sidhuvud till sidhuvudets höjd där det är fast). */
+  html { -webkit-tap-highlight-color: transparent; scroll-padding-top: var(--sidhuvud, 0px); }
+  a, button, [role="button"], input, select, textarea, label { touch-action: manipulation; }
+  input, select, textarea { font-size: max(16px, 1em); }
+  /* Byggstandarden 3.5: den som har bett om mindre rörelse får inga övergångar, animationer eller mjuk skroll, och inga
+     fördröjningar heller; återkoppling som inte förflyttar något (data-motion-feedback) får finnas kvar. */
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    *:not([data-motion-feedback]), *:not([data-motion-feedback])::before, *:not([data-motion-feedback])::after {
+      animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important;
+      transition-duration: 0.01ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
     /* övergångar mellan sidor når inte återställningen ovan (mätt 2026-10-12 i Chromium och WebKit) */
     ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   }

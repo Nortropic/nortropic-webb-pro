@@ -160,8 +160,7 @@ MCP = {  # Refero och Mobbin: referenstjänsternas egna verktygslistor (en käll
     # hämtar en vald komponents kod med källa, licens och beroenden (get_component; åtkomsten avgörs av kontot) och
     # rangordnar metadata (get_inspiration), hämtar ett tema (get_theme) och tredjepartsmärken (search_logo); katalogens
     # publicerings-, konto- och videoverktyg har ingen uppgift
-    '21st': ('mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration', 'mcp__21st__get_theme',
-             'mcp__21st__search_logo'),  # tredjepartsmärken ur svgl.app i polish och helbygget (inventeringen 2026-10-12)
+    '21st': ('mcp__21st__search', 'mcp__21st__get_component', 'mcp__21st__get_inspiration', 'mcp__21st__get_theme'),
 }
 MCPNAMN = {'refero': 'Refero (stilar, skärmar, sajter och flöden)', 'mobbin': 'Mobbin (skärmar, sektioner och flöden)',
            'motion': 'Motion (dokumentation och exempel för motion, motion/react och motion-v; den fria servern)',
@@ -645,11 +644,18 @@ def prompt_rader(pass_, slug, kid=None, k=None):
                          '. Gör generiska sökningar, inspektera resultaten och redovisa vad som valdes eller förkastades och varför.'
                          ' Saknad åtkomst, tomma eller misslyckade resultat är en uppgiftsbrist, aldrig ett genomfört steg.')
         if '21st' in x['mcp']:
-            rader.append('- 21st: sök användbara implementationsgrunder innan formen låses; jämför förhandsvisningarna, hämta vald'
-                         ' komponent med get_component eller temat med get_theme och kontrollera kod, licens och beroenden.'
-                         ' För vidare id, källa, hämtad fil och avsedd användningsplats. Bygg vidare på den hämtade koden och'
-                         ' pröva resultatet i mobil och dator. En referensbild är ingen kodmall. Följ projektets befintliga'
-                         ' beroendeprocess; kontoåtgärder och extern AI-generering ingår inte.')
+            rader.append('- 21st: katalogens styrka är marknadsföringsblocken (heroes, features, galleri och portfolio, testimonials,'
+                         ' calls to action, pricing och meny, navbars, footers, bakgrunder och shaders, texteffekter) och biblioteken'
+                         ' (Aceternity UI, Magic UI, Kokonut UI, Ruixen UI med flera; search med author). Sök formbeskrivande per'
+                         ' sektion sidan behöver (t.ex. "editorial hero with full-width photograph and serif headline"), jämför'
+                         ' förhandsbilderna och videorna, och hämta två eller tre starka block per sektion med get_component.'
+                         ' get_component ger ingen licens: läs licensen på komponentsidan (url), och en saknad licens i svaret är'
+                         ' aldrig ett skäl att välja bort koden. Härled beroendena ur kodens importer, inte ur svarets lista, och'
+                         ' anpassa enligt porteringsreceptet i kunskap/beroenden.md; nya paket väljs fritt när de höjer kvaliteten'
+                         ' (ägarens besked 2026-10-12). Teman: sök på temats namn eller utgå från Referos get_style (beskrivande'
+                         ' temasökningar ger tom lista). Mallar (type template, med branschord) är förlagor till hela sidor. För'
+                         ' vidare id, källa, licens, hämtad fil och användningsplats, bygg vidare på koden och pröva i mobil och'
+                         ' dator. En referensbild är ingen kodmall; kontoåtgärder och 21st-generering ingår inte.')
         rader.append('- passet visar: ' + x['visar'])
     return rader
 

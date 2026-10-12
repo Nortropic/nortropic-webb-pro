@@ -88,7 +88,7 @@ def las_uppdrag(fil):
     return {'fragor': ut}, None
 
 
-def prompt_for(tjanst, fragor, bransch):
+def prompt_for(tjanst, fragor, bransch, korsning=()):
     """Uppdraget till tjänstens session. Bara branschen följer med, aldrig kundens namn, ort eller andra uppgifter: allt
     sessionen skickar i en parameter (Mobbins task_intent, sökfrågorna) lämnar maskinen (tjänsternas villkor och
     dokumentation, 2026-10-05; förra körningen skickade kundens namn i task_intent)."""
@@ -105,7 +105,8 @@ def prompt_for(tjanst, fragor, bransch):
                   'refero_get_screen för de bästa (typsnitt, färger, sidtyper, UI-element och innehållet); bild_url är skärmens Preview URL',
                   '(images.refero.design/screenshots/…), aldrig Thumbnail URL. För frågor av typen flode: refero_search_flows och',
                   'refero_get_flow, och svara med flödets steg i ordning (steg: bild_url och vad steget visar).',
-                  'Bredda med refero_get_similar_screens från en stark träff och refero_search_sites för hela sajter; formulera om en',
+                  'Bredda med refero_get_similar_screens från en stark träff och refero_search_sites för hela sajter (sök sajten med namn',
+                  'eller domän; branschord ger fel träffar, så en branschfråga går till refero_search_styles); formulera om en',
                   'sökning när träffarna är svaga, och skriv det i anmarkning.']
         if any(f.get('typ') == 'stil' for f in fragor):
             rader += ['För frågor av typen stil: refero_search_styles och sedan refero_get_style för de bästa (högst åtta), och svara i stilar:',
@@ -117,13 +118,20 @@ def prompt_for(tjanst, fragor, bransch):
                   'how it works, social proof, pricing, FAQ, footer); sök den viktigaste sektionen och de sektioner sidan behöver, en per',
                   'anrop. search_screens och search_flows söker med platform "web"; "ios" bara när frågan uttryckligen gäller ett',
                   'appmönster som mobilen behöver, med skälet i anmarkning. Beskriv innehållet och elementen konkret (verktygen avråder',
-                  'från vaga stilord), och använd mode "deep" för frågor där kvaliteten avgörs av helheten snarare än av ett element.',
+                  'från vaga stilord), och använd mode "deep" för frågor där kvaliteten avgörs av helheten snarare än av ett element,',
+                  'högst en deep per fråga. Ett sajtnamn i search_sections (till exempel en sajt Refero gav som stil) ger den sajtens',
+                  'sektioner; hämta nästa sida (page) när has_next_page och träffarna är starka. För hantverk och lokala tjänster: sök',
+                  'med funktionsord (bokning, prislista, galleri, öppettider) snarare än yrkesord, eftersom Mobbins bibliotek är tunt för',
+                  'lokala verksamheter. En enfärgad eller tom bild ur en animerad sektion räknas inte som träff.',
                   'Använd search_screens (sidor och tillstånd), search_sections (avgränsade sektioner; verktyget har ingen platform-',
                   'parameter) eller search_flows (användarresor: svara med stegen i ordning i steg) efter vad frågan gäller; bild_url är',
                   'image_url för träffen (tillfällig länk, ska laddas ner nu). search_screens kräver ett uttryckligt mode: "standard" för',
                   'snabba sökningar eller "deep" för nyanserade frågor (ingår i kontots Pro-plan, obegränsat under Mobbins beta); kundvakten',
                   'stoppar ett anrop utan mode (search_sections och search_flows har inget mode). Bredda eller',
                   'formulera om en sökning när träffarna är svaga, och skriv det i anmarkning.']
+    if korsning:  # Referos stilar och sajter förs vidare till Mobbin (valideringen 2026-10-12: samma sajt fanns i båda)
+        rader += ['Refero gav nyss de här sajterna som stil eller förlaga; sök deras sektioner i search_sections med sajtens namn,',
+                  'så att stilen och sektionerna kommer från samma förlaga: ' + ', '.join(korsning[:6]) + '.']
     rader += ['Svara enligt schemat: anrop (varje verktygsanrop: verktyg, argument, resultat_typ: text, json, bild-url eller inline-bild),',
               'stilar (tom lista när ingen fråga är av typen stil),',
               'traffar (id, titel, sida_url, bild_url eller tom sträng, en beskrivning av vad bilden visar, och vilken fråga träffen hör till),',
@@ -434,7 +442,14 @@ def samla(slug, uppdrag, underlag=None, torr=False, modell=MODELL, lokala_portar
             continue
         logg = tkat / ('session-%s.jsonl' % stampel)  # en logg per körning: råmaterialet skrivs aldrig över
         try:
-            rc, fel = kor(tjanst, prompt_for(tjanst, fragor, verksamhet), logg, modell)
+            korsning = ()
+            if tjanst == 'mobbin' and res['tjanster'].get('refero'):  # Referos förlagor till Mobbins sektionssökning
+                ref = res['tjanster']['refero']
+                korsning = tuple(dict.fromkeys(
+                    re.sub(r'^https?://(www\.)?', '', str(x.get('sida_url') or '')).split('/')[0]
+                    for x in list(ref.get('stilar') or []) + list(ref.get('traffar') or []) if x.get('sida_url')))
+                korsning = tuple(k for k in korsning if k and not skapande.namner_kunden(k, forbjudna))
+            rc, fel = kor(tjanst, prompt_for(tjanst, fragor, verksamhet, korsning), logg, modell)
         except Exception as e:  # noqa: BLE001
             rc, fel = 1, str(e)[:300]
         verktygssvar, felsvar = [], set()
