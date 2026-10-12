@@ -252,6 +252,13 @@ GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.ar
 import skapande
 ok, skal = skapande.godkand_giltig(sys.argv[2])
 print("ja" if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
+# Claude Design (kunskap/claude-design.md; ägarens uppdrag 2026-10-12): ägarens designgodkännande av en exakt version på
+# duken, med en komplett överlämning (kontroller/designfas.py godkand_giltig). Godkännandet startar inget; bygget är
+# ägarens eget beslut, när kor.sh startas.
+DESIGNGODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+import designfas
+ok, skal, g = designfas.godkand_giltig(sys.argv[2])
+print(g["version"] + " " + g["ritning"] if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 FRYSTA=()   # godkännandets underlagsgrund, fylld nedan från en godkänd startsida
 AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import prototyp
@@ -260,7 +267,7 @@ print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || 
 # före bygget, med kvittot i underlag/$SLUG/atelje/STARTKVITTO-BYGGE.md. Ett nödvändigt verktyg som inte fungerar stoppar
 # starten. Uppdateringarna prövas och tas in av det dagliga underhållet (kontroller/underhall.py), aldrig här. Körs bara
 # när bygget faktiskt startar (en godkänd startsida eller nödvägen), före allt som skriver i sajten.
-if [ -n "$GODKAND" ] || [ "${NWP_ATELJE:-pa}" != "pa" ]; then
+if [ -n "$GODKAND" ] || [ -n "$DESIGNGODKAND" ] || [ "${NWP_ATELJE:-pa}" != "pa" ]; then
   "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/startkontroll.py" --slug "$SLUG" --start bygge > "$ROOT/kunder/$SLUG/startkontroll.log" 2>&1 \
     || stopp "startkontrollen stoppade bygget: se underlag/$SLUG/atelje/STARTKVITTO-BYGGE-STOPP.md (logg: kunder/$SLUG/startkontroll.log)"
 fi
@@ -287,6 +294,26 @@ kandidat ur kandidatflödet har också sina undersidor där, och DESIGN.md i kun
 Steg 1–4 är gjorda och godkännandets underlag är fryst: skriv inte om ${FRYSTA[*]} i underlag/$SLUG/ (Write, Edit och
 sandlådan nekar det; godkännandet gäller den underlagsversionen, VINNARE.json: underlag_sha, och en ändring gör det
 till historik). Saknas INNEHALL.md är TEXTUNDERLAG.md sidans text; innehåll som bygget behöver utöver underlaget
+skriver du i kunder/$SLUG/INNEHALL-BYGGE.md. Steg 5–7:s egna arbetsfiler (KONCEPT.md, FRASER.txt, RESOR.json,
+JAMFORELSE.md, GRANSKNINGSLOGG.md med flera) skrivs i underlag/$SLUG/ som förut."
+elif [ -n "$DESIGNGODKAND" ]; then
+  # ägarens designgodkännande i Claude Design: överlämningen och förlagan är frysta, och underlagsgrunden som ovan
+  read -r DVERSION DRITNING <<< "$DESIGNGODKAND"
+  IFS=' ' read -r -a FRYSTA <<< "$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+import skapande
+print(" ".join(skapande.UNDERLAGSGRUND + tuple(k + "/**" for k in skapande.UNDERLAGSKATALOGER) + ("design/**",)))' "$ROOT")" \
+    || stopp "underlagsgrunden (kontroller/skapande.py UNDERLAGSGRUND) kunde inte läsas"
+  [ ${#FRYSTA[@]} -ge 10 ] || stopp "underlagsgrunden (kontroller/skapande.py UNDERLAGSGRUND) är tom"
+  PROMPT="$PROMPT
+
+Ägaren har godkänt designen i Claude Design (underlag/$SLUG/design/GODKANNANDE.json; kunskap/claude-design.md):
+version $DVERSION, ritningen $DRITNING. Överlämningen är underlag/$SLUG/design/overlamning/$DVERSION/: läs
+OVERLAMNING.json och DESIGN.md först, sedan ritningen i kanvas/ och jämförelsebilderna i bilder/. Kör inte ateljén och
+skissa ingen ny riktning: ta vid i steg 5 som skillen bygg-sajt säger om en godkänd design ur Claude Design och
+implementera startsidan som förlagan, sedan resten av sajten i samma riktning. En betydande avvikelse från förlagan är ett
+nytt designbeslut för duken och ägaren, aldrig ett eget val i bygget.
+Steg 1–4 är gjorda och godkännandets underlag är fryst: skriv inte om ${FRYSTA[*]} i underlag/$SLUG/ (Write, Edit och
+sandlådan nekar det). Saknas INNEHALL.md är TEXTUNDERLAG.md sidans text; innehåll som bygget behöver utöver underlaget
 skriver du i kunder/$SLUG/INNEHALL-BYGGE.md. Steg 5–7:s egna arbetsfiler (KONCEPT.md, FRASER.txt, RESOR.json,
 JAMFORELSE.md, GRANSKNINGSLOGG.md med flera) skrivs i underlag/$SLUG/ som förut."
 elif [ "${NWP_ATELJE:-pa}" = "pa" ] && [ -n "$AGARENS_STOPP" ]; then

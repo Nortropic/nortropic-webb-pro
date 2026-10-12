@@ -5,6 +5,9 @@
       "Bash(git push origin main)",
       "Bash(git -C /Users/elinhaggstrom/nortropic-repos/nortropic-webb-pro merge --ff-only *)",
       "Bash(git -C /Users/elinhaggstrom/nortropic-repos/nortropic-webb-pro push origin main)"
+    ],
+    "deny": [
+      "Bash(*designfas.py godkann*)"
     ]
   },
   "hooks": {

@@ -318,7 +318,7 @@ visar: varje uppdrag formulerar en idé, vad den prövar och en uppgift för bes
 ```kompetens komposition
 namn: Design och komposition
 uppgift: Forma en sammanhängande, kundspecifik riktning ur referenserna, kundens material och besökarens uppgift, och pröva referensens kvalitet (proportioner, komposition, bildstorlek och beskärning, komponenternas form) i kundens innehåll, eller ersätt den med något lika genomarbetat.
-pass: skapa, fordjupa
+pass: skapa, fordjupa, ds_komponent
 kärna: taste/SKILL.md; frontend-design/SKILL.md; impeccable/reference/craft-floor.md; kunskap/bild.md
 efter: refero-design/SKILL.md; impeccable/SKILL.md; impeccable/reference/critique.md; impeccable/reference/polish.md
 välj: hallmark/references/structure.md; hallmark/references/macrostructures.md; hallmark/references/component-cookbook.md; impeccable/SKILL.md; impeccable/reference/new-work.md; taste/SKILL.md; taste-soft/SKILL.md; taste-minimalist/SKILL.md; taste-brutalist/SKILL.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/delight.md; impeccable/reference/mode-persuade.md; brand/SKILL.md; banner-design/SKILL.md; better-variant/SKILL.md; ui-ux-pro-max/SKILL.md; refero-design/references/anti-ai-slop.md; refero-design/references/craft-details.md; canvas-design/SKILL.md; kunskap/skillskript.md; kunskap/materialtransport.md; kunskap/referensprofil.md
@@ -330,7 +330,7 @@ visar: riktningen syns i den renderade sidan i mobil, mellanbredd och dator; ref
 ```kompetens typografi
 namn: Typografi och färg
 uppgift: Ge sidan typskalan, de typografiska kontrasterna, hierarkin, radlängden och färgernas roller, med stilpaketet och huvudreferensen som material, anpassade till kundens innehåll.
-pass: skapa, fordjupa
+pass: skapa, fordjupa, ds_typografi
 kärna: impeccable/reference/typeset.md
 efter: better-typography/SKILL.md; impeccable/reference/colorize.md; better-colors/SKILL.md
 välj: refero-design/references/typography.md; refero-design/references/color.md; taste-output/SKILL.md; better-ui/SKILL.md
@@ -342,7 +342,7 @@ visar: typskalan, radlängden och färgrollerna i den renderade sidan, med stilp
 ```kompetens innehall
 namn: Innehåll och UX
 uppgift: Göra erbjudandet begripligt och besökarens viktigaste uppgift enkel, i verksamhetens egna ord och med verifierade fakta.
-pass: skapa, fordjupa
+pass: skapa, fordjupa, ds_innehall
 kärna: impeccable/reference/clarify.md; better-writing/SKILL.md; kunskap/copy-kontroll.md; kunskap/redaktionellt-pass.md
 välj: humanizer/SKILL.md; impeccable/reference/distill.md; better-explain-interface/SKILL.md; refero-design/references/copywriting.md; hallmark/references/copy.md
 verktyg: förhandsvisning
@@ -353,7 +353,7 @@ visar: besökarens viktigaste uppgift går att lösa från första vyn; rubriker
 ```kompetens responsiv
 namn: Responsiv implementation
 uppgift: Bygga komponenterna och layouten så att mobilens omställning är genomtänkt och 390, 768, 1280 och 1440 håller ihop, i en implementation som är enkel att underhålla.
-pass: skapa, fordjupa
+pass: skapa, fordjupa, ds_responsiv
 kärna: impeccable/reference/adapt.md; better-layout/SKILL.md
 efter: impeccable/reference/audit.md; impeccable/reference/layout.md
 välj: emil-mobile-native/SKILL.md; ui-styling/SKILL.md; better-ui/SKILL.md; hallmark/references/responsive.md; hallmark/references/layout-and-space.md
@@ -377,7 +377,7 @@ visar: menyn och den primära handlingen prövade i förhandsvisningens tillstå
 ```kompetens rorelse
 namn: Interaktion och rörelse
 uppgift: Välja och genomföra de beteenden som passar sidan, var och en med ett syfte, och välja tekniken per beteende med skäl: CSS först när den räcker, Motion (motion i ett <script>, motion/react i en React-ö) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer och scrollsekvenser; ett genomtänkt beslut kan vara att något ska vara stilla, och ingen rörelse läggs till för att fylla en kvot (ägarens uppdrag 2026-10-07, punkt 5C). Beslutstabellen motion/best-practices/css-or-motion.md läses hel före valet i passet rörelse (i skissen när rörelse väljs). Motions dokumentations-MCP har sin uppgift bara genom ett faktiskt anrop med kontrollerat resultat när ett beteende byggs med Motion.
-pass: rorelse
+pass: rorelse, ds_rorelse
 kärna: impeccable/reference/animate.md; emil-design-eng/SKILL.md; emil-animate/SKILL.md
 efter: emil-improve-animations/SKILL.md; emil-review-animations/SKILL.md
 välj: motion/best-practices/css-or-motion.md; motion/SKILL.md; motion/best-practices/index.md; motion/best-practices/motion.md; motion/best-practices/react.md; gsap/SKILL.md; gsap/gsap-core/SKILL.md; gsap/gsap-timeline/SKILL.md; gsap/gsap-scrolltrigger/SKILL.md; gsap/gsap-performance/SKILL.md; emil-find-animation-opportunities/SKILL.md; emil-review-animations/SKILL.md; emil-improve-animations/SKILL.md; emil-animation-vocabulary/SKILL.md; emil-apple-design/SKILL.md; refero-design/references/motion.md; hallmark/references/microinteractions.md; hallmark/references/interaction-and-states.md
@@ -389,7 +389,7 @@ visar: varje beteende prövat med förhandsvisningens tillstånd (meny, hovring,
 ```kompetens granskning
 namn: Tillgänglighet och visuell granskning
 uppgift: Inspektera den renderade sidan och interaktionsvägen, och rätta de konkreta bristerna i en avgränsad omgång utan att byta stil; bedöm återkoppling, fokus, avbrytbar rörelse, begriplighet, textstorlek och tillgänglighet i tillstånden mot principerna i kunskap/hig-principer.md, läst hel med Read (frågor att pröva, inget krav på Apples visuella stil); emil-apple-design läses hel med Read när den väljs, enligt K46:s undantag för väntande Initial Response-skills.
-pass: granskning
+pass: granskning, ds_granskning
 kärna: impeccable/SKILL.md; impeccable/reference/critique.md; impeccable/reference/polish.md; impeccable/reference/audit.md; impeccable/reference/craft-floor.md; better-accessibility/SKILL.md; refero-design/references/visual-workflow.md; kunskap/hig-principer.md
 välj: impeccable/reference/harden.md; impeccable/reference/optimize.md; impeccable/reference/bolder.md; impeccable/reference/quieter.md; impeccable/reference/degraded/finish-reviewer.md; better-interface-review/SKILL.md; better-interface/SKILL.md; emil-break-ui/SKILL.md; better-break/SKILL.md; taste-redesign/SKILL.md; hallmark/references/slop-test.md; hallmark/references/anti-patterns.md; emil-apple-design/SKILL.md
 verktyg: förhandsvisning, detektor
@@ -422,7 +422,7 @@ visar: RESEARCH.md, BRIEF.md, TEXTUNDERLAG.md och BESTALLNING.md med belägg, hy
 ```kompetens forska
 namn: Research och referensjakt
 uppgift: Formulera antagandena om besökarna som kan ändra designbesluten, hitta starka verkliga branschsajter genom webbsökning (svenska och internationella, byråers kundprojekt, jämförbara verksamheter) och professionell visuell inspiration genom gallerierna (Awwwards i varje ny designomgång, kompletterat med SiteInspire, Land-book, Godly, FWA, CSS Design Awards, Httpster eller One Page Love), och undersöka visuella förebilder, besökarflöden och återanvändbar kod innan riktningarna bestäms. Refero ger stil, skärmar och sajter; Mobbin ger sektioner och flöden; 21st ger komponenter och teman att pröva som implementationsgrund. Sök generiskt i alla vägar, sålla först och fördjupa sedan ett mindre urval, och skilj verklig branschsajt, visuell förebild, skärm eller flöde, återanvändbar komponent och tillgängligt tema eller mall. För vidare id, källa, upptäcktsväg, användningsplats och skäl för urval eller bortval; en vald komponent hämtas med kod, licens och beroenden, och en skärmbild kallas aldrig kodmall.
-pass: forska
+pass: forska, ds_research
 kärna: kunskap/referensjakt.md; refero-design/SKILL.md; refero-design/references/mcp-tools.md
 välj: kunskap/referenser-professionella.md; impeccable/reference/shape.md; better-explain-interface/SKILL.md; hallmark/references/macrostructures.md; ui-ux-pro-max/SKILL.md; refero-design/references/example-workflow.md
 verktyg: uxsok, webbsok
@@ -435,7 +435,7 @@ visar: frågorna och sajterna spänner över skilda grundidéer ur verksamhetens
 namn: Kritik av den renderade sidan, blind
 uppgift: Bedöma den renderade sidan som en besökare ser den, mot ribban, besökarens uppgift och ägarens aktuella domar i uppdraget, blind för skaparens text, uppdrag, referenspaket och kod och för tidigare riktningar (domloggen och riktningshistoriken är stängda som filer, och äldre domar slås inte upp): i mobil, mellanbredd och dator var för sig, och med menyn öppen, tangentbordet och reflow, första vyns huvudkomposition, hierarkin, bildval, bildskala och beskärning, rytmen och de typografiska kontrasterna, och om sidan har kundens särprägel eller om samma form kunde användas av nästan vilket lokalt tjänsteföretag som helst i branschen (generisk), prövat mot en eller två professionella förebilder av samma slag; och det bilderna visar av återkoppling, fokus, begriplighet, textstorlek och tillgänglighet i tillstånden (menyn öppen, tangentbordet, hovring och fokus på begäran, reflow 320) mot principerna i kunskap/hig-principer.md (läst hel med Read), där det som ingen bild visar står som inte bedömt.
 blind: i underlag/<slug> läser rollen bara briefen och kundens fakta och material (BRIEF.md, VERKSAMHET.json, RESEARCH.md, texten, BESTALLNING.md, bilder/), metoden och kandidatens egna bilder; kunder/<slug>, de andra kandidaterna, research på begäran (REFERENSUPPDRAG-*, TJANSTEUPPDRAG-*, också när de uppstår under sessionen), referensbeslutet, referenspaketet och de läsande skalkommandona nekas (kandidater.blind_nekas). Riktningshistoriken och domloggen nekas som filer (RIKTNINGSHISTORIK.json, DESIGNDOMAR.jsonl): ägarens beslut 2026-10-07 ("Ja, neka historiken"; GR-20261007-r103#K4). Ägarens aktuella domar står i uppdraget, och kritiken dömer mot dem och ribban, inte mot tidigare riktningar (ägaren 2026-10-06: "Mina tidigare underkännanden ska inte omvandlas till en allt smalare uppsättning tillåtna uttryck"). Ändras i kandidater.BLIND_HISTORIK, i uppgiften ovan och på den här raden.
-pass: skisskritik, kritik_a, fore_efter
+pass: skisskritik, kritik_a, fore_efter, ds_kritik
 kärna: kunskap/designregler.md; kunskap/referenser-professionella.md; impeccable/reference/critique.md; impeccable/reference/craft-floor.md; kunskap/hig-principer.md
 välj: hallmark/references/slop-test.md; hallmark/references/anti-patterns.md; refero-design/references/anti-ai-slop.md; kritik/GRANSKARE.md; frontend-design/SKILL.md; better-interface-review/SKILL.md; better-accessibility/SKILL.md; emil-break-ui/SKILL.md; ui-ux-pro-max/references/quick-reference.md; impeccable/reference/audit.md
 verktyg: förhandsvisning, detektor
@@ -446,7 +446,7 @@ visar: svaret belägger kandidatens version och bilderna som bedömdes; en bredd
 ```kompetens jamforelse
 namn: Falsk variation
 uppgift: Se alla kandidaters första vyer och hela sidor och peka ut de par som är samma struktur och berättelse med andra färger, typsnitt eller bilder, med makrostrukturen och den axel som skiljer dem (struktur, täthet, betoning, typografi, röst).
-pass: jamforelse
+pass: jamforelse, ds_jamforelse
 kärna: hallmark/references/macrostructures.md; better-variant/SKILL.md
 välj: hallmark/references/structure.md; refero-design/references/anti-ai-slop.md; kunskap/referenser-professionella.md
 verktyg:
@@ -457,7 +457,7 @@ visar: varje utpekat par säger vad som är lika (makrostrukturen, berättelsen,
 ```kompetens motivering
 namn: Motiveringen och referensens kvalitet
 uppgift: Pröva för varje avvikelse som granskningens första pass fann om den är avsiktlig och välgrundad (skäl i kundens behov, material eller huvudreferensen, och fungerar för besökaren), och om kundens material bär den kvalitet i referensen som uppdraget ville återskapa, i de fyra relationerna med kandidatens bild och referensbilden bredvid varandra.
-pass: kritik_b
+pass: kritik_b, ds_bild
 kärna: kunskap/bild.md; refero-design/references/visual-workflow.md
 välj: kunskap/referenser-professionella.md; refero-design/SKILL.md; refero-design/references/craft-details.md; kritik/GRANSKARE.md; hallmark/references/imagery-kit.md
 verktyg:
@@ -1001,3 +1001,161 @@ från ärendet. Modellen får föreslå, appen validerar och kunden kan rätta. 
 förhandsplanerat lokalt regressionsprov, separat granskning och ännu ej observerad eftereffekt. Det tillför ingen
 obligatorisk metodlast till designskaparen. Befintligt `/kirurg`-intag och den processavgränsade provarbetaren har
 olika åtkomst; ett läst dokument, lyckat anrop eller grönt facit är inte belägg för bättre design.
+
+## Designfasen i Claude Design
+
+Ägarens uppdrag 2026-10-12 (ordagrant i `underlag/uppdrag/PROMPT-Nortropic-Claude-Design-konvertering-20261012.md`,
+sammanfattat i `BESLUT.md`): formgivningen flyttar till Claude Design, och Nortropics metoder, skills och verktyg ska få
+fungerande uppgifter där. Flödet, miljön, rollerna, beställningarna, versionerna, godkännandet och överlämningen står i
+`kunskap/claude-design.md`; det här avsnittet är placeringskartan: varje betydande metod knuten till ett arbetsmoment, och
+varje skill, tjänst, specialistpass och lokalt verktyg knutet till en plats och en uppgift. Kompetensblocken ovan gäller
+oförändrade: utföraren på duken arbetar med rollerna i passet skapa (och fordjupa i förfiningen), och varje
+specialistbeställning körs som ett eget pass (`ds_*`) med sin rolls kärna, granskning, alternativ, verktyg och tjänster.
+
+**Platserna.** *Design*: utföraren, den enda som skriver dukens versioner: en interaktiv Claude Code-session i repots rot
+(`./design.sh <slug>`, skillen `designfas`) med skillverktyget, repots skills och tjänsterna bakom kundvakten. Den
+publicerar ritningarna på duken (Design-typen på claude.ai), där ägaren ser, jämför, kommenterar och väljer. *Code*:
+specialistpassen (`designfas.py specialist`, `claude -p` i repot med rollens block och kvitto), flödets egna steg
+(förberedelsen, researchen, helbygget) och de lokala verktygen; de lämnar underlag och förslag, aldrig en egen kunddesign.
+*Båda*: samma kompetens används av utföraren och av ett specialistpass. *Ingen*: ingen uppgift i designfasen, med skälet.
+Versionen står i varje skills `KALLA.md` (underhållet för fram commit dagligen; raden nedan säger källan, inte en commit
+som skulle bli inaktuell).
+
+**Stegen.** D1 kundunderlag och D2 kundförståelse (Code: `prototyp.py <slug> --forbered`) · D3 branschresearch i tre
+perspektiv: branschen, visuell inspiration, implementationsgrund (Code: researchen, `NWP_KANDIDAT_STOPP_EFTER=forskning`
+eller en aktiv designfas) · D4 referenser och inspiration till duken (Design: dukens sida Underlag) · D5 omkring tio
+kundanpassade riktningar (Design) · D6 granskning före valet (Code: kontrollerna och specialistpassen; Design: utförarens
+granskning efter renderingen) · D7 ägarens val (duken) · D8 förfining med specialistbeställningar (Design och Code) · D9
+ägarens designgodkännande (ägarens eget kommando) · D10 överlämningen och kundens designsystem (Design) · D11 helbygge,
+verifiering och leverans (Code, ägarens byggstart och publicering som egna beslut).
+
+### Metoderna i arbetet
+
+Slaget står inom hakparentes (`kunskap/designregler.md`, Källornas slag): [standard], [forskning], [metod] professionell
+metod eller erfarenhetsbaserat råd, [beslut] Nortropics produkt- eller ägarbeslut, [kund] kundens fakta, [hypotes].
+Källorna styrker principen, inte vår AI-arkitektur: studien om parallell prototypning säger inget om att tio
+AI-genererade riktningar är rätt antal (antalet är ägarens produktval), och Buxtons bokpresentation är inte boken.
+
+| Metod och källa | Princip | Vår tillämpning | Steg | Kompetens och verktyg | Synligt resultat | Bedömning |
+|---|---|---|---|---|---|---|
+| Double Diamond (Design Council, The Double Diamond) [metod] | undersök problemet och lösningarna var för sig, divergera före konvergens, gå tillbaka när ny kunskap ändrar förutsättningarna | diamant ett: kunden, besökarna och branschen (D1–D3); diamant två: riktningar, val och förfining (D5–D8); en dom eller ett fynd som visar att grunden inte bär öppnar researchen eller riktningarna igen | D2–D8 | forbered, forska och ds_research, plan-rollens kärna hos utföraren | KUNDFORSTAELSE.md och FORSKNING.md före duken; en återgång som ny beställning eller ny research med skäl | ägaren dömer valet; en återgång bedöms på om den ändrade riktningarna |
+| Människocentrerad design (Norman, The four fundamental principles of human-centered design; ISO 9241-210) [metod][standard] | utgå från människorna och det verkliga problemet; skilj observerat från antaget | besökarens toppuppgifter och primära handling ur briefen; verifierat och antaget isär i KUNDFORSTAELSE.md; FORSKNING.md skriver underlag eller "ännu inte observerat" | D2, D3, D5 | forbered, forska; brief-mall, research-underlag | varje riktning säger besökaruppgiften och den primära handlingen | modellens bedömning är inget användarbelägg; besökarprov (`kunskap/besokarprov.md`) när ett skarpt uppdrag kräver det |
+| Parallell prototypning (Dow m.fl. 2010, Parallel Prototyping Leads to Better Design Results) [forskning] | flera skilda idéer jämförs innan arbetet läggs på en | omkring tio riktningar [beslut 2026-10-09] som skiljer sig i komposition, bildstrategi, typografisk hierarki, innehållsordning eller interaktion, aldrig bara färg och typsnitt; falsk variation pekas ut | D5, D6 | plan-rollen hos utföraren (refero-design, hallmark macrostructures, impeccable shape); ds_jamforelse (better-variant) | ritningarna sida vid sida på dukens sida Riktningar i samma bredd; jämförelsens par i SVAR.md | ägaren väljer eller underkänner alla; jämförelsen är underlag |
+| Skissande och prototyper (Buxton, Sketching User Experiences, bokpresentationen; GOV.UK Service Manual, Making prototypes) [metod] | detaljnivån efter frågan som ska besvaras; prototypen är inte tjänsten | riktningarna visar första vyn, den viktigaste sektionen och navigationen i kundens innehåll; fördjupningen läggs på den valda (hela startsidan, tillstånden, interaktiva ritningar) | D5, D8 | komposition, rorelseskiss; emil-prototype i förfiningen | riktning som skiss, vald riktning som interaktiv ritning (Play) | det ritade prövas i bygget; överlämningen märker "Endast simulerat" |
+| Heuristisk utvärdering (Nielsen, 10 Usability Heuristics; NN/g) [metod] | begriplighet, systemstatus, användarens kontroll, konsekvens, felhantering | den renderade versionen granskas mot heuristikerna med allvar 0–4, före utförarens förklaring | D6, D8 | ds_granskning, ds_kritik (impeccable critique och audit, hig-principer) | fynd med plats, bredd och tillstånd i SVAR.md | modellens fynd är underlag, inget täckningslöfte |
+| Kognitiv genomgång (Wharton m.fl. 1994) [metod] | fyra frågor per steg i besökarens uppgift | den primära handlingen gås igenom i 390 med menyn öppen och i 1440 | D6, D8 | ds_kritik, ds_granskning | stegen och svaren i SVAR.md | – |
+| Tillgänglighetsutvärdering (W3C WAI, Evaluating Web Accessibility; WCAG 2.2; WCAG-EM) [standard][metod] | tillgänglighet under utformningen; automatiska och manuella kontroller | riktiga element och kontrast i ritningarna (Design-typens regler); axe med menyn öppen och formulären skickade tomma mot varje renderad version; manuell kontroll med tangentbord och skärmläsare före lanseringen | D5–D11 | better-accessibility, granskning; `axe.mjs` genom `designfas.py rendera --kontroll` | `versioner/<v>/kontroll/axe/` per version; helbyggets prov | axe ser en del; den manuella kontrollen återstår och redovisas |
+| Innehåll före form (Halvorson & Rach 2012) [metod]; Sanning [standard: marknadsföringslagen; beslut] | innehållet bär formen; inga påhittade uppgifter | ritningarna använder TEXTUNDERLAG.md, kundens fakta och bilder; saknat står som märkt platshållare | D5, D8 | innehall, better-writing, copy-kontroll | texterna i ritningen med belägg | ds_innehall |
+| Mobil först och responsiv design (Wroblewski 2011; Marcotte 2010) [metod] | flytande sidor, innehållsstyrda brytpunkter | ritningarna är sidor (expand fill) och renderas i 390, 768 och 1440 med menyn öppen | D5, D8, D11 | responsiv, better-layout, impeccable adapt; `rendera.mjs` | bilder i tre bredder; sidledsspill fäller renderingen | ds_responsiv |
+| Temabara designsystem (Brad Frost, The many faces of themeable design systems) [metod] | gemensam kärna, skilda varumärken | fyra lager: arbetsmetod och kvalitetskrav (kunskap/), komponentbeteenden (designsystemet "Nortropic komponentbeteenden"), kundens identitet (kundens designsystem), sidans komposition (duken) | D4, D10 | design-system, brand | designsystemens README, tokens och förhandsvisningar | – |
+| Bildregi och äkthet (`kunskap/bild.md`) [metod][standard] | bildens uppgift, beskärning, verksamhetens egna bilder | kundens bilder laddas upp som tillgångar med ursprung; ds_bild prövar urval och beskärning mot referensens kvalitet | D5, D8 | motivering-rollen (bild.md, refero visual-workflow) | TILLGANGAR.json med källa; bildvalet i ritningen | ägaren |
+| Referensens kvalitet mot kundens material [beslut 2026-10-03, 2026-10-06] | en namngiven referens får bära layout, palett och typografi; kundens material avgör | varje riktning anger förebild och de observerbara egenskaper den prövar att föra över | D4, D5 | refero-design, ds_research | notering per riktning på duken | – |
+| Observation, rekommendation och belagd effekt (GOV.UK) [metod] | håll isär | FORSKNING.md och SVAR.md märker slaget; sökrankning, omdömen och utmärkelser är aldrig belägg för affärsmässig framgång | D3, D6 | forska, ds_research | – | – |
+| En observerad brist per varv; omtag när helheten är svag [beslut 2026-10-09, H02; Anthropic, Harness design] | varje ändring åtgärdar något som syns, och efterkontrolleras; kompositionen får göras om | en version per ändring med orsak och bilder före och efter; bildregi, innehåll och hierarki före marginaler | D8 | utföraren; `designfas.py version` | VERSIONER.jsonl, bilderna per version | ägaren; ds_kritik |
+| Granskning före skaparens förklaring [beslut 2026-10-09, punkt 10] | bilderna och besökarens uppgift först | ds_kritik får bilderna och briefen, aldrig källan eller utförarens anteckningar | D6, D8 | kritik-rollen | SVAR.md | – |
+| Designkontraktet (DESIGN.md; Codex 2026-10-04, glapp 1) [metod] | värden som maskinen läser, med förklaring | överlämningens DESIGN.md med värdena märkta uppmätt eller valt, komponenterna, de responsiva reglerna och tillstånden | D10 | leverans-rollen (design-system, impeccable extract) | `design/overlamning/<v>/DESIGN.md` | `designfas.py overlamna --prova` |
+
+### Placeringen
+
+En rad per skill, tjänst, specialistpass och lokalt verktyg: namn | källa | plats | steg och uppgift (indata → resultat;
+vägen till designen; beroenden) | status. `designfas.py karta --prova` fäller en skill eller tjänst utan rad och ett
+specialistpass som saknas; statusen skiljer tillgång, aktivering, användning med resultat, belagd tillämpning och bedömd
+kvalitet, och okänt står som okänt.
+
+```designfas-karta
+skill:designfas | Nortropic | Design | alla steg på duken: utförarens ingång (stegen, beställningarna, versionerna, överlämningen) → duken och spåret i underlag/<slug>/design/ | ny 2026-10-12; aktivering i en ägarstartad utförarsession oprövad
+skill:taste | Leonxlnx/taste-skill | båda | D5, D8 kärna i komposition: art director före ritningen, rattarna variation, rörelse och täthet → riktningens designspråk; ds_komponent läser den | aktiverbar i repots sessioner (prövat i -p 2026-10-07); i designfasen oprövad
+skill:taste-soft | Leonxlnx/taste-skill | Design | D5 alternativ i plan och komposition: en mjuk stilvariant för en riktning som behöver den → val med skäl i riktningens notering | alternativ; oprövad i designfasen
+skill:taste-minimalist | Leonxlnx/taste-skill | Design | D5 alternativ i plan och komposition: minimalistisk stilvariant → val med skäl | alternativ; oprövad i designfasen
+skill:taste-brutalist | Leonxlnx/taste-skill | Design | D5 alternativ i plan och komposition: brutalistisk stilvariant → val med skäl | alternativ; oprövad i designfasen
+skill:taste-output | Leonxlnx/taste-skill | Design | D8 alternativ i typografi: färdigställandet av typografi och utdata → värden i ritningen | alternativ; oprövad i designfasen
+skill:taste-redesign | Leonxlnx/taste-skill | Code | D8 ds_granskning alternativ: omformgivning av en svag del → förslag i SVAR.md | alternativ; oprövad
+skill:taste-stitch | Leonxlnx/taste-skill | Design | D10 leverans-alternativ: designsystemets format → överlämningens DESIGN.md och kundens designsystem | alternativ; oprövad
+skill:taste-v1 | Leonxlnx/taste-skill | ingen | ersatt av taste (samma källa, äldre version); ingen egen uppgift i någon riktning | ingen uppgift, prövat mot målflödet 2026-10-12
+skill:taste-gpt | Leonxlnx/taste-skill | ingen | fast AIDA-ordning (K22) och eget GSAP-recept; sektionsordningen motiveras ur besökarens frågor och rörelsen väljs per beteende | ingen uppgift, prövat mot målflödet 2026-10-12
+skill:taste-brandkit | Leonxlnx/taste-skill | ingen | kräver en bildgenerator som varken duken eller sessionerna har; illustrativt material beställs genom materialsteget med kostnadsmandat | ingen uppgift: blockerad av saknad bildgenerator
+skill:taste-imagegen-frontend-web | Leonxlnx/taste-skill | ingen | bildgenererad sajtskiss; duken ritar riktningarna i kod och generering kräver bildgenerator och mandat | ingen uppgift: blockerad av saknad bildgenerator
+skill:taste-imagegen-frontend-mobile | Leonxlnx/taste-skill | ingen | bildgenererade appskärmar; flödet gör webbplatser | ingen uppgift
+skill:taste-image-to-code | Leonxlnx/taste-skill | Code | D3, D8 uppslag i ds_research och ds_bild: listan för bildanalys av en referensbild → observationer om komposition och bildregi i SVAR.md | uppslag; omprövad 2026-10-12 (förr bara researchens uppslag)
+skill:frontend-design | anthropics/skills | båda | D5 kärna i komposition hos utföraren; D11 kärna i helbygget → riktningens uttryck och bygget | aktiverbar; i designfasen oprövad
+skill:impeccable | pbakaus/impeccable | båda | D5–D8 utförarens granskning efter renderingen (critique, audit, layout, typeset, colorize, polish); ds_granskning, ds_kritik, ds_typografi, ds_responsiv, ds_innehall, ds_rorelse läser sina referensfiler → fynd och rättelser | aktiverbar; specialistpassen prövas i fiktiva fallet
+skill:hallmark | nutlope/hallmark | båda | D5 plan-alternativ (21 makrostrukturer, komponentkokbok) för omkring tio verkligt skilda riktningar; ds_jamforelse kärna; ds_kritik slop-test → riktningarnas struktur och jämförelsens par | referensfiler läses med Read; oprövad i designfasen
+skill:refero-design | referodesign/refero_skill | båda | D3 ds_research kärna; D5 utförarens visuella kontroll mot referensbilderna; D8 granskningen efter renderingen → referenslåset och jämförelsen | aktiverbar
+skill:ui-ux-pro-max | nextlevelbuilder/ui-ux-pro-max-skill | båda | D5 plan-alternativ och uxsok hos utföraren; ds_research alternativ; D11 helbyggets alternativ → riktlinjer och designsystemsförslag | aktiverbar; uxsok läsande
+skill:ui-styling | nextlevelbuilder/ui-ux-pro-max-skill | båda | D8 responsiv-alternativ hos utföraren; D11 helbyggets stil (shadcn, Tailwind) → komponenternas stil | alternativ
+skill:brand | nextlevelbuilder/ui-ux-pro-max-skill | Design | D5 plan- och kompositionsalternativ; D10 kundens identitet i kundens designsystem → varumärkesregler | alternativ
+skill:banner-design | nextlevelbuilder/ui-ux-pro-max-skill | Design | D5 kompositionsalternativ för en bildplats eller ett band → komposition i ritningen | alternativ
+skill:design-system | nextlevelbuilder/ui-ux-pro-max-skill | Design | D10 leverans-kärna: designsystemet ur den godkända versionen → kundens designsystem (Design System-typen) och överlämningens värden | kärna i leveransrollen; oprövad i designfasen
+skill:design | nextlevelbuilder/ui-ux-pro-max-skill | ingen | bildgenererande; kräver en bildgenerator. Mappnamnet skuggar Claude Codes inbyggda /design i repot, så utföraren startar duken med Artifact-verktyget och Design-typen, aldrig med /design | ingen uppgift; kollisionen prövad 2026-10-12
+skill:slides | nextlevelbuilder/ui-ux-pro-max-skill | ingen | presentationer; ägaren väljer på duken. Kan få en uppgift om riktningar ska presenteras för en kund (Slides-typen finns i miljön) | ingen uppgift, prövat mot målflödet 2026-10-12
+skill:canvas-design | anthropics/skills | båda | D5, D8 koncept för en bildplats eller ett mönster (ritning eller PNG genom skillskript) → koncept i BILDER.md, aldrig verksamhetens bild | alternativ
+skill:better-typography | jakubkrehel/skills | båda | D8 granskning efter renderingen i typografi; ds_typografi → typskala, radlängd och hierarki | aktiverbar
+skill:better-colors | jakubkrehel/skills | båda | D8 granskning efter renderingen i färg; ds_typografi → färgroller och kontrast | aktiverbar
+skill:better-accessibility | jakubkrehel/skills | båda | D6, D8 ds_granskning kärna; utförarens kontroll; D11 helbyggets alternativ → tillgänglighetsfynd | aktiverbar
+skill:better-layout | jakubkrehel/skills | båda | D5, D8 responsiv kärna hos utföraren; ds_responsiv → brytpunkter och omställning | aktiverbar
+skill:better-ui | jakubkrehel/skills | Design | D8 alternativ i typografi och responsiv: tryck, ikoner, skuggor (en källa per värde) → detaljer i ritningen | alternativ
+skill:better-writing | jakubkrehel/skills | båda | D2 förberedelsens kärna; D5 innehall-kärna; ds_innehall → texten i verksamhetens ord | aktiverbar
+skill:better-explain-interface | jakubkrehel/skills | Code | D3 ds_research alternativ; ds_innehall alternativ → förklarande gränssnittstext | användaranropad: läses hel med Read
+skill:better-interface | jakubkrehel/skills | Code | D8 ds_granskning alternativ → gränssnittsfynd | alternativ
+skill:better-interface-review | jakubkrehel/skills | Code | D6, D8 ds_granskning och ds_kritik alternativ → granskningsfynd | användaranropad: läses hel med Read
+skill:better-variant | jakubkrehel/skills | båda | D6 ds_jamforelse kärna; D5 utförarens kontroll av att riktningarna skiljer sig → falsk variation utpekad | användaranropad: läses hel med Read
+skill:better-break | jakubkrehel/skills | Code | D8 ds_granskning alternativ: brytprov → robusthetsfynd | användaranropad: läses hel med Read
+skill:emil-design-eng | emilkowalski/skills | båda | D8 utförarens rörelsepass efter renderingen; ds_rorelse kärna → rörelsebeslut med syfte | aktiverbar
+skill:emil-animate | emilkowalski/skills | båda | D8 rörelsepass; ds_rorelse kärna → beteenden och teknikval | aktiverbar
+skill:emil-improve-animations | emilkowalski/skills | båda | D8 granskning efter renderingen i rörelse; ds_rorelse → förbättrade förlopp | användaranropad: läses hel med Read
+skill:emil-review-animations | emilkowalski/skills | båda | D8 granskning efter renderingen i rörelse; ds_rorelse → rörelsefynd | användaranropad: läses hel med Read
+skill:emil-find-animation-opportunities | emilkowalski/skills | båda | D8 alternativ i rörelse → var rörelse har ett syfte | alternativ
+skill:emil-animation-vocabulary | emilkowalski/skills | båda | D8 alternativ i rörelse → beskrivningen av förloppen i överlämningen | alternativ
+skill:emil-apple-design | emilkowalski/skills | Code | D8 ds_granskning alternativ: fysisk, avbrytbar rörelse → fynd | Initial Response: läses hel med Read
+skill:emil-break-ui | emilkowalski/skills | Code | D6, D8 ds_granskning och ds_kritik alternativ → brytfynd | alternativ
+skill:emil-mobile-native | emilkowalski/skills | båda | D8 responsiv-alternativ hos utföraren; ds_responsiv → mobilens känsla (tryck, 100vh, zoom) | alternativ
+skill:emil-prototype | emilkowalski/skills | Design | D8 interaktiva ritningar i förfiningen: prototyp av ett beteende att pröva → is_interactive-ritning | omprövad 2026-10-12 (förr ingen uppgift: kandidaterna var varianterna); användaranropad: läses hel med Read
+skill:emil-pick-ui-library | emilkowalski/skills | ingen | paketval; beroendena är låsta i mallen och teknikvalet är ägarens (uppdraget: ändra inte teknikval) | ingen uppgift, prövat mot målflödet 2026-10-12
+skill:emil-ask-sonner | emilkowalski/skills | ingen | en toast i en app; inget i en lokal tjänsteverksamhets sajt | ingen uppgift
+skill:emil-animate-expo | emilkowalski/skills | ingen | React Native och Expo; flödet gör webbplatser | ingen uppgift
+skill:emil-write-swift | emilkowalski/skills | ingen | Swift för iOS-appar; flödet gör webbplatser | ingen uppgift
+skill:motion | motiondivision/ai-kit | båda | D8 rörelseskiss (CSS först, Motion med skäl) och ds_rorelse; D11 implementationen → teknikval per beteende | alternativ; Motions dokumentations-MCP vid användning
+skill:gsap | greensock/gsap-skills | båda | D8 tidslinjer och scrollsekvenser när ett beteende kräver det; D11 implementationen → teknikval | alternativ
+skill:modern-web-guidance | GoogleChrome/modern-web-guidance | Code | D11 helbyggets kärna → modern webbplattform i bygget; i ritningarna kräver ett införande ett avgränsat försök (intagskrav 4) | aktiverbar i helbygget
+skill:humanizer | NousResearch/hermes-agent (upphov blader/humanizer) | båda | D5 innehall-alternativ; ds_innehall → text utan AI-mönster | alternativ
+skill:writing-for-agents | mattpocock/skills | Code | systemarbete: den som skriver om designfas-skillen, kartan eller CLAUDE.md → instruktionernas form | ingen designuppgift; används i systemarbetet
+skill:bygg-sajt | Nortropic | Code | D11 helbygget från ägarens designgodkännande (steg 5, En godkänd design ur Claude Design) → sajten, provet, granskningen, rapporten | övertagandet från Claude Design mekaniskt prövat (prov_designfas); verklig körning efter ägarens byggstart
+skill:kirurg | Nortropic | Code | systemarbete: bedömer källor och lägger fynd i backloggen; ingen designuppgift | ingen designuppgift
+skill:backlog | Nortropic | Code | systemarbete: genomför vilande poster på ägarens ord; ingen designuppgift | ingen designuppgift
+mcp:refero | Refero (api.refero.design, MCP) | båda | D3 ds_research (stilar, skärmar, flöden, sajter); D5, D8 utförarens kompletterande sökningar → referenser med bild och id; generiska frågor genom kundvakten | ansluten i repots sessioner; användning i designfasen prövas i fiktiva fallet
+mcp:mobbin | Mobbin (api.mobbin.com, MCP) | båda | D3 ds_research (skärmar, flöden, sektioner); D8 t.ex. mobilmenyn → mönster med bild | ansluten; search_screens bara mode standard
+mcp:21st | 21st.dev Builder (MCP) | båda | D3, D8 ds_research och ds_komponent (search, get_component, get_theme, get_inspiration) → komponent eller tema med kod, licens och beroenden som implementationsgrund | ansluten med nyckel; hämtningar förbrukar dagskvot
+mcp:motion | Motion (mcp.motion.dev, fri dokumentation) | båda | D8 rörelseskiss och ds_rorelse när ett beteende byggs med Motion → dokumentationssvar | ansluten
+mcp:chrome-devtools | Chrome DevTools MCP (kontroller/mcp/chrome-devtools.json) | Code | D3 profil av en vald referenssida (prestanda, regler för första vyn) genom devtools.py → DEVTOOLS.md i referenspaketet | i researchens kedja; aldrig i utförarens session
+pass:ds_research | metodkartan, rollen forska | Code | D3, D8 beställningstypen referenser: förebilder för en uppgift i tre perspektiv (bransch, visuell inspiration, implementationsgrund) → SVAR.md med referenser och tjänsternas bilder | mekanik prövad; verklig körning i fiktiva fallet
+pass:ds_komponent | metodkartan, rollen komposition | Code | D8 beställningstypen komponent: en komponent eller ett tema ur 21st → kod, licens och beroenden i SVAR.md | mekanik prövad
+pass:ds_typografi | metodkartan, rollen typografi | Code | D8 beställningstypen typografi: typografisk analys av en version → fynd och värden | mekanik prövad
+pass:ds_innehall | metodkartan, rollen innehall | Code | D8 beställningstypen innehall: texten och besökarens uppgift → fynd och textförslag med belägg | mekanik prövad
+pass:ds_responsiv | metodkartan, rollen responsiv | Code | D8 beställningstypen responsiv: omställningen mellan 390, 768 och 1440 → fynd | mekanik prövad
+pass:ds_rorelse | metodkartan, rollen rorelse | Code | D8 beställningstypen rorelse: ett rörelseförlopp eller en interaktion → beteenden och teknikval | mekanik prövad
+pass:ds_granskning | metodkartan, rollen granskning | Code | D6, D8 beställningstypen granskning: tillgänglighet och visuell granskning i tillstånden, t.ex. ett formulär → fynd med allvar | mekanik prövad
+pass:ds_kritik | metodkartan, rollen kritik | Code | D6, D8 beställningstypen kritik: versionen som en besökare ser den, utan källan och utförarens text → fynd och rekommendation | mekanik prövad; blindheten är promptens, inte en spärr
+pass:ds_bild | metodkartan, rollen motivering | Code | D8 beställningstypen bild: bildurval, beskärning och bildernas uppgift → förslag ur kundens bilder | mekanik prövad
+pass:ds_jamforelse | metodkartan, rollen jamforelse | Code | D6 beställningstypen jamforelse: falsk variation mellan riktningarna → utpekade par | mekanik prövad
+verktyg:designfas.py | Nortropic | båda | alla steg: duken registreras, versioner ur dukens filer, beställningar och svar, godkännandet (bara ägaren), överlämningen, startkommandot | prövat i prov_designfas
+verktyg:rendera.mjs | Nortropic, Design-typens körmiljö (privat kopia) | Code | D5–D11 varje version renderad lokalt i 390, 768 och 1440 med menyn öppen, axe och stilrapporten → bilder och kontroller som specialistpassen, ägaren och bygget jämför med | prövat med provduken 2026-10-12
+verktyg:referens.py | Nortropic | Code | D3 fångsten av branschsajter och galleriförebilder → referenspaketet med SEKTIONER.md och EXTRAKT.md | i researchen
+verktyg:referenstjanster.py | Nortropic | Code | D3 Refero, Mobbin och 21st med belägg → tjänsternas svar och bilder | i researchen; specialistsvarens bilder hämtas med dess bildvakt
+verktyg:inspektera.mjs | Nortropic | Code | D3, D8 inspekterad DOM, tillstånd och spår hos en referens → underlag i referenspaketet | i researchen
+verktyg:extrahera.mjs | Nortropic | Code | D3, D8 beräknade stilar och layoutmått hos en referens (uppmätt) → EXTRAKT.md | i researchen
+verktyg:devtools.py | Nortropic | Code | D3 DevTools-profilen för en vald referenssida → DEVTOOLS.md | i researchens kedja
+verktyg:stilpaket.py | Nortropic | Code | D3, D10 Referos stilpaket → värden som riktningen kan utgå från och som överlämningen märker | i researchen och bygget
+verktyg:uxsok.py | Nortropic (ui-ux-pro-max) | båda | D5 utförarens sökning i UI UX Pro Max; ds_research → riktlinjer | läsande
+verktyg:axe.mjs | Nortropic (axe-core) | Code | D5–D11 genom rendera --kontroll och helbyggets prov → tillgänglighetsfynd per version | prövat mot provduken
+verktyg:stil.mjs | Nortropic | Code | D5–D11 genom rendera --kontroll → stilrapport (typsnitt, klickytor, modellernas standardval) | prövat mot provduken
+verktyg:detektor.py | Nortropic (impeccable detect) | Code | D11 helbyggets och kandidatflödets byggda sidor; mot dukens rendering ersatt av stil.mjs fem mönster och ds_granskning | i designfasen oprövad
+verktyg:copy_kontroll.py | Nortropic | Code | D11 texten i bygget; ds_innehall kan använda rapporten | i bygget
+verktyg:typsnitt.py | Nortropic | Code | D11 typsnitten i bygget ur Fontsource; duken laddar Google Fonts | i bygget
+verktyg:material.py | Nortropic | Code | D8 material- och konceptbeställningar med kostnadsmandat → tillgångar med källa och rättigheter | kräver mandat och konto
+verktyg:skillskript.py | Nortropic | Code | D5, D8 skillernas skript (brand, tokens, Tailwind, canvas) → filer att ladda upp på duken | i kandidatflödet; i designfasen oprövad
+verktyg:jamfor.mjs | Nortropic | Code | D11 bygget mot förlagans bilder (designfas.jamfor_bygget, prova) → DESIGNJAMFORELSE.md | mekanik prövad
+verktyg:prova.py | Nortropic | Code | D11 provet och jämförelsen mot förlagan | i bygget
+verktyg:kompetens.py | Nortropic | Code | alla pass: kvittot ur transkriptet (aktivering, läsning, anrop) → SVAR.json och utförarens kvitto (designfas.py kvitto) | prövat
+miljo:design-typen | Anthropic (Design-typen, artifact-type/SKILL.md och reference/) | Design | D5–D10 dukens format och hantverksregler (format.md, craft.md, view-state.md) → giltiga ritningar och dukens tillstånd | läses av utföraren; prövat med provduken 2026-10-12
+miljo:design-system-typen | Anthropic (Design System-typen) | Design | D10 kundens designsystem och "Nortropic komponentbeteenden" → README, tokens, komponenter med förhandsvisning | se kunskap/claude-design.md, Designsystemet
+```

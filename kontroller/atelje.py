@@ -2208,7 +2208,7 @@ def redovisa(slug, rot, status):
     return rot / 'REDOVISNING.md'
 
 
-AVSLUTADE = ('klar', 'forkastad', 'tillbaka', 'klar_for_bedomning', 'forberedd', 'planprovad')  # planprovad: kandidater.STOPP_EFTER
+AVSLUTADE = ('klar', 'forkastad', 'tillbaka', 'klar_for_bedomning', 'forberedd', 'planprovad', 'forskad')  # planprovad, forskad: kandidater.STOPP_EFTER
 BARS = ('val', 'omgang', 'omgangar', 'overford', 'overforing', 'kompletteringar')  # följer med vid --fortsatt och --putsa
 BARS_FORTSATT = ('putsning', 'forfina_start')  # och vid --fortsatt det som gör en avbruten putsning och förfining hel
 BARS_KANDIDAT = ('kandidatflode', 'valda', 'dom', 'fas', 'forra_lage', 'kandidatlage', 'tider')  # och i kandidatflödet var körningen var (granskning 2, N1)
@@ -2245,6 +2245,9 @@ def fortsatt_nekas(st, slug=None):
     och omprofileringen vid nästa start gick inte att nå)."""
     if st.get('steg') == 'planprovad':
         return None
+    if st.get('steg') == 'forskad':  # stannade efter researchen: planeringen tar vid, utom när designfasen i Claude Design är aktiv
+        import designfas
+        return designfas.sparr(slug) if slug and designfas.aktiv(slug, UNDERLAG) else None
     kand = st.get('kandidater') if isinstance(st.get('kandidater'), dict) else {}
     if st.get('steg') == 'klar_for_bedomning' and st.get('kandidatflode') and kand:
         import kandidater as kd_
@@ -2434,6 +2437,9 @@ def arbeta(slug, lage):
             import forberedelse
             forberedelse.kor(slug, status, skriv)
             return 0
+        import designfas  # designfasen i Claude Design (kunskap/claude-design.md): Code gör bara researchen, ingen egen kunddesign
+        if designfas.aktiv(slug, UNDERLAG) and not (status.get('kandidatflode') and lage in ('ny', 'fortsatt')):
+            raise RuntimeError(designfas.sparr(slug))
         if lage == 'ny':
             forra_ = arkivera_vid_ny_start(rot, kvitto=bool(sk))
             status['foregaende'] = rel(forra_) if forra_ else None
@@ -2770,6 +2776,9 @@ def besked(rot, st):
         return 0
     if steg == 'planprovad':
         print('%s %s' % (st.get('skal') or 'Körningen stannade efter planprövningen.', saknas))
+        return 0
+    if steg == 'forskad':
+        print('%s %s' % (st.get('skal') or 'Körningen stannade efter researchen.', saknas))
         return 0
     if steg == 'klar_for_bedomning':
         print('Kandidaterna är klara för ägarens bedömning (%s). Ägaren jämför och väljer i arbetsytans Förslagen; '

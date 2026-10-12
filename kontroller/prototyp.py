@@ -65,6 +65,11 @@ def lage(slug):
     if st.get('steg') == 'forberedd':
         import forberedelse
         return ('om', 'underlaget är förberett; designarbetet kan starta') if forberedelse.giltig(slug) else ('stopp', 'förberedelsen är inaktuell; kör --forbered igen')
+    if st.get('steg') == 'forskad':  # researchen klar: designfasen tar vid på duken, eller planeringen med --fortsatt
+        import designfas
+        if designfas.aktiv(slug, atelje.UNDERLAG):
+            return 'stopp', designfas.sparr(slug) + '; researchen är klar, och utföraren startas med ./design.sh %s' % slug
+        return 'stopp', 'körningen stannade efter researchen (NWP_KANDIDAT_STOPP_EFTER=forskning): ta vid i planeringen med --fortsatt'
     if st.get('steg') == 'planprovad':  # inget nytt omtag över en planprövad plan: skaparna startar med --fortsatt
         return 'stopp', ('körningen stannade efter planprövningen (NWP_KANDIDAT_STOPP_EFTER): förbered ett metodförsök med ab.py '
                          'forbered-skiss om det ska göras, och ta vid hos skaparna med --fortsatt')

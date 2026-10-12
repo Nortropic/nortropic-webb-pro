@@ -387,6 +387,25 @@ KONCEPT.md.
    Den godkända designen ska överleva bygget: jämför i RAPPORT.md under "Prototyp mot bygge" kandidatens bilder
    (`atelje/vinnare/bilder/` och `undersidor/`) med byggets startsida och undersida i 390 och 1440, och skriv varje
    betydande ändring av bildbeskärningar, proportioner, komponenters beteende och responsiva beslut med sitt skäl.
+   **En godkänd design ur Claude Design** (`underlag/<slug>/design/GODKANNANDE.json`; kunskap/claude-design.md) gäller i
+   stället för styckena ovan där de skiljer sig, och prompten säger det. Designen gjordes på en duk i Claude Design; ägaren
+   godkände en exakt version och en ritning, och förlagan är bevarad och fryst i `underlag/<slug>/design/` (Write, Edit
+   och sandlådan nekar katalogen). Läs först `design/overlamning/<version>/OVERLAMNING.json` och `DESIGN.md` (designvärdena,
+   komponenterna, de responsiva reglerna, interaktionstillstånden och beteendena, innehållet, bilderna och typsnitten med
+   ursprung, öppna frågor och det som bara är simulerat), sedan ritningen i `kanvas/` (prototypkoden i Designs format:
+   HTML med inline-stilar och en liten logikklass) och jämförelsebilderna i `bilder/` (390, 768 och 1440, och menyn
+   öppen i 390). Implementera startsidan som förlagan i mallens Astro-projekt (punkt 2 och 3): återanvänd strukturen,
+   texterna och värdena ur ritningen, flytta inline-stilarna till DESIGN.md:s variabler och komponenter, byt dukens
+   tillgångar (`/_blob/<id>`) mot de lokala filerna som `OVERLAMNING.json` (`tillgangar`) pekar ut och lägg dem genom
+   `astro:assets`, och gör ritningens tillstånd (menyn, formuläret) till fungerande beteenden enligt byggstandarden. En
+   ritad interaktion är inte en prövad funktion: provet och resorna avgör den. Skriv `kunder/<slug>/sajt/DESIGN.md` ur
+   överlämningens DESIGN.md (värdena märkta `uppmätt:` ur renderingen eller `valt:` i designen) och kör
+   `kontroller/design.py <slug> --skriv`. Det finns ingen KANDIDATPLAN och ingen Tvåa: KONCEPT.md säger att riktningen
+   valdes i Claude Design, med version och dom, och riktningsfrågan i FRAGOR.json utgår. En betydande avvikelse från
+   förlagan är ett nytt designbeslut som går tillbaka till duken och ägaren, aldrig ett eget val i bygget; mindre
+   anpassningar (en brytpunkt mellan de ritade bredderna, ett tillstånd som inte ritats) skrivs med skäl i RAPPORT.md
+   under "Förlaga mot bygge". Provet jämför startsidan med förlagans bilder i samma bredder och med menyn öppen
+   (`prov/designforlaga/DESIGNJAMFORELSE.md`; förändring, inte kvalitet), och granskaren klassar varje förändring.
 2. **Projekt.** `.venv/bin/python kontroller/ny_sajt.py <slug> --installera` skapar `kunder/<slug>/sajt/` ur mallen,
    sätter `site` till domänen i VERKSAMHET.json och installerar mallens låsta beroenden (npm ci). Läs `mall/astro/README.md`, `kunskap/beroenden.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.

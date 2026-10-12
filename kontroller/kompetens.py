@@ -65,16 +65,26 @@ ROOT = Path(__file__).resolve().parents[1]
 BLOCK = re.compile(r'^```kompetens[ \t]+(?P<id>[a-z]+)[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
 PASS = ('forbered', 'planera', 'planprovning', 'skapa', 'fordjupa', 'rorelse', 'granskning', 'forska', 'skisskritik', 'jamforelse', 'kritik_a', 'kritik_b',
         'fore_efter', 'helbygge')
+# designfasens specialistpass (kunskap/claude-design.md; ägarens uppdrag 2026-10-12): en beställning från utföraren i Claude
+# Design körs som ett pass i repot med rollens block och lämnar underlag; passet ändrar aldrig designen (designfas.TYPER)
+DESIGNSTOD = ('ds_research', 'ds_komponent', 'ds_typografi', 'ds_innehall', 'ds_responsiv', 'ds_rorelse', 'ds_granskning', 'ds_kritik',
+              'ds_bild', 'ds_jamforelse')
+PASS = PASS + DESIGNSTOD
 PASSNAMN = {'helbygge': 'helbygget från godkänd startsida', 'forbered': 'förberedelsen av kundunderlaget', 'planera': 'planeringen', 'planprovning': 'planprövningen', 'skapa': 'skissen', 'fordjupa': 'uppdraget',
             'rorelse': 'interaktion och rörelse', 'granskning': 'tillgänglighet och visuell granskning',
             'forska': 'researchen', 'skisskritik': 'skisskritiken', 'jamforelse': 'jämförelsen',
             'kritik_a': 'granskningens första pass', 'kritik_b': 'granskningens andra pass',
-            'fore_efter': 'före/efter-bedömningen'}
-GRANSKANDE = ('skisskritik', 'jamforelse', 'kritik_a', 'kritik_b', 'fore_efter')  # bedömer och ändrar aldrig sidan
+            'fore_efter': 'före/efter-bedömningen',
+            'ds_research': 'designfasens researchbeställning', 'ds_komponent': 'designfasens komponentbeställning',
+            'ds_typografi': 'designfasens typografiska analys', 'ds_innehall': 'designfasens innehållsgranskning',
+            'ds_responsiv': 'designfasens responsiva granskning', 'ds_rorelse': 'designfasens rörelsegranskning',
+            'ds_granskning': 'designfasens tillgänglighets- och visuella granskning', 'ds_kritik': 'designfasens kritik',
+            'ds_bild': 'designfasens bildregi', 'ds_jamforelse': 'designfasens jämförelse av riktningarna'}
+GRANSKANDE = ('skisskritik', 'jamforelse', 'kritik_a', 'kritik_b', 'fore_efter') + tuple(x for x in DESIGNSTOD if x != 'ds_research')  # bedömer och ändrar aldrig sidan
 # blinda för skaparens text, uppdrag, referenspaket och kod; före/efter-bedömningen ser bara de två versionernas bilder
 # (ägarens uppdrag 2026-10-09, punkt 10: bilderna bedöms före skaparens förklaring)
 BLINDA = ('skisskritik', 'kritik_a', 'fore_efter')
-FORSKANDE = ('forska', 'forbered')  # forskar och ändrar aldrig sidan
+FORSKANDE = ('forska', 'forbered', 'ds_research')  # forskar och ändrar aldrig sidan
 FORHAND = '.venv/bin/python kontroller/forhandsvisa.py <slug> --kandidat <id>'
 
 # verktygen per namn: allowedTools-mönster (slug och kandidat fylls i, aldrig ett fritt *-argument som kan skriva utanför

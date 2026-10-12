@@ -64,6 +64,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import atelje  # noqa: E402  session, saker_vag, egna_bilder, NEKAS, ROOT/UNDERLAG/KUNDER
 import bildkedja  # noqa: E402
 import forhandsvisa  # noqa: E402
+import designfas  # noqa: E402  kunskap/claude-design.md: aktiv designfas = bara research i Code
 import kompetens  # noqa: E402  kompetenserna per pass (kunskap/metodkarta.md, Kompetenserna)
 import metod  # noqa: E402
 import prova  # noqa: E402
@@ -178,8 +179,8 @@ def metodvariant(slug=None, kid=None):
 # så att ett metodförsök kan förberedas på en planerad men ännu inte arbetad skiss (ab.py forbered-skiss); --fortsatt tar
 # sedan vid hos skaparna. Utan värde körs flödet som förut.
 STOPP_EFTER = os.environ.get('NWP_KANDIDAT_STOPP_EFTER') or ''
-if STOPP_EFTER not in ('', 'planprovning'):
-    raise ValueError('NWP_KANDIDAT_STOPP_EFTER kan bara vara planprovning')
+if STOPP_EFTER not in ('', 'planprovning', 'forskning'):
+    raise ValueError('NWP_KANDIDAT_STOPP_EFTER kan bara vara planprovning eller forskning')
 PASS_OMGANGAR = 2  # F03: passets omgångar, det första och ett uttryckligt nytt försök (begar_nytt_passforsok); ingen slinga
 FRIST_PASS = int(os.environ.get('NWP_KANDIDAT_FRIST_PASS') or 720)  # ett kompetenspass: läsningen, en omgång och en bekräftelse
 FRIST_PASS_OMFORSOK = 420  # ett pass som inte läste sina filer får ett omförsök
@@ -4792,6 +4793,19 @@ def kor_pool(slug, ids, arbete, status, skriv, parallellt=None, forsta=None):
         t_.join()
 
 
+def stanna_efter_forskning(slug, status, skriv):
+    """Körningen stannar efter researchen: på begäran (NWP_KANDIDAT_STOPP_EFTER=forskning; prototyp.py --fortsatt tar vid i
+    planeringen) eller för att kunden arbetar i Claude Design, där riktningarna görs på duken och Code inte gör någon egen
+    kunddesign (designfas.aktiv; kunskap/claude-design.md). Researchen, referenspaketet och tjänsternas svar står kvar som
+    designfasens underlag."""
+    d = designfas.aktiv(slug, atelje.UNDERLAG)
+    status.update(steg='forskad', klar=nu(), skal=(designfas.sparr(slug) + '. Researchen är klar och lämnas till duken: '
+                                                   'underlag/%s/atelje/FORSKNING.md och referenspaketet' % slug) if d else
+                  'körningen stannade efter researchen (NWP_KANDIDAT_STOPP_EFTER=forskning): prototyp.py --fortsatt tar vid i planeringen')
+    skriv()
+    return []
+
+
 def kor(slug, status, skriv, n=None):
     """Hela utforskningen, återupptagbar: metoden, researchen och planen om de saknas, sedan varje kandidats kedja (några
     åt gången), ett andra försök för de ofullständiga, och jämförelsen. Sätter körningens steg; ägaren väljer sedan."""
@@ -4826,10 +4840,14 @@ def kor(slug, status, skriv, n=None):
                 else ['den sparade researchen är äldre än referenskontraktet (version %d)' % rk.VERSION]
             if rbrister:
                 raise RuntimeError('den sparade researchen uppfyller inte referenskontraktet, och planen görs inte på den: ' + '; '.join(rbrister))
+        if STOPP_EFTER == 'forskning' or designfas.aktiv(slug, atelje.UNDERLAG):
+            return stanna_efter_forskning(slug, status, skriv)
         status['steg'] = 'planera'
         skriv()
         planera(slug, n, lage)
         tider['plan'] = nu()
+    elif designfas.aktiv(slug, atelje.UNDERLAG):  # en plan från före designfasen: inga skapare i Code
+        return stanna_efter_forskning(slug, status, skriv)
     ids = lista(slug)
     plan_ = atelje.las_json(r / 'KANDIDATPLAN.json') or {}
     planbrister = kompetens.kravbrister(plan_.get('kompetens'), 'planera')
