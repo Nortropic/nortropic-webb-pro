@@ -154,8 +154,37 @@ class A_Sparr(Grund):
 class B_Version(Grund):
     def test_version_kopieras_hashas_och_renderas(self):
         self.duk()
-        post = df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'första riktningen')
+        # en attrapp av impeccables motor (detektor.motor läser IMPECCABLE_BIN): fynden med kodutdrag och sidtext, och
+        # --scope type/layout som ger området per regel (valideringen 2026-10-12)
+        motor = self.tmp / 'motor' / 'impeccable'
+        motor.parent.mkdir(parents=True, exist_ok=True)
+        logg = self.tmp / 'motor' / 'anrop.log'
+        motor.write_text('#!%s\nimport json, sys\na = sys.argv[1:]\nopen(%r, "a").write(" ".join(a) + "\\n")\n'
+                         'sc = a[a.index("--scope") + 1] if "--scope" in a else None\n'
+                         'alla = [{"antipattern": "flat-type-hierarchy", "name": "Flat", "description": "d", "severity": "warning", '
+                         '"category": "quality", "snippet": "SIDTEXT-SOM-INTE-FAR-NA-KRITIKEN", "file": "/x", "line": 3},\n'
+                         '        {"antipattern": "cramped-padding", "name": "Tight", "description": "d", "severity": "warning", "category": "quality"},\n'
+                         '        {"antipattern": "em-dash-overuse", "name": "Dash", "description": "d", "severity": "info", "category": "slop", "advisory": True}]\n'
+                         'dom = {"type": ["flat-type-hierarchy"], "layout": ["cramped-padding"]}\n'
+                         'print(json.dumps([f for f in alla if sc is None or f["antipattern"] in dom.get(sc, [])]))\nsys.exit(2)\n'
+                         % (sys.executable, str(logg)))
+        motor.chmod(0o755)
+        with patch.dict(os.environ, IMPECCABLE_BIN=str(motor)):
+            post = df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'första riktningen')
         vk = self.u / SLUG / 'design' / 'versioner' / 'v01'
+        for w in ('390', '1440'):
+            fynd = json.loads((vk / 'kontroll' / 'detektor' / ('Main.dc.html-%s.json' % w)).read_text())
+            self.assertEqual({f['antipattern']: f.get('omrade') for f in fynd},
+                             {'flat-type-hierarchy': 'typografi', 'cramped-padding': 'layout', 'em-dash-overuse': None}, w)
+            self.assertFalse([f for f in fynd if {'snippet', 'file', 'line'} & set(f)], 'kodutdrag och sidtext når aldrig kritiken')
+        anrop = logg.read_text().splitlines()
+        self.assertTrue(any('--viewport 390x844' in a and '--scope' not in a for a in anrop)
+                        and any('--viewport 1440x900' in a and '--scope type' in a for a in anrop), anrop)
+        self.assertIn('Station typografi', df.station_brief(SLUG, 'typografi', 'Main.dc.html', self.u))
+        self.assertIn('flat-type-hierarchy', df.station_brief(SLUG, 'typografi', 'Main.dc.html', self.u))
+        self.assertNotIn('cramped-padding', df.station_brief(SLUG, 'typografi', 'Main.dc.html', self.u))
+        self.assertIn('cramped-padding', df.station_brief(SLUG, 'komposition', 'Main.dc.html', self.u))
+        self.assertNotIn('detektorns fynd', df.station_brief(SLUG, 'innehall', 'Main.dc.html', self.u))
         self.assertEqual(post['version'], 'v01')
         self.assertEqual((vk / 'kanvas' / 'Main.dc.html').read_text(), RITNING)
         self.assertIn('name="viewport"', (vk / 'sida' / 'Main.dc.html').read_text(), 'den renderade kopian mäts i 390, inte i 980')
@@ -441,12 +470,17 @@ class I_Inventering(unittest.TestCase):
     def test_radutdrag_i_stationen(self):
         import metod
         art = df.station('art')
-        tok = next(f for f in art['karna'] if df.filen(f) == 'taste/SKILL.md')
-        self.assertNotEqual(tok, 'taste/SKILL.md', 'taste avgränsad till sina avsnitt')
-        self.assertGreater(len(metod.utdrag(tok)['intervall']), 1)
+        # taste som rubrikutdrag, ett per avsnitt (§0, §1, §2.B, §7): ett radutdrag fällde nästa uppdatering (valideringen 2026-10-12)
+        tok = [f for f in art['karna'] if df.filen(f) == 'taste/SKILL.md']
+        self.assertEqual(len(tok), 4, tok)
+        self.assertTrue(all(' # ' in f and len(metod.utdrag(f)['intervall']) == 1 for f in tok), 'taste avgränsad till sina avsnitt')
         self.assertTrue(any('läs bara utdraget' in r for r in df.station_rader(art)))
-        trasig = df.KARTA.read_text(encoding='utf-8').replace('`taste/SKILL.md rad 13–81', '`taste/SKILL.md rad 13–99999', 1)
-        self.assertTrue(any('taste/SKILL.md rad 13–99999' in f for f in df.karta_prova(trasig)), 'ett utdrag utanför filen fälls')
+        trasig = df.KARTA.read_text(encoding='utf-8').replace('`taste/SKILL.md # 7. DIAL DEFINITIONS (Technical Reference)`',
+                                                              '`taste/SKILL.md # 7. FINNS INTE`', 1)
+        self.assertTrue(any('7. FINNS INTE' in f and 'finns inte' in f for f in df.karta_prova(trasig)), 'ett utdrag med en rubrik som saknas fälls')
+        trasig = df.KARTA.read_text(encoding='utf-8').replace('`refero-design/references/visual-workflow.md rad 81–105`',
+                                                              '`refero-design/references/visual-workflow.md rad 81–99999`', 1)
+        self.assertTrue(any('rad 81–99999' in f for f in df.karta_prova(trasig)), 'ett utdrag utanför filen fälls')
 
     def test_floden_harleds_och_ett_fel_falls(self):
         h = df.harledda_floden()

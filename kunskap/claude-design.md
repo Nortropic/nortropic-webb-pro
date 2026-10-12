@@ -129,8 +129,10 @@ Varje publicering ger dukens versions-id. Utföraren läser tillbaka filerna och
 kopierar ritningarna och indexet oförändrade till `underlag/<slug>/design/versioner/vNN/`, hashar dem, och renderar dem
 lokalt med typens körmiljö (`kontroller/designfas/rendera.mjs`): bilder i 390, 768 och 1440 och med menyn öppen, och
 mätningarna i BILDER.json (LCP-kandidaten, layoutskiften, bildernas storlek mot visad storlek, rörelsen vid laddningen,
-efter 5,5 s och med reducerad rörelse), axe med menyn öppen och formulären skickade tomma, och stilrapporten. Varningarna
-är underlag; LCP och CLS gäller ritningen lokalt, aldrig fältdata. Ägarens egna ändringar på duken sparas som en egen
+efter 5,5 s och med reducerad rörelse), axe med menyn öppen och formulären skickade tomma, stilrapporten och impeccables
+detektor i 390 och 1440 (`kontroll/detektor/`, regelkatalogens fält utan kodutdrag, varje fynd märkt med området
+typografi eller layout ur motorns `--scope`); stationerna typografi, komposition, responsiv, kritik och polish får sina
+fynd i stationens instruktion (`designfas.py station`), och ett fynd rättas eller motiveras. Varningarna är underlag; LCP och CLS gäller ritningen lokalt, aldrig fältdata. Ägarens egna ändringar på duken sparas som en egen
 version (`--av agaren`) innan utföraren ändrar något. Designs gränssnitt har ännu ingen versionshistorik
 (supportsidan); spåret i `design/` är därför versionshistoriken, och den äldre versionen kan alltid visas och väljas.
 

@@ -1038,6 +1038,33 @@ def status(slug, underlag=None):
             'godkannande': {'giltigt': ok, 'skal': skal, 'version': (g or {}).get('version')}}
 
 
+# Detektorns område per station (renderingens fält omrade ur motorns --scope; valideringen 2026-10-12, skills del 1
+# åtgärd 4): typografi läser typfynden, komposition och responsiv layoutfynden, kritiken och polish alla
+DETEKTOR_OMRADE = {'typografi': ('typografi',), 'komposition': ('layout',), 'responsiv': ('layout',), 'kritik': None, 'polish': None}
+
+
+def detektor_rader(vk, ritning, sid):
+    """Detektorns fynd för stationens område ur versionens kontroll (renderingen med --kontroll), som regel, allvar och
+    bredd utan kodutdrag; tom lista när stationen inte läser detektorn eller fynden saknas."""
+    if sid not in DETEKTOR_OMRADE:
+        return []
+    omr = DETEKTOR_OMRADE[sid]
+    fynd = {}
+    for w in ('390', '1440'):
+        for f in las(vk / 'kontroll' / 'detektor' / ('%s-%s.json' % (ritning, w))) or []:
+            if isinstance(f, dict) and f.get('antipattern') and (omr is None or f.get('omrade') in omr):
+                x = fynd.setdefault(f['antipattern'], {'namn': f.get('name') or f['antipattern'], 'allvar': f.get('severity'),
+                                                        'bredder': [], 'rad': f.get('advisory')})
+                x['bredder'].append(w)
+    if not fynd:
+        return []
+    return ['Impeccables detektorns fynd för stationen (%s; kontroll/detektor/ i versionen, regelkatalogens fält): %s. Pröva varje'
+            ' fynd mot bilderna och ägarbesluten; ett fynd rättas eller motiveras med namngivet belägg i versionens orsak.' % (
+                'området ' + ' och '.join(omr) if omr else 'alla områden',
+                '; '.join('%s (%s, %s%s, %s)' % (k, x['namn'], x['allvar'] or 'okänt allvar', ', råd' if x['rad'] else '',
+                                                 '/'.join(x['bredder'])) for k, x in sorted(fynd.items())))]
+
+
 def station_brief(slug, sid, ritning, underlag=None):
     """Arbetsinstruktionen för en station på en riktning: frågan och skills ur metodkartans tabell, versionens filer och
     bilder, och hur insatsen sparas. Till utföraren eller till den underagent som gör stationen."""
@@ -1057,6 +1084,7 @@ def station_brief(slug, sid, ritning, underlag=None):
         'Ritningens källa: %s' % rel(vk / 'kanvas' / ritning),
         'Bilderna: ' + ', '.join('%s %s' % (k, rel(vk / x['fil'])) for k, x in (bild.get('bilder') or {}).items()),
         'Mätningar och varningar: %s (ritningen %s)' % (rel(vk / 'BILDER.json'), ritning),
+        *detektor_rader(vk, ritning, st['id']),
         'Underlaget: underlag/%s/KUNDFORSTAELSE.md och kunskap/designregler.md.' % slug,
         'Insatsen: ändra bara det stationen gäller och lämna resten orört. Efter publiceringen sparas den som '
         '`designfas.py version %s --station %s --ritning %s --fran <återläst katalog> --artifact-version <id> --orsak "<vad stationen '

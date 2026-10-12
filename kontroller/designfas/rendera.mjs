@@ -224,15 +224,28 @@ if (kontroll) {
     const d = join(k, 'detektor');
     mkdirSync(d, { recursive: true });
     post.kontroll.detektor = {};
+    const detektera = (vp, r, scope) => {
+      const x = spawnSync(process.env.IMPECCABLE_MOTOR, ['detect', '--json', '--no-config', ...(scope ? ['--scope', scope] : []), '--viewport', vp,
+        `${bas}/${r}`], { encoding: 'utf-8', timeout: 240000, env: process.env });
+      let fynd = null;
+      try { const j = JSON.parse(x.stdout || '[]'); fynd = Array.isArray(j) ? j : (j.findings || j.results || []); } catch { /* */ }
+      return [x, fynd && fynd.filter((f) => f && typeof f === 'object')];
+    };
     for (const r of ritningar) {
       for (const vp of ['390x844', '1440x900']) {
-        const x = spawnSync(process.env.IMPECCABLE_MOTOR, ['detect', '--json', '--no-config', '--viewport', vp, `${bas}/${r}`],
-          { encoding: 'utf-8', timeout: 240000, env: process.env });
-        let fynd = null;
-        try { const j = JSON.parse(x.stdout || '[]'); fynd = Array.isArray(j) ? j : (j.findings || j.results || []); } catch { /* */ }
+        let [x, fynd] = detektera(vp, r);
+        // området per regel ur motorns --scope (type, layout), så att stationerna typografi, komposition och responsiv läser
+        // sina fynd (valideringen 2026-10-12, skills del 1 åtgärd 4); en regel utanför båda har inget område
+        const omrade = {};
+        if (fynd && fynd.length) {
+          for (const [sc, namn] of [['type', 'typografi'], ['layout', 'layout']]) {
+            for (const f of detektera(vp, r, sc)[1] || []) if (f.antipattern) omrade[f.antipattern] = namn;
+          }
+        }
         // bara regelkatalogens fält: kodutdrag och sidans text får aldrig nå den blinda kritiken (detektor.for_granskaren)
-        if (fynd) fynd = fynd.filter((f) => f && typeof f === 'object').map((f) => Object.fromEntries(
-          ['antipattern', 'rule', 'name', 'description', 'severity', 'category', 'advisory'].filter((n) => f[n] !== undefined).map((n) => [n, f[n]])));
+        if (fynd) fynd = fynd.map((f) => Object.fromEntries([
+          ...['antipattern', 'rule', 'name', 'description', 'severity', 'category', 'advisory'].filter((n) => f[n] !== undefined).map((n) => [n, f[n]]),
+          ...(omrade[f.antipattern] ? [['omrade', omrade[f.antipattern]]] : [])]));
         const fil = join(d, `${r}-${vp.split('x')[0]}.json`);
         writeFileSync(fil, JSON.stringify(fynd ?? { fel: (x.stderr || '').slice(-800), slutkod: x.status }, null, 1) + '\n');
         post.kontroll.detektor[`${r} ${vp}`] = fynd ? { fynd: fynd.length, slutkod: x.status } : { fel: 'motorn gav inget läsbart svar', slutkod: x.status };
