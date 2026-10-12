@@ -8,9 +8,9 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/react": "7.0.0",
+    "@astrojs/react": "7.0.1",
     "@tailwindcss/vite": "4.3.3",
-    "astro": "7.3.5",
+    "astro": "7.3.8",
     "gsap": "3.15.0",
     "motion": "14.0.0",
     "react": "19.3.0",
