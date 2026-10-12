@@ -51,8 +51,8 @@ fäller dem i agenternas texter.
   illustrationer, texturer, mönster, tydligt illustrativa konceptbilder) är tillåtet med källa och licens i
   `bilder/BILDER.md` eller DESIGN.md.
 - **Säkerhet och kunddata:** kundens namn, orter, nummer och e-post går aldrig till externa tjänster (Refero, Mobbin);
-  inga hemligheter i kod, underlag eller rapporter; paket bara ur mallens låsta beroenden (`kunskap/beroenden.md`) och
-  genom `kontroller/typsnitt.py`, och byggen innanför processgränsen.
+  inga hemligheter i kod, underlag eller rapporter; paket med exakt version i låset och källan bokförd (`kunskap/beroenden.md`),
+  och byggen innanför processgränsen.
 - **Prestanda, robusthet och rörelse:** innehållet och navigationen fungerar utan JavaScript, rörelse respekterar
   `prefers-reduced-motion`, och prestandabudgeten håller (byggstandarden 4), vilken teknik riktningen än valt.
 - **Utkast är märkta:** där kundens material saknas står ett tydligt märkt textutkast eller en platshållare som säger vad
@@ -62,9 +62,9 @@ fäller dem i agenternas texter.
 
 | Beslut | Räckvidd |
 |---|---|
-| Astro med förrenderade sidor; varje riktning väljer en sammanhängande implementation ur de förberedda, granskade och låsta beroendena (egen CSS, Referos CSS-variabler, Tailwind, Astro- och React-komponenter, Motion; `kunskap/beroenden.md`); självhostade typsnitt eller systemtypsnitt; verksamhetens bilder genom `astro:assets`. Nortropics standardval: ägaren godkände 2026-10-05 18:53Z att de tidigare förbuden omprövas, och urvalet av beroenden är agentens | dagens erbjudande: webbplatser för lokala tjänsteföretag. En bokningstjänst, en butik eller en större innehållssajt kan behöva andra lösningar och får då ett eget beslut |
-| Inga karuseller, marquees eller sidor som rullar av sig själva (byggstandarden) | dagens erbjudande |
-| Inga paketinstallationer i flödets sessioner: beroendena förbereds, granskas och låses i mallen (`kunskap/beroenden.md`), typsnitt genom `kontroller/typsnitt.py`; formulären demonstreras lokalt (`/api/forfragan` → `/tack/`) | skapandeflödet |
+| Astro med förrenderade sidor; varje riktning väljer en sammanhängande implementation och de paket som höjer kvaliteten (egen CSS, Referos CSS-variabler, Tailwind, shadcn- och 21st-komponenter med Radix och lucide, Motion, GSAP, three och ogl för WebGL; nya paket väljs fritt, `kunskap/beroenden.md`; ägarens besked 2026-10-12 om fria tyglar i skapandet); självhostade typsnitt eller systemtypsnitt; verksamhetens bilder genom `astro:assets`. Nortropics standardval: ägaren godkände 2026-10-05 18:53Z att de tidigare förbuden omprövas, och urvalet av beroenden är agentens | dagens erbjudande: webbplatser för lokala tjänsteföretag. En bokningstjänst, en butik eller en större innehållssajt kan behöva andra lösningar och får då ett eget beslut |
+| Inga karuseller (ägarens beslut). Rörelse som pågår mer än 5 s, också marquees och loopar, kan pausas eller stoppas (WCAG 2.2.2) | dagens erbjudande |
+| Paket väljs fritt när de höjer kvaliteten och installeras med exakt version i sajtens lås, med källan och licensen i RIKTNING.md; inget av det är ägarens beslut (ägarens besked 2026-10-12: "Inga av sådana här beroenden eller andra är mitt beslut, det skall utnyttjas"); formulären demonstreras lokalt (`/api/forfragan` → `/tack/`) | skapandeflödet |
 | Primära interaktiva kontroller minst 44×44 CSS-pixlar; skilt från WCAG:s minimum (24 px, 2.5.8) och inget krav på alla länkar (ägaren 2026-10-09; byggstandarden 3.3) | dagens erbjudande |
 | Kundens kontaktvägar ur briefen (§4) finns på varje sida: har kontaktmodellen telefonen står numret som tel-länk på varje sida; placeringen är riktningens val (byggstandarden 9.2; Codex via ägaren 2026-10-05, punkt 2) | dagens erbjudande |
 | En namngiven referens får vara utgångspunkt för layout, palett och typografi (2026-10-03); dess identitet, texter och bilder blir aldrig kundens | allt designarbete |

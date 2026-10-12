@@ -17,7 +17,7 @@
 # (korslut.py), också när ett kommando faller under set -e eller en trasig fil läses in. Undantagen: när kunder/<slug>
 # eller korningar/ inte går att använda (en fil eller en symlänk) skrivs bara beskedet, och när både kor.sh och vakten
 # dödas (SIGKILL mot båda, en omstart) säger nästa start och korslut.py --visa att körningen avbröts utan slutpost.
-# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (medium; vann ägarens blinda A/B 2026-10-02), NWP_MAX_TURNS (400),
+# Miljö (valfri): NWP_MODELL (opus[1m]), NWP_EFFORT (max; ägarens besked om fria tyglar 2026-10-12 — A/B-domen 2026-10-02 om medium är historik sedan den rena designstarten), NWP_MAX_TURNS (1000),
 # NWP_STOPP_TAK (8), NWP_GRANSKARE_MODELL (opus[1m]), NWP_GRANSKARE_ANTAL (2 parallella granskare per omgång),
 # NWP_GRANSKNING_MAX (5 per körning), NWP_FRIST (10: sekunder från SIGTERM till SIGKILL när bygget stoppas),
 # NWP_MCP_CONFIG (tomt: Refero, Mobbin, Motion och 21st; av: inga; en av deras repolokala mallar väljer en tjänst i
@@ -334,7 +334,7 @@ fi
 
 ARGS=(-p
   --session-id "$SESSION_ID"
-  --max-turns "${NWP_MAX_TURNS:-400}"
+  --max-turns "${NWP_MAX_TURNS:-1000}"
   --permission-mode dontAsk
   --output-format stream-json --verbose
   --allowedTools Read Write Edit Glob Grep WebFetch WebSearch Skill ToolSearch Task TaskCreate TaskUpdate TaskList TaskGet
@@ -390,7 +390,7 @@ for f in ${FRYSTA[@]+"${FRYSTA[@]}"}; do ARGS+=("Write(./underlag/$SLUG/$f)" "Ed
 # ~/.claude/settings.json läses inte). Modell och effort anges därför uttryckligen; gh får sin konfigurationsmapp.
 GH_DIR="$("$ROOT/.venv/bin/python" -c "import json,os; print((json.load(open(os.path.expanduser('~/.claude/settings.json'))).get('env') or {}).get('GH_CONFIG_DIR',''))" 2>/dev/null || true)"
 # --strict-mcp-config: bara flödets egna anslutningar, aldrig servrar på användarnivån.
-ARGS+=(--setting-sources project,local --strict-mcp-config --model "${NWP_MODELL:-opus[1m]}" --effort "${NWP_EFFORT:-medium}")
+ARGS+=(--setting-sources project,local --strict-mcp-config --model "${NWP_MODELL:-opus[1m]}" --effort "${NWP_EFFORT:-max}")
 # Sandlådan (backlogposten om gräns på processnivå, F1): NWP_SANDLADA=pa ger claude Claude Codes inbyggda sandlåda för
 # Bash och dess barn: skrivning bara i kunder/<slug>, underlag/<slug>, backlog/ och tmp; mekaniken och .git skrivskyddade;
 # hemligheter olästa; nätet bara till verksamhetens domän (ur uppdragstexten), NWP_NAT_DOMANER (kommaseparerat) och

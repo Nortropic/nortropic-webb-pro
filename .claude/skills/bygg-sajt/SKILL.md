@@ -410,8 +410,9 @@ KONCEPT.md.
    sätter `site` till domänen i VERKSAMHET.json och installerar mallens låsta beroenden (npm ci). Läs `mall/astro/README.md`, `kunskap/beroenden.md` och
    `kunskap/byggstandard.md`: varje D-punkt ska hålla i bygget.
 3. **Bygg** sidorna ur INNEHALL.md: mobil först, semantisk HTML, en h1 per sida, självhostade typsnitt eller
-   systemtypsnitt, verksamhetens bilder via `astro:assets`, en sammanhängande implementation ur de låsta beroendena
-   (egen CSS, stilpaketets variabler, Tailwind, Astro- och React-komponenter, Motion och GSAP med valet per beteende;
+   systemtypsnitt, verksamhetens bilder via `astro:assets`, en sammanhängande implementation med de paket som höjer
+   kvaliteten (egen CSS, stilpaketets variabler, Tailwind, shadcn- och 21st-komponenter enligt porteringsreceptet,
+   Motion och GSAP med valet per beteende, WebGL med three eller ogl; nya paket väljs fritt med exakt version;
    `kunskap/beroenden.md`) där
    innehållet och navigationen fungerar utan JavaScript, JSON-LD med den mest specifika schema.org-typen sanningsenligt
    ur VERKSAMHET.json. Varje sida, även 404, har sidhuvud med meny och kundens kontaktvägar ur BRIEF.md §4 (har
