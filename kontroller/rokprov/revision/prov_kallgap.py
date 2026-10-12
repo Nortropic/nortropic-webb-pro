@@ -65,6 +65,21 @@ class Kallgap(unittest.TestCase):
             self.assertEqual(atelje.main([self.slug, '--om', '--start-id', 'prov-start-1']), 2)
         self.assertFalse((self.root / 'kunder' / self.slug / 'sajt').exists())
 
+    def test_kvittots_brist_redovisas_och_faller_inte_forberedelsen(self):
+        # ägarens besked 2026-10-12 (fria tyglar): kvittot redovisar, fäller inte; förberedelsen blir klar och giltig
+        def session(_prompt, _tools, output, *_a, **_k):
+            for name in forberedelse.FILER:
+                (output.parent / name).write_text(kf('Syntetiskt utkast ' + name, name))
+            return {'structured_output': {'klar': True, 'saknas': []}}
+        st = {}
+        with patch.object(forberedelse.kompetens, 'kvitto', side_effect=lambda _s, pass_, **_kw: {}), \
+             patch.object(atelje, 'session', side_effect=session):
+            post = forberedelse.kor(self.slug, st, lambda: None)
+        self.assertEqual((st['steg'], post['status']), ('forberedd', 'klar'))
+        self.assertTrue(post['kompetenskravbrister'], 'bristen redovisas i posten')
+        self.assertIn('fäller inte', st['skal'])
+        self.assertTrue(forberedelse.giltig(self.slug))
+
     def test_forberedelsens_worker_aterbruk_och_andring(self):
         def session(_prompt, tools, output, *_args, **_kw):
             self.assertNotIn('Bash', tools)

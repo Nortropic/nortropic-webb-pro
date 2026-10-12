@@ -41,8 +41,9 @@ def giltig(slug, post=None):
     try:
         kundstart_kalla.krav(u)
         post = post if post is not None else atelje.las_json(u / 'atelje/FORBEREDELSE.json')
+        # kvittot redovisas och gör inte förberedelsen ogiltig (ägarens besked 2026-10-12, fria tyglar; som
+        # kandidater.KVITTOVARNING): det giltiga är att den är klar, gäller dagens kundunderlag och inte ändrats
         return bool(isinstance(post, dict) and post.get('status') == 'klar' and post.get('indata') == indata(slug)['kund']
-                    and not kompetens.kravbrister(post.get('kompetens'), 'forbered')
                     and not (u / 'INNEHALL.md').exists() and not (u / 'INNEHALL.md').is_symlink()
                     and not (u / 'atelje/FORBEREDELSE.json').is_symlink()
                     and set(post.get('filer') or {}) == set(FILER)
@@ -135,9 +136,7 @@ def _publicera(slug, paket, grund):
         raise ValueError('kundunderlaget ändrades under förberedelsen; paketet är bevarat men inte publicerat')
     atelje.saker_vag(paket / 'KOMPETENS.json', paket)
     kv = atelje.las_json(paket / 'KOMPETENS.json') or {}
-    brister = kompetens.kravbrister(kv, 'forbered')
-    if brister:
-        raise ValueError('förberedelsens kompetenskrav uppfylldes inte: ' + '; '.join(brister))
+    brister = kompetens.kravbrister(kv, 'forbered')  # redovisas i posten, fäller inte (fria tyglar 2026-10-12)
     hashar = {}
     atelje.saker_vag(u / 'INNEHALL.md', u)
     for n in FILER:
@@ -179,7 +178,7 @@ def _publicera(slug, paket, grund):
     if indata(slug)['kund'] != grund['kund']:
         raise ValueError('kundunderlaget ändrades vid publiceringen; ny förberedelse krävs')
     post = {'status': 'klar', 'tid': atelje.nu(), 'indata': grund['kund'], 'arbetsunderlag_fore': grund['arbetsfiler'], 'filer': hashar, 'paket': atelje.rel(paket),
-            'kompetens': kv, 'kompetenskravbrister': [],
+            'kompetens': kv, 'kompetenskravbrister': brister,
             'omfattning': 'förberett för referensjakt och skiss; inte verifierad design eller beställd leverans'}
     atelje.skriv_json_atomiskt(kvitto, post)
     return post
@@ -214,16 +213,11 @@ def kor(slug, status, skriv):
     kvitto = kompetens.kvitto([svar], 'forbered', skrivprefix=atelje.rel(paket) + '/')
     brister = kompetens.kravbrister(kvitto, 'forbered')
     (paket / 'KOMPETENS.json').write_text(json.dumps(dict(kvitto, kompetenskravbrister=brister), ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    if brister:
-        post = {'status': 'kompetensbrist', 'tid': atelje.nu(), 'paket': atelje.rel(paket),
-                'kompetens': kvitto, 'kompetenskravbrister': brister}
-        status.update(steg='fel', forberedelse=post, skal='förberedelsens kompetenskrav uppfylldes inte: ' + '; '.join(brister))
-        skriv()
-        raise RuntimeError(status['skal'])
     if svar.get('is_error') or svar.get('slutkod', 0) or ut.get('klar') is not True:
         raise RuntimeError('förberedelsen kunde inte färdigställas; arbetsmaterialet är bevarat i paketet')
     post = publicera(slug, paket, grund)
     status.update(steg='forberedd', klar=atelje.nu(), forberedelse=post,
-                  skal='underlaget är förberett; nästa steg är referensjakt och skiss')
+                  skal='underlaget är förberett; nästa steg är referensjakt och skiss' + (
+                      ('; kompetenskvittot (redovisas, fäller inte): ' + '; '.join(brister))[:600] if brister else ''))
     skriv()
     return post

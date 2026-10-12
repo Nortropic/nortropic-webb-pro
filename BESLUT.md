@@ -5642,6 +5642,8 @@ Borttaget eller lättat:
   - nekar inte ägarens godkännande, som i stället får varningen med sig i domen;
   - kastar inte förfiningen, specialistpassen eller förbättringsrundan, och ger inget omförsök;
   - stoppar inte researchen, planen eller planprövningen;
+  - stoppar inte förberedelsen av kundunderlaget och gör den inte ogiltig (`forberedelse.py`, tillagt 2026-10-13 i
+    integrationen; bristerna står i FORBEREDELSE.json);
   - underkänner inte helbygget och ändrar inte "klart för leverans" (`korslut`).
 
   Beslutet 2026-10-10 om ett omförsök när bara researchens kompetens brast behövs inte längre och är ersatt.
