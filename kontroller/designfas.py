@@ -640,8 +640,13 @@ def station_rader(st):
     anrop = set(kompetens.anvandaranropade(ROOT)) | set(kompetens.vantande_skills(ROOT))  # användaranropade och Initial Response: Read
     def visa(f):
         namn = f.split('/')[0]
-        if filen(f) != f:  # ett radutdrag: bara de raderna, aldrig hela skillen
-            return '%s (läs bara utdraget med Read, offset och limit)' % f
+        if filen(f) != f:  # ett rad- eller rubrikutdrag: bara de raderna, aldrig hela skillen
+            import metod
+            try:  # rubrikutdraget upplöst till rader, så att Read får offset och limit direkt
+                rader = ', '.join('%d–%d' % ab for ab in metod.utdrag(f)['intervall'])
+            except metod.MetodFel:
+                rader = ''
+            return '%s (läs bara utdraget med Read, offset och limit%s)' % (f, (': rad ' + rader) if rader and ' # ' in f else '')
         return '%s (%s)' % (f, 'läs hel med Read' if f.startswith(('kunskap/', 'kritik/')) or '/reference' in f or namn in anrop
                             or not f.endswith('SKILL.md') else 'aktivera med Skill')
     ordning = list(stationer())
