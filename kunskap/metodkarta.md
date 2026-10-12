@@ -139,7 +139,8 @@ sessionerna.
   namnges (egenskapen, huvudtråden, omritning per bildruta, ärvda variabler, blur), och mätningen på en riktig enhet
   redovisas som oprövad när den inte gjorts (intagen 2026-10-13).
 - **Skills som väntar på ett svar:** en skill med Initial Response läses bara med Read; kunskapen används men
-  väntesvaret körs inte. `kompetens.skill_nekas` nekar både mappnamnet och metadatanamnet genom Skill i ateljéns
+  väntesvaret körs inte. Emils skills är undantagna och aktiveras med Skill (`kompetens.SLAPPTA_VANTANDE`; fria tyglar,
+  ägarens besked 2026-10-12): promptens villkor att ingen svarar och inga frågor ställs ersätter nekandet. `kompetens.skill_nekas` nekar både mappnamnet och metadatanamnet genom Skill i ateljéns
   argument och helbyggets inställningar. Övriga tillåtna skills kan fortfarande laddas med Skill (K46/P5).
 - **Användaranropade skills:** en skill vars SKILL.md har `disable-model-invocation: true` (källan har gjort den
   användaranropad, och Claude Code vägrar då Skill-verktyget) läses hel med Read när den tilldelas eller väljs; det ger
@@ -1100,7 +1101,7 @@ station som ändrar ritningen görs helst av en underagent som bara har statione
 publicerar och sparar versionen.
 
 Skills och tjänster: kärnan aktiveras med Skill (en användaranropad skill eller en med `## Initial Response` läses hel
-med Read) eller läses hel, och ett radutdrag läses bara i sina rader, allt bara i stationen; alternativen väljs efter
+med Read, utom Emils, som aktiveras med Skill) eller läses hel, och ett radutdrag läses bara i sina rader, allt bara i stationen; alternativen väljs efter
 riktningen. `mcp:` är en tjänst bakom kundvakten (verktygen och deras uppgifter: tjänstblocken ovan) och `pass:`
 specialistpasset som Code kan köra för stationen. Metod: raden i metodtabellen nedan, med källa, slag och princip.
 
@@ -1223,11 +1224,11 @@ skill:better-break | jakubkrehel/skills | Code | stationer: tillganglighet; flö
 skill:emil-design-eng | emilkowalski/skills | båda | stationer: polish; flöden: band, specialistpass; D8 polish-kärna: detaljerna i tryck, tillstånd och övergångar; ds_rorelse kärna | aktiverbar
 skill:emil-animate | emilkowalski/skills | båda | stationer: rorelse; flöden: band, specialistpass, helbygge; D8 rörelse-kärna: beteenden och teknikval; RECIPES.md för mobilmenyn, dragspelet och trycket; D11 rörelsens bygge | aktiverbar
 skill:emil-improve-animations | emilkowalski/skills | båda | stationer: rorelse; flöden: band, specialistpass; D8 granskning efter renderingen i rörelse; ds_rorelse → förbättrade förlopp | användaranropad: läses hel med Read
-skill:emil-animation-performance | emilkowalski/skills | båda | stationer: rorelse, polish; flöden: band, specialistpass, helbygge; diagnosen när en rörelse tappar bildrutor eller tekniken väljs av prestandaskäl: egenskapen, huvudtråden, omritning per bildruta (Avgörandena, Rörelserådets räckvidd) | användaranropad: läses hel med Read
+skill:emil-animation-performance | emilkowalski/skills | båda | stationer: rorelse, polish; flöden: band, specialistpass, helbygge; diagnosen när en rörelse tappar bildrutor eller tekniken väljs av prestandaskäl: egenskapen, huvudtråden, omritning per bildruta (Avgörandena, Rörelserådets räckvidd) | aktiverbar (Initial Response, släppt till Skill)
 skill:emil-review-animations | emilkowalski/skills | båda | stationer: rorelse, overlamning; flöden: band, specialistpass, overlamning, helbygge; D8 rörelse-kärna: granskningen av förloppen; STANDARDS.md ger kurvor och längder som rörelsetokens i överlämningen; D11 grinden Block/Approve för byggets rörelsekod | användaranropad: läses hel med Read
 skill:emil-find-animation-opportunities | emilkowalski/skills | båda | stationer: rorelse; flöden: band, specialistpass; D8 rörelsestationens första moment (kärna): urvalet med frekvens, syfte, hastighet och funktion och listan över avvisade → beslutet med belägg i versionens orsak | kärna; oprövad i designfasen
 skill:emil-animation-vocabulary | emilkowalski/skills | båda | stationer: rorelse, overlamning; flöden: band, specialistpass, overlamning; D8 alternativ i rörelse → beskrivningen av förloppen i överlämningen | alternativ
-skill:emil-apple-design | emilkowalski/skills | Code | stationer: typografi, rorelse, tillganglighet; flöden: band, specialistpass; D8 ds_granskning alternativ: fysisk, avbrytbar rörelse → fynd | Initial Response: läses hel med Read
+skill:emil-apple-design | emilkowalski/skills | Code | stationer: typografi, rorelse, tillganglighet; flöden: band, specialistpass; D8 ds_granskning alternativ: fysisk, avbrytbar rörelse → fynd | aktiverbar (Initial Response, släppt till Skill)
 skill:emil-break-ui | emilkowalski/skills | Code | stationer: responsiv, tillganglighet; flöden: band, specialistpass; D6, D8 ds_granskning och ds_kritik alternativ → brytfynd | alternativ
 skill:emil-mobile-native | emilkowalski/skills | båda | stationer: responsiv; flöden: band, specialistpass; D8 responsiv-kärna hos utföraren; ds_responsiv → mobilens känsla (tryck, 100vh, zoom, fältens 16 px och inputmode) | kärna; oprövad i designfasen
 skill:emil-prototype | emilkowalski/skills | Design | stationer: rorelse; flöden: band; D8 interaktiva ritningar i förfiningen: prototyp av ett beteende att pröva → is_interactive-ritning | omprövad 2026-10-12 (förr ingen uppgift: kandidaterna var varianterna); användaranropad: läses hel med Read

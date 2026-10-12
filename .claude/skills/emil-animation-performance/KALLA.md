@@ -15,7 +15,8 @@
 - **Utelämnat:** inget ur skillmappen.
 - **Förgranskning 2026-10-13:** `kontroller/granska_repo.py`, körd på en kopia, gav LÅG: inga dolda tecken, ingen text
   riktad till agenter, inga skript, inga behörigheter, omkring 3 760 tokens (207 alltid, 3 275 vid användning).
-- **Krockar med våra beslut:** inga funna. Skillen har `## Initial Response` och läses därför hel med Read. Den säger
+- **Krockar med våra beslut:** inga funna. Skillen har `## Initial Response`; som Emils övriga skills aktiveras den med Skill (`kompetens.SLAPPTA_VANTANDE`), och
+  promptens villkor att ingen svarar ersätter väntesvaret. Den säger
   "Framer Motion", som hos oss är `motion/react` (`kunskap/beroenden.md`, Motion). Delningen "CSS för enkel rörelse,
   Motion för fjädrar och gester" är samma som metodkartans Avgöranden Teknik.
 - **Så används skillen här:** alternativ i bandets stationer rorelse och polish och i rörelseblocken, när en rörelse

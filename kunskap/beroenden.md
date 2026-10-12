@@ -125,6 +125,14 @@ läggs i mallen, i den här ordningen:
 4. Lägg `package.json` och `package-lock.json` i `mall/astro/`, uppdatera tabellen ovan med granskningen, och kör
   `kontroller/rokprov.sh` tills det är grönt. Nya sajter installerar med `npm ci` mot låset (`kontroller/ny_sajt.py`).
 
+Ett paket som bara en riktning behöver installerar skaparen i sin kandidat med
+`kontroller/kandidater.py <slug> --paket kNN <paket@version …>`: exakt version, `--ignore-scripts`, bara npm-registret,
+en egen `node_modules` i kandidaten i stället för länken till sajtens, och loggen i kandidatens `PAKET.jsonl`.
+Fotograferingen och förhandsvisningen kör `npm install` i kandidaten när `package.json` kräver det (BESLUT.md, tillägget
+2026-10-12 om fria tyglar i flödets kod). Version, källa och licens står i RIKTNING.md. Paketet följer ännu inte med
+automatiskt till helbygget: överföringen bär `src/`, DESIGN.md och materialet, så helbygget installerar paketen ur
+RIKTNING.md.
+
 ## Nortropic.app:s beroenden (`desktop/`)
 
 Appen (`kunskap/desktop.md`) byggs med Rust och Tauri 2 och är inget beroende för sajterna eller flödets sessioner.
