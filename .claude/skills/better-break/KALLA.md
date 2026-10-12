@@ -1,7 +1,7 @@
 # Källa
 
 - **Skill:** `break` (mappen `better-break`). Användaranropad: renderar en vald komponent i alla tillstånd och scenarier på en temporär sida och stresstestar den (med `scenarios.md`).
-- **Källa:** https://github.com/jakubkrehel/skills, `skills/break/`, commit `d574cc8a576dc24256ad38268b8d03d86724a1b3` (2026-08-29T19:01:47+02:00, standardgrenen main, plugin.json 1.6.3; samma commit som de sju better-skills som togs in 2026-10-03). Mappen ändrades senast i `267330e1adfc` (2026-08-29T19:01:47+02:00).
+- **Källa:** https://github.com/jakubkrehel/skills, `skills/break/`, commit `d574cc8a576dc24256ad38268b8d03d86724a1b3` (d574cc8: 2026-10-05T20:22:04-07:00, sammanslagningen av PR #41 på standardgrenen main, plugin.json 1.10.2). Mappen ändrades senast i `69e88f6` (2026-10-05T22:56:28-04:00). Rättad 2026-10-13 (valideringen, B3): raden angav förut 267330e:s datum och plugin-version, eftersom underhållet bara byter hashen när det tar in en version.
 - **Licens:** MIT. `LICENSE` (Copyright (c) 2026 Jakub Krehel), repots licensfil, kopierad till mappen.
 - **Intagen:** 2026-10-05 på ägarens beslut samma dag: "vi behöver säkerställa att alla skills är i sin fullo. installera de även ui ux pro max." Ordagrant: alla git-spårade filer i skillmappen, kontrollerade byte för byte mot upstreams blobbar; inget omskrivet eller borttaget.
 - **Filer:** 3 från upstream (2 i mappens rot, 1 i agents/): `SKILL.md`, `agents/openai.yaml`, `scenarios.md`. Våra tillägg: `KALLA.md`, `LICENSE`.

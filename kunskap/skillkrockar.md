@@ -4,7 +4,10 @@ Oberoende granskning av de 52 skillsen i `.claude/skills/` mot husets regler, gj
 ("identifiera krockar och säkerställ att vi som helhet får ett best practices utförande"). Bara läsning: inga
 skillskript körda, inget nät. Avgörandena gäller genom `kunskap/metodkarta.md`, som är den enda källan för vilka skills,
 filer och rader varje steg använder; den här filen är underlaget, med citat och källor. Radnumren i husets egna filer
-gällde vid granskningen och kan ha flyttat sig; skillsens filer är oförändrade sedan intaget (KALLA.md).
+gällde vid granskningen och kan ha flyttat sig; skillsens filer är oförändrade sedan intaget (KALLA.md). Tillägg
+2026-10-13: Jakub Krehels better-skills (också better-variant och better-explain-interface) är uppdaterade till källans
+d574cc8, och förorden som K63 citerar står nu i mappens `NORTROPIC.md`. Radnumren ur dem nedan gäller versionerna vid
+granskningen (267330e och eaf8d1b); metodkartans utdrag är omskrivna mot den nya texten.
 
 **Företräde** (`kunskap/designregler.md`): kvalitetskrav, kundens behov, ägarens beslut inom räckvidd,
 designhypoteser; en skills standardråd står under alla fyra. **Allvar:** hög = ger fel resultat eller stoppar en
@@ -227,15 +230,17 @@ uppdraget; svensk text). Rätta förorden för kandidatflödet (K63).
 **better-interface.** G: eskaleringsutlösarna :96–110 som allvar `hog`, allvarsskalan :86–94. F: domänordningen
 :67–74. Inte: rapportformatet (K57), :49 (interface-review).
 
-**better-variant.** P: :13–37 (olika svar, inte olika nyanser; axeltabellen; golvet). Inte: picker i sidan och
-påhittade namn (:64–76; K53, K10).
+**better-variant.** P: avsnitten "Different answers, not different tints" och "The floor every variant clears" (vid
+granskningen :13–37; olika svar, inte olika nyanser; axeltabellen; golvet). Inte: picker i sidan och påhittade namn
+(avsnitt 4, "Build it into the real page"; vid granskningen :64–76; K53, K10).
 
 **better-break.** G: scenarios.md som tankelista över innehållsaxlar. Inte: tillfällig sida och fråga (:19, :33–35,
 :66–68; K53, K46).
 
-**better-explain-interface.** R: :26–35, :54–58, :60–107 (vad som går att läsa, sidan som belägg, uppmätt/härlett/
-slutsats, skärmbild som rekonstruktion, lagren). Inte: :37–41 (K51), no-browser.md:8 curl (K49), :109–115 som
-kopieringsgräns (K01).
+**better-explain-interface.** R: avsnitten från "What you can actually read" till "Explain the mechanism, not the
+readout" (vid granskningen :26–35, :54–58, :60–107: vad som går att läsa, sidan som belägg, uppmätt/härlett/slutsats,
+skärmbild som rekonstruktion, lagren). Inte: no-browser.md curl (K49), "Close on what transfers" som kopieringsgräns
+(K01). Installationskommandot för Chrome DevTools MCP (K51, vid granskningen :37–41) finns inte i d574cc8.
 
 **better-interface-review.** Inte: git, gh och worktree (K52).
 

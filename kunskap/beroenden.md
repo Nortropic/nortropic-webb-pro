@@ -281,7 +281,12 @@ Skydden runt en ny version (den oberoende granskningen 2026-10-06):
   komprometterad version är karenstiden, npm audit och installation utan skript.
 - **Skillsen:** en uppdatering som ändrar behörigheter eller krokar i frontmatter, en konfigurationsfil, ett skript
   som flödet kör eller Impeccables motorversion tas aldrig in automatiskt, och inte heller en som flyttar eller bryter
-  metodkartans radutdrag (prövas igen vid intaget). Metoden låses inte om över en ändring som aldrig låsts.
+  metodkartans radutdrag (prövas igen vid intaget). Metoden låses inte om över en ändring som aldrig låsts. Husets
+  tillämpning av en skill står därför i en egen fil i mappen (`NORTROPIC.md`, som för Jakub Krehels better-skills sedan
+  2026-10-13), aldrig i källans filer: sammanslagningen rör bara filer som källan har, så en lokal rad i SKILL.md krockar
+  så snart källan skriver om samma rader. Metodkartan pekar på en sådan skill med rubrikutdrag, som följer avsnittet när
+  texten ändras; ett radutdrag stoppar varje uppdatering som ändrar raderna. humanizer, modern-web-guidance och
+  writing-for-agents har ännu förordet överst i SKILL.md och krockar på samma sätt när deras källa skriver om de raderna.
 - **Fel:** ett nätsteg som faller av ett tillfälligt skäl (tidsgräns, DNS, 5xx, Claudes gränser) avvisar inget,
   utan versionen behålls och prövas igen; en känd sårbarhet är aldrig tillfällig. npm audit jämför advisory för advisory
   med den installerade versionen, för de globala paketen båda träden som de ligger på disk: en uppdatering som inte för in

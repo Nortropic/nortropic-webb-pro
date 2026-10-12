@@ -82,7 +82,8 @@ SAJT_GRUPPER = {  # paket som byts tillsammans (samma huvudversion, kamrater)
 }
 MATINSTRUMENT = ('playwright', 'axe-core', 'lighthouse', 'html-validate', 'chrome-launcher')
 BREW_FORMLER = ('python@3.12', 'git', 'gh')  # node hanteras efter LTS-regeln
-EGNA_TILLAGG = ('KALLA.md', 'LICENSE', 'NOTICE.md', 'LICENSE-nous-research')
+# våra filer i en skillmapp; NORTROPIC.md är husets tillämpning bredvid källans ordagranna SKILL.md (valideringen B1)
+EGNA_TILLAGG = ('KALLA.md', 'LICENSE', 'NOTICE.md', 'LICENSE-nous-research', 'NORTROPIC.md')
 NODE_INDEX = 'https://nodejs.org/dist/index.json'
 MOTOR_RELEASER = 'https://api.github.com/repos/pbakaus/impeccable/releases?per_page=40'
 BREW_RELEASE = 'https://api.github.com/repos/Homebrew/brew/releases/latest'

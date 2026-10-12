@@ -5673,3 +5673,47 @@ Borttaget eller lättat:
 - Lighthouse prestanda ≥ 90 som krav;
 - säkerheten: inga hemligheter i kod, och inga skript från okända paket utan låsning (`--ignore-scripts`, `--save-exact`
   och projektets `.npmrc`).
+
+## Tillägg 2026-10-13: Jakub Krehels skills ordagranna, förorden i NORTROPIC.md
+
+**Status:** gäller; genomfört av Claude i grenen `claude/better-skills-20261013`, åtgärderna B1–B4 i valideringen
+2026-10-12 (better-*, avsnitt 2). Ägarens mandat för natten, som huvudsessionen förmedlade: "genomför valideringarnas
+och regelinventeringens åtgärder". Ingen människa svarade; besluten nedan är sessionens egna, med antagandena utskrivna.
+
+- **Krocken i underhållet:** sju better-skills (accessibility, colors, interface, layout, typography, ui, writing) hade
+  en svensk beskrivning i frontmattern och förordet "Så används skillen i nortropic-webb-pro" överst i SKILL.md. Källan
+  skrev om just de raderna, och underhållets trevägssammanslagning avvisade uppdateringen 2026-10-10 och skulle göra det
+  vid varje ny version. Förorden står nu i en egen fil per mapp, `NORTROPIC.md`, och SKILL.md med frontmatter och alla
+  referensfiler är källans vid d574cc8 (plugin.json 1.10.2), byte för byte. Sammanslagningen (`underhall.plan_for_skill`)
+  går bara igenom filer som källan har och tar källans nya version av en fil som är lika källan vid vår commit; en
+  simulerad nästa version med omskriven frontmatter och första stycke gav noll krockar i alla tio mapparna, mot krock i
+  SKILL.md med förordet kvar.
+- **NORTROPIC.md och inte KALLA.md:** förordet är en arbetsinstruktion som sessionerna läser med skillen, medan KALLA.md
+  är ursprunget och skrivs om av underhållet vid varje intag (hashen byts och en rad läggs till). En egen fil rörs aldrig
+  av källan eller underhållet och kan levereras hel ur metodkartan. `verktygslada.EGNA_TILLAGG` har den.
+- **Var förordet läses:** metodkartans Avgöranden säger regeln; kompetensblocken har `NORTROPIC.md` i kärnan och i
+  granskningen efter renderingen där skillen står där, utom i rollerna innehåll och responsiv, som ingår i skissen: med
+  förorden där blev skissens kärna 162 253 tecken, över taket på 160 000 (`prov_rorelse`, fall 5), och utan dem 158 667.
+  Där gäller Avgörandets regel utan kvitto. Utdragen i Skapa och Text levererar den bredvid SKILL.md, och
+  designfas-kartans rader pekar dit. Bandets stationer har den inte: stationens instruktion ger redan ägarens golv
+  (44 px och reducerad rörelse), och förordets övriga punkter gäller helbygget och kandidatflödet.
+- **Ägarbesluten sänks inte:** better-accessibility kallar nu 44 px och 40 px rekommendationer som aldrig blir `HIGH` och
+  har bara opt-in för reducerad rörelse. `better-accessibility/NORTROPIC.md` och Avgörandena säger att primära kontroller
+  minst 44 px och reducerad rörelse är ägarbeslut [beslut] (byggstandarden 3.3 och 3.5).
+- **Utdragen:** metodkartans radutdrag ur variant och explain-interface är rubrikutdrag, som följer avsnittet när
+  källan ändrar texten; typografins "Write copy naturally, style with CSS" heter nu "Natural case, typographic
+  punctuation" och ersättningstabellen står i `wrapping-and-punctuation.md`.
+- **Karenstiden:** intaget följer den (`kunskap/beroenden.md`, Skydden runt en ny version: "En skill prövas i den
+  senaste commit i källan som är äldre än karenstiden"). Den senaste commit i källan som var äldre än tre dygn
+  (gränsen 2026-10-09T23:30Z) är d574cc8 (2026-10-05, plugin.json 1.10.2), och den har också state-machine. Valideringen
+  angav c0588bb (2026-10-10), som skiljer sig bara i variants och state-machines väljare (en grupperad lista i stället för
+  en fast rad). Underhållet tar in c0588bb eller senare när karenstiden gått ut, och krocken i SKILL.md stoppar det inte
+  längre: en simulering mot c0588bb gav noll krockar. Peek-scrollerns rättelse (#32, åtgärd B4) kom i da5f6d5
+  (2026-10-04) och finns alltså redan i d574cc8. Rättat samma natt: en första version av intaget tog c0588bb förbi
+  karenstiden; samordnaren påpekade det, och karenstiden flyttar vi inte själva.
+- **state-machine** är intagen ordagrant och är ett alternativ i bandets station `formular` och i rollen granskning
+  (`ds_granskning`, formulärstationens pass), så att den har en roll i kompetenskartan (B2). **build-design** togs
+  inte in; Figmavägen är ett lyft till ägaren.
+- **Källraderna i better-break och better-interface-review** har rätt datum och plugin-version (B3). Orsaken är att
+  underhållet bara byter hashen i källraden; de nya källraderna säger därför vilken commit datumet gäller. Det
+  ändrades inte i underhållet.
