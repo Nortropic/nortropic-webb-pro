@@ -342,8 +342,8 @@ def storlek(filer):
 def prova(text=None):
     """Fel i kompetensblocken: varje fil finns, varje pass, verktyg och MCP är känt, varje pass har en roll, varje
     roll har en uppgift och en kärna, ett blint pass får bara verktyg som aldrig ger kod eller skaparens text, varje
-    session i kandidatflödet har ett block eller ett skäl (sessionsfel), och tjänsternas verktygsbeslut stämmer med
-    kundvaktens lista."""
+    session i kandidatflödet har ett block eller ett skäl (sessionsfel), tjänsternas verktygsbeslut stämmer med
+    kundvaktens lista, och designfas-kartan placerar varje förmåga så som bandets tabell och blocken säger (karta_prova)."""
     fel = []
     k = tolka(text)
     if not k:
@@ -367,7 +367,8 @@ def prova(text=None):
     for p_ in PASS:  # en fil som en roll läser före koden och en annan först i granskningen: kraven säger emot varandra
         fel += ['passet %s: %s är kärna i en roll och granskning i en annan' % (p_, f)  # efterfiler() tar bort dem tyst
                 for f in sorted(set(lasfiler(p_, k)) & {vag(f) for x in for_pass(p_, k) for f in x['efter']})]
-    return fel + sessionsfel(text) + tjanstverktyg_fel(text)
+    import designfas  # placeringen: varje förmåga har en plats eller ett skäl, och kartan säger samma sak som tabellerna (inventeringen 2026-10-12, punkt 4)
+    return fel + sessionsfel(text) + tjanstverktyg_fel(text) + ['designfas-kartan: ' + f for f in designfas.karta_prova(text)]
 
 
 UTANBLOCK = re.compile(r'^```sessioner-utan-block[ \t]*\n(?P<rader>.*?)^```[ \t]*$', re.M | re.S)
