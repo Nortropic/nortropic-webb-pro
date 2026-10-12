@@ -87,6 +87,7 @@ class RenDesignstart(unittest.TestCase):
         skriv(u / 'DESIGNDOMAR.jsonl', '{"beslut": "putsa"}\n')
         skriv(u / 'RIKTNINGSHISTORIK.json', '[]')
         skriv(u / 'atelje' / 'kandidater' / 'k01' / 'bilder' / 'start' / 'vy-390-forsta.png', b'PNG-gammal-kandidat')
+        skriv(u / 'atelje' / 'forberedelse' / 'gammal' / 'fore' / 'BRIEF.md', '# Brief, kundens egen\n')  # en äldre förberedelses kopia
         skriv(u / 'referenser' / 'paket-v01' / 'PAKET.md', '# gammalt referenspaket\n')
         skriv(u / 'okand-fil.txt', 'okänt ursprung')
         skriv(k / 'kundrepo' / 'CLAUDE.md', '# kundrepo\n')
@@ -161,6 +162,32 @@ class RenDesignstart(unittest.TestCase):
         (self.rot / 'kunskap/visuell-niva.md').unlink()
         skriv(self.rot / 'LARDOMAR.md', '# Lärdomar\n\n## L1 · 2026-10-02 · kund-a\n')
         self.assertIn('domar från före brytpunkten i LARDOMAR.md', [f['vad'] for f in rd.prova(self.rot)])
+
+    def test_vakten_slapper_forberedelsens_kopia_av_kundens_arbetsfiler(self):
+        # drift 2026-10-12: Navets andra förberedelse stoppades av den förstas fore/, kundens brief byte för byte lika med
+        # en äldre förberedelses kopia i den arkiverade ateljén
+        rd.arkivera(self.rot, self.arkiv)
+        (self.rot / 'kunskap/visuell-niva.md').unlink()
+        skriv(self.rot / 'LARDOMAR.md', '# Lärdomar\n')
+        a = self.rot / 'underlag/kund-a/atelje'
+        brief = '# Brief, kundens egen\n'
+        paket = 'underlag/kund-a/atelje/forberedelse/ny/fore'
+        skriv(self.rot / paket / 'BRIEF.md', brief)
+        kvitto = {'status': 'klar', 'paket': 'underlag/kund-a/atelje/forberedelse/ny',
+                  'arbetsunderlag_fore': {'BRIEF.md': hashlib.sha256(brief.encode()).hexdigest()}}
+        skriv(a / 'FORBEREDELSE.json', json.dumps(kvitto))
+        self.assertEqual(rd.prova(self.rot), [], 'kundens arbetsfil i förberedelsens fore/ är inget återkommet material')
+        kvitto['arbetsunderlag_fore'] = {'BRIEF.md': '0' * 64}  # kvittot registrerade en annan fil: prövas som förut
+        skriv(a / 'FORBEREDELSE.json', json.dumps(kvitto))
+        self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)])
+        kvitto['arbetsunderlag_fore'] = {'BRIEF.md': hashlib.sha256(brief.encode()).hexdigest()}
+        skriv(a / 'FORBEREDELSE.json', json.dumps(kvitto))
+        skriv(a / 'kandidater/k02/BRIEF-kopia.md', brief)  # samma innehåll utanför fore/ är återkommet material
+        self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)])
+        (a / 'kandidater/k02/BRIEF-kopia.md').unlink()
+        gammal = self.arkiv / 'underlag/kund-a/atelje/kandidater/k01/bilder/start/vy-390-forsta.png'
+        skriv(self.rot / paket / 'vy.png', gammal.read_bytes())  # en gammal kandidatbild i fore/ släpps inte
+        self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)])
 
     def test_aterstallningen_och_ett_arkiv_i_repot(self):
         rd.arkivera(self.rot, self.arkiv, brytpunkt='2026-10-09T18:40:00Z')
