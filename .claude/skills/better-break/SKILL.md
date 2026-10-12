@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 This skill takes one component and renders it on a fresh page under every scenario that can actually reach it. That page is the deliverable: a visual report the user scrolls through, every scenario side by side, with the breaks marked.
 
-It observes rather than judges. A finding here is something that visibly broke on the page, named in the vocabulary of the domain skill that owns the fix. Reviewing code against a standard is `interface-review` and `better-interface`; exploring design alternatives is `variant`; working on a component's product states on its real page is `state-machine`.
+It observes rather than judges. A finding here is something that visibly broke on the page, named in the vocabulary of the domain skill that owns the fix. Reviewing code against a standard is `interface-review` and `better-interface`; exploring design alternatives is `variant`; working through a component's product states one at a time is `state-machine`.
 
 Where `variant` insists on the real page, this skill isolates on purpose. You are not judging how the component looks in context. You are checking whether it defends itself when the content is worst-case.
 
@@ -30,13 +30,13 @@ Write the kept scenarios down before building, one line each. Then say which axe
 
 ## 3. Build the harness page
 
-One throwaway page, holding the real component imported from the project, rendered once per scenario in a single column with a short text label above each instance.
+One throwaway page renders the component once per scenario in a single column, with a short text label above each instance.
 
-The component ships untouched, in its real environment. A scratch route inside the app gives it the app's own layout, fonts and global styles for free. Serve that route only behind the project's dev check, such as `import.meta.env.DEV`.
+A scratch route inside the app holds the real component, imported from the project and untouched. The route inherits the app's layout, fonts, global styles and providers for free.
+
+Where the framework splits server from client components, the page is client code, `"use client"` in Next. Otherwise fixture data can silently vanish crossing that boundary, and the page renders empty.
 
 Labels, container widths and fixture props are everything the page adds. No fonts or styles of its own, no simulated themes or token swaps, no probes. A component observed under any of those is a different component.
-
-Where the framework splits server from client components, the page itself is client code, `"use client"` in Next. Otherwise fixture props can silently vanish crossing that boundary, and every scenario renders empty.
 
 Feed scenarios as props and fixture data. The harness never imports production state, never wires to live data and production never imports from the harness.
 
@@ -76,7 +76,6 @@ The page is half the report, so it outlives the findings table. Leave it running
 | A scenario missing the content it was fed | The harness is broken, not the component; make the page client code and reload once |
 | A rebuilt lookalike component in the harness | Import the real component from the project |
 | The harness restyles or re-themes the component | The app's layout, fonts and tokens as they are; labels and widths are all the page adds |
-| Harness route reachable in production | Serve it only behind the dev check |
 | A browser launched, debugged or screenshotted per scenario | One load and one look, or hand the URL over and skip the look |
 | Findings phrased as taste | Report what was visible on the page, or nothing |
 | A break reported without an owner | Name the domain skill whose rules diagnose it |
