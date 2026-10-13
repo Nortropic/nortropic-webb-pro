@@ -6836,6 +6836,24 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
   når sessionen.
 - Backlog: B-20261013-figma-mcp-n-i-flodets-sessioner-bakom-kundvakten
 
+### 2026-10-13 · pbakaus/impeccable 4.5.2 (utom motorn) · ja, på ägarens beslut
+- Källa: https://github.com/pbakaus/impeccable @ d631a8827f99414d2b6daba4ef08b7f8701751d7 (2026-10-08, skill-v4.5.2,
+  pinnar engine-v0.1.14), Apache-2.0; lästa: diffen i `.claude/skills/impeccable/` från 769aa84 (nio textfiler och
+  scripts/VERSION), launchern scripts/impeccable (oförändrad) och releasens metadata för engine-v0.1.14.
+- Steg: där impeccable redan står (bandets stationer, kompetensblocken, detektorn).
+- Jämfört med i dag: Operate- och Read-ytor alltid kodledda, artefakterna i världen beskrivs också till utseendet
+  (art-stationens radutdrag new-work.md rad 45–47), audit-tabellens dimensioner i rätt ordning och kortare comp-prompter.
+  Motorn 0.1.12–0.1.14 har detektorns precisionsrättelser (valideringen 2026-10-12, impeccable), men den tas inte in här.
+- Skäl: ägarens beslut 2026-10-13, punkt 8 ("impeccable 4.5.2 och motorn 0.1.14: tas in vid den senaste commit som är
+  äldre än karenstiden, med granskning"); d631a88 är den senaste commit som är äldre än karenstiden.
+- Kostnad: +575 token i skillmappen.
+- Säkerhet: förgranskningen MEDEL vid både 769aa84 och d631a88, samma fem skript och inga nya risker; inga nya kommandon
+  utöver flaggbytet `--kind` → `--decision-comp` i build-phase, som flödet inte kör.
+- Förslag: textfilerna vid d631a88 och `scripts/VERSION` kvar på 0.1.11 tills ägaren godkänt ändringen av underhållets
+  grind för VERSION (diffen visad för ägaren); då sätts VERSION till 0.1.14 och underhållet prövar och installerar motorn.
+- Utfall: textfilerna intagna 2026-10-13 på grenen `claude/lyften-20261013`; motorn väntar på ägaren.
+- Backlog: ingen
+
 ## 2026-10-08 — semantiska resor och obevakade skillvillkor
 
 - Källor: https://playwright.dev/docs/locators (roll, etikett, exakt namn och strictness); https://code.claude.com/docs/en/skills (Skill-tillåtelse med namn och argument); https://web.dev/articles/animations-guide (egenskapers layout/paint/compositing). Relevanta huvudavsnitt lästa 2026-10-08, ingen leverantörskod hämtad eller installerad.
