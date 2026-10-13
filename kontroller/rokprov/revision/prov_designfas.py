@@ -650,6 +650,60 @@ class K_Paketen(Grund):
         self.assertEqual(df.versioner(SLUG), [])
 
 
+
+class L_Versionsnumret(Grund):
+    """Versionsnumret gäller hela designfasen men skrivlåset en riktning (granskningens fynd 6): numret reserveras
+    atomiskt, och en version som avbröts innan VERSION.json skrevs är ingen version."""
+
+    def test_samma_nasta_nummer_i_tva_riktningar_krockar_inte(self):
+        self.astro(('k01', 'k02'))
+        with patch.object(df, 'nasta', return_value='v01'):  # två sessioner som räknade fram samma nästa nummer
+            a = df.version(SLUG, None, None, 'första riktningen', ritning='k01', bilder=False)
+            b = df.version(SLUG, None, None, 'andra riktningen', ritning='k02', bilder=False)
+        self.assertEqual((a['version'], b['version']), ('v01', 'v02'))
+
+    def test_tre_riktningar_samtidigt(self):
+        import threading
+        self.astro(('k01', 'k02', 'k03'))
+        hinder = threading.Barrier(3)
+
+        def bygg_samtidigt(sajt):
+            hinder.wait(timeout=30)  # alla tre byggen klara samtidigt, så att numren tilldelas på en gång
+            return bygg_attrapp(sajt)
+        ut, fel = {}, []
+
+        def kor(kid):
+            try:
+                ut[kid] = df.version(SLUG, None, None, 'samtidigt', ritning=kid, bilder=False)['version']
+            except Exception as e:  # noqa: BLE001
+                fel.append(repr(e))
+        with patch.object(df, 'bygg', side_effect=bygg_samtidigt):
+            tradar = [threading.Thread(target=kor, args=(k,)) for k in ('k01', 'k02', 'k03')]
+            for x in tradar:
+                x.start()
+            for x in tradar:
+                x.join(60)
+        self.assertEqual(fel, [])
+        self.assertEqual(sorted(ut.values()), ['v01', 'v02', 'v03'])
+        self.assertEqual({json.loads((self.u / SLUG / 'design' / 'versioner' / v / 'VERSION.json').read_text())['ritning'] for v in ut.values()},
+                         {'k01', 'k02', 'k03'})
+
+    def test_en_avbruten_version_ar_ingen_version(self):
+        self.astro()
+        with patch.object(df, 'kopiera_kalla', side_effect=RuntimeError('kraschen mitt i versionen')):
+            with self.assertRaisesRegex(RuntimeError, 'kraschen'):
+                df.version(SLUG, None, None, 'avbryts', ritning='k01', bilder=False)
+        self.assertTrue((self.u / SLUG / 'design' / 'versioner' / 'v01').is_dir(), 'katalogen står kvar efter kraschen')
+        self.assertEqual(df.versioner(SLUG), [])
+        self.assertEqual(df.status(SLUG)['versioner'], [])
+        with self.assertRaisesRegex(df.Fel, 'finns inte'):
+            df.godkann(SLUG, 'v01', 'k01')
+        with self.assertRaisesRegex(df.Fel, 'finns inte'):
+            df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av en version som aldrig blev klar, för provet')
+        post = df.version(SLUG, None, None, 'nästa', ritning='k01', bilder=False)
+        self.assertEqual(post['version'], 'v02', 'numret återanvänds inte')
+
+
 class C_Bestallning(Grund):
     def test_livscykeln(self):
         self.duk()

@@ -433,13 +433,35 @@ def tillgang(slug, blob, fil, kalla='', underlag=None):
 # ---- versioner och rendering --------------------------------------------------------------------------------------
 
 def versioner(slug, underlag=None):
+    """De färdiga versionerna: kataloger vNN med VERSION.json. En katalog utan den är en version som avbröts innan den
+    skrevs klart (eller en som en annan riktning håller på med), och den är ingen version (granskningen, fynd 6)."""
     v = rot(slug, underlag) / 'versioner'
-    return sorted((p.name for p in v.iterdir() if p.is_dir() and VERSION.match(p.name)), key=lambda n: int(n[1:])) if v.is_dir() else []
+    return sorted((p.name for p in v.iterdir() if p.is_dir() and VERSION.match(p.name) and (p / 'VERSION.json').is_file()),
+                  key=lambda n: int(n[1:])) if v.is_dir() else []
 
 
 def nasta(slug, underlag=None):
-    vs = versioner(slug, underlag)
-    return 'v%02d' % (int(vs[-1][1:]) + 1 if vs else 1)
+    """Nästa lediga nummer räknat över alla vNN-kataloger, också de som inte blev klara (numren återanvänds aldrig)."""
+    v = rot(slug, underlag) / 'versioner'
+    tal = [int(p.name[1:]) for p in v.iterdir() if p.is_dir() and VERSION.match(p.name)] if v.is_dir() else []
+    return 'v%02d' % (max(tal) + 1 if tal else 1)
+
+
+def reservera_version(slug, underlag=None):
+    """Nästa versionsnummer reserverat atomiskt för hela designfasen: katalogen skapas med mkdir, och finns den redan
+    (en annan riktning tog numret samtidigt) prövas nästa. Skrivlåset gäller en riktning, numret alla (granskningen av
+    astro-flödet 2026-10-13, fynd 6: tre riktningar ska kunna köras samtidigt). Ger (vNN, katalogen)."""
+    d = rot(slug, underlag) / 'versioner'
+    d.mkdir(parents=True, exist_ok=True)
+    for _ in range(1000):
+        tal = [int(p.name[1:]) for p in d.iterdir() if p.is_dir() and VERSION.match(p.name)]
+        v = 'v%02d' % (max(tal) + 1 if tal else 1)
+        try:
+            (d / v).mkdir()
+        except FileExistsError:
+            continue
+        return v, d / v
+    raise Fel('inget ledigt versionsnummer gick att reservera')
 
 
 def version(slug, fran=None, artifact_version=None, orsak='', bestallningar=(), av='utforaren', bilder=True, underlag=None,
@@ -505,9 +527,8 @@ def _version_duk(slug, d, fran, artifact_version, orsak, bestallningar, av, bild
     for v_ in vs:  # samma artefaktversion två gånger är samma version: ingen dubblett
         if (las(rot(slug, underlag) / 'versioner' / v_ / 'VERSION.json') or {}).get('artifact_version') == artifact_version:
             raise Fel('artefaktversionen %s är redan %s' % (artifact_version, v_))
-    v = nasta(slug, underlag)
-    vk = rot(slug, underlag) / 'versioner' / v
-    (vk / 'kanvas').mkdir(parents=True)
+    v, vk = reservera_version(slug, underlag)
+    (vk / 'kanvas').mkdir()
     filer = {}
     for n in ['canvas.json'] + ritningar:
         shutil.copy2(proj / n, vk / 'kanvas' / n)
@@ -681,9 +702,7 @@ def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, statio
         if 'index.html' not in alla:
             raise ByggFel('bygget gav ingen startsida (%s/dist/index.html)' % rel(p))
         vs = versioner(slug, underlag)
-        v = nasta(slug, underlag)
-        vk = rot(slug, underlag) / 'versioner' / v
-        vk.mkdir(parents=True)
+        v, vk = reservera_version(slug, underlag)
         filer, las_ = kopiera_kalla(slug, p, vk / 'kalla')
         kandidater.kopiera(dist, vk / 'sida')
     forra = [x for x in vs if (las(rot(slug, underlag) / 'versioner' / x / 'VERSION.json') or {}).get('ritning') == rid]
