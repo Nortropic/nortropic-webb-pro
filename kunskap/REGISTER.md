@@ -6813,6 +6813,29 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: intagen 2026-10-13 på grenen `claude/better-skills-20261013`; prövas när en riktning med formulär går bandet.
 - Backlog: ingen
 
+### 2026-10-13 · jakubkrehel/skills, build-design · ja, på ägarens beslut
+- Källa: https://github.com/jakubkrehel/skills @ d574cc8a576dc24256ad38268b8d03d86724a1b3 (2026-10-05, plugin.json
+  1.10.2), MIT; lästa: `skills/build-design/` hela (SKILL.md, figma.md, agents/openai.yaml). Mappen är oförändrad från
+  da5f6d5 (2026-10-04) till standardgrenens 4c66b1f (2026-10-12).
+- Steg: designfasens band, stationerna underlag och overlamning, när kunden har en Figmafil.
+- Jämfört med i dag: underlaget frågar om kunden har en etablerad identitet som är låst, men inget sade hur den läses
+  ur en Figmafil; build-design läser variablerna, komponenterna och tillgångarna med Figmas MCP, litar på variabelns
+  namn före råvärdet, auto layout före absoluta lägen och nedladdade tillgångar före Figmas adresser, och mappar
+  värdena på projektets tokens med varje avrundning redovisad. Bättre som arbetssätt för en kund med Figmafil;
+  oprövat hos oss, och Figma-MCP:n når ännu inte flödets sessioner.
+- Skäl: ägarens beslut 2026-10-13, punkt 8 ("build-design (jakubkrehel/skills, läsvägen ur Figma): tas in vid en commit
+  som är äldre än karenstiden, som alternativ där Figmavägen används"); valideringen 2026-10-12 (better-*, B2, och
+  Figma, F2).
+- Kostnad: 2 424 token totalt (granska_repo.py), läses bara när kunden har en Figmafil; Figmas läsverktyg ingår i
+  kontots Pro-plats (200 anrop per dag, 10 per minut enligt valideringen).
+- Säkerhet: förgranskningen LÅG vid d574cc8; inga dolda tecken, skript, behörigheter eller krokar. Skillen ber
+  användaren logga in i Figma när servern saknar inloggning; i flödets sessioner svarar ingen (NORTROPIC.md).
+- Förslag: `.claude/skills/build-design/` med KALLA.md och NORTROPIC.md (läsvägen ur kundens Figmafil); alternativ i
+  stationerna underlag och overlamning. Figma-MCP:n i flödets sessioner bakom kundvakten är en egen backlogpost.
+- Utfall: intagen 2026-10-13 på grenen `claude/lyften-20261013`; prövas när en kund med Figmafil går bandet och MCP:n
+  når sessionen.
+- Backlog: B-20261013-figma-mcp-n-i-flodets-sessioner-bakom-kundvakten
+
 ## 2026-10-08 — semantiska resor och obevakade skillvillkor
 
 - Källor: https://playwright.dev/docs/locators (roll, etikett, exakt namn och strictness); https://code.claude.com/docs/en/skills (Skill-tillåtelse med namn och argument); https://web.dev/articles/animations-guide (egenskapers layout/paint/compositing). Relevanta huvudavsnitt lästa 2026-10-08, ingen leverantörskod hämtad eller installerad.

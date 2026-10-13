@@ -170,7 +170,8 @@ Fyra lager (Brad Frost, The many faces of themeable design systems): Nortropics 
 tillstånd, fokus, felbesked, menyns beteende och klickytor ur standarderna, neutralt i uttryck och aldrig ett utseende
 som läggs på en kund), kundens visuella identitet (ett eget designsystem per kund med Design System-typen) och sidans
 komposition (duken). En kund med etablerad identitet börjar med sitt designsystem ur sina verkliga källor (logotyp,
-färger, typsnitt, material); en kund utan börjar med riktningarna, och den godkända riktningen formaliseras efter
+färger, typsnitt, material; har kunden en Figmafil läses de ur den med Figmas läsväg i underlaget och överlämningen,
+`.claude/skills/build-design/NORTROPIC.md`); en kund utan börjar med riktningarna, och den godkända riktningen formaliseras efter
 godkännandet till kundens designsystem: README, tokens (färgroller, typskala, typsnitt, mellanrum, radier), komponenter
 med förhandsvisning och tillstånd, bildprinciper och responsiva regler. Underkända tidigare Nortropic-byggen blir aldrig
 norm (`kunskap/ren-designstart.md`).

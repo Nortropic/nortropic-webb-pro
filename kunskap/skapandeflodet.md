@@ -349,14 +349,20 @@ Skillnaderna mot stegen ovan:
 sajten), tre domare väljer eller förkastar dem, den valda förfinas och döms före mot efter, och ägaren dömer slutet
 (godkänd, putsa eller ny riktning). Den finns kvar för återupptagning av äldre körningar och som nödväg.
 
-## Figma (pilotprov, inte normalflödet)
+## Figma (två uppgifter i flödet; arbetsytan är ett pilotprov)
+
+Ägarens beslut 2026-10-13 (punkt 6 och 8) ger Figma två uppgifter i flödet: läsvägen ur kundens egen Figmafil i bandets
+underlag och överlämning (`.claude/skills/build-design/NORTROPIC.md`) och `generate_image` för illustrativt material
+inom kontots Pro-krediter (`kunskap/bild.md`). MCP:n når ännu inte flödets sessioner; inkopplingen bakom kundvakten är
+backlogposten `B-20261013-figma-mcp-n-i-flodets-sessioner-bakom-kundvakten`. Resten av avsnittet gäller pilotprovet
+med Figma som visuell arbetsyta.
 
 Ägarens uppdrag 2026-10-06 (ordagrant i minnet; BESLUT.md, tillägget om Figma-metodprovet) prövar Figma som visuell
 arbetsyta i ett avgränsat metodprov med tre moment, som prövas var för sig: **A**, en representativ komposition ur en
 stark, namngiven referens återskapas noggrant med material vi får använda; **B**, kompositionen anpassas till kundens verkliga innehåll och material; **C**, den valda
 designversionen överförs till fungerande webb och jämförs med webbläsarens rendering i samma bredder.
 
-- Normalflödet går utan Figma: ingen kod i repot slår på Figma-pluginen eller anropar Figma. Rollernas tillåtna
+- Ingen kod i repot slår ännu på Figma-pluginen i flödets sessioner eller anropar Figma. Rollernas tillåtna
   MCP-verktyg kommer från Refero, Mobbin, 21st och Motion genom kundvakten (`kunskap/metodkarta.md`); övriga
   MCP-anrop nekas. Chrome DevTools har en separat lokal inspektionsväg.
 - Pilotens material är arkiverat vid den rena designstarten 2026-10-09 och kan återställas ur arkivet; piloten startas
@@ -367,7 +373,7 @@ designversionen överförs till fungerande webb och jämförs med webbläsarens 
   uppgifter om privatpersoner utöver det som redan står på kundens sajt. Det ger ingen allmän rätt att föra
   kundmaterial till externa tjänster.
 - Inget i leveransen är verifierat genom piloten: helbygget, exporten, kundrepot och driftsättningen prövas inte av den.
-  Figma blir en del av normalflödet först genom ett beslut av ägaren.
+  Figma som arbetsyta blir en del av normalflödet först genom ett beslut av ägaren.
 
 ## Domloggen och vad en dom återöppnar
 
