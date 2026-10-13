@@ -223,8 +223,8 @@ def starta(a):
         except sigill.Nekad as e:
             print('Jämförelsen startar inte: nödvägen kräver ägarens förseglade mandat (%s)' % e)
             return 2
-        AB.mkdir(parents=True, exist_ok=True)
-        nodvag = AB / (ident + '-nodvag.json')
+        (AB / 'mandat').mkdir(parents=True, exist_ok=True)  # utanför AB/*.json, som är jämförelserna
+        nodvag = AB / 'mandat' / (ident + '-nodvag.json')
         fd = os.open(nodvag, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, 'w', encoding='utf-8') as h:
             h.write(json.dumps(m, ensure_ascii=False))
