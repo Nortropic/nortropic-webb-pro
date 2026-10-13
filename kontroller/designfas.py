@@ -1315,19 +1315,35 @@ def _eget_pass(slug, b, underlag=None):
     return sv, p
 
 
+def registrerad_jamforelse(slug, d=None, underlag=None):
+    """Beställningen som jämförelsens val registrerades från (registrera_val): domloggens senaste rad med källan
+    jämförelsen och beslutet valj, och DESIGNFAS.json:s val när det är jämförelsens. Pekar de på olika beställningar
+    gäller ingen (Fel). None när inget val är registrerat."""
+    import skapande
+    d = d if d is not None else designfas(slug, underlag)
+    bid = next(((p.get('designfas') or {}).get('bestallning') for _r, _s, p in reversed(skapande.domlogg(slug, Path(underlag or UNDERLAG))['domar'])
+                if p.get('kalla') == 'jämförelsen' and p.get('beslut') == 'valj'), None)
+    v = d.get('val') or {}
+    if v.get('kalla') == 'jämförelsen' and v.get('bestallning'):
+        if bid and bid != v['bestallning']:
+            raise Fel('domloggen (%s) och DESIGNFAS.json (%s) pekar på olika jämförelser' % (bid, v['bestallning']))
+        bid = bid or v['bestallning']
+    return bid
+
+
 def autogodkann(slug, version, ritning, underlag=None):
     """DEN AUTONOMA GODKÄNNAREN (BESLUT.md, tillägget 2026-10-13: ägarens val "Autonomous to build (Recommended)"): den
     oberoende jämförelsen och kritiken väljer riktningen och godkänner den, och bygget kan sedan starta av sig självt;
     publiceringen väntar alltid på ägaren. Kräver ingen terminal. Grinden:
     - läget astro; versionen är riktningens senaste version med startsidans bilder i 390, 768 och 1440;
     - riktningen är vald: ägarens senaste beslut är ett val av den bland bandets riktningar efter bandets start (drivarens
-      start, annars riktningarnas registrering; hans val går före), eller annars valde den senaste
-      jämförelsen mellan riktningarna (beställning jamforelse med *, ett eget pass) den (svar.val.riktning) och såg den i
+      start, annars riktningarnas registrering; hans val går före), eller annars valde jämförelsen som valet registrerades
+      från (registrerad_jamforelse; jamforelse med *, ett eget pass) den (svar.val.riktning) och såg den i
       en tidigare eller samma version (jamforda; drivaren jämför före stationerna efter valet); en ensam riktning i
       bandet har inget att jämföras med;
-    - den senaste kritiken av versionen (beställning kritik på versionen och riktningen, ds_kritik i ett eget pass med
-      verifierat sessionskvitto) gällde versionens avtryck som det är nu, har inget fynd med allvar BLOCKERANDE eller mer och
-      svarar premium på C5 (detaljniva.svar);
+    - varje levererad kritik av versionen och riktningen som gällde versionens avtryck som det är nu har inget fynd med
+      allvar BLOCKERANDE eller mer och svarar premium på C5 (detaljniva.svar), och minst en av dem är ett eget ds_kritik-pass
+      med verifierat sessionskvitto (ett sämre svar döljs inte av ett senare);
     - ägarens väg går före: inget godkännande från ägaren i designfasen som hans senaste beslut, och inget annat beslut
       från honom efter versionen.
     Posten och domloggens rad har källan 'autonom granskning' (aldrig ägaren; skapande.ar_agarens) med belägg i
@@ -1355,32 +1371,51 @@ def autogodkann(slug, version, ritning, underlag=None):
     if agarens_val and ritning not in agarens_val:
         raise Fel('ägarens val (%s) är %s, inte %s: ägarens val går före' % (dom0.get('tid'), ', '.join(map(str, agarens_val)), ritning))
     alla = [bestallning(slug, b, underlag) for b in bestallningar(slug, underlag)]
-    jam = [b for b in alla if b.get('typ') == 'jamforelse' and b.get('ritning') == '*' and b.get('status') in ('levererad', 'inford')]
     ensam = list(d.get('riktningar') or {}) == [ritning]  # en enda riktning i bandet: inget att jämföra med
-    if not jam and not agarens_val and not ensam:
-        raise Fel('ingen jämförelse mellan riktningarna (designfas.py bestall --typ jamforelse --ritning *)')
-    sj, pj = _eget_pass(slug, jam[-1], underlag) if jam and not agarens_val and not ensam else ({}, None)
-    if not agarens_val and not ensam:  # jämförelsens val, ur en jämförelse som såg riktningen i en tidigare eller samma version
+    jb, sj, pj = None, {}, None
+    if not agarens_val and not ensam:
+        # jämförelsen som valet registrerades från (registrera_val: domloggens rad med källan jämförelsen och DESIGNFAS.json),
+        # aldrig bara den senaste beställningen (granskningen av sigillet, fynd 3)
+        bid = registrerad_jamforelse(slug, d, u)
+        if not bid:
+            raise Fel('inget registrerat val ur en jämförelse mellan riktningarna (drivarens registrera_val efter jamforelse med *)')
+        jb = next((b for b in alla if b.get('id') == bid), None)
+        if not jb or jb.get('typ') != 'jamforelse' or jb.get('ritning') != '*' or jb.get('status') not in ('levererad', 'inford'):
+            raise Fel('valet är registrerat från %s, som inte är en levererad jämförelse mellan riktningarna' % bid)
+        sj, pj = _eget_pass(slug, jb, underlag)
         val = str(((sj.get('svar') or {}).get('val') or {}).get('riktning') or '').strip().lower()
         if val != ritning:
-            raise Fel('jämförelsen %s valde %s, inte %s' % (jam[-1]['id'], val or 'ingen riktning', ritning))
+            raise Fel('jämförelsen %s valde %s, inte %s' % (bid, val or 'ingen riktning', ritning))
         sag = (sj.get('jamforda') or {}).get(ritning)
         if not sag or not VERSION.match(sag) or int(sag[1:]) > int(version[1:]):
-            raise Fel('jämförelsen %s såg inte riktningen %s före %s (såg %s)' % (jam[-1]['id'], ritning, version, sag))
+            raise Fel('jämförelsen %s såg inte riktningen %s före %s (såg %s)' % (bid, ritning, version, sag))
+    # varje levererad kritik av versionens avtryck ska hålla: ett sämre svar döljs inte av ett senare (fynd 3); minst en är
+    # ett eget pass med verifierat kvitto
+    nu_avtryck = versionens_avtryck(slug, version, underlag)
     kr = [b for b in alla if b.get('typ') == 'kritik' and b.get('version') == version and b.get('ritning') == ritning
           and b.get('status') in ('levererad', 'inford')]
     if not kr:
         raise Fel('ingen oberoende kritik av %s (designfas.py bestall --typ kritik --version %s --ritning %s)' % (version, version, ritning))
-    sk, pk = _eget_pass(slug, kr[-1], underlag)
-    if sk.get('avtryck') != versionens_avtryck(slug, version, underlag):
-        raise Fel('kritiken %s gällde inte versionens avtryck som det är nu: filerna eller bilderna har ändrats' % kr[-1]['id'])
-    block = [f for f in sk['svar'].get('fynd') or [] if isinstance(f, dict) and int(f.get('allvar') or 0) >= BLOCKERANDE]
-    if block:
-        raise Fel('kritiken %s har %d blockerande fynd (allvar %d eller mer): %s' % (
-            kr[-1]['id'], len(block), BLOCKERANDE, '; '.join('%s: %s' % (f.get('plats'), f.get('vad')) for f in block[:4])))
-    c5 = (sk['svar'].get('detaljniva') or {}).get('svar')
-    if c5 != 'premium':
-        raise Fel('kritiken %s svarar %s på C5 (kunskap/precision.md, Detaljnivån), inte premium' % (kr[-1]['id'], c5 or 'inte'))
+    giltiga, fel_ = [], []
+    for b in kr:
+        sv = las(rot(slug, underlag) / 'svar' / b['id'] / 'SVAR.json') or {}
+        if sv.get('manuell') or not isinstance(sv.get('svar'), dict) or sv.get('avtryck') != nu_avtryck:
+            continue  # infört för hand, eller en kritik av ett annat avtryck: varken godkänner eller fäller
+        block = [f for f in sv['svar'].get('fynd') or [] if isinstance(f, dict) and int(f.get('allvar') or 0) >= BLOCKERANDE]
+        if block:
+            raise Fel('kritiken %s har %d blockerande fynd (allvar %d eller mer): %s' % (
+                b['id'], len(block), BLOCKERANDE, '; '.join('%s: %s' % (f.get('plats'), f.get('vad')) for f in block[:4])))
+        c5 = (sv['svar'].get('detaljniva') or {}).get('svar')
+        if c5 != 'premium':
+            raise Fel('kritiken %s svarar %s på C5 (kunskap/precision.md, Detaljnivån), inte premium' % (b['id'], c5 or 'inte'))
+        try:
+            giltiga.append((b, *_eget_pass(slug, b, underlag)))
+        except Fel as e:
+            fel_.append(str(e))
+    if not giltiga:
+        raise Fel('ingen kritik av versionens avtryck som det är nu i ett eget pass med verifierat kvitto%s' % (
+            ': ' + '; '.join(fel_[:3]) if fel_ else ''))
+    kb, sk, pk = giltiga[-1]
     if ag['dom'] and ag['dom'].get('beslut') == 'godkand' and ag['dom'].get('designfas'):
         raise Fel('ägaren har godkänt själv (%s, %s): ägarens väg går före den autonoma godkännaren' % (
             ag['dom'].get('tid'), (ag['dom'].get('designfas') or {}).get('version')))
@@ -1399,9 +1434,9 @@ def autogodkann(slug, version, ritning, underlag=None):
         g['sigill'] = sigill.forsegla_autonomt('designfas', sigillfalt(slug, g), rot(slug, underlag))
     except sigill.Nekad as e:
         raise Fel(str(e))
-    vald_av = 'ägarens val %s' % dom0.get('tid') if agarens_val else 'jämförelsen %s' % jam[-1]['id'] if pj else 'bandets enda riktning'
+    vald_av = 'ägarens val %s' % dom0.get('tid') if agarens_val else 'jämförelsen %s' % jb['id'] if pj else 'bandets enda riktning'
     skapande.lagg_till_dom(slug, AUTONOM, 'godkand', 'Den autonoma godkännaren: %s av riktningen %s, vald av %s och bedömd premium '
-                           'utan blockerande fynd av kritiken %s.' % (version, ritning, vald_av, kr[-1]['id']),
+                           'utan blockerande fynd av kritiken %s.' % (version, ritning, vald_av, kb['id']),
                            avser='designfas %s %s' % (version, ritning), underlag=u, tid=tid,
                            belagg='%s (sha256 %s)%s' % (belagg['kritik'], belagg['kritik_sha256'][:12], ' och %s (sha256 %s)' % (
                                belagg['jamforelse'], belagg['jamforelse_sha256'][:12]) if pj else '; %s' % vald_av),
@@ -2778,7 +2813,8 @@ def start(slug, skriv_bara=False, underlag=None):
     inst = json.loads(kundvakt.installningar(slug, Path(underlag or UNDERLAG)))
     inst.setdefault('permissions', {}).setdefault('deny', []).extend(UTFORAREN_NEKAS + [
         '%s(./underlag/%s/%s)' % (v_, slug, f_) for v_ in ('Edit', 'Write')
-        for f_ in ('design/GODKANNANDE.json', 'design/svar/**', 'design/bestallningar/**', 'DESIGNDOMAR.jsonl', 'DESIGNDOMAR-belagg.jsonl')])
+        for f_ in ('design/GODKANNANDE.json', 'design/DESIGNFAS.json', 'design/KORNING.json', 'design/svar/**', 'design/bestallningar/**',
+                   'DESIGNDOMAR.jsonl', 'DESIGNDOMAR-belagg.jsonl')])
     f = rot(slug, underlag) / 'session' / 'installningar.json'
     skriv(f, inst)
     mcp = [atelje.refero_mcp_fil(), str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json'),

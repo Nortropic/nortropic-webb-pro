@@ -1613,6 +1613,7 @@ class K_Sigill(Grund):
         j = df.bestall(SLUG, 'jamforelse', 'v02', '*', 'Falsk variation mellan riktningarna, och vilken riktning som bär kunden')
         self.pass_(j['id'], dict(SVARET, val={'riktning': val, 'skal': 'riktningen bär verkstadens ton i första vyn'}))
         self.assertIn('val', self.schema['required'], 'jämförelsen svarar med sitt val')
+        df.registrera_val(SLUG, df.nu(), df.bestallning(SLUG, j['id']))  # som drivaren: valet ur just den jämförelsen
         kr = df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av riktningen som en besökare ser den, före förklaringen')
         self.pass_(kr['id'], dict(SVARET, fynd=[{'plats': 'h1', 'tillstand': '390', 'vad': 'tät radhöjd', 'belagg': 'index-390.png', 'allvar': allvar}],
                                   detaljniva={'svar': c5, 'saknas': [], 'belagg': 'index-390.png och index-1440.png'}), verifierad=verifierad)
@@ -1864,6 +1865,26 @@ class K_Sigill(Grund):
         with self.assertRaisesRegex(df.Fel, 'valde k01'):
             df.autogodkann(SLUG, 'v02', 'k02')
 
+    def test_varje_kritik_av_versionen_maste_halla(self):
+        """Granskningen av sigillet, fynd 3: ett sämre svar på kritiken döljs inte av ett senare; varje levererad
+        ds_kritik av versionens avtryck håller."""
+        self.grind()  # B002: premium
+        for c5 in ('basic', 'premium'):  # B003 svarar basic, B004 premium igen
+            kr = df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av riktningen som en besökare ser den, en gång till')
+            self.pass_(kr['id'], dict(SVARET, detaljniva={'svar': c5, 'saknas': [], 'belagg': 'index-390.png'}))
+        with self.assertRaisesRegex(df.Fel, 'B003.*basic'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+
+    def test_grinden_laser_den_registrerade_jamforelsen(self):
+        """Fynd 3: grinden läser jämförelsen som valet registrerades från, inte den senaste beställningen."""
+        self.grind()  # B001 valde k01 och är registrerad
+        j2 = df.bestall(SLUG, 'jamforelse', 'v02', '*', 'Falsk variation mellan riktningarna, och vilken riktning som går vidare')
+        self.pass_(j2['id'], dict(SVARET, val={'riktning': 'k02', 'skal': 'en ny beställning som väljer annorlunda'}))
+        kr = df.bestall(SLUG, 'kritik', 'v02', 'k02', 'Kritik av riktningen k02 som en besökare ser den, före förklaringen')
+        self.pass_(kr['id'], dict(SVARET, detaljniva={'svar': 'premium', 'saknas': [], 'belagg': 'index-390.png'}))
+        with self.assertRaisesRegex(df.Fel, 'B001 valde k01'):
+            df.autogodkann(SLUG, 'v02', 'k02')
+
     def test_grinden_basic(self):
         self.grind(c5='basic')
         with self.assertRaisesRegex(df.Fel, 'basic'):
@@ -1920,7 +1941,8 @@ class K_Sigill(Grund):
         hem = str(sigill.HEM).strip('/')
         for r in ('Read(//%s/.nortropic-hemligheter/**)' % hem, 'Edit(//%s/.nortropic-hemligheter/**)' % hem,
                   'Bash(*nortropic-hemligheter*)', 'Bash(*godkannande.nyckel*)', 'Bash(*kor.sh*)', 'Bash(*prototyp.py*--helbygge*)',
-                  'Bash(*autogodkann*)', 'Bash(*designfas.py godkann*)', 'Bash(*skapande.py dom*)'):
+                  'Bash(*autogodkann*)', 'Bash(*designfas.py godkann*)', 'Bash(*skapande.py dom*)',
+                  'Write(./underlag/%s/design/DESIGNFAS.json)' % SLUG, 'Edit(./underlag/%s/design/svar/**)' % SLUG):
             self.assertIn(r, neka)
         kv = json.loads(kundvakt.installningar(SLUG, self.u))['permissions']['deny']
         self.assertIn('Read(//%s/.nortropic-hemligheter/**)' % hem, kv, 'ateljéns och specialistpassens sessioner')
