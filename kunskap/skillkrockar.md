@@ -7,7 +7,9 @@ filer och rader varje steg använder; den här filen är underlaget, med citat o
 gällde vid granskningen och kan ha flyttat sig; skillsens filer är oförändrade sedan intaget (KALLA.md). Tillägg
 2026-10-13: Jakub Krehels better-skills (också better-variant och better-explain-interface) är uppdaterade till källans
 d574cc8, och förorden som K63 citerar står nu i mappens `NORTROPIC.md`. Radnumren ur dem nedan gäller versionerna vid
-granskningen (267330e och eaf8d1b); metodkartans utdrag är omskrivna mot den nya texten.
+granskningen (267330e och eaf8d1b); metodkartans utdrag är omskrivna mot den nya texten. impeccable är uppdaterad till
+4.5.2 (d631a88) samma dag; radnumren ur den nedan gäller versionen vid granskningen, och i visualize.md ligger texten
+efter rad 14 nu en rad längre ned.
 
 **Företräde** (`kunskap/designregler.md`): kvalitetskrav, kundens behov, ägarens beslut inom räckvidd,
 designhypoteser; en skills standardråd står under alla fyra. **Allvar:** hög = ger fel resultat eller stoppar en

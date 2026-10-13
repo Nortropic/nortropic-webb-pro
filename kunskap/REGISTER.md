@@ -6813,6 +6813,48 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Utfall: intagen 2026-10-13 på grenen `claude/better-skills-20261013`; prövas när en riktning med formulär går bandet.
 - Backlog: ingen
 
+### 2026-10-13 · jakubkrehel/skills, build-design · ja, på ägarens beslut
+- Källa: https://github.com/jakubkrehel/skills @ d574cc8a576dc24256ad38268b8d03d86724a1b3 (2026-10-05, plugin.json
+  1.10.2), MIT; lästa: `skills/build-design/` hela (SKILL.md, figma.md, agents/openai.yaml). Mappen är oförändrad från
+  da5f6d5 (2026-10-04) till standardgrenens 4c66b1f (2026-10-12).
+- Steg: designfasens band, stationerna underlag och overlamning, när kunden har en Figmafil.
+- Jämfört med i dag: underlaget frågar om kunden har en etablerad identitet som är låst, men inget sade hur den läses
+  ur en Figmafil; build-design läser variablerna, komponenterna och tillgångarna med Figmas MCP, litar på variabelns
+  namn före råvärdet, auto layout före absoluta lägen och nedladdade tillgångar före Figmas adresser, och mappar
+  värdena på projektets tokens med varje avrundning redovisad. Bättre som arbetssätt för en kund med Figmafil;
+  oprövat hos oss, och Figma-MCP:n når ännu inte flödets sessioner.
+- Skäl: ägarens beslut 2026-10-13, punkt 8 ("build-design (jakubkrehel/skills, läsvägen ur Figma): tas in vid en commit
+  som är äldre än karenstiden, som alternativ där Figmavägen används"); valideringen 2026-10-12 (better-*, B2, och
+  Figma, F2).
+- Kostnad: 2 424 token totalt (granska_repo.py), läses bara när kunden har en Figmafil; Figmas läsverktyg ingår i
+  kontots Pro-plats (200 anrop per dag, 10 per minut enligt valideringen).
+- Säkerhet: förgranskningen LÅG vid d574cc8; inga dolda tecken, skript, behörigheter eller krokar. Skillen ber
+  användaren logga in i Figma när servern saknar inloggning; i flödets sessioner svarar ingen (NORTROPIC.md).
+- Förslag: `.claude/skills/build-design/` med KALLA.md och NORTROPIC.md (läsvägen ur kundens Figmafil); alternativ i
+  stationerna underlag och overlamning. Figma-MCP:n i flödets sessioner bakom kundvakten är en egen backlogpost.
+- Utfall: intagen 2026-10-13 på grenen `claude/lyften-20261013`; prövas när en kund med Figmafil går bandet och MCP:n
+  når sessionen.
+- Backlog: B-20261013-figma-mcp-n-i-flodets-sessioner-bakom-kundvakten
+
+### 2026-10-13 · pbakaus/impeccable 4.5.2 (utom motorn) · ja, på ägarens beslut
+- Källa: https://github.com/pbakaus/impeccable @ d631a8827f99414d2b6daba4ef08b7f8701751d7 (2026-10-08, skill-v4.5.2,
+  pinnar engine-v0.1.14), Apache-2.0; lästa: diffen i `.claude/skills/impeccable/` från 769aa84 (nio textfiler och
+  scripts/VERSION), launchern scripts/impeccable (oförändrad) och releasens metadata för engine-v0.1.14.
+- Steg: där impeccable redan står (bandets stationer, kompetensblocken, detektorn).
+- Jämfört med i dag: Operate- och Read-ytor alltid kodledda, artefakterna i världen beskrivs också till utseendet
+  (art-stationens radutdrag new-work.md rad 45–47), audit-tabellens dimensioner i rätt ordning och kortare comp-prompter.
+  Motorn 0.1.12–0.1.14 har detektorns precisionsrättelser (valideringen 2026-10-12, impeccable); den följer grinden nedan.
+- Skäl: ägarens beslut 2026-10-13, punkt 8 ("impeccable 4.5.2 och motorn 0.1.14: tas in vid den senaste commit som är
+  äldre än karenstiden, med granskning"); d631a88 är den senaste commit som är äldre än karenstiden.
+- Kostnad: +575 token i skillmappen.
+- Säkerhet: förgranskningen MEDEL vid både 769aa84 och d631a88, samma fem skript och inga nya risker; inga nya kommandon
+  utöver flaggbytet `--kind` → `--decision-comp` i build-phase, som flödet inte kör.
+- Förslag: textfilerna vid d631a88, och `scripts/VERSION` till 0.1.14 när ägaren godkänt ändringen av underhållets grind
+  för VERSION (diffen visad för ägaren).
+- Utfall: textfilerna intagna 2026-10-13 på grenen `claude/lyften-20261013`. Ägaren godkände grinden och VERSION samma
+  morgon ("Del 1 + Del 2 (Rekommenderas)"); nästa underhåll prövar och installerar motorn 0.1.14.
+- Backlog: ingen
+
 ## 2026-10-08 — semantiska resor och obevakade skillvillkor
 
 - Källor: https://playwright.dev/docs/locators (roll, etikett, exakt namn och strictness); https://code.claude.com/docs/en/skills (Skill-tillåtelse med namn och argument); https://web.dev/articles/animations-guide (egenskapers layout/paint/compositing). Relevanta huvudavsnitt lästa 2026-10-08, ingen leverantörskod hämtad eller installerad.

@@ -279,9 +279,13 @@ Skydden runt en ny version (den oberoende granskningen 2026-10-06):
   processgränsen, och macOS tillåter ingen sandlåda i en sandlåda, så det körs utan den, med egna kopior av `.venv` och
   `node_modules` (provet ändrar inte den delade miljön). Där har kandidatens kod användarens rättigheter; skyddet mot en
   komprometterad version är karenstiden, npm audit och installation utan skript.
-- **Skillsen:** en uppdatering som ändrar behörigheter eller krokar i frontmatter, en konfigurationsfil, ett skript
-  som flödet kör eller Impeccables motorversion tas aldrig in automatiskt, och inte heller en som flyttar eller bryter
-  metodkartans radutdrag (prövas igen vid intaget). Metoden låses inte om över en ändring som aldrig låsts. Husets
+- **Skillsen:** en uppdatering som ändrar behörigheter eller krokar i frontmatter, en konfigurationsfil eller ett skript
+  som flödet kör tas aldrig in automatiskt, och inte heller en som flyttar eller bryter metodkartans radutdrag (prövas
+  igen vid intaget). En uppdatering som byter Impeccables motorversion (`scripts/VERSION`) till en nyare ren versionsrad
+  går till motorprovet i stället: releasen `engine-v<version>` är ingen förhandsversion och publicerades före
+  karenstiden, kontrollsumman stämmer och motorn svarar på en provsida innanför processgränsen; först då prövas resten
+  av uppdateringen som vanligt (ägarens godkännande 2026-10-13). Annan text i filen avvisas som förut.
+  Metoden låses inte om över en ändring som aldrig låsts. Husets
   tillämpning av en skill står därför i en egen fil i mappen (`NORTROPIC.md`, som för Jakub Krehels better-skills sedan
   2026-10-13), aldrig i källans filer: sammanslagningen rör bara filer som källan har, så en lokal rad i SKILL.md krockar
   så snart källan skriver om samma rader. Metodkartan pekar på en sådan skill med rubrikutdrag, som följer avsnittet när
@@ -314,7 +318,7 @@ Slagen och vad som gäller för dem:
 | Mätinstrumenten | `kontroller/package.json` och Playwrights webbläsare (Chromium, WebKit) | alltid hela rökprovet i en worktree med egna node_modules (utan installationsskript) och webbläsarna; bytet märks i nästa startkvitto, också ett byte utanför underhållet |
 | Python-paketen | `requirements.txt` (de vi använder direkt) och `requirements-lock.txt` (alla) | egen venv ur färdiga hjul, pip check, OSV:s sårbarhetsdatabas, regressionsfallen i en worktree med egna kopior av .venv och node_modules; huvudversion hela rökprovet |
 | Homebrew | bara node, python@3.12, git och gh, aldrig `brew upgrade` på allt | `brew update` högst en gång per dygn, före versionsuppslagen (ägarens beslut 2026-10-06): bara formelindexet och Homebrew självt, med Homebrews version före och efter i rapporten och startkvittot; `brew upgrade` utan formel spärras i koden. Senaste versionen ur Homebrews API (formulae.brew.sh). Node: senaste LTS (nu 24.x; byggen och verktygen körs i Node, kundsajtens Worker i Cloudflares workerd), installerad bredvid som `node@NN` under intagslåset och prövad med hela rökprovet innan den länkas; pinnar PATH den gamla formeln (ägarens skalprofil, som underhållet aldrig ändrar) behålls bytet med skälet. En formel som byts på plats: flaskans kontrollsumma, verifiering efter uppgraderingen, för en huvudversion (git, gh) hela rökprovet efter bytet, och den förra kegen tillbaka om något faller. Efter varje install och uppgradering prövas de fyra formlernas bibliotekslänkar (`brew linkage --test`, utan att node startas), och det som gått sönder installeras om när det inte byter version; en lagning som skulle byta version utan prov lämnas åt ägaren. En ny node-huvudversion installeras inte bredvid när installationen skulle uppgradera beroenden som den aktiva node delar (2026-10-06 bröt simdjson 5 node@22), och efter installationen prövas att den aktiva node svarar |
-| Impeccables motor | `~/.impeccable/bin/<version>/` | den version skillen pinnar, med releasens kontrollsumma och detektering på en provsida |
+| Impeccables motor | `~/.impeccable/bin/<version>/` | den version skillen pinnar, med releasens karenstid och kontrollsumma och detektering på en provsida; en skilluppdatering som byter versionen prövar den nya motorn först |
 | macOS, Xcode-verktygen, Homebrew självt | systemet | redovisas bara (lösenord eller omstart) |
 
 Intag i kontrollernas `node_modules` och i `.venv` görs bara i utcheckningen som äger dem (en worktree länkar dem).

@@ -18,7 +18,26 @@ Ett stockfoto eller en genererad bild får aldrig stå på en plats med anspråk
 Illustrativt material håller sig till det som tydligt inte dokumenterar: en textur, ett mönster, en illustration, en
 konceptbild som läses som bild och inte som bevis. När egna bilder saknas bär typografin, färgen och formen, och
 bilderna beställs i `BESTALLNING.md` med plats och syfte ("ta en sådan här, fast er egen"); prototypen får en tydligt
-märkt platshållare. Flödets sessioner har ingen bildgenerator; genererat illustrativt material tas fram utanför flödet.
+märkt platshållare. Genererat illustrativt material: avsnittet nedan.
+
+## Genererat material
+
+Figmas `generate_image` får användas inom kontots Pro-krediter när en riktning behöver illustrativt material som
+verksamhetens egna bilder inte ger: en textur, ett mönster, en illustration, en konceptbild (ägarens beslut 2026-10-13).
+
+- Bilden står bara på en plats med anspråket `illustrative` eller `none` och utger sig aldrig för att visa
+  verksamheten (tabellen ovan).
+- Prompten är generisk, som varje fråga till en extern tjänst: inga namn, orter, nummer eller citat ur kundens underlag.
+  `planKey` är kontots team (`whoami`).
+- Varje anrop förbrukar Figmas AI-krediter: ett anrop per bildplats, och ett nytt bara när det förra inte bar platsens
+  syfte; inga köpta tillägg.
+- Svaret är en adress som upphör efter sju dagar. Bilden laddas ned till `underlag/<slug>/bilder/` samma dag, och
+  raden i BILDER.md säger källan: `Figma generate_image`, modellen, prompten, datumet och anspråket.
+- Figma-MCP:n når ännu inte flödets sessioner (backlogposten
+  `B-20261013-figma-mcp-n-i-flodets-sessioner-bakom-kundvakten`); tills dess bär typografin, färgen och formen, och
+  platsen står i beställningen.
+- Gemini (Nano Banana), Higgsfield och Seedance genom materialsteget (`kunskap/materialtransport.md`) väntar på
+  nycklarna.
 
 ## Varje viktig bildplats har ett syfte och prövat material
 

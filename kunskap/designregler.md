@@ -49,7 +49,8 @@ fäller dem i agenternas texter.
   personer, lokaler, fordon, resultat och referenser) är verksamhetens egen; ett stockfoto eller en genererad bild utger
   sig aldrig för att visa den. Visuellt material som inte utger sig för att dokumentera verksamheten (licensierade
   illustrationer, texturer, mönster, tydligt illustrativa konceptbilder) är tillåtet med källa och licens i
-  `bilder/BILDER.md` eller DESIGN.md.
+  `bilder/BILDER.md` eller DESIGN.md. Genererat illustrativt material tas fram med Figmas `generate_image` inom kontots
+  Pro-krediter (ägarens beslut 2026-10-13; `kunskap/bild.md`, Genererat material).
 - **Säkerhet och kunddata:** kundens namn, orter, nummer och e-post går aldrig till externa tjänster (Refero, Mobbin);
   inga hemligheter i kod, underlag eller rapporter; paket med exakt version i låset och källan bokförd (`kunskap/beroenden.md`),
   och byggen innanför processgränsen.
