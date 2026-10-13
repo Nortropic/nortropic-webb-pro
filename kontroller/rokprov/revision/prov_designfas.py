@@ -312,9 +312,34 @@ class A_Bandet(Grund):
 
     def test_ateljens_sparr_ar_borta(self):
         import inspect
-        k = inspect.getsource(atelje.arbeta)
-        self.assertNotIn('designfas.aktiv(slug, UNDERLAG)', k, 'kandidatflödet nekas inte av en aktiv designfas')
-        self.assertLess(k.index("forra.get('steg') == 'band'"), k.index('kandidater.forfina_valda'), 'valda och putsa nekas i bandet')
+        self.assertNotIn('designfas.aktiv(slug, UNDERLAG)', inspect.getsource(atelje.arbeta), 'kandidatflödet nekas inte av en aktiv designfas')
+
+    def test_en_ny_korning_nekas_medan_riktningarna_ar_i_bandet(self):
+        """--om, --ny-riktning, --valda, --putsa och en ny körning utan flagga nekas i starten, innan statusen skrivs och
+        innan något arkiveras, när körningen står i steget band eller designfasen har riktningar i arbete
+        (granskningens fynd 5: --om flyttade annars riktningarnas projekt till arkivet medan utföraren arbetade i dem).
+        Provet kör vägen genom atelje.main; arbetaren och en ny sajt får aldrig startas."""
+        import io
+        self.sajt()
+        for n in ('RESEARCH.md', 'TEXTUNDERLAG.md'):
+            (self.u / SLUG / n).write_text('# %s\n' % n)
+        df.ny(SLUG)
+        p = self.projekt('k01')
+        df.riktningar(SLUG, ['k01'])
+        kd.satt_status(SLUG, 'k01', 'planerad', 'i bandet')
+        status = self.u / SLUG / 'atelje' / 'STATUS.json'
+        for steg in ('band', 'klar_for_bedomning'):  # också när statusen säger annat har designfasen riktningar i arbete
+            status.write_text(json.dumps({'slug': SLUG, 'steg': steg, 'kandidatflode': True, 'klar': '2026-10-13T08:00:00Z',
+                                          'kandidater': {'k01': 'planerad'}}))
+            for flagga in ('--om', '--ny-riktning', '--valda', '--putsa', None):
+                ut = io.StringIO()
+                with patch.object(atelje.subprocess, 'Popen', side_effect=AssertionError('arbetaren startades')), \
+                        patch.object(atelje, 'ny_sajt', side_effect=AssertionError('sajten gjordes om')), contextlib.redirect_stdout(ut):
+                    rc = atelje.main([SLUG] + ([flagga] if flagga else []) + ['--vanta', '0'])
+                self.assertEqual(rc, 2, (steg, flagga, ut.getvalue()[-300:]))
+                self.assertIn('enda skrivaren', ut.getvalue(), (steg, flagga))
+                self.assertEqual(json.loads(status.read_text())['steg'], steg, 'statusen skrevs inte om')
+                self.assertTrue((p / 'src' / 'pages' / 'index.astro').is_file(), 'riktningens projekt står kvar')
 
     def test_dom_och_uppdrag_pa_en_riktning_i_bandet_nekas(self):
         """En skrivare per riktning: en dom eller ett uppdrag i Code på en riktning i bandet nekas, med hänvisning till

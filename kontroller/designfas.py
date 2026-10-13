@@ -253,6 +253,16 @@ def aktiv(slug, underlag=None):
     return bool(isinstance(d, dict) and d.get('aktiv'))
 
 
+def riktningar_i_arbete(slug, underlag=None):
+    """Sant när kunden har en aktiv designfas i läget astro med registrerade riktningar: då skriver bara designfas.py i
+    riktningarnas projekt (ateljéns start nekar --om, --ny-riktning, --valda och --putsa)."""
+    try:
+        d = las(rot(slug, underlag) / 'DESIGNFAS.json')
+    except Fel:
+        return False
+    return bool(isinstance(d, dict) and d.get('aktiv') and d.get('lage', 'astro') == 'astro' and d.get('riktningar'))
+
+
 def i_bandet(slug):
     """Beskedet när ett val, en förfining eller ett uppdrag i Code möter riktningar i bandet (ateljén, prototyp, domen)."""
     return BANDET % (slug, slug, slug)
