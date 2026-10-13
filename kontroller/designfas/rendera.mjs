@@ -27,6 +27,7 @@ import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
 import { join, extname, resolve, dirname, sep } from 'node:path';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
@@ -36,14 +37,22 @@ const ut = arg('ut');
 const ritningar = (arg('ritningar') || '').split(',').filter(Boolean);
 const bredder = (arg('bredder') || '390,768,1440').split(',').map((x) => parseInt(x, 10)).filter((x) => x >= 280 && x <= 2560);
 const kontroll = process.argv.includes('--kontroll');
-// en byggd sida (index.html, om/index.html, högst tre kataloger ner) eller en dukritning (.dc.html); inget segment börjar med punkt
-const NAMN = /^(?:[A-Za-z0-9_][A-Za-z0-9_.-]{0,100}\/){0,3}[A-Za-z0-9_][A-Za-z0-9_.-]{0,200}\.html$/;
+// en byggd sida (index.html, om/index.html, tjänster/index.html, högst tre kataloger ner) eller en dukritning (.dc.html);
+// bokstäver i alla skrift, siffror, _, . och -, och inget segment börjar med punkt
+const NAMN = /^(?:[\p{L}\p{N}_][\p{L}\p{N}\p{M}_.-]{0,100}\/){0,3}[\p{L}\p{N}_][\p{L}\p{N}\p{M}_.-]{0,200}\.html$/u;
 if (!sida || !ut || !ritningar.length || ritningar.some((r) => !NAMN.test(r)) || !bredder.length) {
   console.error('användning: node kontroller/designfas/rendera.mjs --sida KATALOG --ritningar index.html[,om/index.html] --ut KATALOG [--kontroll] [--bredder 390,768,1440]');
   process.exit(2);
 }
 const duk = ritningar.some((r) => r.endsWith('.dc.html'));
-const stam = (r) => r.replace(/\.dc\.html$|\.html$/, '').replace(/\//g, '-');
+// säkra filnamn för bilderna och kontrollerna: ett namn med annat än A–Z, 0–9, _, . och - translittereras (å → a) och får
+// en kort hash av originalet, så att tjänster och tjanster aldrig krockar; designfas.sakert gör exakt samma sak
+const sakert = (namn) => {
+  const s = namn.normalize('NFC');
+  const t = s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9_.-]/g, '-');
+  return t === s ? t : `${t}-u${createHash('sha1').update(s, 'utf8').digest('hex').slice(0, 6)}`;
+};
+const stam = (r) => sakert(r.replace(/\.dc\.html$|\.html$/, '').replace(/\//g, '-'));
 const rot = resolve(sida);
 if (duk && !existsSync(join(rot, 'support.js'))) { console.error('körmiljön saknas: ' + join(rot, 'support.js')); process.exit(2); }
 const bloblista = existsSync(join(rot, '_blob', 'index.json')) ? JSON.parse(readFileSync(join(rot, '_blob', 'index.json'), 'utf-8')) : {};
@@ -306,7 +315,7 @@ if (kontroll) {
         if (fynd) fynd = fynd.map((f) => Object.fromEntries([
           ...['antipattern', 'rule', 'name', 'description', 'severity', 'category', 'advisory'].filter((n) => f[n] !== undefined).map((n) => [n, f[n]]),
           ...(omrade[f.antipattern] ? [['omrade', omrade[f.antipattern]]] : [])]));
-        const fil = join(d, `${r.replace(/\//g, '-')}-${vp.split('x')[0]}.json`);  // en undersida (om/index.html) i samma katalog
+        const fil = join(d, `${sakert(r.replace(/\//g, '-'))}-${vp.split('x')[0]}.json`);  // en undersida (om/index.html) i samma katalog
         writeFileSync(fil, JSON.stringify(fynd && x.status !== 1 ? fynd : { fel: (x.stderr || '').slice(-800), slutkod: x.status }, null, 1) + '\n');
         post.kontroll.detektor[`${r} ${vp}`] = fynd && x.status !== 1 ? { fynd: fynd.length, slutkod: x.status }
           : { fel: fynd ? 'motorn kunde inte skanna sidan (slutkod 1)' : 'motorn gav inget läsbart svar', slutkod: x.status };

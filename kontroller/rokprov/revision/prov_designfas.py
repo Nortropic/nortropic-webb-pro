@@ -122,6 +122,9 @@ def bygg_attrapp(sajt):
     if (sajt / 'src' / 'pages' / 'om').is_dir():  # en undersida bara när projektet har den
         (d / 'om').mkdir()
         (d / 'om' / 'index.html').write_text(OM)
+    if (sajt / 'src' / 'pages' / 'tjänster').is_dir():  # ett svenskt sidnamn (granskningens fynd 4)
+        (d / 'tjänster').mkdir()
+        (d / 'tjänster' / 'index.html').write_text(OM.replace('Om verkstaden', 'Våra tjänster'))
     (d / 'tack' / 'index.html').write_text(OM.replace('Om verkstaden', 'Tack'))
     (d / '404.html').write_text(OM.replace('Om verkstaden', 'Hittas inte'))
     (d / '_astro' / 'x.css').write_text(CSS)
@@ -336,16 +339,19 @@ class B_Version(Grund):
         """Läget astro: en version ur riktningens projekt med källan (kalla/), den byggda sidan (sida/), startsidan och
         undersidan renderade med den riktiga rendera.mjs, kontrollerna och insatsen mot förra versionen av riktningen."""
         self.astro()
+        (df.projekt(SLUG, 'k01') / 'src' / 'pages' / 'tjänster').mkdir()
+        (df.projekt(SLUG, 'k01') / 'src' / 'pages' / 'tjänster' / 'index.astro').write_text('<h1>Våra tjänster</h1>')
         with patch.dict(os.environ, IMPECCABLE_BIN=str(motor_attrapp(self.tmp))):
             v1 = df.version(SLUG, None, None, 'strukturen med det verkliga innehållet', station_='innehall', ritning='k01')
             p = df.projekt(SLUG, 'k01')
             (p / 'src' / 'pages' / 'index.astro').write_text('<h1 id="r" style="font-size:72px;line-height:1">Provrubrik i ny skala</h1>' + SNURR)
-            shutil.rmtree(p / 'src' / 'pages' / 'om')  # bara startsidan i v2: renderingen tar en sida i stället för två
+            for u in ('om', 'tjänster'):  # bara startsidan i v2: renderingen tar en sida i stället för tre
+                shutil.rmtree(p / 'src' / 'pages' / u)
             v2 = df.version(SLUG, None, None, 'typskalan', station_='typografi', ritning='k01',
                             hoppade=['art=provets riktning prövar bara mekaniken, inget språk'])
         vk = self.u / SLUG / 'design' / 'versioner' / 'v01'
         self.assertEqual((v1['version'], v1['lage'], v1['ritning'], v1['station']), ('v01', 'astro', 'k01', 'innehall'))
-        self.assertEqual(v1['sidor'], ['index.html', 'om/index.html'], 'startsidan först, mallens sidor (tack, 404) inte')
+        self.assertEqual(v1['sidor'], ['index.html', 'om/index.html', 'tjänster/index.html'], 'startsidan först, mallens sidor (tack, 404) inte')
         for n in ('src/pages/index.astro', 'package.json', 'package-lock.json', 'astro.config.mjs', 'RIKTNING.md', 'public/robots.txt'):
             self.assertEqual(v1['filer'][n], df.sha(vk / 'kalla' / n), n)
         self.assertEqual(v1['las'], 'projektets')
@@ -361,6 +367,12 @@ class B_Version(Grund):
             self.assertTrue((vk / r['bilder'][w]['fil']).is_file(), w)
             self.assertEqual(r['bilder'][w]['fil'], 'bilder/index-%s.png' % w)
         self.assertTrue((vk / 'bilder' / 'om-index-390.png').is_file(), 'undersidans stam: om/index.html → om-index')
+        # ett svenskt sidnamn renderas, med ett säkert filnamn för bilderna (granskningens fynd 4)
+        tj = b['ritningar']['tjänster/index.html']
+        self.assertEqual(tj['bilder']['390']['fil'], 'bilder/%s-390.png' % df.stam('tjänster/index.html'))
+        self.assertTrue((vk / tj['bilder']['390']['fil']).is_file())
+        self.assertEqual(tj['bilder']['390']['h1'], ['Våra tjänster'])
+        self.assertTrue((vk / 'kontroll' / 'detektor' / ('%s-390.json' % df.sakert('tjänster-index.html'))).is_file())
         self.assertEqual(r['bilder']['390']['h1'], ['Provrubrik 200'], 'katalogen /om/ ger sin index.html')
         self.assertEqual(r['fel'], [], 'den lata bilden långt ner laddades före mätningen')
         lat = next(x for x in r['matt']['390']['bildstorlekar'] if x['src'].endswith('lat.png'))
@@ -384,6 +396,13 @@ class B_Version(Grund):
         self.assertEqual(v2['hoppade'], {'art': 'provets riktning prövar bara mekaniken, inget språk'})
         rader = [json.loads(x) for x in (self.u / SLUG / 'design' / 'VERSIONER.jsonl').read_text().splitlines()]
         self.assertEqual([(x['version'], x['ritning'], x['station']) for x in rader], [('v01', 'k01', 'innehall'), ('v02', 'k01', 'typografi')])
+
+    def test_bildernas_stam_ar_saker_och_krockar_inte(self):
+        self.assertEqual((df.stam('index.html'), df.stam('om/index.html'), df.stam('Main.dc.html')), ('index', 'om-index', 'Main'))
+        for namn in ('tjänster/index.html', 'öppettider/index.html', 'vår-ö.html'):
+            self.assertRegex(df.stam(namn), r'^[A-Za-z0-9_.-]+$', namn)
+        self.assertNotEqual(df.stam('tjänster/index.html'), df.stam('tjanster/index.html'), 'translitterationen krockar inte')
+        self.assertEqual(df.stam('tjänster/index.html'), df.stam('tja\u0308nster/index.html'), 'NFC och NFD är samma sida')
 
     def test_astro_utan_las_och_ett_bygge_som_faller(self):
         self.astro()

@@ -43,6 +43,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -562,9 +563,18 @@ def sidor(post):
     return [r['fil'] for r in post.get('ritningar') or []]
 
 
+def sakert(namn):
+    """Ett säkert filnamn: ett namn med annat än A–Z, 0–9, _, . och - translittereras (å → a, NFKD utan accenter) och
+    får en kort hash av originalet (NFC), så att tjänster och tjanster aldrig krockar. rendera.mjs gör exakt samma sak."""
+    s = unicodedata.normalize('NFC', namn)
+    t = re.sub(r'[^A-Za-z0-9_.-]', '-', re.sub('[\u0300-\u036f]', '', unicodedata.normalize('NFKD', s)))
+    return t if t == s else '%s-u%s' % (t, hashlib.sha1(s.encode('utf-8')).hexdigest()[:6])
+
+
 def stam(namn):
-    """Bildernas stam för en sida eller ritning: utan .dc.html eller .html, med / som - (rendera.mjs gör samma)."""
-    return re.sub(r'\.dc\.html$|\.html$', '', namn).replace('/', '-')
+    """Bildernas stam för en sida eller ritning: utan .dc.html eller .html, med / som - och säker (sakert; rendera.mjs
+    gör samma): index.html → index, om/index.html → om-index."""
+    return sakert(re.sub(r'\.dc\.html$|\.html$', '', namn).replace('/', '-'))
 
 
 def bildsida(post_eller_lage, ritning=None):
@@ -1691,7 +1701,7 @@ def detektor_rader(vk, ritning, sid):
     omr = DETEKTOR_OMRADE[sid]
     fynd = {}
     for w in ('390', '1440'):
-        for f in las(vk / 'kontroll' / 'detektor' / ('%s-%s.json' % (ritning.replace('/', '-'), w))) or []:
+        for f in las(vk / 'kontroll' / 'detektor' / ('%s-%s.json' % (sakert(ritning.replace('/', '-')), w))) or []:
             if isinstance(f, dict) and f.get('antipattern') and (omr is None or f.get('omrade') in omr):
                 x = fynd.setdefault(f['antipattern'], {'namn': f.get('name') or f['antipattern'], 'allvar': f.get('severity'),
                                                         'bredder': [], 'rad': f.get('advisory')})
