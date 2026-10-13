@@ -278,6 +278,11 @@ def main(argv=None, fran_portalen=False):
             _pid, text = designfas.starta_drivaren(a.slug, atelje.UNDERLAG)
             print('Prototyp %s: %s.' % (a.slug, text), flush=True)
             return 0
+    if a.stoppa:  # designfasens drivare först: den avslutar sina sessioner och skriver stoppad (designfas.stoppa_drivaren)
+        import designfas
+        pid, text = designfas.stoppa_drivaren(a.slug, atelje.UNDERLAG)
+        if pid:
+            print(text, flush=True)
     if a.forbered or a.fortsatt or a.stoppa:
         handling = 'forbered' if a.forbered else 'fortsatt' if a.fortsatt else 'stoppa'
         return atelje.main([a.slug, '--' + handling, '--vanta', str(a.vanta)] + extra)

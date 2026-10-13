@@ -348,19 +348,28 @@ class A_Bandet(Grund):
                 self.assertEqual(json.loads(status.read_text())['steg'], steg, 'statusen skrevs inte om')
                 self.assertTrue((p / 'src' / 'pages' / 'index.astro').is_file(), 'riktningens projekt står kvar')
 
-    def test_dom_och_uppdrag_pa_en_riktning_i_bandet_nekas(self):
-        """En skrivare per riktning: en dom eller ett uppdrag i Code på en riktning i bandet nekas, med hänvisning till
-        designfasen; prototyp.py stannar och säger vem som skriver."""
+    def test_dom_och_uppdrag_pa_en_riktning_i_bandet(self):
+        """En skrivare per riktning: ägarens (och kundens) val och uppdrag på en riktning i bandet går genom doma till
+        domloggen, där drivaren läser dem (andra granskningen, fynd 2); en jämförelse, en putsning, ett godkännande och en
+        riktning utanför bandet nekas, med hänvisning till designfasen; prototyp.py stannar och säger vem som skriver."""
         df.ny(SLUG)
         for kid in ('k01', 'k02'):
+            self.projekt(kid)
             kd.satt_status(SLUG, kid, 'planerad', 'i bandet', version='v' * 12)
+        df.riktningar(SLUG, ['k01', 'k02'])
         (self.u / SLUG / 'atelje' / 'STATUS.json').write_text(json.dumps({'slug': SLUG, 'steg': 'band', 'kandidatflode': True, 'klar': '2026-10-13T08:00:00Z',
                                                                           'kandidater': {'k01': 'planerad', 'k02': 'planerad'}}))
-        for beslut, extra in (('valj', {}), ('uppdrag', {'uppdrag': {'typ': 'ratta', 'resultat': 'r', 'omfattning': 'o', 'bevara': 'b'}}),
-                              ('jamfor', {})):
+        for beslut, extra in (('jamfor', {}), ('putsa', {})):
             with self.assertRaisesRegex(ValueError, 'enda skrivaren'):
                 atelje.doma(SLUG, 'ägaren', beslut, 'en dom i provet', kandidater=[{'id': 'k01', 'version': 'v' * 12}], **extra)
+        with self.assertRaisesRegex(ValueError, 'k07'):
+            atelje.doma(SLUG, 'ägaren', 'valj', 'en riktning som inte finns', kandidater=[{'id': 'k07'}])
         self.assertFalse((self.u / SLUG / skapande.DOMLOGG).exists(), 'ingen dom skrevs')
+        atelje.doma(SLUG, 'ägaren', 'valj', 'Jag väljer k02.', kandidater=[{'id': 'k02'}])
+        atelje.doma(SLUG, 'ägaren', 'uppdrag', 'Rätta menyn.', kandidater=[{'id': 'k02'}],
+                    uppdrag={'typ': 'ratta', 'resultat': 'menyn öppnar', 'omfattning': 'sidhuvudet', 'bevara': 'resten'})
+        domar = [json.loads(x) for x in (self.u / SLUG / skapande.DOMLOGG).read_text().splitlines()]
+        self.assertEqual([(d['beslut'], [k['id'] for k in d['kandidater']]) for d in domar], [('valj', ['k02']), ('uppdrag', ['k02'])])
         vald, skal = prototyp.lage(SLUG)
         self.assertEqual(vald, 'stopp')
         self.assertIn('enda skrivaren', skal)
@@ -1118,6 +1127,10 @@ if m:
     sid, rid = m.groups()
     with logg.open('a') as f:
         f.write('station %%s %%s\n' %% (rid, sid))
+    if [rid, sid] in conf.get('sov', []):  # en session som arbetar länge: stoppet ska avsluta den
+        import os, time
+        Path(conf['sovfil']).write_text(str(os.getpid()))
+        time.sleep(30)
     if [rid, sid] in conf.get('falla', []):
         print(json.dumps({'type': 'result', 'subtype': 'error_during_execution', 'is_error': True, 'result': 'attrappen faller'}))
         sys.exit(1)
@@ -1138,8 +1151,11 @@ with logg.open('a') as f:
     f.write('pass %%s\n' %% typ)
 so = {'sammanfattning': 'attrappens %%s' %% typ, 'fynd': [], 'forslag': [], 'referenser': [], 'begransningar': [],
       'kompetens': {'aktiverade': [], 'lasta': [], 'valda': []}}
-if typ == 'jamforelse':
-    so['val'] = {'riktning': conf['val'], 'skal': 'attrappens val: riktningen bär besökarens uppgift bäst'}
+if typ == 'jamforelse':  # valsvar: attrappens svar i tur och ordning (null: svaret saknar val)
+    nr = logg.read_text().splitlines().count('pass jamforelse') - 1
+    lista = conf.get('valsvar') or [conf['val']]
+    if lista[min(nr, len(lista) - 1)]:
+        so['val'] = {'riktning': lista[min(nr, len(lista) - 1)], 'skal': 'attrappens val: riktningen bär besökarens uppgift bäst'}
 svar(so)
 '''
 
@@ -1165,6 +1181,9 @@ class M_Drivaren(Grund):
         import flodesstart
         self.stack.enter_context(patch.object(flodesstart, 'starta', side_effect=lambda slug, handling, start_id=None:
                                               self.byggen.append((slug, handling, start_id)) or 5))
+        self.register = []  # körregistret på maskinen skrivs aldrig av provet
+        self.stack.enter_context(patch.object(korregister, 'registrera', side_effect=lambda vad, slug=None, **k: self.register.append(('in', vad, slug))))
+        self.stack.enter_context(patch.object(korregister, 'avregistrera', side_effect=lambda pid=None: self.register.append(('ut',))))
         self.astro(('k01', 'k02', 'k03'))
 
     def conf(self, **falt):
@@ -1180,7 +1199,9 @@ class M_Drivaren(Grund):
         return self.logg.read_text().splitlines() if self.logg.is_file() else []
 
     def test_hela_vagen_till_en_startad_byggbegaran(self):
-        def autogodkann(slug, v, ritning, underlag=None):  # sigillets attrapp (den riktiga finns i en annan gren)
+        # sigillets attrapp: den skriver som ägaren genom df.godkann och ersätts av den riktiga designfas.autogodkann
+        # (källan 'autonom granskning') när huvudsessionen slår ihop grenarna
+        def autogodkann(slug, v, ritning, underlag=None):
             return df.godkann(slug, v, ritning, text='sigillets attrapp i provet')
         with patch.object(df, 'autogodkann', autogodkann, create=True):
             k = df.kor(SLUG)
@@ -1234,16 +1255,179 @@ class M_Drivaren(Grund):
         self.assertIn('station k03 art', andra)
         self.assertNotIn('station k03 innehall', andra)
 
+    def test_texterna_sager_vad_stationssessionerna_har(self):
+        """Andra granskningens fynd 5: stationssessionerna har Bash med rollen skapas skript, så texterna säger det och
+        nämner varje skript som verktygslistan släpper fram."""
+        regler = df.station_verktyg(SLUG, 'k01')
+        skript = sorted({re.search(r'kontroller/(\w+\.py)', r).group(1) for r in regler if r.startswith('Bash(')})
+        self.assertTrue(skript, regler)
+        texter = {'skillen': (ROOT / '.claude' / 'skills' / 'designfas' / 'SKILL.md').read_text(),
+                  'skapandeflodet': (ROOT / 'kunskap' / 'skapandeflodet.md').read_text(), 'station_verktyg': df.station_verktyg.__doc__}
+        for namn, text in texter.items():
+            self.assertIsNone(re.search(r'inget Bash|utan Bash', text), namn)
+            for s in skript:
+                self.assertTrue(s in text, (namn, s))
+
+    def test_en_signal_stoppar_drivaren_och_dess_sessioner(self):
+        """Andra granskningens fynd 2, stoppet: vid SIGTERM avslutar drivaren sina sessioner (egna processgrupper),
+        skriver stoppad med skälet, avanmäler sig och släpper låset."""
+        import fcntl
+        import signal
+        import threading
+        import time
+        sovfil = self.tmp / 'fejk' / 'sov.pid'
+        self.conf(sov=[['k01', 'underlag']], sovfil=str(sovfil))
+
+        def ingen_hanterare(*_):
+            raise AssertionError('drivaren har ingen signalhanterare')
+        gammal = signal.signal(signal.SIGTERM, ingen_hanterare)
+        self.addCleanup(signal.signal, signal.SIGTERM, gammal)
+
+        def skicka():
+            slut = time.time() + 30
+            while not sovfil.is_file() and time.time() < slut:
+                time.sleep(0.1)
+            time.sleep(0.3)
+            os.kill(os.getpid(), signal.SIGTERM)
+        threading.Thread(target=skicka, daemon=True).start()
+        t0 = time.time()
+        k = df.kor(SLUG)
+        self.assertLess(time.time() - t0, 25, 'sessionen avslutades i stället för att sova klart')
+        self.assertEqual(k['steg'], 'stoppad')
+        self.assertIn('SIGTERM', k['skal'])
+        self.assertFalse(df._lever(int(sovfil.read_text())), 'stationens session är avslutad')
+        self.assertEqual(self.register[-1], ('ut',))
+        self.assertFalse(atelje.STOPP.is_set(), 'stoppet gäller bara drivaren')
+        fd = os.open(self.u / SLUG / 'design' / '.drivare.las', os.O_RDWR)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # låset är släppt
+        finally:
+            os.close(fd)
+
+    def dummy_drivare(self):
+        """En process som ser ut som drivaren (designfas.py kor <slug> på kommandoraden) och avslutas på SIGTERM."""
+        p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)', 'designfas.py', 'kor', SLUG], start_new_session=True)
+        self.addCleanup(lambda: (p.poll() is None and p.kill(), p.wait()))
+        time_ = __import__('time')
+        time_.sleep(0.3)
+        df.logga(SLUG, pid=p.pid, steg='fore_valet')
+        return p
+
+    def test_stoppa_nar_drivaren_och_start_nekas_medan_den_kor(self):
+        p = self.dummy_drivare()
+        with self.assertRaisesRegex(df.Fel, 'drivaren kör'):
+            df.start(SLUG, skriv_bara=True)
+        self.bandets_status()
+        import io
+        with contextlib.redirect_stdout(io.StringIO()) as ut:
+            prototyp.main([SLUG, '--stoppa'])
+        self.assertIn('drivaren', ut.getvalue())
+        self.assertIsNotNone(p.wait(timeout=20), 'prototyp.py --stoppa nådde drivaren')
+        df.start(SLUG, skriv_bara=True)  # när drivaren inte kör går starten igen
+
+    def test_drivarens_lage_star_i_status_och_slutposten(self):
+        """Andra granskningens fynd 2, synligheten: drivarens läge (kor, stoppad med skälet, vantar_pa_sigillet,
+        helbygge startat, klar) står i atelje/STATUS.json och i slutposten, och ateljeslut ger utfallet och åtgärden ur
+        läget i stället för klar och ./design.sh."""
+        import ateljeslut
+        self.bandets_status()
+        status = self.u / SLUG / 'atelje' / 'STATUS.json'
+        df.kor(SLUG)
+        st = json.loads(status.read_text())
+        self.assertEqual(st['drivare']['lage'], 'vantar_pa_sigillet')
+        _f, post = ateljeslut.post_for(SLUG, st)
+        self.assertIsNotNone(post, 'slutposten skrevs för drivarens läge')
+        self.assertTrue(any('sigillet' in a for a in post['atgarder']), post['atgarder'])
+        self.assertFalse(any('design.sh' in a for a in post['atgarder']))
+        self.assertEqual(ateljeslut.utfall({'steg': 'band', 'drivare': {'lage': 'stoppad', 'skal': 'bygget föll'}})[:2], ('stoppad', 4))
+        self.assertEqual(ateljeslut.utfall({'steg': 'band', 'drivare': {'lage': 'kor', 'skal': 'före valet'}})[:2], ('klar', 0))
+
+        def autogodkann(slug, v, ritning, underlag=None):  # attrapp; ersätts av den riktiga autogodkann vid sammanslagningen
+            return df.godkann(slug, v, ritning, text='sigillets attrapp i provet')
+        with patch.object(df, 'autogodkann', autogodkann, create=True):
+            df.kor(SLUG)
+        st = json.loads(status.read_text())
+        self.assertEqual(st['drivare']['lage'], 'helbygge startat')
+        _f, post = ateljeslut.post_for(SLUG, st)
+        self.assertTrue(any('Byggflöde' in a for a in post['atgarder']), post['atgarder'])
+
+    def test_drivaren_anmaler_sig_i_korregistret(self):
+        """Andra granskningens fynd 4: drivaren anmäler sig i körregistret som arbetaren och kor.sh, så att underhållet
+        inte byter verktyg mitt i ett band, och avanmäler sig vid slut och vid stopp."""
+        df.kor(SLUG)
+        self.assertEqual(self.register, [('in', 'designfas', SLUG), ('ut',)])
+
+    def test_drivaren_avanmaler_sig_vid_stopp(self):
+        self.conf(falla=[['k01', 'art']])
+        self.assertEqual(df.kor(SLUG)['steg'], 'stoppad')
+        self.assertEqual(self.register, [('in', 'designfas', SLUG), ('ut',)], 'avanmäld också vid stopp')
+
+    def test_ett_svar_utan_giltigt_val_ger_en_ny_jamforelse(self):
+        """Granskningens fynd 1 (andra granskningen): ett jämförelsesvar utan val, eller med ett val som inte är en
+        riktning, ger en ny beställning, högst två försök; skiftläget normaliseras, och en levererad beställning utan
+        giltigt val återanvänds aldrig, så att en återupptagning inte fastnar på samma svar."""
+        self.conf(valsvar=[None, 'K02'])
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
+        self.assertEqual(self.anrop().count('pass jamforelse'), 2)
+        self.assertEqual(df.designfas(SLUG)['val']['riktning'], 'k02', 'K02 normaliseras')
+
+    def test_inget_giltigt_val_stoppar_och_aterupptagningen_fastnar_inte(self):
+        self.conf(valsvar=[None, 'k09'])
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'stoppad')
+        self.assertIn('giltigt val', k['skal'])
+        self.assertEqual(self.anrop().count('pass jamforelse'), 2)
+        self.conf(valsvar=['k01'])
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
+        self.assertEqual(self.anrop().count('pass jamforelse'), 3, 'den levererade beställningen utan val återanvändes inte')
+        self.assertEqual(df.designfas(SLUG)['val']['riktning'], 'k01')
+
+    def test_jamforelsens_schema_kraver_ett_val_bland_riktningarna(self):
+        s = df.jamforelse_schema(SLUG)
+        self.assertIn('val', s['required'])
+        self.assertEqual(s['properties']['val']['properties']['riktning']['enum'], ['k01', 'k02', 'k03'])
+        self.assertNotIn('val', df.SVAR_SCHEMA['required'], 'de andra passens schema är oförändrat')
+
+    def bandets_status(self):
+        (self.u / SLUG / 'atelje').mkdir(parents=True, exist_ok=True)
+        (self.u / SLUG / 'atelje' / 'STATUS.json').write_text(json.dumps({'slug': SLUG, 'steg': 'band', 'kandidatflode': True,
+                                                                          'klar': '2026-10-13T08:00:00Z'}))
+
     def test_agarens_val_efter_starten_gar_fore(self):
+        """Ägarens val i arbetsytan eller med skapande.py dom går genom atelje.doma (andra granskningen, fynd 2: provet
+        skrev förut direkt i domloggen och passerade av fel skäl)."""
+        self.bandets_status()
         df.logga(SLUG, start='2026-01-01T00:00:00Z')
-        skapande.lagg_till_dom(SLUG, 'ägaren', 'valj', 'Jag väljer riktningen k03.', underlag=self.u,
-                               kandidater=[{'id': 'k03', 'version': 'v' * 12}])
+        atelje.doma(SLUG, 'ägaren', 'valj', 'Jag väljer riktningen k03.', kandidater=[{'id': 'k03'}])
         k = df.kor(SLUG)
         self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
         val = df.designfas(SLUG)['val']
         self.assertEqual((val['riktning'], val['kalla']), ('k03', 'ägaren'))
         self.assertIn('station k03 typografi', self.anrop())
         self.assertFalse([x for x in (self.u / SLUG / skapande.DOMLOGG).read_text().splitlines() if 'jämförelsen' in x])
+
+    def test_agarens_uppdrag_stoppar_drivaren(self):
+        self.bandets_status()
+        df.logga(SLUG, start='2026-01-01T00:00:00Z')
+        atelje.doma(SLUG, 'ägaren', 'uppdrag', 'Rätta menyn i k01.', kandidater=[{'id': 'k01'}],
+                    uppdrag={'typ': 'ratta', 'resultat': 'menyn öppnar', 'omfattning': 'sidhuvudet', 'bevara': 'resten'})
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'stoppad')
+        self.assertIn('uppdrag', k['skal'])
+
+    def test_agarens_val_efter_jamforelsens_tar_over(self):
+        """Ägarens val som kommer efter jämförelsens tar den riktningen vidare."""
+        self.bandets_status()
+        self.assertEqual(df.kor(SLUG)['steg'], 'vantar_pa_sigillet')
+        self.assertEqual(df.designfas(SLUG)['val']['riktning'], 'k02')
+        atelje.doma(SLUG, 'ägaren', 'valj', 'Nej, k01 ska vidare.', kandidater=[{'id': 'k01'}])
+        df.logga(SLUG, steg='vantar_pa_sigillet')
+        df.kor(SLUG)
+        val = df.designfas(SLUG)['val']
+        self.assertEqual((val['riktning'], val['kalla']), ('k01', 'ägaren'))
+        self.assertIn('station k01 typografi', self.anrop())
 
     def test_kandidatflodet_och_prototyp_startar_drivaren(self):
         startade = []

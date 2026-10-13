@@ -568,7 +568,7 @@ def granska(dist, kontakt=None):
                 utover = {d: [k for k in ks if (d, k) not in gk['lattnader']] for d, ks in ovriga.items()}
                 utover = {d: ks for d, ks in utover.items() if ks}
                 if utover:
-                    F('8.2', sida, 'CSP:n är lättad mot mallen (%s): lättnad utöver den godkända versionen %s (dess kalla/astro.config.mjs '
+                    F('8.2', sida, 'CSP:n är lättad mot mallen (%s): lättnad utöver den godkända versionen %s (dess byggda sida '
                                    'har den inte)' % (text_(utover), gk['version']))
                 ovriga = {d: ks for d, ks in ovriga.items() if d not in utover}
             if ovriga:
@@ -879,39 +879,24 @@ def csp_lattnader(policy, mall=None):
     return ut
 
 
-def blockets_text(text, nyckel):
-    """Texten i klamrarna efter nyckel (scriptDirective: { … }) med balanserade klamrar, eller ''."""
-    i = text.find(nyckel)
-    j = text.find('{', i) if i >= 0 else -1
-    if j < 0:
-        return ''
-    djup = 0
-    for k in range(j, len(text)):
-        djup += {'{': 1, '}': -1}.get(text[k], 0)
-        if djup == 0:
-            return text[j + 1:k]
-    return ''
+CSP_META_RE = re.compile(r'<meta\b[^>]*http-equiv\s*=\s*["\']?content-security-policy["\']?[^>]*>', re.I)
 
 
-def config_policy(text):
-    """Policyn som en astro.config.mjs ger, så långt konfigurationen säger den: security.csp.directives, script-src ur
-    scriptDirective.resources och style-src och style-src-attr ur styleDirective.resources (hasharna lägger Astro till)."""
-    m = re.search(r'directives\s*:\s*\[(.*?)\]', text, re.S)
-    poster = re.findall(r'"([^"]+)"', m.group(1)) if m else []
-    skript = re.findall(r'"([^"]+)"', blockets_text(text, 'scriptDirective'))
-    stil_block = blockets_text(text, 'styleDirective')
-    attr = [x for o in re.findall(r'\{[^{}]*\}', stil_block) if 'attribute' in o for x in re.findall(r'"([^"]+)"', o)]
-    stil = re.findall(r'"([^"]+)"', re.sub(r'\{[^{}]*\}', '', stil_block))
-    poster += ['script-src ' + ' '.join(skript or ["'self'"]), 'style-src ' + ' '.join(stil or ["'self'"])]
-    if attr:
-        poster.append('style-src-attr ' + ' '.join(attr))
-    return ';'.join(poster)
+def sidans_csp(fil):
+    """CSP:n i en byggd sidas meta-tagg (Astros security.csp), eller None."""
+    try:
+        text = Path(fil).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return None
+    m = CSP_META_RE.search(text)
+    c = re.search(r'content\s*=\s*(?:"([^"]*)"|\'([^\']*)\')', m.group(0), re.I) if m else None
+    return avkoda_html(c.group(1) if c.group(1) is not None else c.group(2)) if c else None
 
 
 def godkand_csp(dist):
     """Den godkända versionens CSP-lättnader i helbygget: när dist är kunder/<slug>/sajt/dist och kunden har ett giltigt
     designgodkännande i läget astro (designfas.godkand_giltig), {'version', 'lattnader': {(direktiv, källa)}, 'skal'} ur
-    versionens kalla/astro.config.mjs (jämfört med mallen) och kalla/RIKTNING.md. Annars None: då gäller sajtens
+    den godkända versionens byggda sida (sida/index.html, CSP-metan jämförd med mallen) och kalla/RIKTNING.md. Annars None: då gäller sajtens
     RIKTNING.md, som i designfasen och kandidatflödet."""
     delar = Path(dist).resolve().parts
     try:
@@ -928,13 +913,13 @@ def godkand_csp(dist):
         return None
     if not ok or not isinstance(g, dict) or g.get('lage') != 'astro' or not re.fullmatch(r'v\d{2,3}', str(g.get('version') or '')):
         return None
-    kalla = rot / 'underlag' / slug / 'design' / 'versioner' / g['version'] / 'kalla'
-    try:
-        policy = config_policy((kalla / 'astro.config.mjs').read_text(encoding='utf-8'))
-    except OSError:
-        policy = ';'.join(' '.join([d] + k) for d, k in mallens_csp().items())
+    vk = rot / 'underlag' / slug / 'design' / 'versioner' / g['version']
+    # den godkända versionens verkliga CSP ur dess byggda sida, inte konfigurationen tolkad med reguljära uttryck (andra
+    # granskningen, fynd 3: direktiv i mallsträngar gav falskt grönt och falskt rött); saknas sidan godkänns ingen lättnad
+    policy = sidans_csp(vk / 'sida' / 'index.html') or ';'.join(' '.join([d] + k) for d, k in mallens_csp().items())
     lattnader = {(d, k) for d, ks in csp_lattnader(policy).items() for k in ks}
-    return {'version': g['version'], 'lattnader': lattnader, 'skal': skalen_i(kalla / 'RIKTNING.md')}
+    lattnader |= {(namn, k) for namn, ks in csp_skriptkallor(policy).items() for k in (ks or []) if not CSP_SKRIPT_OK.match(k)}
+    return {'version': g['version'], 'lattnader': lattnader, 'skal': skalen_i(vk / 'kalla' / 'RIKTNING.md')}
 
 
 def csp_skal(dist):

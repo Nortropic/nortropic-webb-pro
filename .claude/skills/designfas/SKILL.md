@@ -88,8 +88,10 @@ Sedan ägarens beslut 2026-10-13 ("Autonomous to build (Recommended)") kör driv
 ägaren: `designfas.py kor <slug>` (kandidatflödet startar den efter att riktningarna lämnats till bandet, och
 `prototyp.py <slug>` eller `--fortsatt` tar vid där den slutade; `NWP_DESIGNFAS_AUTONOM=av` stänger av den). Före valet går
 varje riktning underlag, innehåll, art, komposition och detaljer, högst tre samtidigt; varje station är en
-utförarsession (`claude -p` med kundvakten, tjänsterna, dontAsk och skrivning bara i riktningens projekt) med den här
-instruktionen och stationens arbetsinstruktion, och drivaren sparar versionen. Sedan kritiken per riktning och
+utförarsession (`claude -p` med kundvakten, tjänsterna och dontAsk) med den här instruktionen och stationens
+arbetsinstruktion. Sessionen får läsa, skriva i riktningens projekt (src/, public/, projektfilerna, RIKTNING.md och
+DESIGN.md) och i kandidatens kompetens/skriptuppdrag/ och koncept/, och köra rollen skapas tre skript med kunden och
+kandidaten fasta: `uxsok.py`, `material.py` och `skillskript.py`. Paketen installerar och versionen sparar drivaren. Sedan kritiken per riktning och
 jämförelsen; jämförelsens val står i DESIGNFAS.json och i domloggen med källan `jämförelsen`, och ägarens eget val efter
 starten går före. Den valda går stationerna efter valet och får en ny kritik; sigillet (`designfas.autogodkann`)
 godkänner, och drivaren gör överlämningen och startar helbygget genom samma väg som `prototyp.py --helbygge`. Publicering
