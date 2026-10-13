@@ -254,11 +254,15 @@ ok, skal = skapande.godkand_giltig(sys.argv[2])
 print("ja" if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 # Designfasen (ägarens beslut 2026-10-13 i BESLUT.md: formgivningen lokalt i Astro; läget duk i Claude Design är
 # pausat): ägarens designgodkännande av en exakt version av en riktning, med en komplett överlämning
-# (kontroller/designfas.py godkand_giltig). Godkännandet startar inget; bygget är ägarens eget beslut, när kor.sh startas.
+# (designfas.godkand_giltig, genom designfas.byggstart_rad: sigillet, domloggen, avtrycket och överlämningen).
 DESIGNGODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import designfas
-ok, skal, g = designfas.godkand_giltig(sys.argv[2])
-print(g["version"] + " " + g["ritning"] + " " + (g.get("lage") or "duk") if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
+print(designfas.byggstart_rad(sys.argv[2]))' "$ROOT" "$SLUG" 2>/dev/null || true)"
+# Ett bygge från den autonoma godkännaren körs alltid i sandlådan (granskningen av sigillet, fynd 6): byggsessionen ska
+# aldrig nå nyckeln i hemlighetsmappen. Flöde och drivaren startar det med NWP_SANDLADA=pa (flodesstart.byggmiljo).
+case "$DESIGNGODKAND" in
+  *" autonom") [ "${NWP_SANDLADA:-av}" = pa ] || stopp "bygget tar vid från den autonoma godkännaren och körs bara i sandlådan: starta det med NWP_SANDLADA=pa (Flöde och drivaren gör det själva); inget bygge startat";;
+esac
 FRYSTA=()   # godkännandets underlagsgrund, fylld nedan från en godkänd startsida
 # Byggstarten (BESLUT.md, tilläggen 2026-10-13): bygget tar vid av sig självt, men bara från ett godkännande som är
 # förseglat (kontroller/sigill.py) och giltigt; godkand_giltig ovan prövar sigillet. Nödvägen utan godkänd design
@@ -306,7 +310,7 @@ skriver du i kunder/$SLUG/INNEHALL-BYGGE.md. Steg 5–7:s egna arbetsfiler (KONC
 JAMFORELSE.md, GRANSKNINGSLOGG.md med flera) skrivs i underlag/$SLUG/ som förut."
 elif [ -n "$DESIGNGODKAND" ]; then
   # ägarens designgodkännande i designfasen: överlämningen och förlagan är frysta, och underlagsgrunden som ovan
-  read -r DVERSION DRITNING DLAGE <<< "$DESIGNGODKAND"
+  read -r DVERSION DRITNING DLAGE _DKALLA <<< "$DESIGNGODKAND"
   if [ "$DLAGE" = "astro" ]; then
     # den godkända versionens källa i sajten, med paketen i package.json och låset, prövad mot versionens hashar som en
     # godkänd kandidat (designfas.installera_godkand; ägarens beslut 2026-10-13, punkt 5)
@@ -426,7 +430,8 @@ ARGS+=(--setting-sources project,local --strict-mcp-config --model "${NWP_MODELL
 # hemligheter olästa; nätet bara till verksamhetens domän (ur uppdragstexten), NWP_NAT_DOMANER (kommaseparerat) och
 # kontroller/sandlada-domaner.txt. Prova först med kontroller/sandlada_prov.sh. Kräver att managed-settings.json inte
 # låser sandbox.enabled till false (kontroller/sandlada.py). Webbläsarverktygen går via kontroller/webbtjanst.py utanför
-# sandlådan (startas nedan). Standard av tills ett helt bygge körts med den på.
+# sandlådan (startas nedan). Standard av tills ett helt bygge körts med den på, utom för ett bygge från den autonoma
+# godkännaren, som alltid körs med den (ovan).
 SANDLADA=()
 if [ "${NWP_SANDLADA:-av}" = "pa" ]; then
   for d in $(printf '%s' "$VERKSAMHET" | tr 'A-Z' 'a-z' | grep -oE '[a-z0-9][a-z0-9.-]*\.[a-z]{2,}' | sort -u) $(printf '%s' "${NWP_NAT_DOMANER:-}" | tr ',' ' '); do

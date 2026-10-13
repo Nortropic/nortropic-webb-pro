@@ -1445,6 +1445,13 @@ def autogodkann(slug, version, ritning, underlag=None):
     return g
 
 
+def byggstart_rad(slug, underlag=None):
+    """kor.sh:s rad för ett giltigt designgodkännande: version, riktning, läge och vem som godkände (agaren eller
+    autonom), eller tomt. Ett bygge från den autonoma godkännaren kräver sandlådan (granskningen av sigillet, fynd 6)."""
+    ok, _skal, g = godkand_giltig(slug, underlag)
+    return ' '.join([g['version'], g['ritning'], g.get('lage') or 'duk', 'autonom' if g.get('kalla') == AUTONOM else 'agaren']) if ok else ''
+
+
 def godkand_giltig(slug, underlag=None):
     """(giltig, skäl, godkännandet): ett designgodkännande gäller när det är förseglat (kontroller/sigill.py) av ägaren
     eller den autonoma godkännaren, domloggen bär det (ägarens: hans senaste beslut är just det; den autonoma: dess rad

@@ -1836,6 +1836,33 @@ class K_Sigill(Grund):
         with self.assertRaisesRegex(df.Fel, 'ägarens val'):
             df.autogodkann(SLUG, 'v03', 'k01')
 
+    def test_den_autonoma_byggstarten_kor_i_sandladan(self):
+        """Granskningen av sigillet, fynd 6: ett bygge från den autonoma godkännaren startar alltid i sandlådan
+        (NWP_SANDLADA=pa), som nekar läsning i hemlighetsmappen; kor.sh stannar ett sådant bygge utan sandlådan."""
+        import flodesstart
+        self.riktningar(('k01',))
+        kr = df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av den enda riktningens sista version, före godkännandet')
+        self.pass_(kr['id'], dict(SVARET, detaljniva={'svar': 'premium', 'saknas': [], 'belagg': 'index-390.png'}))
+        df.autogodkann(SLUG, 'v01', 'k01')
+        self.fyll(df.overlamna(SLUG))
+        os.environ['NWP_SANDLADA'] = 'av'  # dashboardens eller drivarens miljö utan sandlådan
+        self.assertEqual(flodesstart.byggmiljo(SLUG, 'helbygge', 'prov-start-0001')['NWP_SANDLADA'], 'pa')
+        self.assertEqual(flodesstart.startmiljo(SLUG)['sandlada'], 'pa')
+        self.assertEqual(df.byggstart_rad(SLUG).split()[-1], 'autonom')
+        k = (ROOT / 'kor.sh').read_text()
+        self.assertIn('designfas.byggstart_rad', k)
+        i = k.index('case "$DESIGNGODKAND" in')
+        self.assertLess(i, k.index('kontroller/startkontroll.py" --slug'), 'före allt som skriver i sajten')
+        block = k[i:k.index('esac', i) + 4]
+        for sandlada, vantat in (('av', 'STOPP'), ('pa', 'VIDARE')):
+            r = subprocess.run(['bash', '-c', 'stopp() { echo STOPP; exit 2; }\nDESIGNGODKAND="v01 k01 astro autonom"; NWP_SANDLADA=%s\n%s\n'
+                                'echo VIDARE' % (sandlada, block)], capture_output=True, text=True)
+            self.assertIn(vantat, r.stdout, (sandlada, r.stdout, r.stderr))
+        # ägarens eget godkännande ändrar inte sandlådans standard
+        df.godkann(SLUG, 'v01', 'k01')
+        self.fyll(df.overlamna(SLUG))
+        self.assertEqual(flodesstart.byggmiljo(SLUG, 'helbygge', 'prov-start-0002')['NWP_SANDLADA'], 'av')
+
     def test_agarens_vag_gar_fore(self):
         self.grind()
         df.godkann(SLUG, 'v01', 'k01')  # ägaren godkänner själv (provets portal), överlämningen inte gjord än

@@ -163,11 +163,36 @@ def stoppa(slug):
     return 5 if aktiva else 0  # begärt stopp är inte ett påstått slutfört stopp
 
 
-def startmiljo():
-    """Miljön ett helbygge startar i genom Byggflöde (arbetsytan): sandlådan (NWP_SANDLADA, ärvd från dashboardens process) och om Kundstarts
-    ärendelager finns i underlag/, som kor.sh kräver sandlådan för. Villkoret prövas här före starten och visas i Byggflöde, i
-    stället för att kor.sh nekar efter att starten registrerats (motorinventeringen F07)."""
-    sandlada=os.environ.get('NWP_SANDLADA','av');lager=atelje.UNDERLAG/'kundstart';finns=lager.exists() or lager.is_symlink()
+def autonomt_bygge(slug):
+    """Tar helbygget vid från den autonoma godkännarens förseglade, giltiga designgodkännande (designfas.autogodkann)?"""
+    try:
+        import designfas
+        ok,_skal,g=designfas.godkand_giltig(slug,atelje.UNDERLAG)
+        return bool(ok and (g or {}).get('kalla')==designfas.AUTONOM)
+    except Exception:  # noqa: BLE001 — ett godkännande som inte går att pröva är inget autonomt bygge
+        return False
+
+
+def sandlada_for(slug=None):
+    """Sandlådan för helbygget: alltid på för ett bygge från den autonoma godkännaren (granskningen av sigillet, fynd 6:
+    byggsessionen ska aldrig nå nyckeln, och sandlådan nekar läsning i hemlighetsmappen), annars NWP_SANDLADA."""
+    return 'pa' if slug and autonomt_bygge(slug) else os.environ.get('NWP_SANDLADA','av')
+
+
+def byggmiljo(slug,handling,start_id):
+    """Miljön som arbetaren startar kor.sh och de andra handlingarna i: dess egen, med start-id:t, och för ett helbygge från
+    den autonoma godkännaren NWP_SANDLADA=pa (kor.sh stannar ett sådant bygge utan sandlådan)."""
+    env=dict(os.environ,NWP_FLODE_START_ID=start_id)
+    if handling=='helbygge' and autonomt_bygge(slug):env['NWP_SANDLADA']='pa'
+    return env
+
+
+def startmiljo(slug=None):
+    """Miljön ett helbygge startar i genom Byggflöde (arbetsytan): sandlådan (NWP_SANDLADA, ärvd från dashboardens process; alltid på
+    för ett bygge från den autonoma godkännaren, sandlada_for) och om Kundstarts ärendelager finns i underlag/, som kor.sh kräver
+    sandlådan för. Villkoret prövas här före starten och visas i Byggflöde, i stället för att kor.sh nekar efter att starten
+    registrerats (motorinventeringen F07)."""
+    sandlada=sandlada_for(slug);lager=atelje.UNDERLAG/'kundstart';finns=lager.exists() or lager.is_symlink()
     hinder=None
     if finns and sandlada!='pa':hinder='Kundstarts ärendelager finns i underlag/, och kor.sh kräver då sandlådan: starta dashboarden med NWP_SANDLADA=pa (prova först kontroller/sandlada_prov.sh). Inget bygge startas.'
     return {'sandlada':sandlada,'kundstart_lager':finns,'hinder':hinder}
@@ -180,7 +205,7 @@ def krav(slug,handling):
     if handling in ('redigera','studio'):return
     atelje_ledig(atelje.ROOT,slug)
     if handling=='helbygge':
-        m=startmiljo()
+        m=startmiljo(slug)
         if m['hinder']:raise ValueError(m['hinder'])
         ok,skal=skapande.godkand_giltig(slug,atelje.UNDERLAG,atelje.KUNDER)
         if not ok:  # eller ett designgodkännande ur designfasen, som kor.sh tar vid från (designfas.godkand_giltig)
@@ -292,7 +317,7 @@ def arbetare(slug,handling,start_id,fd):
         # macOS-processidentiteter som korvakt, inte bara Popen-processens pid.
         import korvakt
         trad=korvakt.Trad(korvakt.las_process(os.getpid())) if handling in ('exportera','preview','release','aktivera','redigera','studio') else None
-        child=subprocess.Popen(args,cwd=atelje.ROOT,env=dict(os.environ,NWP_FLODE_START_ID=start_id),pass_fds=(FD,))
+        child=subprocess.Popen(args,cwd=atelje.ROOT,env=byggmiljo(slug,handling,start_id),pass_fds=(FD,))
         with journallas(slug):  # barnets pid: ett stopp når arbetet också om arbetaren dör (GR-20261008-r117-claude#B3)
             _,d=post(slug,start_id);atelje.skriv_json_atomiskt(p,dict(d,barn_pid=child.pid,barn_startad=atelje.nu()))
         frist=frist_huvud=None;signalerade=set();avbrot=avbrot or stoppad;nasta_koll=0
