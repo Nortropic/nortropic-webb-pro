@@ -22,6 +22,9 @@ import kundrepo
 import korregister
 import prototyp
 import flodesstart
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: ägarens mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 
 GH = r'''#!/usr/bin/env python3
 import json, os, subprocess, sys
@@ -394,6 +397,26 @@ class Kundrepo(unittest.TestCase):
         rel = kundrepo.release(self.slug, deploy=self.deploy)
         self.assertEqual(rel['status'], 'vantar_pa_mandat'); self.assertEqual(len(self.uppladdat), uppladdat_fore, 'ingen release utan mandat')
         pv = kundrepo.preview_aktuell(self.slug)
+        # publiceringen är bara ägarens (BESLUT.md, 2026-10-13): ett mandat som en session eller bandets drivare skrivit
+        # själv gäller inte, utan ägarens kanal (terminalen eller portalens ägartoken) sätts inget, och den autonoma
+        # godkännaren förseglar aldrig ett mandat
+        import sigill
+        import time
+        egen = {'schema': 2, 'typ': 'releasemandat', 'slug': self.slug, 'tid': kundrepo.nu(), 'kalla': 'dashboard', 'commit': pv['commit'],
+                'export': pv['export'], 'forhandsvisning': pv['id'], 'start_id': 'prov-release-0001', 'giltig_till': int(time.time()) + 600}
+        kundrepo.mandatfil(self.slug).parent.mkdir(parents=True, exist_ok=True)
+        kundrepo.mandatfil(self.slug).write_text(json.dumps(egen))
+        self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'vantar_pa_mandat', 'ett mandat utan ägarens sigill gäller inte')
+        self.assertEqual(len(self.uppladdat), uppladdat_fore)
+        utfall = sigill_fixtur.utan_terminal(lambda: self.releasemandat())
+        self.assertEqual(utfall[0], 'ValueError', utfall)
+        self.assertIn('egen terminal', utfall[1])
+        utfall = sigill_fixtur.utan_terminal(lambda: prototyp.main([self.slug, '--release', '--start-id', 'prov-release-0001']))
+        self.assertEqual(utfall, ('ok', '2'), 'drivaren och sessionerna når aldrig releasen från kommandoraden')
+        with self.assertRaisesRegex(sigill.Nekad, 'bara designfasens'):
+            sigill.forsegla_autonomt('release', {k: egen.get(k) for k in kundrepo.MANDATFALT}, kundrepo.leveransdir(self.slug))
+        self.assertEqual(kundrepo.release(self.slug, deploy=self.deploy)['status'], 'vantar_pa_mandat')
+        self.assertRegex(self.releasemandat()['sigill'], r'^[0-9a-f]{64}$', 'ägarens klick i portalen förseglar mandatet')
         with self.assertRaises(ValueError):
             kundrepo.releasemandat(self.slug, 'session', pv['commit'], pv['export'], 'prov-release-0001')
         with self.assertRaises(ValueError):  # förhandsvisningen ändrades efter att knappen visades

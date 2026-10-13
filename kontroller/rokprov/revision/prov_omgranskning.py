@@ -10,6 +10,10 @@ import contextlib
 import json
 import os
 from pathlib import Path
+import sys as _sys_sigill  # noqa: E402
+_sys_sigill.path.append(str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: godkännanden och mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 import subprocess
 import sys
 import tempfile
@@ -762,6 +766,7 @@ class Arbetsrot(unittest.TestCase):
         m = {k: v for k, v in os.environ.items() if not k.startswith(('CLAUDE_CODE_', 'NWP_', 'PROV_')) and k != 'CLAUDECODE'}
         m.update(PATH=str(self.falsk.parent) + os.pathsep + m.get('PATH', ''), NWP_STARTKONTROLL='av', NWP_SANDLADA='av', NWP_ATELJE='av',
                  NWP_KORREGISTER=str(self.tmp / 'korregister'), NWP_FRIST='2', PROV_R06_LOGG=str(self.logg))
+        m.update(sigill_fixtur.miljo())  # nödvägen kräver ägarens kanal: provets egen portal (provnyckeln)
         m.update(extra)
         if self.logg.exists():
             self.logg.unlink()

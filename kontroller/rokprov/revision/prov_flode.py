@@ -48,6 +48,10 @@ import threading
 import zlib
 from datetime import datetime, timezone
 from pathlib import Path
+import sys as _sys_sigill  # noqa: E402
+_sys_sigill.path.append(str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: godkännanden och mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 
 ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[3]
 TMP = Path(tempfile.mkdtemp(prefix='nwp-flode-')).resolve()

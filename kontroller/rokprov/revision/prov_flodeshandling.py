@@ -20,6 +20,9 @@ import korregister
 import prototyp
 import flodesstart
 import os
+sys.path.append(str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+SIGILLKATALOG = sigill_fixtur.aktivera()  # provnyckeln och provets portal, aldrig ägarens nyckel
 
 
 class Flodeshandling(unittest.TestCase):
@@ -291,6 +294,44 @@ class Flodeshandling(unittest.TestCase):
         js = (Path(__file__).resolve().parents[3] / 'dashboard' / 'arbetsyta.js').read_text(encoding='utf-8')
         block = js[js.index('async function handling(id, bekraftad)'):js.index('// --- byggflödet ---')]
         self.assertIn('.bindning', block); self.assertIn('{ bindning }', block)
+
+    def test_portalens_agartoken_foljer_med_till_sigillet(self):
+        # ägarens kanal i portalen (BESLUT.md, 2026-10-13): ett anrop som prövats med dashboardnyckeln bär nyckeln som
+        # ägartoken till funktionen som sätter sigillet, och sigill prövar den mot nyckelfilen; ett tidigare anrops token
+        # följer aldrig med
+        import aktivera
+        import kundrepo
+        import sigill
+        self.stack.enter_context(patch.dict(os.environ))
+        os.environ.pop('NWP_AGARBEVIS', None)  # bara portalens väg: ingen provtoken i miljön
+        srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)
+        self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        host = '127.0.0.1:%d' % srv.server_port
+        self.stack.enter_context(patch.dict(dash.VARD, {'tillatna': {host}}))
+        agarens = (SIGILLKATALOG / 'dashboard-nyckel').read_text().strip()
+        sett = []
+        def kanal(*a, **k):
+            try:
+                sett.append(sigill.agarkanal(['provet']))
+            except sigill.Nekad as e:
+                sett.append('nekad: %s' % e)
+        def anrop(data, nyckel):
+            c = http.client.HTTPConnection('127.0.0.1', srv.server_port, timeout=4)
+            try:
+                c.request('POST', '/api/flode/' + self.slug + '/start', json.dumps(data), {'Origin': 'http://' + host, 'X-Nyckel': nyckel})
+                r = c.getresponse(); return r.status, json.loads(r.read().decode())
+            finally:
+                c.close()
+        with patch.object(prototyp, 'fran_dashboard', return_value=0), patch.object(kundrepo, 'releasemandat', side_effect=kanal), \
+                patch.object(aktivera, 'aktiveringsmandat', side_effect=kanal):
+            with patch.dict(dash.NYCKEL, {'varde': agarens}):
+                anrop({'handling': 'release', 'start_id': 'prov-rel-00000003', 'bindning': {'commit': 'c' * 40, 'export': 'E'}}, agarens)
+            with patch.dict(dash.NYCKEL, {'varde': 'en-annan-servers-nyckel-0123'}):
+                anrop({'handling': 'aktivera', 'start_id': 'prov-akt-00000003', 'bindning': {'plan_sha256': 'a' * 64}}, 'en-annan-servers-nyckel-0123')
+        self.assertEqual(sett[0], 'portalen', sett)
+        self.assertIn('nekad', sett[1], 'en server med en egen nyckel kan inte försegla: ägartoken prövas mot nyckelfilen')
+        self.assertIsNone(sigill.PORTAL.get(), 'provets egen tråd bär ingen ägartoken')
 
     def test_http_start_delar_cli_och_upprepat_id_startar_inte_igen(self):
         srv = dash.ThreadingHTTPServer(('127.0.0.1', 0), dash.H)

@@ -63,7 +63,7 @@ Konversationsvägen kan bli en kompletterande väg för ägarens egen utforsknin
 | D6 Granskning före valet | utföraren efter renderingen; Code: kontrollerna och specialistpassen (kritik, jämförelse) | fynd före och efter; falsk variation utpekad |
 | D7 Ägarens val | ägaren på duken | ägarens ord ordagrant i versionens orsak |
 | D8 Förfining | utföraren med beställningar | nya versioner med bedömning före och efter |
-| D9 Designgodkännande | **ägaren**: `! .venv/bin/python kontroller/designfas.py godkann <slug> <v> --ritning <fil>` | domloggen (källa ägaren, beslut godkand) och GODKANNANDE.json, bundna till versionens filer och bilder |
+| D9 Designgodkännande | **ägaren**, i sin egen terminal: `.venv/bin/python kontroller/designfas.py godkann <slug> <v> --ritning <fil>` (koden på /dev/tty) | domloggen (källa ägaren, beslut godkand) och GODKANNANDE.json, bundna till versionens filer och bilder |
 | D10 Överlämning och kundens designsystem | utföraren: `designfas.py overlamna <slug>`, DESIGN.md i paketet, Design System-artefakten | `design/overlamning/<v>/`; `overlamna --prova` utan brister |
 | D11 Helbygge, verifiering, leverans | ägaren startar `./kor.sh <slug> "<verksamhet>"`; publicering enligt `kunskap/lansering.md` | sajten implementerad efter förlagan; provet jämför med förlagans bilder |
 
@@ -182,8 +182,9 @@ norm (`kunskap/ren-designstart.md`).
 
 ## Godkännandet och överlämningen
 
-Ägaren godkänner en exakt version och ritning med sitt eget kommando; sessionerna nekas det (projektets inställningar
-och `design.sh`). Godkännandet skrivs i domloggen och i `design/GODKANNANDE.json`, bundet till versionens filer och
+Ägaren godkänner en exakt version och ritning med sitt eget kommando i sin egen terminal, där det visar versionen och en
+kod som han skriver tillbaka; utan styrande terminal nekas det, och godkännandet bär ägarens sigill (`kontroller/sigill.py`;
+den autonoma godkännaren gäller läget astro, `kunskap/skapandeflodet.md`). Godkännandet skrivs i domloggen och i `design/GODKANNANDE.json`, bundet till versionens filer och
 bilder och till underlagets version. `designfas.py overlamna` skriver paketet i `design/overlamning/<v>/`: ritningarna
 (prototypkoden i Designs format), jämförelsebilderna, kontrollerna, tillgångarna med ursprung och en DESIGN.md som
 utföraren fyller i ur versionen: designvärden, komponenter, responsiva regler, interaktionstillstånd och beteenden,
@@ -207,7 +208,7 @@ bara generiska frågor (kundvakten). Inget publiceras som bieffekt.
 - Att ägarens kommentar med Send to Claude når utförarsessionen, Chat-knappens konversationsväg, export från gränssnittet
   och Remote Control från telefonen är oprövade.
 - Utföraren måste vara en interaktiv session; den startar inte av sig själv och tar bara emot kommentarer medan den lever.
-- Att `!`-prefixet i sessionen kör godkännandet trots att sessionen nekas kommandot är oprövat; annars körs det i en egen terminal.
+- Godkännandet kräver ägarens egen terminal (koden på /dev/tty); `!`-prefixet i en session räcker inte (BESLUT.md, 2026-10-13).
 - Den lokala renderingen visar ritningens källa med typens körmiljö i en vanlig webbläsarvy, inte Designs ram; små
   skillnader mot duken är möjliga.
 - Designs samredigering är enligt supportsidan ännu enkel; en utförare per duk.
@@ -221,6 +222,6 @@ bara generiska frågor (kundvakten). Inget publiceras som bieffekt.
 3. Starta utföraren: `./design.sh <slug>`. Den skapar duken (eller öppnar den som finns) och ger dig länken.
 4. Arbeta på duken: titta, spela upp, kommentera (Send to Claude) eller skriv i sessionen. Be om specialistinsatser
    med vanliga ord ("bättre referenser för mobilmenyn", "en komponent från 21st för tjänstelistan").
-5. Godkänn en exakt version: `! .venv/bin/python kontroller/designfas.py godkann <slug> <v> --ritning <fil>`.
+5. Godkänn en exakt version i din egen terminal: `.venv/bin/python kontroller/designfas.py godkann <slug> <v> --ritning <fil>`.
 6. Låt utföraren skriva överlämningen; `designfas.py overlamna <slug> --prova` ska vara utan brister.
 7. Starta bygget när du vill: `./kor.sh <slug> "<verksamhet>"`. Publiceringen är ett eget beslut.

@@ -5796,6 +5796,10 @@ grinden, Del 2 VERSION 0.1.14 nu; punkten impeccable nedan).
 ägaren sett Navets riktningar i Astro. Ersätter delvis tilläggen 2026-10-12 om designfasen i Claude Design, om
 produktionsbandet och om tre riktningar (markerade). Ingen människa svarade under arbetet; besluten nedan som inte är
 ägarens är sessionens egna, med antagandena utskrivna.
+**Delvis ersatt av:** Tillägg 2026-10-13: autonomt till och med bygget, ägaren publicerar (ägarens godkännande i vägen
+nedan, och uppdragets rad "Designgodkännandet, byggstarten och publiceringen är fortfarande mina beslut": godkännandet
+och byggstarten är autonoma efter grinden, med ägarens väg först, och varje godkännande är förseglat; publiceringen är
+fortfarande ägarens). Övrigt gäller.
 
 Ägarens beslut och uppdrag (inklistrat, ankomst före 2026-10-13T05:29:17Z; ordagrant i
 `underlag/uppdrag/PROMPT-Nortropic-Astro-artefakt-resten-20261013.md`, privat). Ägarens svar på morgonrapporten,
@@ -5854,3 +5858,72 @@ känslan?", och ägarens val på frågan om riktningarna ska få sina detaljer f
   `ej_renderade`); ett bygge som faller ger ingen version (slutkod 1); delar projektet sajtens `node_modules` följer
   sajtens lås med i källan; källan bär också `tsconfig.json`, `components.json` och `.npmrc`, men installationen skriver
   sajtens `.npmrc` själv.
+
+## Tillägg 2026-10-13: ägarens sigill, godkännandet går bara genom ägarens kanaler
+
+**Status:** gäller; genomfört av Claude i grenen `claude/sigill-20261013`, skrivet 2026-10-13T07:40:14Z (`date -u`). Mekaniken prövad
+(`prov_designfas` K_Sigill, `prov_kundrepo`, `prov_aktivera`). **Delvis ersatt av:** Tillägg 2026-10-13: autonomt till
+och med bygget, ägaren publicerar (vem som godkänner: också den autonoma godkännaren; byggstarten följer av ett
+förseglat godkännande). Övrigt gäller.
+
+En oberoende granskning fann att designgodkännandet, byggstarten och publiceringen bara var stängda mot den bokstavliga
+kommandoraden: utförarens session nekades `designfas.py godkann` och `skapande.py dom`, men inte `python -c`, en egen
+`GODKANNANDE.json` med en rad i domloggen eller `./kor.sh`, och `godkand_giltig` kunde inte skilja en sådan rad från
+ägarens. Ägarens svar på förslaget "approval requires your own terminal", ordagrant: "Yes, fix the things you mention".
+
+- **Sigillet** (`kontroller/sigill.py`): HMAC-SHA256 med nyckeln i `~/.nortropic-hemligheter/webb-pro/godkannande.nyckel`
+  (32 slumpbyte, 0600, skapad vid det första förseglade godkännandet) över en kanonisk JSON av fälten som binder posten:
+  designfasens `GODKANNANDE.json` (slug, tid, dom_tid, version, ritning, avtryck, underlag_sha och källan), kandidatvägens
+  `godkand` i `VINNARE.json` (tiden, avsändaren, underlaget och sha-fälten) och mandaten för release och aktivering.
+  `godkand_giltig` i `designfas.py` och `skapande.py` och mandatens läsare prövar det med `hmac.compare_digest`; saknas det
+  eller är fel gäller posten inte. `installera_godkand`, kor.sh, `prototyp.py --helbygge` och portalens start går genom
+  `godkand_giltig`; kor.sh:s nödväg utan godkännande (`NWP_ATELJE=av`) kräver ägarens bekräftelse i terminalen.
+- **Ägarens kanaler**, kontrollerade i funktionen som sätter sigillet (`sigill.forsegla_agaren`), inte bara i
+  kommandoraden: hans egen terminal, där kommandot visar vad som godkänns och en kort slumpkod som han skriver tillbaka
+  på `/dev/tty` (utan styrande terminal, och inifrån en Claude Code-session, nekas det; `!`-prefixet räcker inte), eller
+  portalen, där anropet är prövat med dashboardnyckeln och nyckeln följer med som ägartoken, prövad mot nyckelfilen.
+  Servern väljer nu själv nyckeln i huvudutcheckningen, så att ingen process som startar en egen server kan bestämma den.
+- **Nyckeln utom räckhåll:** kundvaktens inställningar (ateljén, specialistpassen, utföraren och helbyggets MCP-väg),
+  helbyggets `sandlada.py` och `designfas.start` nekar `Read`, `Edit` och `Write` i hemlighetsmappen och Bash-mönster som
+  nämner den; utföraren nekas dessutom `kor.sh`, `prototyp.py --helbygge`, `--release`, `--aktivera`, sigillet och den
+  autonoma godkännaren. Sandlådorna (`sandlada.py` med sandlådan på, `processgrans.py`) nekar läsningen på processnivå.
+- **Gränsen:** Claude Codes nekanden gäller verktygen. En process som användaren kör med obegränsad Python, till exempel
+  utförarens Bash, som inte har sandlådan, eller helbygget utan `NWP_SANDLADA=pa` genom ett eget skript, kan läsa
+  nyckelfilen eller skapa en egen pseudoterminal; mot det skyddar bara en sandlåda på processnivå.
+- **Befintliga godkännanden:** inga fanns i ägarens underlag när ändringen gjordes (ingen `GODKANNANDE.json`, ingen
+  `VINNARE.json` med `godkand`). Ett godkännande utan sigill gäller inte; det görs om.
+
+## Tillägg 2026-10-13: autonomt till och med bygget, ägaren publicerar
+
+**Status:** gäller; godkännandet, sigillet och publiceringen genomförda av Claude i grenen `claude/sigill-20261013`,
+skrivet 2026-10-13T07:40:14Z (`date -u`); bandets drivare (`designfas.py kor`) i grenen `claude/astro-flode-20261013`. Mekaniken prövad
+(`prov_designfas` K_Sigill, `prov_kundrepo`, `prov_aktivera`); ingen autonom körning är gjord. Ersätter delvis tillägget
+om formgivningen lokalt i Astro och tillägget om ägarens sigill (markerade).
+
+Ägarens fråga, ordagrant (2026-10-13, efter 07:07Z): "Why do i need to approve, why cant it be autonomous". Ägarens val,
+ordagrant: "Autonomous to build (Recommended)". Alternativets text, ordagrant: "The independent critique and comparison
+pick the direction and approve it, and the build starts on its own. You review the built site, and publishing waits for
+you. The seal still stops a session from approving its own work: only the defined approver can sign." Det ersätter
+delvis ägarens rad samma morgon, ordagrant: "Designgodkännandet, byggstarten och publiceringen är fortfarande mina
+beslut": godkännandet och byggstarten är autonoma, publiceringen är fortfarande hans.
+
+- **Den autonoma godkännaren** (`designfas.autogodkann(slug, version, ritning)`, anropad av bandets drivare, ingen
+  terminal): godkänner när versionen är riktningens senaste med startsidans bilder i 390, 768 och 1440; riktningen är
+  vald, av ägaren (hans senaste beslut är ett val av den) eller annars av den senaste jämförelsen mellan riktningarna
+  (`jamforelse` med `*`, ett eget pass, fältet `val`), som såg riktningen i en tidigare eller samma version (en ensam
+  riktning behöver ingen jämförelse); och den senaste kritiken av versionen (`ds_kritik` i en egen session med verifierat sessionskvitto, inte ett
+  svar infört för hand) gällde versionens avtryck som det är nu, har inget fynd med allvar 3 eller 4 och svarar premium
+  på C5 (`kunskap/precision.md`, Detaljnivån) i fältet `detaljniva`. Posten och domloggens rad har källan
+  `autonom granskning`, aldrig ägarens (`skapande.ar_agarens`), med belägg i kritikens och jämförelsens svarsfiler;
+  jämförelsens val står i domloggen med källan `jämförelsen`, som inte heller är ett beslut. `godkand_giltig`,
+  `flodesstart.krav` (helbyggets väg, också drivarens) och kor.sh godtar ett förseglat autonomt godkännande.
+- **Ägarens väg går före:** ägaren godkänner själv i sin terminal eller i portalen; finns ett gällande godkännande från
+  honom, eller ett annat beslut från honom efter versionen, godkänner den autonoma godkännaren inte, och ett senare
+  beslut från honom eller kunden (ett val, ett uppdrag eller ett underkännande) gör ett autonomt godkännande ogiltigt.
+- **Byggstarten** är autonom efter ett giltigt, förseglat godkännande, oavsett kanal: kor.sh kräver ingen terminal, men
+  tar vid bara därifrån. Utförarens session nekas kor.sh och `--helbygge`; drivaren startar bygget.
+- **Publiceringen** är bara ägarens: release och aktivering kräver hans förseglade mandat, satt vid klicket i Byggflöde
+  (portalens ägartoken) eller i hans egen terminal (`prototyp.py <slug> --release` eller `--aktivera`). Den autonoma
+  godkännaren förseglar aldrig ett mandat, och ett mandat som en session eller drivaren skrivit gäller inte.
+  Förhandsvisningen (`--preview`) är skyddad och inte produktion: den kräver kundrepots aktuella export och Cloudflare
+  Access för en verklig verksamhet, men inget mandat.

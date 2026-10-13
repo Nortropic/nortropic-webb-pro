@@ -8,9 +8,9 @@ står i egna avsnitt. Ingångarna:
 
 - **Ägarens prototyp:** `.venv/bin/python kontroller/prototyp.py <slug>`, utanför bygget. Läget följer ägarens senaste
   dom i domloggen. Ägaren dömer i arbetsytans Förslagen (förr vyn Prototyp).
-- **Byggets steg 5.1:** `kor.sh` tar vid bara från en startsida som ägaren godkänt, som från ateljévinnaren; utan en
-  stannar kor.sh före bygget och pekar på prototyp.py. `NWP_ATELJE=av` är nödvägen, där byggaren skriver KONCEPT.md
-  själv.
+- **Byggets steg 5.1:** `kor.sh` tar vid bara från ett förseglat, giltigt godkännande (`kontroller/sigill.py`), som från
+  ateljévinnaren; utan ett stannar kor.sh före bygget och pekar på prototyp.py. `NWP_ATELJE=av` är nödvägen, där
+  byggaren skriver KONCEPT.md själv; den kräver ägarens bekräftelse i hans egen terminal.
 
 **Normalflödet** (ägarens uppdrag 2026-10-09 ~17:53Z, ordagrant i minnet och sammanfattat i `BESLUT.md`, tillägget samma
 dag): kundunderlag → kundförståelse → starka branschreferenser → visuell inspiration och användbara mallar och
@@ -45,8 +45,14 @@ behov (`--paket namn@version`, exakt version, inga skript), bygget, källan i `k
 startsidan och undersidorna renderade i 390, 768 och 1440 med menyn öppen, axe, stilrapporten och detektorn, och
 insatsen mot förra versionen av riktningen med bilderna före och efter. Ägaren ser varje version i riktningens privata
 artefakt (`designfas.py artefakt <slug> <kNN>`, publicerad av sessionen, samma artefakt per riktning) och kommenterar
-där. Designgodkännandet binder versionen; överlämningen bär källan, och kor.sh lägger den med `package.json` och låset i
-sajten före helbygget.
+där. Godkännandet binder versionen (BESLUT.md, tilläggen 2026-10-13: autonomt till och med bygget, ägaren publicerar):
+den autonoma godkännaren (`designfas.autogodkann`, anropad av bandets drivare) godkänner riktningens senaste version när
+riktningen är vald (av jämförelsen, eller av ägaren) och en oberoende kritik av just den versionen svarar premium på C5 utan blockerande fynd;
+ägaren kan godkänna själv i sin egen terminal (`designfas.py godkann`, koden på /dev/tty) eller i portalen, och hans
+väg och hans senare beslut går före. Varje godkännande är förseglat med sigillet (`kontroller/sigill.py`): ett
+godkännande som en session skrivit själv gäller aldrig. Överlämningen bär källan, och kor.sh lägger den med
+`package.json` och låset i sajten före helbygget, som startar av sig självt efter ett förseglat godkännande.
+Publiceringen (release och aktivering) kräver ägarens förseglade mandat, i portalen eller i hans egen terminal.
 
 **Drivaren** (ägarens beslut 2026-10-13: "Autonomous to build (Recommended)"; valets text: den oberoende kritiken och
 jämförelsen väljer riktningen och godkänner den, bygget startar av sig självt, ägaren granskar den byggda sajten, och
@@ -327,7 +333,9 @@ kandidaterna och granskningarna.
    bevarad och valbar), och oklart står som oklart. Den förbättrade sidan fotograferas helt (startsidan i de fyra
    bredderna och undersidorna i 390 och 1440, med axe) och DESIGN.md prövas efter sista passet. Faller uppdraget,
    eller gör det inget eget varv, står versionen det gällde kvar.
-8. **Godkännande och överlämning.** Ägaren godkänner en förfinad kandidat för helbygget. Den byggs som vinnare i en
+8. **Godkännande och överlämning.** Ägaren godkänner en förfinad kandidat för helbygget, i arbetsytan (portalens
+   ägartoken) eller med `skapande.py dom` i sin egen terminal (koden på /dev/tty), och godkännandet bär ägarens sigill
+   (`kontroller/sigill.py`); ett godkännande utan det gäller aldrig. Den byggs som vinnare i en
    tempkatalog och byts in först när domen är skriven (`atelje/vinnare/`: alla sidor, DESIGN.md, bilderna och hasharna
    i VINNARE.json i granskarens format), och godkännandet binds till hashen över alla sidorna. Före bygget lägger kor.sh
    sidorna, komponenterna och DESIGN.md i sajten (`atelje.installera_godkand`; de ersatta flyttas med sin väg till

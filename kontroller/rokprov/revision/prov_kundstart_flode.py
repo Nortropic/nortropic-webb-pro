@@ -4,6 +4,10 @@ import contextlib
 import fcntl
 import json
 from pathlib import Path
+import sys as _sys_sigill  # noqa: E402
+_sys_sigill.path.append(str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: godkännanden och mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 import sys
 import unittest
 import sqlite3
@@ -228,6 +232,7 @@ class KundstartFlode(unittest.TestCase):
                                  tid='2026-10-08T00:00:02Z',underlag=self.root/'underlag')
         g={'tid':dom['tid'],'sha_index':skapande.sha256_fil(kod/'index.astro'),
            'sha_kod':skapande.sha256_katalog(kod),'underlag_sha':skapande.underlagsversion(self.slug)}
+        sigill_fixtur.forsegla_kandidat(self.slug,g,self.u)  # ägarens sigill genom provets egen portal
         atelje.skriv_json_atomiskt(a/'VINNARE.json',{'godkand':g})
         self.assertTrue(skapande.godkand_giltig(self.slug)[0])
         post=ateljeslut.bygg(self.slug,status,'20261008T000000Z')

@@ -1909,6 +1909,17 @@ def godkannande(slug, dom, vinnare=None, post=None):
                        # komponenterna, layouterna och stilarna (kod-src/), när kandidaten har dem
                        **({'sha_kodsrc': skapande.sha256_katalog(vin / 'kod-src')}
                           if post.get('kandidat') and (vin / 'kod-src').is_dir() and not (vin / 'kod-src').is_symlink() else {})}
+    # ägarens sigill (kontroller/sigill.py; BESLUT.md, 2026-10-13): bara ägarens egen terminal (koden på /dev/tty) eller
+    # portalen med ägartoken sätter det, och utan dem skrivs varken domen eller godkännandet (doma prövar detta först)
+    import sigill
+    g = post['godkand']
+    visning = ['Godkännande för helbygge: %s' % slug, 'startsidan %s%s' % (
+        'kandidaten %s, version %s' % (post['kandidat'], str(post.get('version') or '')[:12]) if post.get('kandidat') else 'i atelje/vinnare/',
+        ', med DESIGN.md' if g.get('sha_design') else ''), 'Godkännandet gäller den versionen; bygget kan sedan starta.']
+    try:
+        g['sigill'], g['kanal'] = sigill.forsegla_agaren('kandidat', skapande.sigillfalt_kandidat(slug, g), UNDERLAG / slug, visning)
+    except sigill.Nekad as e:
+        raise ValueError('godkännandet är ägarens och sätts bara i hans egen terminal eller i portalen: %s' % e)
     return post
 
 
@@ -1921,6 +1932,11 @@ def installera_godkand(slug):
     rot = UNDERLAG / slug / 'atelje'
     sajt = KUNDER / slug / 'sajt'
     g = (las_json(rot / 'VINNARE.json') or {}).get('godkand') or {}
+    if not g:  # inget godkännande: inget att installera
+        return []
+    ok_, skal_ = skapande.godkand_giltig(slug, UNDERLAG, KUNDER)  # bara från ett förseglat, giltigt ägargodkännande
+    if not ok_:
+        raise RuntimeError('inget giltigt ägargodkännande att installera: %s' % skal_)
     if g.get('underlag_sha'):
         try:
             if skapande.underlagsversion(slug, UNDERLAG) != g['underlag_sha']:

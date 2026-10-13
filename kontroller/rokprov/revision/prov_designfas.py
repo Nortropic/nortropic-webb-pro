@@ -46,6 +46,9 @@ import kandidater as kd  # noqa: E402
 import kompetens  # noqa: E402
 import prototyp  # noqa: E402
 import skapande  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+SIGILLKATALOG = sigill_fixtur.aktivera()  # provnyckeln: godkännandena förseglas genom provets egen portal, aldrig med ägarens nyckel
 
 SLUG = 'designfas-prov'
 KANVAS = 'https://claude.ai/artifact/ProvKanvas0123456789'
@@ -1390,6 +1393,331 @@ class G_Start(Grund):
         self.assertIn('kundvakt.py', json.dumps(inst['hooks']))
         self.assertIn('Bash(*designfas.py godkann*)', inst['permissions']['deny'])
         self.assertTrue(any(a.endswith('mobbin.json') for a in args))
+
+
+SVARET = {'sammanfattning': 'Bedömt ur bilderna.', 'fynd': [], 'forslag': [], 'referenser': [], 'begransningar': [],
+          'kompetens': {'aktiverade': [], 'lasta': [], 'valda': []}}
+
+
+class K_Sigill(Grund):
+    """Sigillet (BESLUT.md, tilläggen 2026-10-13: "Yes, fix the things you mention" och "Autonomous to build"): ett
+    godkännande som bygget litar på är förseglat med nyckeln, av ägaren (terminalen med koden på /dev/tty, eller portalen
+    med ägartoken) eller av den autonoma godkännaren efter grinden; ett eget, oförseglat eller ändrat godkännande gäller
+    aldrig; flödets sessioner nekas nyckeln, kor.sh och helbygget. Provnyckeln ur sigill_fixtur, aldrig ägarens."""
+
+    def riktningar(self, ids=('k01', 'k02')):
+        self.astro(ids)
+        for i, kid in enumerate(ids):
+            df.version(SLUG, None, None, 'första', ritning=kid, bilder=False)
+            self.fejkbilder('v%02d' % (i + 1))
+
+    def fyll(self, k):
+        E_Godkannande.fyll(self, k)
+
+    def pass_(self, bid, so, verifierad=True):
+        def session(prompt, verktyg, ut, schema=None, *a, **k):
+            self.schema = schema
+            return {'session_id': '00000000-0000-4000-8000-%012d' % int(bid[1:]), 'total_cost_usd': 0.1, 'structured_output': so}
+        with patch.object(atelje, 'session', side_effect=session), \
+                patch.object(kompetens, 'kvitto', return_value={'verifierad': verifierad, 'skill_anrop': []}), \
+                patch.object(kompetens, 'kravbrister', return_value=[]):
+            return df.specialist(SLUG, bid)
+
+    def grind(self, c5='premium', allvar=2, val='k01', verifierad=True):
+        """Riktningarna k01 (v01) och k02 (v02), jämförelsen över båda (B001) och kritiken av v01 (B002) i egna pass."""
+        self.riktningar()
+        j = df.bestall(SLUG, 'jamforelse', 'v02', '*', 'Falsk variation mellan riktningarna, och vilken riktning som bär kunden')
+        self.pass_(j['id'], dict(SVARET, val={'riktning': val, 'skal': 'riktningen bär verkstadens ton i första vyn'}))
+        self.assertIn('val', self.schema['required'], 'jämförelsen svarar med sitt val')
+        kr = df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av riktningen som en besökare ser den, före förklaringen')
+        self.pass_(kr['id'], dict(SVARET, fynd=[{'plats': 'h1', 'tillstand': '390', 'vad': 'tät radhöjd', 'belagg': 'index-390.png', 'allvar': allvar}],
+                                  detaljniva={'svar': c5, 'saknas': [], 'belagg': 'index-390.png och index-1440.png'}), verifierad=verifierad)
+        self.assertIn('detaljniva', self.schema['required'], 'kritiken svarar på C5')
+
+    def i_terminal(self, kod, svar=None, env_extra=None, tid=60):
+        """python -c kod i en egen session med en pty som styrande terminal (setsid och TIOCSCTTY i barnet); svarar med
+        koden ur prompten, eller med svar. Ger (det som syntes i terminalen, stdout, svarade)."""
+        import fcntl
+        import select
+        import termios
+        import time
+        m, s = os.openpty()
+        env = {k: v for k, v in os.environ.items() if k not in ('NWP_AGARBEVIS', 'CLAUDECODE')}
+        env.update(env_extra or {})
+
+        def barn():
+            os.setsid()
+            fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+        p = subprocess.Popen([sys.executable, '-B', '-c', kod], stdin=s, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+                             preexec_fn=barn, cwd=str(ROOT))
+        os.close(s)
+        sett, svarat, slut = b'', False, time.time() + tid
+        while time.time() < slut:
+            r, _, _ = select.select([m], [], [], 0.2)
+            if r:
+                try:
+                    b = os.read(m, 4096)
+                except OSError:
+                    b = b''
+                if not b and p.poll() is not None:
+                    break
+                sett += b
+            kod_ = re.search(rb'Skriv koden ([A-Z0-9]{6})', sett)
+            if kod_ and not svarat:
+                os.write(m, ((svar if svar is not None else kod_.group(1).decode()) + '\n').encode())
+                svarat = True
+            if not r and p.poll() is not None:
+                break
+        ut = p.communicate(timeout=tid)[0].decode('utf-8', 'replace')
+        os.close(m)
+        return sett.decode('utf-8', 'replace'), ut, svarat
+
+    def godkann_kod(self):
+        return ("import sys; sys.path.insert(0, %r)\nimport designfas\ntry:\n    g = designfas.godkann(%r, 'v01', 'k01', underlag=%r)\n"
+                "    print('GODKÄND', g['kanal'])\nexcept designfas.Fel as e:\n    print('NEKAD', e)\n") % (str(ROOT / 'kontroller'), SLUG, str(self.u))
+
+    # ---- lager 1: sigillet ----
+    def test_agarens_godkannande_ar_forseglat_och_ett_eget_galler_inte(self):
+        self.riktningar(('k01',))
+        f = self.u / SLUG / 'design' / 'GODKANNANDE.json'
+        # det granskningen fann: en session skriver GODKANNANDE.json och en rad i domloggen själv
+        tid = '2026-10-13T08:00:00Z'
+        egen = {'schema': 1, 'slug': SLUG, 'tid': tid, 'kalla': 'ägaren', 'version': 'v01', 'ritning': 'k01', 'lage': 'astro',
+                'kanvas': None, 'artifact_version': None, 'avtryck': df.versionens_avtryck(SLUG, 'v01'),
+                'underlag_sha': skapande.underlagsversion(SLUG, self.u), 'dom_tid': tid}
+        skapande.lagg_till_dom(SLUG, 'ägaren', 'godkand', 'Godkänd.', underlag=self.u, tid=tid)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(egen))
+        self.fyll(df.overlamna(SLUG))
+        ok, skal, _ = df.godkand_giltig(SLUG)
+        self.assertFalse(ok, 'ett godkännande som sessionen skrivit själv gäller aldrig')
+        self.assertIn('saknar sigill', skal)
+        f.write_text(json.dumps(dict(egen, sigill='0' * 64)))
+        self.assertIn('stämmer inte', df.godkand_giltig(SLUG)[1])
+        # ägarens eget godkännande (provets portal) är förseglat och gäller
+        g = df.godkann(SLUG, 'v01', 'k01')
+        self.assertRegex(g.get('sigill') or '', r'^[0-9a-f]{64}$')
+        self.assertEqual(g['kanal'], 'portalen')
+        self.fyll(df.overlamna(SLUG))
+        self.assertTrue(df.godkand_giltig(SLUG)[0], df.godkand_giltig(SLUG)[1])
+        d = json.loads(f.read_text())
+        f.write_text(json.dumps(dict(d, ritning='k02')))
+        self.assertIn('stämmer inte', df.godkand_giltig(SLUG)[1], 'ett ändrat fält bryter sigillet')
+        f.write_text(json.dumps(d))
+        self.assertTrue(df.godkand_giltig(SLUG)[0])
+        # en provnyckel gäller aldrig ägarens kunder i huvudutcheckningen
+        import sigill
+        with self.assertRaisesRegex(sigill.Nekad, 'huvudutcheckningen'):
+            sigill.vakt(sigill.HUVUD / 'underlag' / 'någon-kund')
+
+    def test_kandidatvagens_godkannande_ar_forseglat(self):
+        a = self.u / SLUG / 'atelje'
+        (a / 'vinnare' / 'kod').mkdir(parents=True)
+        (a / 'vinnare' / 'kod' / 'index.astro').write_text('<h1>Vinnaren</h1>')
+        sida = self.k / SLUG / 'sajt' / 'src' / 'pages' / 'index.astro'
+        sida.parent.mkdir(parents=True)
+        sida.write_text('<h1>Mallen</h1>')
+        tid = '2026-10-13T08:00:00Z'
+        # en post som en session skriver själv, med hasharna rätt och en rad i domloggen
+        egen = {'riktning': 1, 'godkand': {'tid': tid, 'av': 'ägaren', 'text': 'Godkänd.', 'underlag_sha': skapande.underlagsversion(SLUG, self.u),
+                                           'sha_index': skapande.sha256_fil(a / 'vinnare' / 'kod' / 'index.astro')}}
+        (a / 'VINNARE.json').write_text(json.dumps(egen))
+        skapande.lagg_till_dom(SLUG, 'ägaren', 'godkand', 'Godkänd.', underlag=self.u, tid=tid)
+        ok, skal = skapande.godkand_giltig(SLUG, self.u, self.k)
+        self.assertFalse(ok, 'ett godkännande som sessionen skrivit själv gäller aldrig')
+        self.assertIn('saknar sigill', skal)
+        with self.assertRaisesRegex(RuntimeError, 'giltigt'):
+            atelje.installera_godkand(SLUG)
+        self.assertEqual(sida.read_text(), '<h1>Mallen</h1>', 'inget lades i sajten')
+        # ägarens godkännande genom atelje.godkann (samma väg som doma) är förseglat
+        (a / 'VINNARE.json').write_text(json.dumps({'riktning': 1}))
+        post = atelje.godkann(SLUG, {'tid': tid, 'kalla': 'ägaren', 'text': 'Godkänd.'})
+        self.assertRegex(post['godkand'].get('sigill') or '', r'^[0-9a-f]{64}$')
+        self.assertTrue(skapande.godkand_giltig(SLUG, self.u, self.k)[0], skapande.godkand_giltig(SLUG, self.u, self.k))
+        atelje.installera_godkand(SLUG)
+        self.assertEqual(sida.read_text(), '<h1>Vinnaren</h1>')
+
+    # ---- lager 2: bara ägarens kanaler sätter ägarens sigill ----
+    def test_godkannandet_nekas_utan_agarens_terminal(self):
+        self.riktningar(('k01',))
+        env = {k: v for k, v in os.environ.items() if k not in ('NWP_AGARBEVIS', 'CLAUDECODE')}
+        r = subprocess.run([sys.executable, '-B', '-c', self.godkann_kod()], env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                           text=True, start_new_session=True, timeout=120, cwd=str(ROOT))
+        self.assertIn('NEKAD', r.stdout, r.stdout + r.stderr)
+        self.assertIn('egen terminal', r.stdout)
+        self.assertFalse((self.u / SLUG / 'design' / 'GODKANNANDE.json').exists())
+        self.assertEqual(skapande.domar(SLUG, self.u), [], 'ingen rad i domloggen')
+
+    def test_agarens_terminal_med_koden(self):
+        self.riktningar(('k01',))
+        sett, ut, svarat = self.i_terminal(self.godkann_kod(), svar='XXXXXX')
+        self.assertTrue(svarat, 'kommandot visar en kod i terminalen: ' + sett[-400:] + ut[-400:])
+        self.assertIn('v01', sett)
+        self.assertIn('NEKAD', ut)
+        self.assertIn('stämde inte', ut)
+        sett, ut, _ = self.i_terminal(self.godkann_kod(), env_extra={'CLAUDECODE': '1'})
+        self.assertIn('NEKAD', ut)
+        self.assertIn('Claude Code-session', ut)
+        sett, ut, svarat = self.i_terminal(self.godkann_kod())
+        self.assertTrue(svarat)
+        self.assertIn('GODKÄND terminalen', ut, sett[-400:] + ut[-400:])
+        self.assertTrue(json.loads((self.u / SLUG / 'design' / 'GODKANNANDE.json').read_text())['sigill'])
+
+    def test_portalens_agartoken(self):
+        import sigill
+        self.riktningar(('k01',))
+        os.environ.pop('NWP_AGARBEVIS', None)
+        with sigill.portal('en-token-som-inte-ar-agarens'):
+            with self.assertRaisesRegex(df.Fel, 'ägartoken'):
+                df.godkann(SLUG, 'v01', 'k01')
+        self.assertFalse((self.u / SLUG / 'design' / 'GODKANNANDE.json').exists())
+        with sigill.portal((SIGILLKATALOG / 'dashboard-nyckel').read_text().strip()):
+            self.assertEqual(df.godkann(SLUG, 'v01', 'k01')['kanal'], 'portalen')
+
+    # ---- den autonoma godkännaren ----
+    def test_den_autonoma_godkannaren(self):
+        self.grind()
+        g = df.autogodkann(SLUG, 'v01', 'k01')
+        self.assertEqual(g['kalla'], 'autonom granskning')
+        self.assertRegex(g['sigill'], r'^[0-9a-f]{64}$')
+        self.assertIn('design/svar/B002/SVAR.json', json.dumps(g['belagg']))
+        self.assertIn('design/svar/B001/SVAR.json', json.dumps(g['belagg']))
+        rad = skapande.domar(SLUG, self.u)[-1]
+        self.assertEqual((rad['kalla'], rad['beslut']), ('autonom granskning', 'godkand'))
+        self.assertFalse(skapande.ar_agarens(rad), 'den autonoma godkännaren är aldrig ägaren')
+        self.assertFalse(skapande.ar_beslut(rad))
+        self.fyll(df.overlamna(SLUG))
+        ok, skal, _ = df.godkand_giltig(SLUG)
+        self.assertTrue(ok, skal)
+        self.assertIn('autonom', skal)
+        # ägarens senare beslut går före
+        skapande.lagg_till_dom(SLUG, 'ägaren', 'ny_riktning', 'börja om', underlag=self.u, tid='2099-01-01T00:00:00Z')
+        ok, skal, _ = df.godkand_giltig(SLUG)
+        self.assertFalse(ok)
+        self.assertIn('ägarens', skal)
+        with self.assertRaisesRegex(df.Fel, 'ägarens'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+
+    def test_den_verkliga_vagen_till_helbygget(self):
+        """Som drivaren i Astro-grenen: jämförelsen före stationerna efter valet, dess val i domloggen med källan
+        jämförelsen, en ny version av den valda och kritiken av den; autogodkann med provnyckeln, godkand_giltig och
+        flodesstart.krav godtar, och ett senare val från ägaren drar tillbaka godkännandet."""
+        import flodesstart
+        self.riktningar()
+        j = df.bestall(SLUG, 'jamforelse', 'v02', '*', 'Falsk variation mellan riktningarna, och vilken riktning som går vidare')
+        self.pass_(j['id'], dict(SVARET, val={'riktning': 'K01', 'skal': 'riktningen bär verkstadens ton i första vyn'}))
+        skapande.lagg_till_dom(SLUG, 'jämförelsen', 'valj', 'Jämförelsens val i designfasens drivare: riktningen k01.', underlag=self.u,
+                               avser='designfas val k01', designfas={'riktning': 'k01', 'bestallning': j['id'], 'version': 'v02'})
+        rad = skapande.domar(SLUG, self.u)[-1]
+        self.assertFalse(skapande.ar_agarens(rad) or skapande.ar_beslut(rad), 'jämförelsens val är aldrig ägarens')
+        df.version(SLUG, None, None, 'efter valet', ritning='k01', bilder=False)
+        self.fejkbilder('v03')
+        kr = df.bestall(SLUG, 'kritik', 'v03', 'k01', 'Kritik av den valda riktningens sista version, före godkännandet')
+        self.pass_(kr['id'], dict(SVARET, detaljniva={'svar': 'premium', 'saknas': [], 'belagg': 'index-390.png och index-1440.png'}))
+        with self.assertRaisesRegex(ValueError, 'ägargodkännande'):
+            flodesstart.krav(SLUG, 'helbygge')
+        g = df.autogodkann(SLUG, 'v03', 'k01')
+        self.assertEqual((g['kalla'], g['version']), ('autonom granskning', 'v03'))
+        self.fyll(df.overlamna(SLUG))
+        ok, skal, _ = df.godkand_giltig(SLUG)
+        self.assertTrue(ok, skal)
+        flodesstart.krav(SLUG, 'helbygge')  # helbyggets väg (prototyp.py --helbygge, drivaren) godtar det förseglade godkännandet
+        skapande.lagg_till_dom(SLUG, 'ägaren', 'valj', 'Jag vill hellre gå vidare med k02.', underlag=self.u,
+                               kandidater=[{'id': 'k02', 'version': 'v02'}])
+        ok, skal, _ = df.godkand_giltig(SLUG)
+        self.assertFalse(ok)
+        self.assertIn('ägarens senare beslut', skal)
+        with self.assertRaisesRegex(ValueError, 'ägargodkännande'):
+            flodesstart.krav(SLUG, 'helbygge')
+        with self.assertRaisesRegex(df.Fel, 'ägarens val'):
+            df.autogodkann(SLUG, 'v03', 'k01')
+
+    def test_agarens_vag_gar_fore(self):
+        self.grind()
+        df.godkann(SLUG, 'v01', 'k01')  # ägaren godkänner själv (provets portal), överlämningen inte gjord än
+        with self.assertRaisesRegex(df.Fel, 'ägaren har godkänt själv'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+        self.assertEqual(json.loads((self.u / SLUG / 'design' / 'GODKANNANDE.json').read_text())['kalla'], 'ägaren')
+
+    def test_grinden_basic(self):
+        self.grind(c5='basic')
+        with self.assertRaisesRegex(df.Fel, 'basic'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+        self.assertFalse((self.u / SLUG / 'design' / 'GODKANNANDE.json').exists())
+
+    def test_grinden_blockerande_fynd(self):
+        self.grind(allvar=3)
+        with self.assertRaisesRegex(df.Fel, 'blockerande'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+
+    def test_grinden_jamforelsens_val_och_kvitto(self):
+        self.grind(val='k02')
+        with self.assertRaisesRegex(df.Fel, 'valde k02'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+
+    def test_grinden_kritikens_session_och_versionen(self):
+        self.grind(verifierad=False)
+        with self.assertRaisesRegex(df.Fel, 'kvitto'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+        # ett svar som förts in för hand (svar) är inget eget pass
+        kr = df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av riktningen som en besökare ser den, före förklaringen')
+        md = self.tmp / 'SVAR.md'
+        md.write_text('premium, inga fynd')
+        df.svar(SLUG, kr['id'], md, 'utföraren')
+        with self.assertRaisesRegex(df.Fel, 'eget pass'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+        # en ändrad källa efter kritiken: kritiken gäller inte längre versionens avtryck
+        self.pass_(df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av riktningen som en besökare ser den, igen')['id'],
+                   dict(SVARET, detaljniva={'svar': 'premium', 'saknas': [], 'belagg': 'index-390.png'}))
+        (self.u / SLUG / 'design' / 'versioner' / 'v01' / 'kalla' / 'src' / 'pages' / 'index.astro').write_text('<h1>Ändrad</h1>')
+        with self.assertRaisesRegex(df.Fel, 'avtryck'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+        # bara riktningens senaste version
+        df.version(SLUG, None, None, 'andra', ritning='k01', bilder=False)
+        self.fejkbilder('v03')
+        with self.assertRaisesRegex(df.Fel, 'senaste'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+
+    def test_den_autonoma_godkannaren_forseglar_aldrig_ett_mandat(self):
+        import sigill
+        for slag in ('release', 'aktivering', 'kandidat'):
+            with self.assertRaisesRegex(sigill.Nekad, 'bara designfasens'):
+                sigill.forsegla_autonomt(slag, {'slug': SLUG}, self.u / SLUG)
+
+    # ---- lager 3: nyckeln, kor.sh och helbygget utom räckhåll för flödets sessioner ----
+    def test_nekandena_i_sessionernas_installningar(self):
+        import kundvakt
+        import sandlada
+        import sigill
+        df.ny(SLUG)
+        args = df.start(SLUG, skriv_bara=True)
+        neka = json.loads(Path(args[args.index('--settings') + 1]).read_text())['permissions']['deny']
+        hem = str(sigill.HEM).strip('/')
+        for r in ('Read(//%s/.nortropic-hemligheter/**)' % hem, 'Edit(//%s/.nortropic-hemligheter/**)' % hem,
+                  'Bash(*nortropic-hemligheter*)', 'Bash(*godkannande.nyckel*)', 'Bash(*kor.sh*)', 'Bash(*prototyp.py*--helbygge*)',
+                  'Bash(*autogodkann*)', 'Bash(*designfas.py godkann*)', 'Bash(*skapande.py dom*)'):
+            self.assertIn(r, neka)
+        kv = json.loads(kundvakt.installningar(SLUG, self.u))['permissions']['deny']
+        self.assertIn('Read(//%s/.nortropic-hemligheter/**)' % hem, kv, 'ateljéns och specialistpassens sessioner')
+        self.assertIn('Bash(*nortropic-hemligheter*)', kv)
+        for pa in (True, False):  # helbygget, med och utan sandlådan
+            sl = sandlada.installningar(SLUG, sandlada=pa)
+            self.assertIn('Bash(*nortropic-hemligheter*)', sl['permissions']['deny'])
+            self.assertIn('Edit(//%s/.nortropic-hemligheter/**)' % hem, sl['permissions']['deny'])
+
+    # ---- lager 4: byggstarten ----
+    def test_kor_sh_tar_vid_bara_fran_ett_forseglat_godkannande(self):
+        k = (ROOT / 'kor.sh').read_text()
+        self.assertIn('designfas.godkand_giltig', k)
+        self.assertIn('skapande.godkand_giltig', k)
+        i = k.index('kontroller/sigill.py" agaren')
+        self.assertLess(i, k.index('kontroller/startkontroll.py" --slug'), 'nödvägen utan godkännande kräver ägaren före allt annat')
+        self.assertIn('NWP_ATELJE', k[i - 400:i])
+        env = {x: v for x, v in os.environ.items() if x not in ('NWP_AGARBEVIS', 'CLAUDECODE')}
+        r = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'sigill.py'), 'agaren', '--vad', 'nödvägen'], env=env,
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, start_new_session=True, timeout=60)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn('egen terminal', r.stderr)
 
 
 if __name__ == '__main__':

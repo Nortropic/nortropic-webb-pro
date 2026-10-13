@@ -249,7 +249,9 @@ def installningar(slug, underlag, timeout=30, rot=None):
     bas = str(rot) if rot else '$CLAUDE_PROJECT_DIR'  # en annan arbetsrot (R06): motorns rot som absolut väg
     kommando = ('"%s/.venv/bin/python" -B "%s/kontroller/kundvakt.py" %s "%s" '
                 "|| { echo 'kundvakten kunde inte pröva anropet' >&2; exit 2; }") % (bas, bas, slug, underlag)
-    return json.dumps({'hooks': {'PreToolUse': [{'matcher': MATCH, 'hooks': [{'type': 'command', 'timeout': timeout, 'command': kommando}]}]}})
+    import sigill  # nyckeln till sigillet och portalens ägartoken nekas varje session med kundvakten (BESLUT.md, 2026-10-13)
+    return json.dumps({'hooks': {'PreToolUse': [{'matcher': MATCH, 'hooks': [{'type': 'command', 'timeout': timeout, 'command': kommando}]}]},
+                       'permissions': {'deny': sigill.nekanden()}})
 
 
 def nycklar(x):

@@ -113,7 +113,8 @@ TMP_PREFIX = (
     'nwp-migrering-',  # migreringslägets prov (prov_migreringslage.py)
     'nwp-nyckelintag-',  # nyckelintagets prov (prov_nyckelintag.py)
     'nwp-aktivering-',  # aktiveringens prov och körning (prov_aktivera.py, aktivera.py)
-    'nwp-kandidatmaterial-',                                                         # kandidater.py
+    'nwp-sigill-',  # provnyckeln för sigillet (rokprov/revision/sigill_fixtur.py)
+    'nwp-kandidatmaterial-',                                                        # kandidater.py
     'nwp-kallgap-',                                                                  # prov_kallgap.py
     'nwp-underhall-', 'nwp-global-', 'nwp-skill-', 'nwp-skillintag-', 'nwp-skillreserv-', 'nwp-sajtpaket-',
     'nwp-instrument-', 'nwp-pip-', 'nwp-nodeprov-', 'nwp-motor-',                  # underhall.py

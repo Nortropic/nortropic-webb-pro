@@ -56,6 +56,10 @@ import types
 from contextlib import redirect_stderr
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import sys as _sys_sigill  # noqa: E402
+_sys_sigill.path.append(str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: godkännanden och mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 
 ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[3]
 PY = str(ROOT / '.venv' / 'bin' / 'python')
@@ -672,6 +676,7 @@ def miljo(**extra):
     m = {k: v for k, v in os.environ.items() if not k.startswith(('CLAUDE_CODE_', 'NWP_', 'PROV_')) and k != 'CLAUDECODE'}
     m.update(PATH=str(FALSK) + os.pathsep + m.get('PATH', ''), NWP_STARTKONTROLL='av', NWP_SANDLADA='av', NWP_KORREGISTER=str(TMP / 'korregister'),
              NWP_FRIST='2', NWP_MCP_CONFIG='av', HOME=str(TMP / 'kor-hem'), PROV_KOMPETENS_FIXTUR=str(FALSK / 'kompetens.py'))
+    m.update(sigill_fixtur.miljo())  # nödvägen kräver ägarens kanal: provets egen portal (provnyckeln)
     m.update(extra)
     return m
 
@@ -1016,8 +1021,11 @@ a = atelje.UNDERLAG / slug / 'atelje'
 kod = a / 'vinnare' / 'kod'
 atelje.skriv_status(a, {'startad': '2026-10-08T00:00:00Z', 'klar': '2026-10-08T00:00:01Z', 'kandidatflode': True, 'lage': 'valda', 'steg': 'klar_for_bedomning'})
 dom = skapande.lagg_till_dom(slug, 'ägaren', 'godkand', 'Syntetiskt teknikprov, ingen riktig ägardom.', tid='2026-10-08T00:00:02Z')
-atelje.skriv_json_atomiskt(a / 'VINNARE.json', {'godkand': {'tid': dom['tid'], 'sha_index': skapande.sha256_fil(kod / 'index.astro'),
-                                                            'sha_kod': skapande.sha256_katalog(kod), 'underlag_sha': skapande.underlagsversion(slug)}})
+import sigill  # ägarens sigill genom provets egen portal (provnyckeln i miljön, sigill_fixtur)
+g = {'tid': dom['tid'], 'sha_index': skapande.sha256_fil(kod / 'index.astro'), 'sha_kod': skapande.sha256_katalog(kod),
+     'underlag_sha': skapande.underlagsversion(slug)}
+g['sigill'], g['kanal'] = sigill.forsegla_agaren('kandidat', skapande.sigillfalt_kandidat(slug, g), atelje.UNDERLAG / slug, ['provfixtur'])
+atelje.skriv_json_atomiskt(a / 'VINNARE.json', {'godkand': g})
 print(json.dumps([skapande.godkand_giltig(slug), skapande.underlagsversion(slug)]))
 '''
 GILTIG = "import sys, json; sys.path.insert(0, 'kontroller'); import skapande; print(json.dumps([skapande.godkand_giltig(sys.argv[1]), skapande.underlagsversion(sys.argv[1])]))"

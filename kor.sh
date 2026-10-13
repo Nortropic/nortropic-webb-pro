@@ -260,6 +260,13 @@ import designfas
 ok, skal, g = designfas.godkand_giltig(sys.argv[2])
 print(g["version"] + " " + g["ritning"] + " " + (g.get("lage") or "duk") if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 FRYSTA=()   # godkännandets underlagsgrund, fylld nedan från en godkänd startsida
+# Byggstarten (BESLUT.md, tilläggen 2026-10-13): bygget tar vid av sig självt, men bara från ett godkännande som är
+# förseglat (kontroller/sigill.py) och giltigt; godkand_giltig ovan prövar sigillet. Nödvägen utan godkänd design
+# (NWP_ATELJE=av) har inget godkännande att pröva och är därför ägarens eget beslut: bekräftelsen i hans egen terminal.
+if [ -z "$GODKAND" ] && [ -z "$DESIGNGODKAND" ] && [ "${NWP_ATELJE:-pa}" != "pa" ]; then
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sigill.py" agaren --vad "Nödvägen utan godkänd design (NWP_ATELJE=av): helbygget av $SLUG ($VERKSAMHET)" \
+    || stopp "nödvägen utan godkänd design (NWP_ATELJE=av) är ägarens eget beslut och kräver bekräftelsen i hans egen terminal; inget bygge startat"
+fi
 AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import prototyp
 print(prototyp.bygget_nekas(sys.argv[2]) or "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
@@ -315,7 +322,7 @@ print(" ".join(skapande.UNDERLAGSGRUND + tuple(k + "/**" for k in skapande.UNDER
   if [ "$DLAGE" = "astro" ]; then
     PROMPT="$PROMPT
 
-Ägaren har godkänt designen i designfasen (underlag/$SLUG/design/GODKANNANDE.json; BESLUT.md, tillägget 2026-10-13):
+Designen är godkänd i designfasen, förseglad (underlag/$SLUG/design/GODKANNANDE.json; BESLUT.md, tilläggen 2026-10-13):
 version $DVERSION av riktningen $DRITNING, ett Astro-projekt. Startsidan, komponenterna, stilarna, package.json och låset
 ur den versionen ligger redan i kunder/$SLUG/sajt/ (överlämningens källa: underlag/$SLUG/design/overlamning/$DVERSION/kalla/).
 Installera paketen ur låset med npm ci --prefix kunder/$SLUG/sajt (sajtens .npmrc: inga skript, exakta versioner, bara
@@ -460,7 +467,8 @@ fi
 # Nästlad start (från en annan Claude Code-session) kräver att sessionens egna variabler tas bort; bygget skriver
 # aldrig i ägarens automatiska minne (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 nedan, kontroller/nastlad.py).
 # Bygget går på prenumerationen: API-nyckel, token och bas-URL följer aldrig med (som kontroller/nastlad.py API).
-RENSA=(-u CLAUDECODE -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_BASE_URL -u REFERO_MCP_TOKEN -u TWENTYFIRST_API_KEY)
+RENSA=(-u CLAUDECODE -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_BASE_URL -u REFERO_MCP_TOKEN -u TWENTYFIRST_API_KEY
+       -u NWP_AGARBEVIS -u NWP_GODKANNANDE_NYCKEL)   # sigillets ägartoken och nyckelfil följer aldrig med till bygget
 while IFS='=' read -r namn _; do
   case "$namn" in CLAUDE_CODE_*) RENSA+=(-u "$namn");; esac
 done < <(env)

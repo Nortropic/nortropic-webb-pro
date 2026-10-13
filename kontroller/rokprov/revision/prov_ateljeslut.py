@@ -49,6 +49,10 @@ import time
 import traceback
 import uuid
 from pathlib import Path
+import sys as _sys_sigill  # noqa: E402
+_sys_sigill.path.append(str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: godkännanden och mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 
 ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[3]
 PY = str(ROOT / '.venv' / 'bin' / 'python')
@@ -1172,7 +1176,7 @@ def _vidarebefordrad():
     kod = skriv(rot / 'vinnare' / 'kod' / 'index.astro', '<h1>Godkänd</h1>')
     t_klar, t_godk, t_ai = '2026-10-06T10:00:00Z', '2026-10-06T11:00:00Z', '2026-10-06T12:00:00Z'
     skriv(rot / 'STATUS.json', {'slug': s, 'startad': '2026-10-06T09:00:00Z', 'klar': t_klar, 'steg': 'klar', 'lage': 'ny'})
-    skriv(rot / 'VINNARE.json', {'riktning': 1, 'godkand': {'tid': t_godk, 'av': 'ägaren', 'text': 'Godkänd.', 'sha_index': sha(kod)}})
+    skriv(rot / 'VINNARE.json', {'riktning': 1, 'godkand': sigill_fixtur.forsegla_kandidat(s, {'tid': t_godk, 'av': 'ägaren', 'text': 'Godkänd.', 'sha_index': sha(kod)}, u)})
     logg(s, dom(t_godk, 'ägaren', 'godkand', 'Godkänd.'))
     assert skapande.godkand_giltig(s, U, K)[0], 'utgångsläget: ägarens godkännande gäller'
     # en AI-bedömning som ägaren klistrat in, förd som "ägaren via Codex" utan belägg (så fördes C5): räknas inte
@@ -1376,7 +1380,7 @@ def _trasig_rad():
     rot = u / 'atelje'
     kod = skriv(rot / 'vinnare' / 'kod' / 'index.astro', '<h1>Godkänd</h1>')
     skriv(rot / 'STATUS.json', {'slug': s, 'startad': '2026-10-06T09:00:00Z', 'klar': '2026-10-06T10:00:00Z', 'steg': 'klar', 'lage': 'ny'})
-    skriv(rot / 'VINNARE.json', {'riktning': 1, 'godkand': {'tid': '2026-10-06T11:00:00Z', 'av': 'ägaren', 'text': 'Godkänd.', 'sha_index': sha(kod)}})
+    skriv(rot / 'VINNARE.json', {'riktning': 1, 'godkand': sigill_fixtur.forsegla_kandidat(s, {'tid': '2026-10-06T11:00:00Z', 'av': 'ägaren', 'text': 'Godkänd.', 'sha_index': sha(kod)}, u)})
     f = logg(s, dom('2026-10-06T11:00:00Z', 'ägaren', 'godkand', 'Godkänd.'))
     assert skapande.godkand_giltig(s, U, K)[0] and prototyp.lage(s)[0] == 'godkand'
     # en dom som skrevs till hälften (en skrivning som avbröts): ingen radslut sist

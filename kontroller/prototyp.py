@@ -202,14 +202,29 @@ def fran_dashboard(slug, handling, start_id):
     finns = atelje.startfil(atelje.UNDERLAG / slug / 'atelje', start_id)
     if handling not in ('stoppa','stoppa-overgang') and not finns.is_file() and handling not in {x['id'] for x in handlingar(slug)}:
         raise ValueError('handlingen är inte nästa steg; läs aktuellt läge igen')
-    return main([slug, '--' + handling, '--start-id', start_id, '--vanta', '0'])
+    return main([slug, '--' + handling, '--start-id', start_id, '--vanta', '0'], fran_portalen=True)
+
+
+def mandat_i_terminalen(slug, handling, start_id):
+    """Release och aktivering från kommandoraden: ägarens mandat för just den här starten, förseglat efter bekräftelsen i
+    hans egen terminal (kundrepo.releasemandat, aktivera.aktiveringsmandat; kontroller/sigill.py). Utan terminal nekas det,
+    också för bandets drivare och den autonoma godkännaren: publiceringen är bara ägarens (BESLUT.md, 2026-10-13)."""
+    if handling == 'release':
+        import kundrepo
+        pv = kundrepo.preview_aktuell(slug)
+        if not pv:
+            raise ValueError('ingen aktuell förhandsvisning att släppa')
+        kundrepo.releasemandat(slug, 'terminalen', pv['commit'], pv['export'], start_id)
+    elif handling == 'aktivera':
+        import aktivera
+        aktivera.aktiveringsmandat(slug, 'terminalen', aktivera.torr(slug)['plan_sha256'], start_id)
 
 
 def prototyp_namn(handling):
     return HANDLINGAR.get(handling, handling)
 
 
-def main(argv=None):
+def main(argv=None, fran_portalen=False):
     p = argparse.ArgumentParser(prog='prototyp', description=__doc__.split('\n\n')[0])
     p.add_argument('slug')
     p.add_argument('--vanta', type=int, default=540)
@@ -243,7 +258,10 @@ def main(argv=None):
         import flodesstart
         handling = 'helbygge' if a.helbygge else 'exportera' if a.exportera else 'preview' if a.preview else 'release' if a.release else 'aktivera'
         a.start_id = a.start_id or __import__('uuid').uuid4().hex
-        try:rc = flodesstart.starta(a.slug, handling, a.start_id)
+        try:
+            if handling in ('release', 'aktivera') and not fran_portalen:  # portalen skrev mandatet vid klicket (server.py)
+                mandat_i_terminalen(a.slug, handling, a.start_id)
+            rc = flodesstart.starta(a.slug, handling, a.start_id)
         except (OSError,ValueError,RuntimeError) as e:
             print('Starten vägrades: %s'%e,file=sys.stderr)
             return 2

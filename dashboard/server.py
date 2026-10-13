@@ -45,6 +45,7 @@ import kallnyckel  # noqa: E402  (spanarens nyckel: är länken redan bedömd?)
 import bildstatus  # noqa: E402  (leveransens visuella status ur beställningen)
 import qr  # noqa: E402  (QR-koden till visningen i telefonen, ritad lokalt)
 import desktop  # noqa: E402  (Nortropic.app: identiteten, engångskoden och sessionen, kunskap/desktop.md)
+import sigill  # noqa: E402  (ägarens sigill: portalens ägartoken bär ägarens godkännande och mandat, kontroller/sigill.py)
 
 STEG = [
     ('Underlag', lambda s: (UNDERLAG / s / 'RESEARCH.md').is_file()),
@@ -3628,6 +3629,7 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         vag = urlsplit(self.path).path
+        sigill.PORTAL.set(None)  # ägartoken gäller bara ett anrop som prövats med nyckeln nedan, aldrig ett tidigare på förbindelsen
         if not self.vard_ok():
             return self.skicka(421, {'fel': 'fel värd: använd http://127.0.0.1:<port>'})
         if vag.startswith('/api/extern/'):
@@ -3666,6 +3668,10 @@ class H(BaseHTTPRequestHandler):
         session_ok = not nyckel_ok and vag not in ('/api/desktop/session', '/api/desktop/las') and desktop.session_skriv_ok(self.headers, self.port())
         if not (nyckel_ok or session_ok):
             return self.skicka(403, {'fel': 'saknad eller fel dashboardnyckel: skrivande anrop går bara från dashboarden öppnad via ./dashboard.sh eller från Nortropic.app'})
+        # Ägarens kanal i portalen (kontroller/sigill.py): anropet är prövat med dashboardnyckeln eller appens session, och
+        # ägartoken (nyckeln) följer med till funktionerna som sätter ägarens sigill (godkännandet, mandaten). sigill prövar den
+        # mot nyckelfilen i hemlighetsmappen; utan main (NYCKEL None) bär anropet ingen ägartoken.
+        sigill.PORTAL.set(NYCKEL['varde'])
         if vag.startswith('/api/desktop/'):
             return self.desktop_post(vag, nyckel_ok)
         try:
@@ -3934,7 +3940,11 @@ def main():
     LAN['pa'] = not a.utan_lan
     VARD['tillatna'] = {'127.0.0.1:%d' % a.port, 'localhost:%d' % a.port}
     desktop.konfigurera(ROOT, a.port)
-    NYCKEL['varde'] = os.environ.pop('NWP_DASHBOARD_NYCKEL', None) or secrets.token_urlsafe(24)
+    # I huvudutcheckningen med standardfilen väljer servern själv nyckeln (dashboard.sh läser den ur filen): en process som
+    # startar en egen server kan då aldrig bestämma ägartoken i ägarens nyckelfil (kontroller/sigill.py prövar portalens
+    # godkännanden mot den filen). En provinstans med egen nyckelfil får den ur NWP_DASHBOARD_NYCKEL.
+    fran_miljo = os.environ.pop('NWP_DASHBOARD_NYCKEL', None)
+    NYCKEL['varde'] = (None if huvud and not a.nyckelfil else fran_miljo) or secrets.token_urlsafe(24)
     # porten först: en andra start som inte får porten skriver aldrig över den körande dashboardens nyckel (A11)
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
     try:  # dashboard.sh läser filen när dashboarden redan kör; aldrig i loggen eller i barnens miljö
