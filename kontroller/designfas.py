@@ -1047,6 +1047,26 @@ def kvitto_station(sessioner, pass_, st):
     return kv, kompetens.kravbrister(kv, pass_, k=k)
 
 
+def jamforelse_schema(slug, underlag=None):
+    """Jämförelsens svarsschema i läget astro: SVAR_SCHEMA med fältet val krävt och riktningen bland bandets riktningar
+    (granskningen av drivaren 2026-10-13, fynd 1). De andra passens schema är oförändrat."""
+    import copy
+    s = copy.deepcopy(SVAR_SCHEMA)
+    s['required'] = list(s['required']) + ['val']
+    s['properties']['val']['properties']['riktning']['enum'] = list((designfas(slug, underlag).get('riktningar') or {}))
+    return s
+
+
+def jamforelsens_val(slug, b, underlag=None):
+    """Riktningen som jämförelsen valde i beställningens svar, med skiftläget normaliserat (K02 blir k02), eller None
+    när svaret saknar ett val bland bandets riktningar."""
+    if not isinstance(b, dict):
+        return None
+    so = (las(rot(slug, underlag) / 'svar' / str(b.get('id')) / 'SVAR.json') or {}).get('svar') or {}
+    rid = str((so.get('val') or {}).get('riktning') or '').strip().lower()
+    return rid if rid in (designfas(slug, underlag).get('riktningar') or {}) else None
+
+
 def specialist(slug, bid, underlag=None, modell=None, frist=None):
     """Beställningen som ett pass i repot: atelje.session med rollens kompetensblock (kompetens.verktyg), kundvakten och
     MCP-konfigurationen för slug, svaret i SVAR_SCHEMA och kvittot ur transkriptet (kompetens.kvitto, kravbrister)."""
@@ -1060,8 +1080,9 @@ def specialist(slug, bid, underlag=None, modell=None, frist=None):
     sk.mkdir(parents=True, exist_ok=True)
     uppdatera_bestallning(slug, bid, underlag, status='pagar', utforare='specialistpass %s (claude -p i repot)' % pass_)
     t0 = nu()
+    schema = jamforelse_schema(slug, underlag) if b['typ'] == 'jamforelse' and b.get('lage') == 'astro' else SVAR_SCHEMA
     svar = atelje.session(specialist_prompt(slug, b, underlag), ['Read', 'Glob', 'Grep'] + kompetens.verktyg(pass_, slug),
-                          sk / 'svar-session.json', SVAR_SCHEMA, 120, modell or atelje.MODELL, atelje.EFFORT,
+                          sk / 'svar-session.json', schema, 120, modell or atelje.MODELL, atelje.EFFORT,
                           frist or 2400, slug=slug, webb=webb)
     so = svar.get('structured_output') if isinstance(svar, dict) else None
     st = station(b.get('station') or STATION_FOR_TYP[b['typ']])
@@ -1808,12 +1829,14 @@ def kor_riktning(slug, rid, stationerna, underlag=None):
         kor_station(slug, rid, sid, underlag)
 
 
-def kor_pass(slug, typ, v, ritning, uppgift, underlag=None, station_=None):
+def kor_pass(slug, typ, v, ritning, uppgift, underlag=None, station_=None, giltig=None):
     """En beställning som specialistpass (bestall och specialist), eller den som redan levererats för samma typ,
-    version och riktning (återupptagningen gör inget klart om). Ger beställningen."""
+    version och riktning (återupptagningen gör inget klart om). giltig(b): en levererad beställning återanvänds bara när
+    den håller (jämförelsens val). Ger beställningen."""
     for bid in bestallningar(slug, underlag):
         b = bestallning(slug, bid, underlag)
-        if (b.get('typ'), b.get('version'), b.get('ritning')) == (typ, v, ritning) and b.get('status') in ('levererad', 'inford'):
+        if (b.get('typ'), b.get('version'), b.get('ritning')) == (typ, v, ritning) and b.get('status') in ('levererad', 'inford') \
+                and (giltig is None or giltig(b)):
             return b
     b = bestall(slug, typ, v, ritning, uppgift, underlag=underlag, station_=station_)
     post = specialist(slug, b['id'], underlag)
@@ -1852,9 +1875,9 @@ def registrera_val(slug, start, b, underlag=None):
             skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
             return val
     so = (las(rot(slug, underlag) / 'svar' / b['id'] / 'SVAR.json') or {}).get('svar') or {}
-    rid = (so.get('val') or {}).get('riktning')
-    if rid not in (d.get('riktningar') or {}):
-        raise Stoppad('jämförelsen (%s) valde ingen riktning i bandet (%r)' % (b['id'], rid))
+    rid = jamforelsens_val(slug, b, underlag)
+    if not rid:
+        raise Stoppad('jämförelsen (%s) gav inget giltigt val bland riktningarna (%r)' % (b['id'], (so.get('val') or {}).get('riktning')))
     val = {'riktning': rid, 'kalla': 'jämförelsen', 'bestallning': b['id'], 'version': b['version'], 'tid': nu(),
            'skal': str((so.get('val') or {}).get('skal') or '')[:1200]}
     skapande.lagg_till_dom(slug, 'jämförelsen', 'valj', 'Jämförelsens val i designfasens drivare: riktningen %s. %s' % (rid, val['skal'] or ''),
@@ -1932,8 +1955,18 @@ def _kor(slug, rk, start, underlag, cf):
         kor_pass(slug, 'kritik', senaste[rid], rid, 'Kritik av riktningen %s som en besökare ser den, före utförarens förklaring, '
                  'efter följden före valet (detaljerna med)' % rid, underlag, station_='kritik')
     sista = max(senaste.values(), key=lambda v: int(v[1:]))
-    b = kor_pass(slug, 'jamforelse', sista, '*', 'Jämför riktningarnas senaste versioner sida vid sida, peka ut falsk variation, '
-                 'och välj den riktning som går vidare (fältet val)', underlag, station_='jamforelse') if len(rk) > 1 else None
+    b = None
+    for forsok in range(1, MAX_FORSOK_STATION + 1) if len(rk) > 1 else ():
+        b = kor_pass(slug, 'jamforelse', sista, '*', 'Jämför riktningarnas senaste versioner sida vid sida, peka ut falsk variation, '
+                     'och välj den riktning som går vidare (fältet val)', underlag, station_='jamforelse',
+                     giltig=lambda x: jamforelsens_val(slug, x, underlag) is not None)
+        if jamforelsens_val(slug, b, underlag):
+            break
+        logga(slug, underlag, skal='jämförelsen %s gav inget giltigt val (försök %d av %d)' % (b['id'], forsok, MAX_FORSOK_STATION))
+    else:
+        if len(rk) > 1:
+            raise Stoppad('jämförelsen gav inget giltigt val bland riktningarna efter %d försök (senast %s)' % (
+                MAX_FORSOK_STATION, (b or {}).get('id')))
     logga(slug, underlag, steg='val')
     val = registrera_val(slug, start, b, underlag) if b else {'riktning': rk[0], 'kalla': 'ensam riktning', 'tid': nu()}
     if not b:

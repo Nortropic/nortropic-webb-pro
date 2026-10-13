@@ -1135,8 +1135,11 @@ with logg.open('a') as f:
     f.write('pass %%s\n' %% typ)
 so = {'sammanfattning': 'attrappens %%s' %% typ, 'fynd': [], 'forslag': [], 'referenser': [], 'begransningar': [],
       'kompetens': {'aktiverade': [], 'lasta': [], 'valda': []}}
-if typ == 'jamforelse':
-    so['val'] = {'riktning': conf['val'], 'skal': 'attrappens val: riktningen bär besökarens uppgift bäst'}
+if typ == 'jamforelse':  # valsvar: attrappens svar i tur och ordning (null: svaret saknar val)
+    nr = logg.read_text().splitlines().count('pass jamforelse') - 1
+    lista = conf.get('valsvar') or [conf['val']]
+    if lista[min(nr, len(lista) - 1)]:
+        so['val'] = {'riktning': lista[min(nr, len(lista) - 1)], 'skal': 'attrappens val: riktningen bär besökarens uppgift bäst'}
 svar(so)
 '''
 
@@ -1230,6 +1233,34 @@ class M_Drivaren(Grund):
                 self.assertNotIn('station %s %s' % (rid, sid), andra, 'det klara görs inte om')
         self.assertIn('station k03 art', andra)
         self.assertNotIn('station k03 innehall', andra)
+
+    def test_ett_svar_utan_giltigt_val_ger_en_ny_jamforelse(self):
+        """Granskningens fynd 1 (andra granskningen): ett jämförelsesvar utan val, eller med ett val som inte är en
+        riktning, ger en ny beställning, högst två försök; skiftläget normaliseras, och en levererad beställning utan
+        giltigt val återanvänds aldrig, så att en återupptagning inte fastnar på samma svar."""
+        self.conf(valsvar=[None, 'K02'])
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
+        self.assertEqual(self.anrop().count('pass jamforelse'), 2)
+        self.assertEqual(df.designfas(SLUG)['val']['riktning'], 'k02', 'K02 normaliseras')
+
+    def test_inget_giltigt_val_stoppar_och_aterupptagningen_fastnar_inte(self):
+        self.conf(valsvar=[None, 'k09'])
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'stoppad')
+        self.assertIn('giltigt val', k['skal'])
+        self.assertEqual(self.anrop().count('pass jamforelse'), 2)
+        self.conf(valsvar=['k01'])
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
+        self.assertEqual(self.anrop().count('pass jamforelse'), 3, 'den levererade beställningen utan val återanvändes inte')
+        self.assertEqual(df.designfas(SLUG)['val']['riktning'], 'k01')
+
+    def test_jamforelsens_schema_kraver_ett_val_bland_riktningarna(self):
+        s = df.jamforelse_schema(SLUG)
+        self.assertIn('val', s['required'])
+        self.assertEqual(s['properties']['val']['properties']['riktning']['enum'], ['k01', 'k02', 'k03'])
+        self.assertNotIn('val', df.SVAR_SCHEMA['required'], 'de andra passens schema är oförändrat')
 
     def test_agarens_val_efter_starten_gar_fore(self):
         df.logga(SLUG, start='2026-01-01T00:00:00Z')
