@@ -6,18 +6,25 @@ import atexit
 import os
 import secrets
 import shutil
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-import korregister  # noqa: E402
+
+
+def _korregister():
+    """korregister ur repots kontroller/, laddat under ett eget namn: sys.path rörs inte, så ett prov som kör en kopia av
+    repot (KOPIA/kontroller först på sys.path) får fortfarande kopians moduler."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('_sigill_fixtur_korregister', Path(__file__).resolve().parents[2] / 'korregister.py')
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
 
 
 def aktivera():
     """Sätter provnyckeln för processen och dess barn; samma katalog om den redan är satt. Ger katalogen."""
     if os.environ.get('NWP_GODKANNANDE_NYCKEL') and os.environ.get('NWP_AGARBEVIS'):
         return Path(os.environ['NWP_GODKANNANDE_NYCKEL']).parent
-    d = Path(korregister.egen_tmp('nwp-sigill-', 'provnyckeln för sigillet')).resolve()
+    d = Path(_korregister().egen_tmp('nwp-sigill-', 'provnyckeln för sigillet')).resolve()
     atexit.register(shutil.rmtree, str(d), True)
     n = d / 'godkannande.nyckel'
     fd = os.open(n, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -64,3 +71,19 @@ def utan_terminal(fn, utan_agartoken=True):
     os.close(r)
     os.waitpid(pid, 0)
     return tuple(_json.loads(data or b'["inget svar", ""]'))
+
+
+def miljo():
+    """Provnyckelns variabler, för ett prov som startar kor.sh eller ett verktyg med en egen, rensad miljö."""
+    aktivera()
+    return {k: os.environ[k] for k in ('NWP_GODKANNANDE_NYCKEL', 'NWP_AGARBEVIS')}
+
+
+def forsegla_kandidat(slug, g, underlag_slug):
+    """Ägarens sigill på en provfixtur av kandidatvägens godkännande (VINNARE.json: godkand), satt genom provets egen
+    portal precis som atelje.godkannande sätter det; g får fälten sigill och kanal. underlag_slug: underlag/<slug>."""
+    import sigill
+    import skapande
+    aktivera()
+    g['sigill'], g['kanal'] = sigill.forsegla_agaren('kandidat', skapande.sigillfalt_kandidat(slug, g), underlag_slug, ['provfixtur'])
+    return g

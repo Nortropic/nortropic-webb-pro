@@ -183,7 +183,10 @@ def krav(slug,handling):
         m=startmiljo()
         if m['hinder']:raise ValueError(m['hinder'])
         ok,skal=skapande.godkand_giltig(slug,atelje.UNDERLAG,atelje.KUNDER)
-        if not ok:raise ValueError('Startsidan saknar aktuellt ägargodkännande: '+skal)
+        if not ok:  # eller ett designgodkännande ur designfasen, som kor.sh tar vid från (designfas.godkand_giltig)
+            import designfas
+            ok_d,skal_d,_g=designfas.godkand_giltig(slug,atelje.UNDERLAG)
+            if not ok_d:raise ValueError('Startsidan saknar aktuellt ägargodkännande: '+skal+'; designfasen: '+skal_d)
         v=json.loads((atelje.UNDERLAG/slug/'VERKSAMHET.json').read_text())
         if not isinstance(v,dict) or not isinstance(v.get('namn'),str) or not v['namn'].strip():raise ValueError('verksamhetens namn saknas')
     elif handling=='exportera':

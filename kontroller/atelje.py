@@ -1931,10 +1931,12 @@ def installera_godkand(slug):
     bygget själv ur DESIGN.md (kontroller/design.py --skriv; provets grind design). Ger vägarna som ersattes."""
     rot = UNDERLAG / slug / 'atelje'
     sajt = KUNDER / slug / 'sajt'
+    g = (las_json(rot / 'VINNARE.json') or {}).get('godkand') or {}
+    if not g:  # inget godkännande: inget att installera
+        return []
     ok_, skal_ = skapande.godkand_giltig(slug, UNDERLAG, KUNDER)  # bara från ett förseglat, giltigt ägargodkännande
     if not ok_:
         raise RuntimeError('inget giltigt ägargodkännande att installera: %s' % skal_)
-    g = (las_json(rot / 'VINNARE.json') or {}).get('godkand') or {}
     if g.get('underlag_sha'):
         try:
             if skapande.underlagsversion(slug, UNDERLAG) != g['underlag_sha']:

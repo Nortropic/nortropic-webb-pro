@@ -5,6 +5,10 @@ import http.client
 import json
 import os
 from pathlib import Path
+import sys as _sys_sigill  # noqa: E402
+_sys_sigill.path.append(str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: godkännanden och mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 import sys
 import threading
 import unittest
@@ -105,6 +109,7 @@ class Agare(unittest.TestCase):
         d=acceptera();kb.overlamna(db,e,d['revision'],'forsta',self.root)
         u=self.root/'underlag/prov-fas';kod=u/'atelje/vinnare/kod/index.astro';kod.parent.mkdir(parents=True);kod.write_text('<h1>Syntetisk skiss</h1>')
         tid='2026-10-08T00:00:00Z';g={'tid':tid,'sha_index':ks.sha(kod.read_bytes())}
+        sigill_fixtur.forsegla_kandidat('prov-fas',g,u)  # ägarens sigill genom provets egen portal
         (u/'atelje/VINNARE.json').write_text(json.dumps({'godkand':g}))
         (u/'DESIGNDOMAR.jsonl').write_text(json.dumps({'kalla':'ägaren','beslut':'godkand','tid':tid,'text':'Syntetisk provdom.'})+'\n')
         self.assertTrue(skapande.godkand_giltig('prov-fas',self.root/'underlag',self.root/'kunder')[0])

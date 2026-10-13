@@ -21,6 +21,10 @@ import types
 import urllib.error
 import urllib.request
 from pathlib import Path
+import sys as _sys_sigill  # noqa: E402
+_sys_sigill.path.append(str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: godkännanden och mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 
 ROOT = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(ROOT / 'kontroller'))
@@ -3819,7 +3823,8 @@ assert at_pt.installera_godkand('pt-godk') == [], 'samma fil: inget att lägga'
 try:
     at_pt.installera_godkand('pt-godk'); raise AssertionError('en vinnarfil som inte är den godkända installeras inte')
 except RuntimeError as e_:
-    assert 'inte den godkända' in str(e_) or 'fil som inte är godkänd' in str(e_), e_
+    # sedan sigillet (2026-10-13) prövar installationen godkand_giltig först, som fäller en ändrad vinnarfil med sitt skäl
+    assert 'inte den godkända' in str(e_) or 'fil som inte är godkänd' in str(e_) or 'ändrad sedan godkännandet' in str(e_), e_
     assert (sajt_g / 'src' / 'pages' / 'index.astro').read_text() == '<p>godkänd</p>', 'nekad förkontroll ändrade sajten'
 (ga_ / 'atelje' / 'vinnare' / 'kod' / 'index.astro').write_text('<p>godkänd</p>')
 shutil.move(str(at_pt.KUNDER / 'pt-godk' / 'startsida-ersatt'), str(tmp / 'ersatt-sparad')); (tmp / 'ersatt-utanfor').mkdir()
@@ -5949,7 +5954,9 @@ assert sb['credentials']['envVars'][0] == {'name': 'REFERO_MCP_TOKEN', 'mode': '
 utan_sb = sl.installningar('p', sandlada=False)
 # hemlighetsmappen nekas Read också utan sandlåda (dashboardnyckeln ligger där; b075827)
 assert 'sandbox' not in utan_sb and utan_sb['permissions']['deny'] == ['Read(//%s/**)' % str(ROOT / 'underlag/kundstart').strip('/'), *__import__('kompetens').skill_nekas(),
-                                                                       'Read(//%s/.nortropic-hemligheter/**)' % os.path.expanduser('~').strip('/')] and json.dumps(inst)
+                                                                       'Read(//%s/.nortropic-hemligheter/**)' % os.path.expanduser('~').strip('/'),
+                                                                       # och sigillets nyckel: Edit, Write och Bash-mönster (BESLUT.md, 2026-10-13)
+                                                                       *[r for r in __import__('sigill').nekanden(os.path.expanduser('~')) if not r.startswith('Read(')]] and json.dumps(inst)
 kor_text = (ROOT / 'kor.sh').read_text()
 assert 'Bash(git commit *)' not in kor_text and 'Bash(git push origin main)' not in kor_text and 'sandlada.py' in kor_text, 'ingen git i bygget; sandlådan kopplad'
 # kor.sh i en kopia med en falsk claude som skriver en backlogpost: körningen committar den och pushar

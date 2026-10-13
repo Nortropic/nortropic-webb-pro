@@ -76,9 +76,6 @@ AVSANDARTYPER = {  # typ: (namn, definition)
     'kunden': ('kundens egna ord och beslut', 'det kunden själv har valt, begärt eller underkänt bland förslagen; räknas för '
                                              'kundens val och uppdrag, aldrig för godkännandet för helbygge eller publicering, '
                                              'och en AI-bedömning bokförs aldrig som kundens'),
-    'autonom': ('den autonoma godkännaren', 'designfasens oberoende jämförelse och kritik, som godkänner en version för bygget '
-                                            '(designfas.autogodkann, förseglat; BESLUT.md, tillägget 2026-10-13 om autonomin); '
-                                            'aldrig ägarens beslut, aldrig publicering, och ägarens senare beslut går före'),
 }
 # Domloggens källor (fältet kalla): avsändartypen och definitionen.
 KALLOR = {
@@ -95,14 +92,20 @@ KALLOR = {
     'hypotes': ('hypotes', 'en hypotes som inte är prövad'),
     'kunden': ('kunden', 'kundens egna ord och beslut, ordagrant: förda in av ägaren i arbetsytan eller med skapande.py dom, '
                          'med ett belägg för var kundens ord står (samtalet, meddelandet och tiden)'),
-    'autonom granskning': ('autonom', 'den autonoma godkännarens godkännande i designfasen, skrivet av designfas.autogodkann med '
-                                      'belägg i kritikens och jämförelsens svarsfiler; aldrig ägarens'),
+    'jämförelsen': ('granskare', 'den oberoende jämförelsens val av riktning i designfasens drivare (designfas.py kor; ägarens beslut '
+                                 '2026-10-13); en AI-bedömning, aldrig ägarens eller kundens beslut'),
 }
 # Källan som alltid är ägarens egen (arbetsytans Förslagen). Ägaren via Codex räknas bara med ett belägg: avgör
 # ägarens beslut med ar_agarens, inte med den här listan (omgranskningen av skapandeflödet, fynd 2, räknade båda).
 AGAREN = ('ägaren',)
 BELAGG_KRAVS = ('ägaren via Codex', 'kunden')  # en källa som räknas bara med belägg
 KUNDENS_BESLUT = ('valj', 'jamfor', 'forkasta', 'uppdrag', 'ny_riktning')  # kunden väljer, begär ändringar eller underkänner
+# Den autonoma godkännaren (BESLUT.md, tillägget 2026-10-13 om autonomin): en egen avsändartyp och källa, aldrig ägarens
+# (ar_agarens) och aldrig ett beslut (ar_beslut); ägarens och kundens senare beslut går före (designfas.godkand_giltig).
+AVSANDARTYPER['autonom'] = ('den autonoma godkännaren', 'designfasens oberoende jämförelse och kritik, som godkänner en version '
+                            'för bygget (designfas.autogodkann, förseglat); aldrig ägarens beslut och aldrig publicering')
+KALLOR['autonom granskning'] = ('autonom', 'den autonoma godkännarens godkännande i designfasen, skrivet av designfas.autogodkann '
+                                'med belägg i kritikens och jämförelsens svarsfiler; aldrig ägarens')
 EJ_BELAGD = 'ej belagd'
 # vad en dom återöppnar (Codex 2026-10-05, punkt 2: systemet behöver förstå vilka tidigare beslut ett underkännande
 # återöppnar); fakta om verksamheten återöppnas aldrig

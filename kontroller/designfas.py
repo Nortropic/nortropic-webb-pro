@@ -114,6 +114,8 @@ SVAR_SCHEMA = {
                                       'bild_url': {'type': 'string'}, 'visar': {'type': 'string'}, 'anvandning': {'type': 'string'},
                                       'licens': {'type': 'string'}, 'kod': {'type': 'string'}}}},
         'begransningar': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 12},
+        'val': {'type': 'object', 'additionalProperties': False, 'required': ['riktning', 'skal'],
+                'properties': {'riktning': {'type': 'string', 'maxLength': 20}, 'skal': {'type': 'string', 'maxLength': 1200}}},
         'atergang': {'type': 'object', 'additionalProperties': False, 'required': ['till', 'skal'],
                      'properties': {'till': {'type': 'string', 'enum': ['fortsatt', 'underlag', 'innehall', 'art', 'komposition', 'detaljer']},
                                     'skal': {'type': 'string', 'maxLength': 800}}},
@@ -127,9 +129,6 @@ SVAR_SCHEMA = {
                        'properties': {'svar': {'type': 'string', 'enum': ['premium', 'basic']},
                                       'saknas': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 12},
                                       'belagg': {'type': 'string', 'maxLength': 1200}}},
-        # jämförelsen (ds_jamforelse, krävs): riktningen som bär kunden bäst, med skälet ur bilderna
-        'val': {'type': 'object', 'additionalProperties': False, 'required': ['riktning', 'skal'],
-                'properties': {'riktning': {'type': 'string'}, 'skal': {'type': 'string', 'maxLength': 1600}}},
     },
 }
 SVAR_KRAV = {'ds_kritik': 'detaljniva', 'ds_jamforelse': 'val'}  # fältet som passet måste svara med (svar_schema)
@@ -931,9 +930,10 @@ def specialist_prompt(slug, b, underlag=None):
             'med allvar %d eller 4 är blockerande (kritik/GRANSKARE.md). Den autonoma godkännaren godkänner aldrig en version '
             'med ett blockerande fynd eller svaret basic; döm därför som om ägaren inte skulle se versionen före bygget.' % BLOCKERANDE),
            'Din dom är en AI-bedömning: skriv den som din, aldrig som ägarens, och ändra ingenting.'] if kritik else []),
-        *(['Välj i fältet val den riktning som bär kunden bäst, med skälet ur bilderna. Valet är den autonoma godkännarens '
-           'underlag (BESLUT.md, tillägget 2026-10-13 om autonomin): kritiken av den riktningens senaste version avgör sedan.']
-          if b['pass'] == 'ds_jamforelse' else []),
+        *(['Välj också den riktning som går vidare efter valet: fältet val med riktningens id (%s) och skälet, ur bilderna och '
+           'kritikerna. I designfasens drivare är det valet (ägarens beslut 2026-10-13: den oberoende kritiken och jämförelsen '
+           'väljer riktningen); ägarens eget val går före.' % ', '.join((designfas(slug, underlag).get('riktningar') or {}))]
+          if astro and b['typ'] == 'jamforelse' else []),
         '',
         *station_rader(station(b.get('station') or STATION_FOR_TYP[b['typ']])),
         '',
@@ -1207,12 +1207,15 @@ def autogodkann(slug, version, ritning, underlag=None):
     oberoende jämförelsen och kritiken väljer riktningen och godkänner den, och bygget kan sedan starta av sig självt;
     publiceringen väntar alltid på ägaren. Kräver ingen terminal. Grinden:
     - läget astro; versionen är riktningens senaste version med startsidans bilder i 390, 768 och 1440;
-    - den senaste jämförelsen mellan riktningarna (beställning jamforelse med *, ett eget pass) valde riktningen
-      (svar.val.riktning) och såg just den versionen av den (jamforda);
+    - riktningen är vald: ägarens senaste beslut är ett val av den (hans val går före), eller annars valde den senaste
+      jämförelsen mellan riktningarna (beställning jamforelse med *, ett eget pass) den (svar.val.riktning) och såg den i
+      en tidigare eller samma version (jamforda; drivaren jämför före stationerna efter valet); en ensam riktning i
+      bandet har inget att jämföras med;
     - den senaste kritiken av versionen (beställning kritik på versionen och riktningen, ds_kritik i ett eget pass med
       verifierat sessionskvitto) gällde versionens avtryck som det är nu, har inget fynd med allvar BLOCKERANDE eller mer och
       svarar premium på C5 (detaljniva.svar);
-    - ägarens väg går före: inget gällande godkännande från ägaren, och inget beslut från ägaren efter versionen.
+    - ägarens väg går före: inget godkännande från ägaren i designfasen som hans senaste beslut, och inget annat beslut
+      från honom efter versionen.
     Posten och domloggens rad har källan 'autonom granskning' (aldrig ägaren; skapande.ar_agarens) med belägg i
     svarsfilerna, och sigillet sätts av den Python-process som anropar funktionen (bandets drivare). Ger posten; Fel
     med skälet när grinden inte håller."""
@@ -1224,16 +1227,27 @@ def autogodkann(slug, version, ritning, underlag=None):
     senaste = senaste_per_riktning(slug, underlag).get(ritning)
     if senaste != version:
         raise Fel('%s är inte riktningens senaste version med bilder (%s)' % (version, senaste))
+    u = Path(underlag or UNDERLAG)
+    ag = skapande.agarens_senaste(slug, u)
+    if ag['oklara']:
+        raise Fel(skapande.oklara_text(ag))
+    dom0 = ag['dom'] or {}
+    agarens_val = [x.get('id') for x in dom0.get('kandidater') or [] if isinstance(x, dict)] if dom0.get('beslut') == 'valj' else []
+    if agarens_val and ritning not in agarens_val:
+        raise Fel('ägarens val (%s) är %s, inte %s: ägarens val går före' % (dom0.get('tid'), ', '.join(map(str, agarens_val)), ritning))
     alla = [bestallning(slug, b, underlag) for b in bestallningar(slug, underlag)]
     jam = [b for b in alla if b.get('typ') == 'jamforelse' and b.get('ritning') == '*' and b.get('status') in ('levererad', 'inford')]
-    if not jam:
+    ensam = list(d.get('riktningar') or {}) == [ritning]  # en enda riktning i bandet: inget att jämföra med
+    if not jam and not agarens_val and not ensam:
         raise Fel('ingen jämförelse mellan riktningarna (designfas.py bestall --typ jamforelse --ritning *)')
-    sj, pj = _eget_pass(slug, jam[-1], underlag)
-    val = (sj['svar'].get('val') or {}).get('riktning')
-    if val != ritning:
-        raise Fel('jämförelsen %s valde %s, inte %s' % (jam[-1]['id'], val or 'ingen riktning', ritning))
-    if (sj.get('jamforda') or {}).get(ritning) != version:
-        raise Fel('jämförelsen %s såg %s av %s, inte %s' % (jam[-1]['id'], (sj.get('jamforda') or {}).get(ritning), ritning, version))
+    sj, pj = _eget_pass(slug, jam[-1], underlag) if jam and not agarens_val and not ensam else ({}, None)
+    if not agarens_val and not ensam:  # jämförelsens val, ur en jämförelse som såg riktningen i en tidigare eller samma version
+        val = str(((sj.get('svar') or {}).get('val') or {}).get('riktning') or '').strip().lower()
+        if val != ritning:
+            raise Fel('jämförelsen %s valde %s, inte %s' % (jam[-1]['id'], val or 'ingen riktning', ritning))
+        sag = (sj.get('jamforda') or {}).get(ritning)
+        if not sag or not VERSION.match(sag) or int(sag[1:]) > int(version[1:]):
+            raise Fel('jämförelsen %s såg inte riktningen %s före %s (såg %s)' % (jam[-1]['id'], ritning, version, sag))
     kr = [b for b in alla if b.get('typ') == 'kritik' and b.get('version') == version and b.get('ritning') == ritning
           and b.get('status') in ('levererad', 'inford')]
     if not kr:
@@ -1248,19 +1262,16 @@ def autogodkann(slug, version, ritning, underlag=None):
     c5 = (sk['svar'].get('detaljniva') or {}).get('svar')
     if c5 != 'premium':
         raise Fel('kritiken %s svarar %s på C5 (kunskap/precision.md, Detaljnivån), inte premium' % (kr[-1]['id'], c5 or 'inte'))
-    u = Path(underlag or UNDERLAG)
-    ok_, _, g0 = godkand_giltig(slug, underlag)
-    if ok_ and (g0 or {}).get('kalla') == 'ägaren':
-        raise Fel('ägarens godkännande gäller redan (%s, %s): ägarens väg går före den autonoma' % (g0['version'], g0['ritning']))
-    ag = skapande.agarens_senaste(slug, u)
-    if ag['oklara']:
-        raise Fel(skapande.oklara_text(ag))
-    if ag['dom'] and str(ag['dom'].get('tid') or '') > str(post.get('tid') or ''):
+    if ag['dom'] and ag['dom'].get('beslut') == 'godkand' and ag['dom'].get('designfas'):
+        raise Fel('ägaren har godkänt själv (%s, %s): ägarens väg går före den autonoma godkännaren' % (
+            ag['dom'].get('tid'), (ag['dom'].get('designfas') or {}).get('version')))
+    if ag['dom'] and not agarens_val and str(ag['dom'].get('tid') or '') > str(post.get('tid') or ''):
         raise Fel('ägarens beslut %s (%s) kom efter versionen %s: ägarens beslut går före den autonoma godkännaren' % (
             ag['dom'].get('tid'), ag['dom'].get('beslut'), version))
     tid = nu()
     belagg = {'kritik': rel(pk), 'kritik_sha256': sha(pk), 'kritik_session': sk.get('session_id'),
-              'jamforelse': rel(pj), 'jamforelse_sha256': sha(pj), 'jamforelse_session': sj.get('session_id')}
+              **({'jamforelse': rel(pj), 'jamforelse_sha256': sha(pj), 'jamforelse_session': sj.get('session_id')} if pj else {}),
+              **({'agarens_val': dom0.get('tid')} if agarens_val else {})}
     g = {'schema': 1, 'slug': slug, 'tid': tid, 'kalla': AUTONOM, 'version': version, 'ritning': ritning, 'lage': 'astro',
          'kanvas': None, 'artifact_version': None, 'avtryck': versionens_avtryck(slug, version, underlag),
          'underlag_sha': skapande.underlagsversion(slug, u), 'dom_tid': tid, 'belagg': belagg, 'kanal': 'autonom',
@@ -1269,11 +1280,12 @@ def autogodkann(slug, version, ritning, underlag=None):
         g['sigill'] = sigill.forsegla_autonomt('designfas', sigillfalt(slug, g), rot(slug, underlag))
     except sigill.Nekad as e:
         raise Fel(str(e))
-    skapande.lagg_till_dom(slug, AUTONOM, 'godkand', 'Den autonoma godkännaren: %s av riktningen %s, vald av jämförelsen %s och '
-                           'bedömd premium utan blockerande fynd av kritiken %s.' % (version, ritning, jam[-1]['id'], kr[-1]['id']),
+    vald_av = 'ägarens val %s' % dom0.get('tid') if agarens_val else 'jämförelsen %s' % jam[-1]['id'] if pj else 'bandets enda riktning'
+    skapande.lagg_till_dom(slug, AUTONOM, 'godkand', 'Den autonoma godkännaren: %s av riktningen %s, vald av %s och bedömd premium '
+                           'utan blockerande fynd av kritiken %s.' % (version, ritning, vald_av, kr[-1]['id']),
                            avser='designfas %s %s' % (version, ritning), underlag=u, tid=tid,
-                           belagg='%s (sha256 %s) och %s (sha256 %s)' % (belagg['kritik'], belagg['kritik_sha256'][:12],
-                                                                      belagg['jamforelse'], belagg['jamforelse_sha256'][:12]),
+                           belagg='%s (sha256 %s)%s' % (belagg['kritik'], belagg['kritik_sha256'][:12], ' och %s (sha256 %s)' % (
+                               belagg['jamforelse'], belagg['jamforelse_sha256'][:12]) if pj else '; %s' % vald_av),
                            designfas={'version': version, 'ritning': ritning, 'lage': 'astro', 'kanvas': None, 'artifact_version': None})
     skriv(rot(slug, underlag) / 'GODKANNANDE.json', g)
     return g

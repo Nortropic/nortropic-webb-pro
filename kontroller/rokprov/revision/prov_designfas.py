@@ -1236,6 +1236,47 @@ class K_Sigill(Grund):
         with self.assertRaisesRegex(df.Fel, 'ägarens'):
             df.autogodkann(SLUG, 'v01', 'k01')
 
+    def test_den_verkliga_vagen_till_helbygget(self):
+        """Som drivaren i Astro-grenen: jämförelsen före stationerna efter valet, dess val i domloggen med källan
+        jämförelsen, en ny version av den valda och kritiken av den; autogodkann med provnyckeln, godkand_giltig och
+        flodesstart.krav godtar, och ett senare val från ägaren drar tillbaka godkännandet."""
+        import flodesstart
+        self.riktningar()
+        j = df.bestall(SLUG, 'jamforelse', 'v02', '*', 'Falsk variation mellan riktningarna, och vilken riktning som går vidare')
+        self.pass_(j['id'], dict(SVARET, val={'riktning': 'K01', 'skal': 'riktningen bär verkstadens ton i första vyn'}))
+        skapande.lagg_till_dom(SLUG, 'jämförelsen', 'valj', 'Jämförelsens val i designfasens drivare: riktningen k01.', underlag=self.u,
+                               avser='designfas val k01', designfas={'riktning': 'k01', 'bestallning': j['id'], 'version': 'v02'})
+        rad = skapande.domar(SLUG, self.u)[-1]
+        self.assertFalse(skapande.ar_agarens(rad) or skapande.ar_beslut(rad), 'jämförelsens val är aldrig ägarens')
+        df.version(SLUG, None, None, 'efter valet', ritning='k01', bilder=False)
+        self.fejkbilder('v03')
+        kr = df.bestall(SLUG, 'kritik', 'v03', 'k01', 'Kritik av den valda riktningens sista version, före godkännandet')
+        self.pass_(kr['id'], dict(SVARET, detaljniva={'svar': 'premium', 'saknas': [], 'belagg': 'index-390.png och index-1440.png'}))
+        with self.assertRaisesRegex(ValueError, 'ägargodkännande'):
+            flodesstart.krav(SLUG, 'helbygge')
+        g = df.autogodkann(SLUG, 'v03', 'k01')
+        self.assertEqual((g['kalla'], g['version']), ('autonom granskning', 'v03'))
+        self.fyll(df.overlamna(SLUG))
+        ok, skal, _ = df.godkand_giltig(SLUG)
+        self.assertTrue(ok, skal)
+        flodesstart.krav(SLUG, 'helbygge')  # helbyggets väg (prototyp.py --helbygge, drivaren) godtar det förseglade godkännandet
+        skapande.lagg_till_dom(SLUG, 'ägaren', 'valj', 'Jag vill hellre gå vidare med k02.', underlag=self.u,
+                               kandidater=[{'id': 'k02', 'version': 'v02'}])
+        ok, skal, _ = df.godkand_giltig(SLUG)
+        self.assertFalse(ok)
+        self.assertIn('ägarens senare beslut', skal)
+        with self.assertRaisesRegex(ValueError, 'ägargodkännande'):
+            flodesstart.krav(SLUG, 'helbygge')
+        with self.assertRaisesRegex(df.Fel, 'ägarens val'):
+            df.autogodkann(SLUG, 'v03', 'k01')
+
+    def test_agarens_vag_gar_fore(self):
+        self.grind()
+        df.godkann(SLUG, 'v01', 'k01')  # ägaren godkänner själv (provets portal), överlämningen inte gjord än
+        with self.assertRaisesRegex(df.Fel, 'ägaren har godkänt själv'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+        self.assertEqual(json.loads((self.u / SLUG / 'design' / 'GODKANNANDE.json').read_text())['kalla'], 'ägaren')
+
     def test_grinden_basic(self):
         self.grind(c5='basic')
         with self.assertRaisesRegex(df.Fel, 'basic'):
