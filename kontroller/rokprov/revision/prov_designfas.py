@@ -1957,15 +1957,48 @@ class K_Sigill(Grund):
         k = (ROOT / 'kor.sh').read_text()
         self.assertIn('designfas.godkand_giltig', k)
         self.assertIn('skapande.godkand_giltig', k)
-        i = k.index('kontroller/sigill.py" agaren')
-        self.assertLess(i, k.index('kontroller/startkontroll.py" --slug'), 'nödvägen utan godkännande kräver ägaren före allt annat')
-        self.assertIn('NWP_ATELJE', k[i - 400:i])
-        env = {x: v for x, v in os.environ.items() if x not in ('NWP_AGARBEVIS', 'CLAUDECODE')}
-        r = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'sigill.py'), 'agaren', '--vad', 'nödvägen'], env=env,
-                           stdin=subprocess.DEVNULL, capture_output=True, text=True, start_new_session=True, timeout=60)
-        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
-        self.assertIn('egen terminal', r.stderr)
 
+    def test_nodvagen_kraver_ett_forseglat_mandat(self):
+        """Granskningen av sigillet, fynd 5: nödvägen (NWP_ATELJE=av) kräver ett förseglat mandat ur ägarens kanal
+        (forsegla_agaren, som behöver nyckeln), inte bara bekräftelsen i terminalen, som en egen pty kan ge."""
+        import sigill
+        k = (ROOT / 'kor.sh').read_text()
+        i = k.index('kontroller/sigill.py" nodvag')
+        self.assertLess(i, k.index('kontroller/startkontroll.py" --slug'), 'nödvägen kräver mandatet före allt annat')
+        self.assertIn('NWP_ATELJE', k[i - 400:i])
+        # en egen pty som svarar med koden räcker inte utan nyckeln
+        utan = self.tmp / 'utan-nyckel'
+        utan.mkdir()
+        utan.chmod(0o500)
+        self.addCleanup(utan.chmod, 0o700)
+        kod = ("import sys; sys.path.insert(0, %r)\nimport sigill\nprint('RC', sigill.main(['nodvag', '--slug', 'prov-kund', '--vad', "
+               "'nödvägen']))\n") % str(ROOT / 'kontroller')
+        sett, ut, svarat = self.i_terminal(kod, env_extra={'NWP_GODKANNANDE_NYCKEL': str(utan / 'godkannande.nyckel')})
+        self.assertIn('RC 2', ut, sett[-300:] + ut[-300:])
+        # mandatet: förseglat genom ägarens kanal (provets portal), bundet till byggena och en tid
+        m = sigill.nodvagsmandat(['prov-abx', 'prov-aby'], 'ab-prov-1', ['provet'])
+        f = self.tmp / 'mandat.json'
+        f.write_text(json.dumps(m))
+        env = {x: v for x, v in os.environ.items() if x not in ('NWP_AGARBEVIS', 'CLAUDECODE')}
+        def nodvag(slug, fil=f):
+            return subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'sigill.py'), 'nodvag', '--slug', slug, '--vad', 'nödvägen'],
+                                  env=dict(env, NWP_NODVAG_MANDAT=str(fil)), stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                                  start_new_session=True, timeout=60)
+        self.assertEqual(nodvag('prov-abx').returncode, 0, nodvag('prov-abx').stderr)
+        r = nodvag('annan-kund')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('gäller inte', r.stderr)
+        f2 = self.tmp / 'utokat.json'
+        f2.write_text(json.dumps(dict(m, slugs=m['slugs'] + ['annan-kund'])))
+        self.assertIn('sigillet', nodvag('annan-kund', f2).stderr)
+        f3 = self.tmp / 'gammalt.json'
+        f3.write_text(json.dumps(sigill.nodvagsmandat(['prov-abx'], 'ab-prov-2', ['provet'], giltig_s=-1)))
+        self.assertIn('gått ut', nodvag('prov-abx', f3).stderr)
+        r = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'sigill.py'), 'nodvag', '--slug', 'prov-abx', '--vad', 'x'],
+                           env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, start_new_session=True, timeout=60)
+        self.assertEqual(r.returncode, 2, 'utan mandat och utan terminal')
+        with self.assertRaisesRegex(sigill.Nekad, 'bara designfasens'):
+            sigill.forsegla_autonomt('nodvag', {'slugs': ['prov-abx']}, None)
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)

@@ -10,7 +10,7 @@ står i egna avsnitt. Ingångarna:
   dom i domloggen. Ägaren dömer i arbetsytans Förslagen (förr vyn Prototyp).
 - **Byggets steg 5.1:** `kor.sh` tar vid bara från ett förseglat, giltigt godkännande (`kontroller/sigill.py`), som från
   ateljévinnaren; utan ett stannar kor.sh före bygget och pekar på prototyp.py. `NWP_ATELJE=av` är nödvägen, där
-  byggaren skriver KONCEPT.md själv; den kräver ägarens bekräftelse i hans egen terminal.
+  byggaren skriver KONCEPT.md själv; den kräver ägarens förseglade mandat (`sigill.py nodvag`).
 
 **Normalflödet** (ägarens uppdrag 2026-10-09 ~17:53Z, ordagrant i minnet och sammanfattat i `BESLUT.md`, tillägget samma
 dag): kundunderlag → kundförståelse → starka branschreferenser → visuell inspiration och användbara mallar och

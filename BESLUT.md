@@ -5877,7 +5877,8 @@ kommandoraden: utförarens session nekades `designfas.py godkann` och `skapande.
   `godkand` i `VINNARE.json` (tiden, avsändaren, underlaget och sha-fälten) och mandaten för release och aktivering.
   `godkand_giltig` i `designfas.py` och `skapande.py` och mandatens läsare prövar det med `hmac.compare_digest`; saknas det
   eller är fel gäller posten inte. `installera_godkand`, kor.sh, `prototyp.py --helbygge` och portalens start går genom
-  `godkand_giltig`; kor.sh:s nödväg utan godkännande (`NWP_ATELJE=av`) kräver ägarens bekräftelse i terminalen.
+  `godkand_giltig`; kor.sh:s nödväg utan godkännande (`NWP_ATELJE=av`) kräver ägarens förseglade mandat (`sigill.py
+  nodvag`: koden i hans terminal och nyckeln; en A/B-körning får ett mandat vid starten för båda armarna).
 - **Ägarens kanaler**, kontrollerade i funktionen som sätter sigillet (`sigill.forsegla_agaren`), inte bara i
   kommandoraden: hans egen terminal, där kommandot visar vad som godkänns och en kort slumpkod som han skriver tillbaka
   på `/dev/tty` (utan styrande terminal, och inifrån en Claude Code-session, nekas det; `!`-prefixet räcker inte), eller

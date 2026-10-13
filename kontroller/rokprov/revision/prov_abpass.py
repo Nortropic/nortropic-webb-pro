@@ -24,6 +24,33 @@ class Abpass(unittest.TestCase):
         p.write_text('\n'.join(json.dumps(x) for x in [
             {'type':'system','subtype':'init','model':modell}, {'type':'result', **varden}]))
 
+    def test_nodvagen_bekraftas_en_gang_for_bada_armarna(self):
+        """Granskningen av sigillet, fynd 5: en A/B-körning med nödvägen (NWP_ATELJE=av) får ägarens förseglade mandat en
+        gång vid starten, bundet till körningens id och armarna, och båda armarnas kor.sh får det; ingen arm väntar obevakad
+        på en kod."""
+        from types import SimpleNamespace
+        sys.path.append(str(Path(__file__).resolve().parent))
+        import sigill_fixtur
+        sigill_fixtur.aktivera()  # provnyckeln och provets portal, aldrig ägarens nyckel
+        import sigill
+        self.stack.enter_context(patch.object(ab, 'AB', ab.KUNDER / 'ab'))
+        miljoer = {}
+        def kor(args, env=None, cwd=None):
+            miljoer[args[1]] = env
+            return SimpleNamespace(returncode=0)
+        self.stack.enter_context(patch.object(ab.subprocess, 'run', side_effect=kor))
+        kanal = self.stack.enter_context(patch.object(sigill, 'agarkanal', wraps=sigill.agarkanal))
+        rc = ab.starta(SimpleNamespace(slug='prov-nod', verksamhet='Prov AB, Umeå', variabel='atelje', a='av', b='pa'))
+        self.assertEqual(rc, 0)
+        self.assertEqual(kanal.call_count, 1, 'ägaren bekräftar en gång')
+        filer = {m.get('NWP_NODVAG_MANDAT') for m in miljoer.values()}
+        self.assertEqual(len(filer), 1)
+        m = json.loads(Path(filer.pop()).read_text())
+        for arm in ('prov-nod-abx', 'prov-nod-aby'):
+            self.assertTrue(sigill.nodvag_giltigt(m, arm)[0], arm)
+        self.assertFalse(sigill.nodvag_giltigt(m, 'annan-kund')[0])
+        self.assertTrue(m['id'].startswith('ab-prov-nod-'))
+
     def test_slutposten_valjer_sin_egen_logg(self):
         self.logg('20260101T000000Z', 'syntetisk-a', num_turns=3, duration_ms=60000)
         self.logg('20260102T000000Z', 'syntetisk-b', num_turns=7, duration_ms=120000)

@@ -26,7 +26,9 @@ NWP_GODKANNANDE_NYCKEL pekar om nyckelfilen i proven; portalens ägartoken pröv
 katalog, och NWP_AGARBEVIS bär ägartoken i provens processer. En provnyckel gäller aldrig ägarens kunder i
 huvudutcheckningen (~/nortropic-repos/nortropic-webb-pro/underlag och kunder).
 
-    .venv/bin/python kontroller/sigill.py agaren --vad TEXT     ägarens bekräftelse i terminalen (kor.sh:s nödväg)
+    .venv/bin/python kontroller/sigill.py agaren --vad TEXT     ägarens bekräftelse i terminalen
+    .venv/bin/python kontroller/sigill.py nodvag --slug S --vad TEXT   kor.sh:s nödväg: mandatet i NWP_NODVAG_MANDAT, annars
+                                                                       ett nytt, förseglat i ägarens terminal
 """
 import argparse
 import contextlib
@@ -46,7 +48,7 @@ KATALOG = HEM / '.nortropic-hemligheter' / 'webb-pro'
 NYCKELFIL = KATALOG / 'godkannande.nyckel'
 DASHBOARDNYCKEL = 'dashboard-nyckel'  # portalens ägartoken (dashboard/server.py NYCKELFIL), i samma katalog som nyckeln
 HUVUD = HEM / 'nortropic-repos' / 'nortropic-webb-pro'
-AGARENS = ('designfas', 'kandidat', 'release', 'aktivering')
+AGARENS = ('designfas', 'kandidat', 'release', 'aktivering', 'nodvag')
 AUTONOMA = ('designfas',)  # den autonoma godkännaren förseglar aldrig ett mandat för release eller aktivering
 KOD_TECKEN = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 SVARSTID = 300
@@ -97,11 +99,13 @@ def nyckel(skapa=False):
     except FileNotFoundError:
         if not skapa:
             return None
-        f.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
+            f.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         except FileExistsError:
             return nyckel(False)
+        except OSError as e:
+            raise Nekad('nyckeln kunde inte skapas i %s (%s): utan nyckeln förseglas ingenting' % (f, e.strerror or e))
         with os.fdopen(fd, 'wb') as h:
             h.write(secrets.token_bytes(32))
         os.chmod(f, 0o600)
@@ -143,7 +147,9 @@ def prova(slag, falt, sigill, vag=None):
 
 
 NAMN = {'designfas': 'designgodkännande', 'kandidat': 'godkännande', 'release': 'mandat för release',
-        'aktivering': 'mandat för aktivering'}
+        'aktivering': 'mandat för aktivering', 'nodvag': 'mandat för nödvägen'}
+NODVAGSFALT = ('typ', 'id', 'slugs', 'tid', 'giltig_till', 'kalla')
+NODVAG_GILTIG = 24 * 3600  # en A/B-körning bygger två armar i följd
 
 
 @contextlib.contextmanager
@@ -224,6 +230,32 @@ def forsegla_autonomt(slag, falt, vag):
     return _berakna(slag, falt, nyckel(skapa=True))
 
 
+def nodvagsmandat(slugs, id_, visning, giltig_s=NODVAG_GILTIG):
+    """Ägarens mandat för nödvägen utan godkänd design (kor.sh med NWP_ATELJE=av; granskningen av sigillet, fynd 5):
+    bundet till byggenas slugs, ett id (A/B-körningen eller kor.sh-starten) och en giltighetstid, och förseglat genom
+    ägarens kanal (forsegla_agaren: terminalen eller portalen, och nyckeln). Ger posten."""
+    import time
+    post = {'schema': 1, 'typ': 'nodvag', 'id': str(id_), 'slugs': sorted(set(map(str, slugs))), 'kalla': 'ägaren',
+            'tid': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'giltig_till': int(time.time()) + int(giltig_s)}
+    post['sigill'], post['kanal'] = forsegla_agaren('nodvag', {k: post.get(k) for k in NODVAGSFALT}, None, visning)
+    return post
+
+
+def nodvag_giltigt(post, slug):
+    """(giltigt, skäl): mandatet är förseglat, gäller slug och har inte gått ut."""
+    import time
+    if not isinstance(post, dict) or post.get('typ') != 'nodvag':
+        return False, 'inget mandat för nödvägen'
+    ok, skal = prova('nodvag', {k: post.get(k) for k in NODVAGSFALT}, post.get('sigill'))
+    if not ok:
+        return False, skal
+    if slug not in (post.get('slugs') or []):
+        return False, 'mandatet %s gäller inte %s' % (post.get('id'), slug)
+    if not isinstance(post.get('giltig_till'), int) or post['giltig_till'] < time.time():
+        return False, 'mandatet %s har gått ut' % post.get('id')
+    return True, 'mandatet %s (%s)' % (post.get('id'), post.get('kanal'))
+
+
 def nekanden(hem=None):
     """Nekandena för flödets sessioner: hemlighetsmappen med nyckeln och portalens ägartoken (Read, Edit, Write och
     Bash-mönster som nämner den, nyckelfilen eller provens variabler)."""
@@ -239,9 +271,30 @@ def main(argv=None):
     s = p.add_subparsers(dest='cmd', required=True)
     a = s.add_parser('agaren', help='ägarens bekräftelse i terminalen (eller portalens ägartoken); slutkod 0 bekräftat, 2 nekat')
     a.add_argument('--vad', required=True)
+    a = s.add_parser('nodvag', help='kor.sh:s nödväg (NWP_ATELJE=av): mandatet i NWP_NODVAG_MANDAT prövas, annars förseglar '
+                                    'ägaren ett nytt i sin terminal; slutkod 0 gäller, 2 nekat')
+    a.add_argument('--slug', required=True)
+    a.add_argument('--vad', required=True)
     x = p.parse_args(argv)
     try:
-        print('bekräftat i %s' % agarkanal([x.vad]))
+        if x.cmd == 'agaren':
+            print('bekräftat i %s' % agarkanal([x.vad]))
+        elif os.environ.get('NWP_NODVAG_MANDAT'):
+            try:
+                post = json.loads(Path(os.environ['NWP_NODVAG_MANDAT']).read_text(encoding='utf-8'))
+            except (OSError, ValueError) as e:
+                raise Nekad('mandatet för nödvägen kunde inte läsas (%s)' % e)
+            ok, skal = nodvag_giltigt(post, x.slug)
+            if not ok:
+                raise Nekad(skal)
+            print('nödvägen: %s' % skal)
+        else:
+            import time
+            post = nodvagsmandat([x.slug], 'kor-%s-%s' % (x.slug, time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())), [x.vad], giltig_s=600)
+            ok, skal = nodvag_giltigt(post, x.slug)
+            if not ok:
+                raise Nekad(skal)
+            print('nödvägen: %s' % skal)
     except Nekad as e:
         print('sigill: %s' % e, file=sys.stderr)
         return 2

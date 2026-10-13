@@ -212,6 +212,22 @@ def starta(a):
         return 2
     AB.mkdir(parents=True, exist_ok=True)
     ident = 'ab-%s-%s' % (a.slug, datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    # Nödvägen (NWP_ATELJE=av i armens miljö) är ägarens beslut: hans förseglade mandat en gång vid starten, bundet till
+    # körningens id och armarna, som båda armarnas kor.sh prövar (kontroller/sigill.py; granskningen av sigillet, fynd 5)
+    nodvag = None
+    if (os.environ.get('NWP_ATELJE') or 'pa') != 'pa' or (a.variabel == 'atelje' and 'av' in (a.a, a.b)):
+        import sigill
+        try:
+            m = sigill.nodvagsmandat([x, y], ident, ['A/B-jämförelsen %s: två helbyggen utan godkänd design (nödvägen NWP_ATELJE=av)' % ident,
+                                                     'byggena %s och %s, verksamheten %s' % (x, y, a.verksamhet)])
+        except sigill.Nekad as e:
+            print('Jämförelsen startar inte: nödvägen kräver ägarens förseglade mandat (%s)' % e)
+            return 2
+        AB.mkdir(parents=True, exist_ok=True)
+        nodvag = AB / (ident + '-nodvag.json')
+        fd = os.open(nodvag, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8') as h:
+            h.write(json.dumps(m, ensure_ascii=False))
     varden = [a.a, a.b]
     random.shuffle(varden)
     post = {'schema': 1, 'id': ident, 'verksamhet': a.verksamhet, 'variabel': a.variabel, 'varden': {x: varden[0], y: varden[1]},
@@ -223,7 +239,7 @@ def starta(a):
         (KUNDER / slug / 'AB-SYSKON').write_text(syskon + '\n', encoding='utf-8')
     print('Jämförelse %s: %s mot %s, värdena lottade och dolda. Två byggen i följd.' % (ident, x, y), flush=True)
     for slug in (x, y):
-        miljo = dict(os.environ, **{VARIABLER[a.variabel]: post['varden'][slug]})
+        miljo = dict(os.environ, **{VARIABLER[a.variabel]: post['varden'][slug]}, **({'NWP_NODVAG_MANDAT': str(nodvag)} if nodvag else {}))
         start, start_id = time.time(), datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')  # kor.sh:s körning börjar tidigast här
         rc = subprocess.run([str(ROOT / 'kor.sh'), slug, a.verksamhet], env=miljo, cwd=str(ROOT)).returncode
         post = las(fil)
