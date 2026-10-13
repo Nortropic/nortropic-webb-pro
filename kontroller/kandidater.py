@@ -604,6 +604,14 @@ def _beroenden(pj):
     return ut
 
 
+def _installerad(nm, namn):
+    """Versionen av paketet namn i node_modules (också genom länken till sajtens), eller None."""
+    try:
+        return (json.loads((nm / namn / 'package.json').read_text(encoding='utf-8')) or {}).get('version')
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def paketbehov(slug, kid):
     """Behöver kandidaten npm install i sitt projekt före bygget? Med länken till sajtens node_modules: när kandidatens
     package.json kräver ett paket eller en version som sajtens inte bär. Med en egen node_modules: när package.json, eller
@@ -612,8 +620,8 @@ def paketbehov(slug, kid):
     egna = _beroenden(s / 'package.json')
     delade = _beroenden(atelje.KUNDER / slug / 'sajt' / 'package.json')
     nm = s / 'node_modules'
-    if nm.is_symlink():
-        return any(delade.get(k) != v for k, v in egna.items())
+    if nm.is_symlink():  # ett paket behövs bara när varken sajtens package.json eller den länkade installationen bär det
+        return any(delade.get(k) != v and _installerad(nm, k) != v for k, v in egna.items())
     if not nm.is_dir():
         return bool(egna)
     stampel = atelje.las_json(nm / PAKETSTAMPEL) or {}

@@ -261,6 +261,21 @@ class Kompetensflode(unittest.TestCase):
         avsluta.assert_called_once()
         self.assertEqual((kd.kdir(self.SLUG, 'k01') / 'STATUS.json').read_bytes(), fore)
 
+    def test_paketbehov_laser_den_lankade_installationen(self):
+        # kandidaten med länken till sajtens node_modules: ett paket som redan är installerat i rätt version kräver ingen
+        # egen installation, också när sajtens package.json saknas (designstudions fixtur, 2026-10-13); en annan version gör det
+        s = kd.ksajt(self.SLUG, 'k01'); s.mkdir(parents=True)
+        delad = atelje.KUNDER / self.SLUG / 'sajt' / 'node_modules'
+        (delad / 'astro').mkdir(parents=True)
+        (delad / 'astro' / 'package.json').write_text(json.dumps({'name': 'astro', 'version': '7.3.8'}))
+        (s / 'node_modules').symlink_to(delad)
+        (s / 'package.json').write_text(json.dumps({'dependencies': {'astro': '7.3.8'}}))
+        self.assertFalse(kd.paketbehov(self.SLUG, 'k01'))
+        (s / 'package.json').write_text(json.dumps({'dependencies': {'astro': '7.3.8', 'three': '0.186.1'}}))
+        self.assertTrue(kd.paketbehov(self.SLUG, 'k01'), 'ett paket som inte finns installerat kräver installationen')
+        (s / 'package.json').write_text(json.dumps({'dependencies': {'astro': '7.4.0'}}))
+        self.assertTrue(kd.paketbehov(self.SLUG, 'k01'), 'en annan version än den installerade kräver installationen')
+
     def test_forberedelsen_redovisar_brister_och_publicerar(self):
         # fria tyglar (ägarens besked 2026-10-12): kvittot redovisas i KOMPETENS.json och skälet, och fäller inte förberedelsen
         status = {}
