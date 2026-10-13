@@ -362,6 +362,7 @@ def granska(dist, kontakt=None):
     if not sidor:
         F('1.1', '-', 'inga HTML-sidor i bygget')
         return fel, info, 0
+    gk = godkand_csp(dist)
     css_filer = {f: f.read_text(encoding='utf-8', errors='replace') for f in dist.rglob('*.css')}
     all_css = '\n'.join(css_filer.values())
     # Astro lägger små stilmallar direkt i sidan; de räknas också
@@ -546,21 +547,34 @@ def granska(dist, kontakt=None):
         if not csp:
             F('8.2', sida, 'ingen CSP; slå på security.csp i astro.config.mjs (se mallen)')
         else:
-            skal = csp_skal(dist)
+            # efter ett designgodkännande i läget astro gäller den godkända versionens lättnader och skäl, inte sajtens
+            # RIKTNING.md, som bygget kan skriva själv (ägarens besked 2026-10-13: "Yes, fix the things you mention")
+            skal = gk['skal'] if gk else csp_skal(dist)
+            kalla_skal = ('i den godkända versionen %s' % gk['version']) if gk else 'i RIKTNING.md'
             for namn, kallor in csp_skriptkallor(csp[0]).items():
                 if kallor is None:
                     F('8.2', sida, 'CSP:ns %s saknas (och ingen script-src eller default-src att falla tillbaka på)' % namn)
                     continue
                 otillatna = [k for k in kallor if not CSP_SKRIPT_OK.match(k)]
-                if otillatna and (not skal or any(k.lower() in CSP_SKRIPT_ALDRIG for k in otillatna)):
-                    F('8.2', sida, "CSP:ns %s släpper igenom annat än 'self' och hashar: %s" % (namn, ' '.join(otillatna[:4])))
+                utover = [k for k in otillatna if gk and (namn, k) not in gk['lattnader'] and ('script-src', k) not in gk['lattnader']]
+                if otillatna and (not skal or utover or any(k.lower() in CSP_SKRIPT_ALDRIG for k in otillatna)):
+                    F('8.2', sida, "CSP:ns %s släpper igenom annat än 'self' och hashar: %s%s" % (
+                        namn, ' '.join(otillatna[:4]), ('; lättnad utöver den godkända versionen %s' % gk['version']) if utover else ''))
                 elif otillatna:
-                    I('8.2', sida, 'CSP:ns %s är lättad mot mallen (%s), med skäl i RIKTNING.md: %s' % (namn, ' '.join(otillatna[:4]), skal[0][:200]))
+                    I('8.2', sida, 'CSP:ns %s är lättad mot mallen (%s), med skäl %s: %s' % (namn, ' '.join(otillatna[:4]), kalla_skal, skal[0][:200]))
             ovriga = {d: k for d, k in csp_lattnader(csp[0]).items() if d not in SKRIPTDIREKTIV}
+            text_ = lambda x: '; '.join('%s saknas' % d if k == ['(saknas)'] else '%s %s' % (d, ' '.join(k[:4])) for d, k in sorted(x.items()))  # noqa: E731
+            if gk:
+                utover = {d: [k for k in ks if (d, k) not in gk['lattnader']] for d, ks in ovriga.items()}
+                utover = {d: ks for d, ks in utover.items() if ks}
+                if utover:
+                    F('8.2', sida, 'CSP:n är lättad mot mallen (%s): lättnad utöver den godkända versionen %s (dess kalla/astro.config.mjs '
+                                   'har den inte)' % (text_(utover), gk['version']))
+                ovriga = {d: ks for d, ks in ovriga.items() if d not in utover}
             if ovriga:
-                lattnad = '; '.join('%s saknas' % d if k == ['(saknas)'] else '%s %s' % (d, ' '.join(k[:4])) for d, k in sorted(ovriga.items()))
+                lattnad = text_(ovriga)
                 if skal:
-                    I('8.2', sida, 'CSP:n är lättad mot mallen (%s), med skäl i RIKTNING.md: %s' % (lattnad, skal[0][:200]))
+                    I('8.2', sida, 'CSP:n är lättad mot mallen (%s), med skäl %s: %s' % (lattnad, kalla_skal, skal[0][:200]))
                 else:
                     F('8.2', sida, 'CSP:n är lättad mot mallen (%s) utan skäl: en lättnad i riktningens projekt har sitt skäl på en '
                                    'rad som börjar med "CSP:" i RIKTNING.md' % lattnad)
@@ -865,10 +879,73 @@ def csp_lattnader(policy, mall=None):
     return ut
 
 
+def blockets_text(text, nyckel):
+    """Texten i klamrarna efter nyckel (scriptDirective: { … }) med balanserade klamrar, eller ''."""
+    i = text.find(nyckel)
+    j = text.find('{', i) if i >= 0 else -1
+    if j < 0:
+        return ''
+    djup = 0
+    for k in range(j, len(text)):
+        djup += {'{': 1, '}': -1}.get(text[k], 0)
+        if djup == 0:
+            return text[j + 1:k]
+    return ''
+
+
+def config_policy(text):
+    """Policyn som en astro.config.mjs ger, så långt konfigurationen säger den: security.csp.directives, script-src ur
+    scriptDirective.resources och style-src och style-src-attr ur styleDirective.resources (hasharna lägger Astro till)."""
+    m = re.search(r'directives\s*:\s*\[(.*?)\]', text, re.S)
+    poster = re.findall(r'"([^"]+)"', m.group(1)) if m else []
+    skript = re.findall(r'"([^"]+)"', blockets_text(text, 'scriptDirective'))
+    stil_block = blockets_text(text, 'styleDirective')
+    attr = [x for o in re.findall(r'\{[^{}]*\}', stil_block) if 'attribute' in o for x in re.findall(r'"([^"]+)"', o)]
+    stil = re.findall(r'"([^"]+)"', re.sub(r'\{[^{}]*\}', '', stil_block))
+    poster += ['script-src ' + ' '.join(skript or ["'self'"]), 'style-src ' + ' '.join(stil or ["'self'"])]
+    if attr:
+        poster.append('style-src-attr ' + ' '.join(attr))
+    return ';'.join(poster)
+
+
+def godkand_csp(dist):
+    """Den godkända versionens CSP-lättnader i helbygget: när dist är kunder/<slug>/sajt/dist och kunden har ett giltigt
+    designgodkännande i läget astro (designfas.godkand_giltig), {'version', 'lattnader': {(direktiv, källa)}, 'skal'} ur
+    versionens kalla/astro.config.mjs (jämfört med mallen) och kalla/RIKTNING.md. Annars None: då gäller sajtens
+    RIKTNING.md, som i designfasen och kandidatflödet."""
+    delar = Path(dist).resolve().parts
+    try:
+        i = max(j for j, d in enumerate(delar) if d == 'kunder')
+    except ValueError:
+        return None
+    if delar[i + 2:] != ('sajt', 'dist'):
+        return None
+    rot, slug = Path(*delar[:i]), delar[i + 1]
+    try:
+        import designfas
+        ok, _skal, g = designfas.godkand_giltig(slug, rot / 'underlag')
+    except Exception:  # noqa: BLE001 — utan ett läsbart godkännande gäller dagens regel
+        return None
+    if not ok or not isinstance(g, dict) or g.get('lage') != 'astro' or not re.fullmatch(r'v\d{2,3}', str(g.get('version') or '')):
+        return None
+    kalla = rot / 'underlag' / slug / 'design' / 'versioner' / g['version'] / 'kalla'
+    try:
+        policy = config_policy((kalla / 'astro.config.mjs').read_text(encoding='utf-8'))
+    except OSError:
+        policy = ';'.join(' '.join([d] + k) for d, k in mallens_csp().items())
+    lattnader = {(d, k) for d, ks in csp_lattnader(policy).items() for k in ks}
+    return {'version': g['version'], 'lattnader': lattnader, 'skal': skalen_i(kalla / 'RIKTNING.md')}
+
+
 def csp_skal(dist):
-    """Riktningens skäl för en lättad CSP: raderna i projektets RIKTNING.md (bredvid dist/) som börjar med "CSP:" och
-    har ett skäl på minst 15 tecken. Tom lista när filen eller raden saknas."""
-    f = Path(dist).parent / 'RIKTNING.md'
+    """Riktningens skäl för en lättad CSP: raderna i projektets RIKTNING.md (bredvid dist/) som börjar med "CSP:"."""
+    return skalen_i(Path(dist).parent / 'RIKTNING.md')
+
+
+def skalen_i(f):
+    """Raderna i en RIKTNING.md som börjar med "CSP:" och har ett skäl på minst 15 tecken; tom lista när filen eller
+    raden saknas."""
+    f = Path(f)
     if f.is_symlink() or not f.is_file():
         return []
     ut = []

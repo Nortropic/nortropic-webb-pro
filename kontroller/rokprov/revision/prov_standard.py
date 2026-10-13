@@ -6,6 +6,7 @@ import contextlib
 from pathlib import Path
 import sys
 import unittest
+import unittest.mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import korregister
 import standard_kontroll as sk
@@ -113,6 +114,47 @@ class CspPerSajt(unittest.TestCase):
         fel, _ = self.fynd82(MALL.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"),
                              riktning='CSP: en inbäddad tjänst kräver inline-skript utan hash\n')
         self.assertTrue(any("'unsafe-inline'" in f for f in fel), fel)
+
+
+
+class CspIHelbygget(unittest.TestCase):
+    """Ägarens besked 2026-10-13 ("Yes, fix the things you mention"): i helbygget efter ett designgodkännande i läget astro
+    godtas en CSP-lättnad bara om den godkända versionen redan hade den, i versionens kalla/astro.config.mjs jämfört med
+    mallen och med skälet i versionens kalla/RIKTNING.md. Sajtens RIKTNING.md kan bygget skriva själv."""
+    MALLCONFIG = (Path(sk.__file__).resolve().parents[1] / 'mall' / 'astro' / 'astro.config.mjs').read_text(encoding='utf-8')
+
+    def bygge(self, st, policy, sajtens_riktning, versionens_config, versionens_riktning):
+        rot = Path(st.enter_context(korregister.egen_tmp_med('nwp-kallgap-', 'syntetisk byggstandard 8.2 i helbygget')))
+        sajt = rot / 'kunder' / 'prov-kund' / 'sajt'
+        (sajt / 'dist').mkdir(parents=True)
+        (sajt / 'dist' / 'index.html').write_text(SIDA.replace('<title>', '<meta http-equiv="content-security-policy" content="%s"><title>' % policy),
+                                                  encoding='utf-8')
+        (sajt / 'dist' / 'stil.css').write_text('body{margin:0}', encoding='utf-8')
+        (sajt / 'RIKTNING.md').write_text(sajtens_riktning, encoding='utf-8')
+        kalla = rot / 'underlag' / 'prov-kund' / 'design' / 'versioner' / 'v03' / 'kalla'
+        kalla.mkdir(parents=True)
+        (kalla / 'astro.config.mjs').write_text(versionens_config, encoding='utf-8')
+        (kalla / 'RIKTNING.md').write_text(versionens_riktning, encoding='utf-8')
+        import designfas
+        st.enter_context(unittest.mock.patch.object(designfas, 'godkand_giltig', return_value=(True, 'godkänd', {'lage': 'astro', 'version': 'v03'})))
+        fel, info, _ = sk.granska(sajt / 'dist')
+        return [f['text'] for f in fel if f['punkt'] == '8.2'], [i['text'] for i in info if i['punkt'] == '8.2']
+
+    def test_bygget_lagger_till_en_lattnad_med_eget_skal(self):
+        with contextlib.ExitStack() as st:
+            fel, _ = self.bygge(st, MALL.replace("img-src 'self' data:", "img-src 'self' data: https://bilder.example.se"),
+                                'CSP: bygget behövde kundens bildbank, skrivet av bygget självt\n', self.MALLCONFIG, '# Riktningen\n')
+        self.assertTrue(any('utöver den godkända versionen' in f and 'img-src https://bilder.example.se' in f for f in fel), fel)
+
+    def test_bygget_behaller_den_godkanda_lattnaden(self):
+        config = self.MALLCONFIG.replace('"img-src \'self\' data:"', '"img-src \'self\' data: https://bilder.example.se"')
+        self.assertNotEqual(config, self.MALLCONFIG)
+        with contextlib.ExitStack() as st:
+            fel, info = self.bygge(st, MALL.replace("img-src 'self' data:", "img-src 'self' data: https://bilder.example.se"),
+                                   '# Bygget skrev om RIKTNING.md och tappade raden\n', config,
+                                   'CSP: omdömenas bilder kommer från kundens bildbank, godkänt med versionen\n')
+        self.assertEqual(fel, [])
+        self.assertTrue(any('godkända versionen v03' in i for i in info), info)
 
 
 if __name__ == '__main__':
