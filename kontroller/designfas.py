@@ -1746,9 +1746,10 @@ def _regel(verktyg, vag, monster=''):
 
 
 def station_verktyg(slug, rid, underlag=None, extra=()):
-    """Utförarsessionens verktyg för en station: läsning, skrivning bara i riktningens projekt (src/, public/,
-    projektfilerna, RIKTNING.md och DESIGN.md) och rollen skapas MCP-verktyg ur metodkartan; inget Bash (drivaren
-    installerar paketen och sparar versionen)."""
+    """Utförarsessionens verktyg för en station: läsning; skrivning i riktningens projekt (src/, public/, projektfilerna,
+    RIKTNING.md och DESIGN.md); och rollen skapas verktyg ur metodkartan (kompetens.verktyg('skapa')), som ger Bash för
+    tre skript med kunden och kandidaten fasta (uxsok.py, material.py och skillskript.py) och skrivning i kandidatens
+    kompetens/skriptuppdrag/ och koncept/ i ateljén. Paketen installerar drivaren, och versionen sparar den."""
     import kandidater
     import kompetens
     p = rel(projekt(slug, rid, underlag))

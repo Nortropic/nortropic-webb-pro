@@ -1237,6 +1237,19 @@ class M_Drivaren(Grund):
         self.assertIn('station k03 art', andra)
         self.assertNotIn('station k03 innehall', andra)
 
+    def test_texterna_sager_vad_stationssessionerna_har(self):
+        """Andra granskningens fynd 5: stationssessionerna har Bash med rollen skapas skript, så texterna säger det och
+        nämner varje skript som verktygslistan släpper fram."""
+        regler = df.station_verktyg(SLUG, 'k01')
+        skript = sorted({re.search(r'kontroller/(\w+\.py)', r).group(1) for r in regler if r.startswith('Bash(')})
+        self.assertTrue(skript, regler)
+        texter = {'skillen': (ROOT / '.claude' / 'skills' / 'designfas' / 'SKILL.md').read_text(),
+                  'skapandeflodet': (ROOT / 'kunskap' / 'skapandeflodet.md').read_text(), 'station_verktyg': df.station_verktyg.__doc__}
+        for namn, text in texter.items():
+            self.assertIsNone(re.search(r'inget Bash|utan Bash', text), namn)
+            for s in skript:
+                self.assertTrue(s in text, (namn, s))
+
     def test_drivaren_anmaler_sig_i_korregistret(self):
         """Andra granskningens fynd 4: drivaren anmäler sig i körregistret som arbetaren och kor.sh, så att underhållet
         inte byter verktyg mitt i ett band, och avanmäler sig vid slut och vid stopp."""

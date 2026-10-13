@@ -53,7 +53,9 @@ jämförelsen väljer riktningen och godkänner den, bygget startar av sig själ
 publiceringen väntar på honom): `designfas.py kor <slug>` kör bandet utan ägaren. Kandidatflödet startar den efter
 `lamna_till_bandet` (standard; `NWP_DESIGNFAS_AUTONOM=av` lämnar bandet åt den interaktiva utföraren), och
 `prototyp.py <slug>` eller `--fortsatt` tar vid där den slutade. Följden: stationerna före valet för varje riktning
-(högst tre samtidigt, en utförarsession per station och en version per station, ett nytt försök när ett bygge faller);
+(högst tre samtidigt, en utförarsession per station och en version per station, ett nytt försök när ett bygge faller;
+sessionen läser, skriver i riktningens projekt och i kandidatens kompetens- och konceptkataloger, och kör rollen skapas
+skript `uxsok.py`, `material.py` och `skillskript.py`, medan drivaren installerar paketen och sparar versionen);
 kritiken per riktning och jämförelsen; jämförelsens val (DESIGNFAS.json och domloggen med källan `jämförelsen`; ägarens
 eget val eller uppdrag efter starten går före); stationerna efter valet för den valda och en ny kritik; sigillets
 godkännande (`designfas.autogodkann`), överlämningen och en byggbegäran genom samma väg som `prototyp.py --helbygge`.
