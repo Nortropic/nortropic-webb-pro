@@ -75,8 +75,8 @@ svagare innan ägaren ser dem. Ber ägaren om fler (två åt gången), får de s
 samma följd och jämförs med de tidigare. Jämförelsen väljer riktningen i sitt svar (fältet `val`), och ägarens eget
 val går före; den valda går resten av bandet: typografi, responsiv, rörelse, formulär, kritik, tillgänglighet och polish.
 **Godkännandet** (BESLUT.md, tilläggen 2026-10-13) gäller riktningens senaste version: den autonoma godkännaren
-(`designfas.autogodkann`, som bandets drivare anropar) godkänner när den senaste jämförelsen valde riktningen och den
-senaste kritiken av just den versionen, ett eget `ds_kritik`-pass med sessionskvitto, svarar premium på C5 (fältet
+(`designfas.autogodkann`, som bandets drivare anropar) godkänner när riktningen är vald (av ägaren, eller annars av den
+senaste jämförelsen) och den senaste kritiken av just den versionen, ett eget `ds_kritik`-pass med sessionskvitto, svarar premium på C5 (fältet
 `detaljniva`) utan fynd med allvar 3 eller 4. Ägaren kan godkänna själv, i sin egen terminal eller i portalen, och hans
 väg och hans senare beslut går före. Varje godkännande är förseglat (`kontroller/sigill.py`); bygget tar vid bara därifrån.
 **Överlämningen** efter godkännandet: `designfas.py overlamna <slug>`, DESIGN.md i paketet ifylld ur den

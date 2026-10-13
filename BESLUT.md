@@ -5908,15 +5908,18 @@ delvis ägarens rad samma morgon, ordagrant: "Designgodkännandet, byggstarten o
 beslut": godkännandet och byggstarten är autonoma, publiceringen är fortfarande hans.
 
 - **Den autonoma godkännaren** (`designfas.autogodkann(slug, version, ritning)`, anropad av bandets drivare, ingen
-  terminal): godkänner när versionen är riktningens senaste med startsidans bilder i 390, 768 och 1440; den senaste
-  jämförelsen mellan riktningarna (`jamforelse` med `*`, ett eget pass) valde riktningen i fältet `val` och såg just den
-  versionen; och den senaste kritiken av versionen (`ds_kritik` i en egen session med verifierat sessionskvitto, inte ett
+  terminal): godkänner när versionen är riktningens senaste med startsidans bilder i 390, 768 och 1440; riktningen är
+  vald, av ägaren (hans senaste beslut är ett val av den) eller annars av den senaste jämförelsen mellan riktningarna
+  (`jamforelse` med `*`, ett eget pass, fältet `val`), som såg riktningen i en tidigare eller samma version (en ensam
+  riktning behöver ingen jämförelse); och den senaste kritiken av versionen (`ds_kritik` i en egen session med verifierat sessionskvitto, inte ett
   svar infört för hand) gällde versionens avtryck som det är nu, har inget fynd med allvar 3 eller 4 och svarar premium
   på C5 (`kunskap/precision.md`, Detaljnivån) i fältet `detaljniva`. Posten och domloggens rad har källan
-  `autonom granskning`, aldrig ägarens (`skapande.ar_agarens`), med belägg i kritikens och jämförelsens svarsfiler.
+  `autonom granskning`, aldrig ägarens (`skapande.ar_agarens`), med belägg i kritikens och jämförelsens svarsfiler;
+  jämförelsens val står i domloggen med källan `jämförelsen`, som inte heller är ett beslut. `godkand_giltig`,
+  `flodesstart.krav` (helbyggets väg, också drivarens) och kor.sh godtar ett förseglat autonomt godkännande.
 - **Ägarens väg går före:** ägaren godkänner själv i sin terminal eller i portalen; finns ett gällande godkännande från
-  honom, eller ett beslut från honom efter versionen, godkänner den autonoma godkännaren inte, och ett senare beslut från
-  honom gör ett autonomt godkännande ogiltigt.
+  honom, eller ett annat beslut från honom efter versionen, godkänner den autonoma godkännaren inte, och ett senare
+  beslut från honom eller kunden (ett val, ett uppdrag eller ett underkännande) gör ett autonomt godkännande ogiltigt.
 - **Byggstarten** är autonom efter ett giltigt, förseglat godkännande, oavsett kanal: kor.sh kräver ingen terminal, men
   tar vid bara därifrån. Utförarens session nekas kor.sh och `--helbygge`; drivaren startar bygget.
 - **Publiceringen** är bara ägarens: release och aktivering kräver hans förseglade mandat, satt vid klicket i Byggflöde

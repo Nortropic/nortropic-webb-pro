@@ -91,7 +91,7 @@ bilderna i 390/768/1440 och kontrollerna), och ägaren ser och kommenterar versi
 
 **Vem som godkänner** (BESLUT.md, tilläggen 2026-10-13): autonomt till och med bygget, och ägaren publicerar. Den
 autonoma godkännaren (`designfas.autogodkann`, som bandets drivare anropar) godkänner riktningens senaste version när
-jämförelsen valt riktningen och en oberoende kritik av just den versionen svarar premium på C5 utan blockerande fynd, och
+riktningen är vald (av jämförelsen, eller av ägaren) och en oberoende kritik av just den versionen svarar premium på C5 utan blockerande fynd, och
 bygget startar sedan av sig självt. Du kan godkänna själv, och din väg och dina senare beslut går före: i din egen
 terminal med `.venv/bin/python kontroller/designfas.py godkann <slug> <v> --ritning <kNN>` (kommandot visar versionen,
 riktningen och en kod som du skriver tillbaka) eller i portalen. Varje godkännande bär sigillet (`kontroller/sigill.py`,

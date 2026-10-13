@@ -47,7 +47,7 @@ insatsen mot förra versionen av riktningen med bilderna före och efter. Ägare
 artefakt (`designfas.py artefakt <slug> <kNN>`, publicerad av sessionen, samma artefakt per riktning) och kommenterar
 där. Godkännandet binder versionen (BESLUT.md, tilläggen 2026-10-13: autonomt till och med bygget, ägaren publicerar):
 den autonoma godkännaren (`designfas.autogodkann`, anropad av bandets drivare) godkänner riktningens senaste version när
-jämförelsen valt riktningen och en oberoende kritik av just den versionen svarar premium på C5 utan blockerande fynd;
+riktningen är vald (av jämförelsen, eller av ägaren) och en oberoende kritik av just den versionen svarar premium på C5 utan blockerande fynd;
 ägaren kan godkänna själv i sin egen terminal (`designfas.py godkann`, koden på /dev/tty) eller i portalen, och hans
 väg och hans senare beslut går före. Varje godkännande är förseglat med sigillet (`kontroller/sigill.py`): ett
 godkännande som en session skrivit själv gäller aldrig. Överlämningen bär källan, och kor.sh lägger den med
