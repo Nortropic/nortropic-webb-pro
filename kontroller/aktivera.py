@@ -258,12 +258,24 @@ def torr(slug, valda=None):
             'kan_koras': not hinder and not saknade and bool(att_gora), 'plan_sha256': _sha(plan)}
 
 
+MANDATFALT = ('slug', 'typ', 'tid', 'kalla', 'plan_sha256', 'start_id', 'giltig_till')
+
+
+def mandat_giltigt(slug, m):
+    """(giltigt, skäl): ett aktiveringsmandat är ägarens bara med ägarens sigill (kontroller/sigill.py) över fälten."""
+    import sigill
+    if not isinstance(m, dict) or m.get('kalla') not in kundrepo.MANDATKALLOR:
+        return False, 'mandatet är inte ägarens'
+    return sigill.prova('aktivering', {k: m.get(k) for k in MANDATFALT}, m.get('sigill'), kundrepo.leveransdir(slug))
+
+
 def aktiveringsmandat(slug, kalla, plan_sha256, start_id):
-    """Ägarens mandat för en aktivering, skrivet av dashboardens skrivande väg vid klicket i Byggflöde: bundet till den
-    plan_sha256 som ägaren såg vid knappen, till klickets start-id och till en kort giltighetstid. En session skriver
-    det aldrig."""
-    if kalla != 'dashboard':
-        raise Fel('mandatet för en aktivering är ägarens klick i dashboarden')
+    """Ägarens mandat för en aktivering, vid klicket i Byggflöde (kalla 'dashboard', portalens ägartoken) eller hans
+    eget kommando i terminalen (kalla 'terminalen', koden på /dev/tty): bundet till den plan_sha256 som ägaren såg, till
+    start-id:t och till en kort giltighetstid, och förseglat med ägarens sigill (kontroller/sigill.py). En session, bandets
+    drivare och den autonoma godkännaren skriver det aldrig."""
+    if kalla not in kundrepo.MANDATKALLOR:
+        raise Fel('mandatet för en aktivering är ägarens: hans klick i portalen eller hans eget kommando i terminalen')
     if not isinstance(start_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,80}', start_id):
         raise Fel('mandatet binds till klickets start-id')
     t = torr(slug)
@@ -271,8 +283,15 @@ def aktiveringsmandat(slug, kalla, plan_sha256, start_id):
         raise Fel('ingen aktivering: ' + '; '.join(t['hinder'] + t['saknas'] or ['inget att göra']))
     if t['plan_sha256'] != plan_sha256:
         raise Fel('planen har ändrats sedan du såg den: läs torrkörningen igen')
-    post = {'schema': 2, 'typ': 'aktiveringsmandat', 'slug': slug, 'tid': kundrepo.nu(), 'kalla': kalla, 'plan_sha256': plan_sha256,
+    post = {'schema': 3, 'typ': 'aktiveringsmandat', 'slug': slug, 'tid': kundrepo.nu(), 'kalla': kalla, 'plan_sha256': plan_sha256,
             'start_id': start_id, 'giltig_till': int(time.time()) + MANDATTID}
+    import sigill
+    try:
+        post['sigill'], post['kanal'] = sigill.forsegla_agaren('aktivering', {k: post.get(k) for k in MANDATFALT}, kundrepo.leveransdir(slug), [
+            'AKTIVERING av %s på Cloudflare' % slug, 'planen %s: %d steg' % (plan_sha256[:12], t['att_gora']),
+            'Aktiveringen skapar och ändrar kundens resurser i produktionskontot.'])
+    except sigill.Nekad as e:
+        raise Fel('aktiveringen är ägarens beslut och mandatet sätts bara i hans egen terminal eller i portalen: %s' % e)
     kundrepo.leveransdir(slug).mkdir(parents=True, exist_ok=True)
     atelje.skriv_json_atomiskt(mandatfil(slug), post)
     return post
@@ -343,7 +362,7 @@ def kor(slug, wrangler=None, exportera_fn=None):
             post['status'] = 'vantar_pa_avstamning' if osaker(slug) else 'hinder'
         elif not t['att_gora']:
             post['status'] = 'inget_att_gora'
-        elif (not m or m.get('kalla') != 'dashboard' or m.get('anvant_av') or m.get('slug') != slug or m.get('plan_sha256') != t['plan_sha256']
+        elif (not m or not mandat_giltigt(slug, m)[0] or m.get('anvant_av') or m.get('slug') != slug or m.get('plan_sha256') != t['plan_sha256']
               or not m.get('start_id') or m.get('start_id') != os.environ.get('NWP_FLODE_START_ID')
               or not isinstance(m.get('giltig_till'), int) or m['giltig_till'] < time.time()):
             post['hinder'].append('inget giltigt mandat från ägaren för den här planen och starten: aktiveringen startas av ägarens klick i Byggflöde')

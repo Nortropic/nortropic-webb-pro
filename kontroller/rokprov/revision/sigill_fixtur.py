@@ -30,3 +30,37 @@ def aktivera():
     os.environ['NWP_GODKANNANDE_NYCKEL'] = str(n)
     os.environ['NWP_AGARBEVIS'] = token
     return d
+
+
+def utan_terminal(fn, utan_agartoken=True):
+    """fn() i en gaffel av provets process som har lämnat sin styrande terminal (setsid), utan ägartoken: så som bandets
+    drivare eller en session kör, oavsett om provet startats i en terminal. Provets attrapper och sökvägar följer med i
+    gaffeln. Ger ('ok', repr av värdet) eller (felets klass, text)."""
+    import json as _json
+    import traceback
+    r, w = os.pipe()
+    pid = os.fork()
+    if pid == 0:  # barnet
+        try:
+            os.close(r)
+            os.setsid()
+            if utan_agartoken:
+                os.environ.pop('NWP_AGARBEVIS', None)
+            os.environ.pop('CLAUDECODE', None)
+            try:
+                ut = ('ok', repr(fn())[:2000])
+            except BaseException as e:  # noqa: BLE001 — utfallet går till föräldern
+                ut = (type(e).__name__, str(e)[:2000] or traceback.format_exc()[-800:])
+            os.write(w, _json.dumps(ut).encode())
+        finally:
+            os._exit(0)
+    os.close(w)
+    data = b''
+    while True:
+        b = os.read(r, 65536)
+        if not b:
+            break
+        data += b
+    os.close(r)
+    os.waitpid(pid, 0)
+    return tuple(_json.loads(data or b'["inget svar", ""]'))

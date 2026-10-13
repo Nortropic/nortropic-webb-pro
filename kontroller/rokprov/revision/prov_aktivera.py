@@ -25,6 +25,9 @@ import exportera  # noqa: E402
 import korregister  # noqa: E402
 import kundrepo  # noqa: E402
 import nyckelintag as ni  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sigill_fixtur  # noqa: E402
+sigill_fixtur.aktivera()  # provnyckeln: ägarens mandat förseglas genom provets egen portal, aldrig med ägarens nyckel
 
 ROOT = Path(__file__).resolve().parents[3]
 SLUG = 'prov-aktiv'
@@ -151,6 +154,20 @@ class Aktivera(unittest.TestCase):
             aktivera.aktiveringsmandat(SLUG, 'dashboard', '0' * 64, START)
         with self.assertRaises(aktivera.Fel):
             aktivera.aktiveringsmandat(SLUG, 'dashboard', aktivera.torr(SLUG)['plan_sha256'], None)
+        # aktiveringen är bara ägarens (BESLUT.md, 2026-10-13): ett mandat som en session eller bandets drivare skrivit själv
+        # gäller inte, utan ägarens kanal sätts inget, och den autonoma godkännaren förseglar aldrig ett mandat
+        import sigill
+        import time
+        egen = {'schema': 2, 'typ': 'aktiveringsmandat', 'slug': SLUG, 'tid': kundrepo.nu(), 'kalla': 'dashboard',
+                'plan_sha256': aktivera.torr(SLUG)['plan_sha256'], 'start_id': START, 'giltig_till': int(time.time()) + 600}
+        aktivera.mandatfil(SLUG).parent.mkdir(parents=True, exist_ok=True)
+        aktivera.mandatfil(SLUG).write_text(json.dumps(egen))
+        self.assertEqual(self.kor()['status'], 'vantar_pa_mandat', 'ett mandat utan ägarens sigill gäller inte'); self.assertEqual(self.w.anrop, [])
+        utfall = sigill_fixtur.utan_terminal(lambda: self.mandat())
+        self.assertEqual(utfall[0], 'Fel', utfall)
+        self.assertIn('egen terminal', utfall[1])
+        with self.assertRaisesRegex(sigill.Nekad, 'bara designfasens'):
+            sigill.forsegla_autonomt('aktivering', egen, kundrepo.leveransdir(SLUG))
         # mandatet gäller klickets start och en kort tid: en annan start eller ett gammalt klick kör ingenting
         self.mandat('en-annan-start-0002')
         self.assertEqual(self.kor()['status'], 'vantar_pa_mandat'); self.assertEqual(self.w.anrop, [])

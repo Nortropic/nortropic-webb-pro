@@ -802,12 +802,26 @@ def mandatfil(slug):
 MANDATTID = 15 * 60  # sekunder: ett klick i Byggflöde gäller en start, strax efter klicket
 
 
+MANDATKALLOR = ('dashboard', 'terminalen')  # ägarens klick i portalen, eller hans eget kommando i terminalen
+MANDATFALT = ('slug', 'typ', 'tid', 'kalla', 'commit', 'export', 'forhandsvisning', 'start_id', 'giltig_till')
+
+
+def mandat_giltigt(slug, m):
+    """(giltigt, skäl): ett releasemandat är ägarens bara med ägarens sigill (kontroller/sigill.py) över fälten."""
+    import sigill
+    if not isinstance(m, dict) or m.get('kalla') not in MANDATKALLOR:
+        return False, 'mandatet är inte ägarens'
+    return sigill.prova('release', {k: m.get(k) for k in MANDATFALT}, m.get('sigill'), leveransdir(slug))
+
+
 def releasemandat(slug, kalla, commit, export, start_id):
-    """Ägarens mandat för en release: skrivs av dashboardens skrivande väg när ägaren klickar på releasen i Byggflöde
-    (kalla 'dashboard'), bundet till den commit och export som ägaren såg vid knappen, till förhandsvisningens kvitto,
-    till klickets start-id och till en kort giltighetstid. En session skriver det aldrig."""
-    if kalla != 'dashboard':
-        raise ValueError('mandatet för en release är ägarens klick i dashboarden')
+    """Ägarens mandat för en release: skrivs när ägaren klickar på releasen i Byggflöde (kalla 'dashboard', portalens
+    ägartoken) eller kör releasen i sin egen terminal (kalla 'terminalen', koden på /dev/tty), bundet till den commit och
+    export som ägaren såg, till förhandsvisningens kvitto, till start-id:t och till en kort giltighetstid, och förseglat
+    med ägarens sigill (kontroller/sigill.py; BESLUT.md, 2026-10-13: publiceringen är bara ägarens). En session, bandets
+    drivare och den autonoma godkännaren skriver det aldrig."""
+    if kalla not in MANDATKALLOR:
+        raise ValueError('mandatet för en release är ägarens: hans klick i portalen eller hans eget kommando i terminalen')
     if not isinstance(start_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,80}', start_id):
         raise ValueError('mandatet binds till klickets start-id')
     hinder = preview_krav(slug) or release_krav(slug)
@@ -816,9 +830,16 @@ def releasemandat(slug, kalla, commit, export, start_id):
     pv = preview_aktuell(slug)
     if (commit, export) != (pv['commit'], pv['export']):
         raise ValueError('förhandsvisningen har ändrats sedan du såg den: läs läget igen')
-    post = {'schema': 2, 'typ': 'releasemandat', 'slug': slug, 'tid': nu(), 'kalla': kalla, 'commit': pv['commit'],
+    post = {'schema': 3, 'typ': 'releasemandat', 'slug': slug, 'tid': nu(), 'kalla': kalla, 'commit': pv['commit'],
             'export': pv['export'], 'forhandsvisning': pv['id'], 'forhandsvisning_version': pv.get('version_id'),
             'start_id': start_id, 'giltig_till': int(time.time()) + MANDATTID}
+    import sigill
+    try:
+        post['sigill'], post['kanal'] = sigill.forsegla_agaren('release', {k: post.get(k) for k in MANDATFALT}, leveransdir(slug), [
+            'PRODUKTIONSRELEASE av %s' % slug, 'commit %s, exporten %s' % (pv['commit'], pv['export']),
+            'förhandsvisningen %s' % pv['id'], 'Releasen publicerar sajten i produktionen.'])
+    except sigill.Nekad as e:
+        raise ValueError('releasen är ägarens beslut och mandatet sätts bara i hans egen terminal eller i portalen: %s' % e)
     leveransdir(slug).mkdir(parents=True, exist_ok=True)
     atelje.skriv_json_atomiskt(mandatfil(slug), post)
     return post
@@ -852,7 +873,7 @@ def _release(slug, deploy):
             m = json.loads(mandatfil(slug).read_text(encoding='utf-8'))
         except (OSError, ValueError):
             m = None
-        if (not m or m.get('kalla') != 'dashboard' or m.get('anvant_av') or m.get('slug') != slug
+        if (not m or not mandat_giltigt(slug, m)[0] or m.get('anvant_av') or m.get('slug') != slug
                 or (m.get('commit'), m.get('export')) != (post['commit'], post['export'])
                 or not m.get('start_id') or m.get('start_id') != os.environ.get('NWP_FLODE_START_ID')
                 or not isinstance(m.get('giltig_till'), int) or m['giltig_till'] < time.time()):
