@@ -293,10 +293,15 @@ def _gsap_sidan():
     for marker in ('clock.runFor', 'new DOMMatrix', "rm === 'byte'", 'javaScriptEnabled: false'):
         assert marker in js, marker
     assert 'prov_rorelse.py' in rp and 'rorelse-prov.log' in rp, 'rökprovet kör det här provet'
+    motionversioner = set()
     for m in ('astro', 'leverans'):
         pj = json.loads((KOPIA / 'mall' / m / 'package.json').read_text(encoding='utf-8'))
         assert pj['dependencies'].get('gsap') == '3.15.0', (m, pj['dependencies'].get('gsap'))
-        assert pj['dependencies'].get('motion') == '14.0.0' and 'framer-motion' not in pj['dependencies'], 'motion kvar, aldrig framer-motion bredvid'
+        # exakt version, som underhållet byter (5188cc1: 14.1.0), aldrig framer-motion bredvid
+        mv = pj['dependencies'].get('motion') or ''
+        assert re.fullmatch(r'\d+\.\d+\.\d+', mv) and 'framer-motion' not in pj['dependencies'], ('motion kvar, aldrig framer-motion bredvid', m, mv)
+        motionversioner.add(mv)
+    assert len(motionversioner) == 1, ('samma motion i båda mallarna', motionversioner)
         las = json.loads((KOPIA / 'mall' / m / 'package-lock.json').read_text(encoding='utf-8'))
         g = las['packages']['node_modules/gsap']
         assert g['version'] == '3.15.0' and not g.get('hasInstallScript') and not g.get('dependencies') and 'standard-license' in g.get('license', ''), (m, g)
