@@ -2288,8 +2288,10 @@ def _kor(slug, rk, start, underlag, cf):
                           'godkännandet med %s av %s klar' % (v, rid))
     try:
         post = auto(slug, v, rid, underlag=underlag)
-    except Fel as e:
-        raise Stoppad('sigillet godkände inte %s av %s: %s' % (v, rid, e))
+    except Fel as e:  # grinden håller inte: versionen väntar på godkännandet, ägarens eget eller ett nytt varv efter hans uppdrag
+        return logga(slug, underlag, steg='vantar_pa_sigillet', pid=None,
+                     skal='den autonoma godkännaren (designfas.autogodkann) godkände inte %s av %s: %s; ägaren kan godkänna själv '
+                          'eller ge ett uppdrag' % (v, rid, e))
     logga(slug, underlag, godkannande={k_: (post or {}).get(k_) for k_ in ('version', 'ritning', 'tid', 'kalla')}, steg='overlamning')
     overlamna(slug, underlag)
     if overlamning_brister(slug, underlag):

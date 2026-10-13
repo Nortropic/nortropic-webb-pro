@@ -414,8 +414,9 @@ def bygg(slug, status, korning, typ=TYP, efterhand=None):
                     '--stoppa' % (dv.get('skal') or EJ, slug, slug)],
             'stoppad': ['rätta det som stoppade drivaren (%s) och ta vid med .venv/bin/python kontroller/prototyp.py %s --fortsatt'
                         % (dv.get('skal') or EJ, slug)],
-            'vantar_pa_sigillet': ['sigillet (designfas.autogodkann) godkänner den valda versionen; drivaren tar sedan vid med '
-                                   '.venv/bin/python kontroller/prototyp.py %s --fortsatt' % slug],
+            'vantar_pa_sigillet': ['den valda versionen väntar på godkännandet (%s): ägaren godkänner själv i sin terminal '
+                                   '(designfas.py godkann) eller i portalen, eller ger ett uppdrag; drivaren tar sedan vid med '
+                                   '.venv/bin/python kontroller/prototyp.py %s --fortsatt' % (dv.get('skal') or EJ, slug)],
             'helbygge startat': ['helbygget är startat (start-id %s); följ det i Byggflöde, och publiceringen väntar på ägaren'
                                  % (dv.get('start_id') or EJ)],
             'klar': ['ägaren granskar den byggda sajten; publiceringen väntar på honom'],

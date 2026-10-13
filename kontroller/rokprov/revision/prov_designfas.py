@@ -1337,7 +1337,7 @@ class M_Drivaren(Grund):
         self.assertEqual(st['drivare']['lage'], 'vantar_pa_sigillet')
         _f, post = ateljeslut.post_for(SLUG, st)
         self.assertIsNotNone(post, 'slutposten skrevs för drivarens läge')
-        self.assertTrue(any('sigillet' in a for a in post['atgarder']), post['atgarder'])
+        self.assertTrue(any('väntar på godkännandet' in a and 'autogodkann' in a and 'portalen' in a for a in post['atgarder']), post['atgarder'])
         self.assertFalse(any('design.sh' in a for a in post['atgarder']))
         self.assertEqual(ateljeslut.utfall({'steg': 'band', 'drivare': {'lage': 'stoppad', 'skal': 'bygget föll'}})[:2], ('stoppad', 4))
         self.assertEqual(ateljeslut.utfall({'steg': 'band', 'drivare': {'lage': 'kor', 'skal': 'före valet'}})[:2], ('klar', 0))
