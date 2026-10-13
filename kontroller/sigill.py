@@ -66,12 +66,25 @@ def provnyckel():
 
 
 def vakt(vag):
-    """En provnyckel gäller aldrig ägarens kunder: underlag/ och kunder/ i huvudutcheckningen."""
+    """En provnyckel gäller aldrig ägarens kunder: underlag/ och kunder/ i huvudutcheckningen. Katalogerna jämförs med
+    sin identitet (enhet och inod) längs vägen och dess föräldrar, inte med stavningen: macOS-volymen skiljer inte på stora
+    och små bokstäver, och kor.sh:s väg kommer ur pwd (granskningen av sigillet, fynd 1)."""
     if not provnyckel() or vag is None:
         return
-    p = Path(vag).resolve()
+    skyddade = set()
     for d in (HUVUD / 'underlag', HUVUD / 'kunder'):
-        if p == d.resolve() or p.is_relative_to(d.resolve()):
+        try:
+            st = os.stat(d)
+            skyddade.add((st.st_dev, st.st_ino))
+        except OSError:
+            pass
+    p = Path(os.path.abspath(vag))
+    for a in (p, *p.parents):
+        try:
+            st = os.stat(a)
+        except OSError:
+            continue
+        if (st.st_dev, st.st_ino) in skyddade:
             raise Nekad('provnyckeln (NWP_GODKANNANDE_NYCKEL) gäller aldrig ägarens kunder i huvudutcheckningen')
 
 

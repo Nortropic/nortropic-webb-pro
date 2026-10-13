@@ -1694,6 +1694,25 @@ class K_Sigill(Grund):
         with self.assertRaisesRegex(sigill.Nekad, 'huvudutcheckningen'):
             sigill.vakt(sigill.HUVUD / 'underlag' / 'någon-kund')
 
+    def test_provnyckeln_galler_aldrig_huvudutcheckningen_i_annan_stavning(self):
+        """Granskningen av sigillet, fynd 1: volymen skiljer inte på stora och små bokstäver, så vakten jämför katalogernas
+        identitet (enhet och inod), inte stavningen; också vägen som kor.sh får ur pwd."""
+        import sigill
+        if not (sigill.HUVUD / 'underlag').is_dir():
+            self.skipTest('huvudutcheckningen finns inte på den här maskinen')
+        annan = Path(str(sigill.HUVUD).upper())
+        if not annan.is_dir() or str(annan) == str(sigill.HUVUD):
+            self.skipTest('volymen skiljer på stora och små bokstäver')
+        pwd_ = subprocess.run(['bash', '-c', 'cd "$1" && pwd', '_', str(annan)], capture_output=True, text=True).stdout.strip()
+        for vag in (annan / 'underlag' / 'prov-kund', Path(str(sigill.HUVUD).swapcase()) / 'kunder' / 'prov-kund' / 'atelje',
+                    Path(pwd_) / 'underlag' / 'prov-kund' / 'design'):
+            with self.assertRaisesRegex(sigill.Nekad, 'huvudutcheckningen', msg=str(vag)):
+                sigill.vakt(vag)
+            ok, skal = sigill.prova('designfas', {'slug': 'prov-kund'}, '0' * 64, vag)
+            self.assertFalse(ok)
+            self.assertIn('huvudutcheckningen', skal)
+        sigill.vakt(self.u / SLUG)  # provets egen katalog går
+
     def test_kandidatvagens_godkannande_ar_forseglat(self):
         a = self.u / SLUG / 'atelje'
         (a / 'vinnare' / 'kod').mkdir(parents=True)
