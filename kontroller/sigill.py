@@ -230,23 +230,33 @@ def forsegla_autonomt(slag, falt, vag):
     return _berakna(slag, falt, nyckel(skapa=True))
 
 
-def nodvagsmandat(slugs, id_, visning, giltig_s=NODVAG_GILTIG):
+def nodvagsmandat(slugs, id_, visning, vagar, giltig_s=NODVAG_GILTIG):
     """Ägarens mandat för nödvägen utan godkänd design (kor.sh med NWP_ATELJE=av; granskningen av sigillet, fynd 5):
     bundet till byggenas slugs, ett id (A/B-körningen eller kor.sh-starten) och en giltighetstid, och förseglat genom
-    ägarens kanal (forsegla_agaren: terminalen eller portalen, och nyckeln). Ger posten."""
+    ägarens kanal (forsegla_agaren: terminalen eller portalen, och nyckeln). vagar: byggenas kataloger och mandatets
+    egen; vakten prövar varje, så att en provnyckel aldrig förseglar för huvudutcheckningens kunder (kontrollgranskningen,
+    A). Ger posten."""
     import time
+    vagar = list(vagar)
+    if not vagar:
+        raise Nekad('mandatet för nödvägen behöver byggenas kataloger (vakten mot provnyckeln)')
+    for v in vagar:
+        vakt(v)
     post = {'schema': 1, 'typ': 'nodvag', 'id': str(id_), 'slugs': sorted(set(map(str, slugs))), 'kalla': 'ägaren',
             'tid': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'giltig_till': int(time.time()) + int(giltig_s)}
-    post['sigill'], post['kanal'] = forsegla_agaren('nodvag', {k: post.get(k) for k in NODVAGSFALT}, None, visning)
+    post['sigill'], post['kanal'] = forsegla_agaren('nodvag', {k: post.get(k) for k in NODVAGSFALT}, vagar[0], visning)
     return post
 
 
-def nodvag_giltigt(post, slug):
-    """(giltigt, skäl): mandatet är förseglat, gäller slug och har inte gått ut."""
+def nodvag_giltigt(post, slug, vag):
+    """(giltigt, skäl): mandatet är förseglat, gäller slug och har inte gått ut. vag: byggets katalog i den utcheckning
+    kor.sh kör i (ROOT/kunder/<slug>); en provnyckel gäller aldrig där i huvudutcheckningen (kontrollgranskningen, A)."""
     import time
     if not isinstance(post, dict) or post.get('typ') != 'nodvag':
         return False, 'inget mandat för nödvägen'
-    ok, skal = prova('nodvag', {k: post.get(k) for k in NODVAGSFALT}, post.get('sigill'))
+    if vag is None:
+        return False, 'mandatet för nödvägen prövas mot byggets katalog'
+    ok, skal = prova('nodvag', {k: post.get(k) for k in NODVAGSFALT}, post.get('sigill'), vag)
     if not ok:
         return False, skal
     if slug not in (post.get('slugs') or []):
@@ -275,23 +285,28 @@ def main(argv=None):
                                     'ägaren ett nytt i sin terminal; slutkod 0 gäller, 2 nekat')
     a.add_argument('--slug', required=True)
     a.add_argument('--vad', required=True)
+    a.add_argument('--rot', default=str(Path(__file__).resolve().parents[1]),
+                   help='utcheckningen som kor.sh kör i (dess ROOT); mandatet prövas mot ROOT/kunder/<slug>')
     x = p.parse_args(argv)
     try:
         if x.cmd == 'agaren':
             print('bekräftat i %s' % agarkanal([x.vad]))
-        elif os.environ.get('NWP_NODVAG_MANDAT'):
+            return 0
+        vag = Path(x.rot) / 'kunder' / x.slug
+        if os.environ.get('NWP_NODVAG_MANDAT'):
             try:
                 post = json.loads(Path(os.environ['NWP_NODVAG_MANDAT']).read_text(encoding='utf-8'))
             except (OSError, ValueError) as e:
                 raise Nekad('mandatet för nödvägen kunde inte läsas (%s)' % e)
-            ok, skal = nodvag_giltigt(post, x.slug)
+            ok, skal = nodvag_giltigt(post, x.slug, vag)
             if not ok:
                 raise Nekad(skal)
             print('nödvägen: %s' % skal)
         else:
             import time
-            post = nodvagsmandat([x.slug], 'kor-%s-%s' % (x.slug, time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())), [x.vad], giltig_s=600)
-            ok, skal = nodvag_giltigt(post, x.slug)
+            post = nodvagsmandat([x.slug], 'kor-%s-%s' % (x.slug, time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())), [x.vad], [vag],
+                                 giltig_s=600)
+            ok, skal = nodvag_giltigt(post, x.slug, vag)
             if not ok:
                 raise Nekad(skal)
             print('nödvägen: %s' % skal)

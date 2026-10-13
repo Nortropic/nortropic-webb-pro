@@ -219,7 +219,8 @@ def starta(a):
         import sigill
         try:
             m = sigill.nodvagsmandat([x, y], ident, ['A/B-jämförelsen %s: två helbyggen utan godkänd design (nödvägen NWP_ATELJE=av)' % ident,
-                                                     'byggena %s och %s, verksamheten %s' % (x, y, a.verksamhet)])
+                                                     'byggena %s och %s, verksamheten %s' % (x, y, a.verksamhet)],
+                                     [AB / 'mandat', KUNDER / x, KUNDER / y])  # vakten: en provnyckel aldrig för huvudutcheckningen
         except sigill.Nekad as e:
             print('Jämförelsen startar inte: nödvägen kräver ägarens förseglade mandat (%s)' % e)
             return 2

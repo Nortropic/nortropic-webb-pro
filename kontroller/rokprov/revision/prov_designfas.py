@@ -2003,7 +2003,7 @@ class K_Sigill(Grund):
         sett, ut, svarat = self.i_terminal(kod, env_extra={'NWP_GODKANNANDE_NYCKEL': str(utan / 'godkannande.nyckel')})
         self.assertIn('RC 2', ut, sett[-300:] + ut[-300:])
         # mandatet: förseglat genom ägarens kanal (provets portal), bundet till byggena och en tid
-        m = sigill.nodvagsmandat(['prov-abx', 'prov-aby'], 'ab-prov-1', ['provet'])
+        m = sigill.nodvagsmandat(['prov-abx', 'prov-aby'], 'ab-prov-1', ['provet'], [self.k / 'prov-abx', self.k / 'prov-aby'])
         f = self.tmp / 'mandat.json'
         f.write_text(json.dumps(m))
         env = {x: v for x, v in os.environ.items() if x not in ('NWP_AGARBEVIS', 'CLAUDECODE')}
@@ -2019,13 +2019,42 @@ class K_Sigill(Grund):
         f2.write_text(json.dumps(dict(m, slugs=m['slugs'] + ['annan-kund'])))
         self.assertIn('sigillet', nodvag('annan-kund', f2).stderr)
         f3 = self.tmp / 'gammalt.json'
-        f3.write_text(json.dumps(sigill.nodvagsmandat(['prov-abx'], 'ab-prov-2', ['provet'], giltig_s=-1)))
+        f3.write_text(json.dumps(sigill.nodvagsmandat(['prov-abx'], 'ab-prov-2', ['provet'], [self.k / 'prov-abx'], giltig_s=-1)))
         self.assertIn('gått ut', nodvag('prov-abx', f3).stderr)
         r = subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'sigill.py'), 'nodvag', '--slug', 'prov-abx', '--vad', 'x'],
                            env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, start_new_session=True, timeout=60)
         self.assertEqual(r.returncode, 2, 'utan mandat och utan terminal')
         with self.assertRaisesRegex(sigill.Nekad, 'bara designfasens'):
             sigill.forsegla_autonomt('nodvag', {'slugs': ['prov-abx']}, None)
+
+    def test_nodvagsmandat_med_provnyckel_galler_aldrig_huvudutcheckningen(self):
+        """Kontrollgranskningen av sigillet, A: ett mandat för nödvägen räknat med provnyckeln, utan terminal, godtogs för
+        huvudutcheckningens kund, eftersom vakten aldrig fick någon väg. Nu prövas mandatet mot kundens katalog i den
+        utcheckning kor.sh kör i (--rot), också med versaler, och ab-mandatet mot armarnas kataloger."""
+        import sigill
+        import time
+        if not (sigill.HUVUD / 'kunder').is_dir():
+            self.skipTest('huvudutcheckningen finns inte på den här maskinen')
+        post = {'schema': 1, 'typ': 'nodvag', 'id': 'kor-x', 'slugs': ['prov-kund'], 'kalla': 'ägaren', 'tid': '2026-10-13T12:00:00Z',
+                'giltig_till': int(time.time()) + 600}
+        post['sigill'] = sigill._berakna('nodvag', {f_: post.get(f_) for f_ in sigill.NODVAGSFALT}, sigill.nyckel(skapa=True))
+        f = self.tmp / 'mandat-provnyckel.json'
+        f.write_text(json.dumps(post))
+        env = {x: v for x, v in os.environ.items() if x not in ('NWP_AGARBEVIS', 'CLAUDECODE')}
+        def nodvag(rot):
+            return subprocess.run([sys.executable, '-B', str(ROOT / 'kontroller' / 'sigill.py'), 'nodvag', '--slug', 'prov-kund', '--vad', 'x',
+                                   '--rot', str(rot)], env=dict(env, NWP_NODVAG_MANDAT=str(f)), stdin=subprocess.DEVNULL,
+                                  capture_output=True, text=True, start_new_session=True, timeout=60)
+        annan = Path(str(sigill.HUVUD).upper())
+        for rot in (sigill.HUVUD, annan):
+            r = nodvag(rot)
+            self.assertEqual(r.returncode, 2, (rot, r.stdout, r.stderr))
+            self.assertIn('huvudutcheckningen', r.stderr, rot)
+        self.assertEqual(nodvag(self.tmp).returncode, 0, nodvag(self.tmp).stderr)
+        k = (ROOT / 'kor.sh').read_text()
+        self.assertIn('nodvag --slug "$SLUG" --rot "$ROOT"', k, 'kor.sh skickar utcheckningen den kör i')
+        with self.assertRaisesRegex(sigill.Nekad, 'huvudutcheckningen'):
+            sigill.nodvagsmandat(['prov-abx', 'prov-aby'], 'ab-x', ['provet'], [annan / 'kunder' / 'ab' / 'mandat', annan / 'kunder' / 'prov-abx'])
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)

@@ -47,8 +47,8 @@ class Abpass(unittest.TestCase):
         self.assertEqual(len(filer), 1)
         m = json.loads(Path(filer.pop()).read_text())
         for arm in ('prov-nod-abx', 'prov-nod-aby'):
-            self.assertTrue(sigill.nodvag_giltigt(m, arm)[0], arm)
-        self.assertFalse(sigill.nodvag_giltigt(m, 'annan-kund')[0])
+            self.assertTrue(sigill.nodvag_giltigt(m, arm, ab.KUNDER / arm)[0], arm)
+        self.assertFalse(sigill.nodvag_giltigt(m, 'annan-kund', ab.KUNDER / 'annan-kund')[0])
         self.assertTrue(m['id'].startswith('ab-prov-nod-'))
 
     def test_slutposten_valjer_sin_egen_logg(self):

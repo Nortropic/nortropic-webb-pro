@@ -269,7 +269,7 @@ FRYSTA=()   # godkännandets underlagsgrund, fylld nedan från en godkänd start
 # (NWP_ATELJE=av) har inget godkännande att pröva och är därför ägarens eget beslut: ett förseglat mandat ur hans kanal
 # (NWP_NODVAG_MANDAT, som ab.py ger armarna efter en bekräftelse vid starten, annars ett nytt i hans terminal).
 if [ -z "$GODKAND" ] && [ -z "$DESIGNGODKAND" ] && [ "${NWP_ATELJE:-pa}" != "pa" ]; then
-  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sigill.py" nodvag --slug "$SLUG" --vad "Nödvägen utan godkänd design (NWP_ATELJE=av): helbygget av $SLUG ($VERKSAMHET)" \
+  "$ROOT/.venv/bin/python" -B "$ROOT/kontroller/sigill.py" nodvag --slug "$SLUG" --rot "$ROOT" --vad "Nödvägen utan godkänd design (NWP_ATELJE=av): helbygget av $SLUG ($VERKSAMHET)" \
     || stopp "nödvägen utan godkänd design (NWP_ATELJE=av) är ägarens eget beslut och kräver hans förseglade mandat (kontroller/sigill.py nodvag); inget bygge startat"
 fi
 AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
