@@ -1549,6 +1549,50 @@ STROM_LAS = threading.Lock()
 # NYCKELFIL (0600, i hemlighetsmappen som byggena nekas läsa). None (proven utan main): inget nyckelkrav.
 NYCKEL = {'varde': None}
 NYCKELFIL = Path.home() / '.nortropic-hemligheter' / 'webb-pro' / 'dashboard-nyckel'
+STANDARDPORT = 4771  # dashboard.sh:s och Nortropic.app:s port; bara den instansen i huvudutcheckningen har ägarens nyckel
+
+
+def agarens_nyckel(f):
+    """Ägarens portalnyckel i f (granskningen av sigillet, fynd 4): läses när filen finns, annars skapas den en gång med
+    O_EXCL och 0600. Den skrivs aldrig över, så en andra dashboard kan inte byta den. En fil som andra kan läsa, som en
+    annan användare äger eller som är tom godtas inte: då får instansen en egen nyckel som inte bär ägarens godkännanden."""
+    f = Path(f)
+    f.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    except FileExistsError:
+        fd = None
+    if fd is not None:
+        n = secrets.token_urlsafe(24)
+        with os.fdopen(fd, 'w', encoding='utf-8') as h:
+            h.write(n + '\n')
+        return n
+    try:
+        fd = os.open(f, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd, encoding='utf-8') as h:
+            st = os.fstat(h.fileno())
+            n = h.read(400).strip()
+    except OSError as e:
+        print('dashboardnyckeln i %s kunde inte läsas (%s): portalen kan inte godkänna förrän filen är rättad' % (f, e), flush=True)
+        return secrets.token_urlsafe(24)
+    if st.st_mode & 0o077 or st.st_uid != os.getuid() or len(n) < 16:
+        print('dashboardnyckeln i %s gäller inte (rättigheter, ägare eller längd): ta bort filen, så skapas en ny' % f, flush=True)
+        return secrets.token_urlsafe(24)
+    return n
+
+
+def instansnyckel(huvud, port, nyckelfil=None, fran_miljo=None):
+    """(nyckeln, filen, skriv): standardportens instans i huvudutcheckningen har ägarens nyckel ur NYCKELFIL
+    (agarens_nyckel; skrivs aldrig över). Varje annan instans, en annan port, en worktree eller --nyckelfil, har en egen
+    nyckel i en egen fil och rör aldrig ägarens; NWP_DASHBOARD_NYCKEL gäller bara dem."""
+    egen = fran_miljo or secrets.token_urlsafe(24)
+    if nyckelfil:
+        return egen, Path(nyckelfil), True
+    if not huvud:  # en worktree eller kopia skriver aldrig ägarens nyckel (kunskap/arbetsyta.md, Prov)
+        return egen, KUNDER / '.dashboard-nyckel', True
+    if int(port) != STANDARDPORT:
+        return egen, NYCKELFIL.with_name('%s-%d' % (NYCKELFIL.name, int(port))), True
+    return agarens_nyckel(NYCKELFIL), NYCKELFIL, False
 
 
 def natverksadress():
@@ -3929,35 +3973,31 @@ def main():
                    help='timklockan för spanaren, underhållet och bevakningen (standard: på bara i huvudutcheckningen); bevakning: bara '
                         'bevakningen, för en provinstans')
     a = p.parse_args()
-    global NYCKELFIL
     huvud = ROOT.resolve() == (Path.home() / 'nortropic-repos' / 'nortropic-webb-pro').resolve()
-    if a.nyckelfil:
-        NYCKELFIL = Path(a.nyckelfil)
-    elif not huvud:  # en worktree eller kopia skriver aldrig över ägarens nyckel (kunskap/arbetsyta.md, Prov)
-        NYCKELFIL = KUNDER / '.dashboard-nyckel'
     klocklage = a.klockor or ('pa' if huvud else 'av')
     klockor = klocklage in ('pa', 'bevakning')
     LAN['pa'] = not a.utan_lan
     VARD['tillatna'] = {'127.0.0.1:%d' % a.port, 'localhost:%d' % a.port}
     desktop.konfigurera(ROOT, a.port)
-    # I huvudutcheckningen med standardfilen väljer servern själv nyckeln (dashboard.sh läser den ur filen): en process som
-    # startar en egen server kan då aldrig bestämma ägartoken i ägarens nyckelfil (kontroller/sigill.py prövar portalens
-    # godkännanden mot den filen). En provinstans med egen nyckelfil får den ur NWP_DASHBOARD_NYCKEL.
+    # Ägarens nyckel (kontroller/sigill.py prövar portalens godkännanden mot den filen): standardportens instans i
+    # huvudutcheckningen läser den eller skapar den en gång, och ingen annan instans rör den (instansnyckel). En
+    # provinstans med egen nyckelfil får sin nyckel ur NWP_DASHBOARD_NYCKEL; den tas bort ur miljön så att barnen inte ärver den.
     fran_miljo = os.environ.pop('NWP_DASHBOARD_NYCKEL', None)
-    NYCKEL['varde'] = (None if huvud and not a.nyckelfil else fran_miljo) or secrets.token_urlsafe(24)
-    # porten först: en andra start som inte får porten skriver aldrig över den körande dashboardens nyckel (A11)
+    # porten först: en andra start som inte får porten rör aldrig någon nyckel (A11)
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), H)
-    try:  # dashboard.sh läser filen när dashboarden redan kör; aldrig i loggen eller i barnens miljö
-        NYCKELFIL.parent.mkdir(parents=True, exist_ok=True)
-        tmp = NYCKELFIL.with_name('.%s.%d.tmp' % (NYCKELFIL.name, os.getpid()))
-        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            f.write(NYCKEL['varde'] + '\n')
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, NYCKELFIL)
-    except OSError as e:
-        print('dashboardnyckeln kunde inte skrivas till %s: %s' % (NYCKELFIL, e), flush=True)
-    print('Dashboard: http://127.0.0.1:%d (öppna via ./dashboard.sh: skrivande anrop kräver nyckeln i %s)' % (a.port, NYCKELFIL), flush=True)
+    NYCKEL['varde'], nyckelfil, skriv_ = instansnyckel(huvud, a.port, a.nyckelfil, fran_miljo)
+    if skriv_:
+        try:  # dashboard.sh läser filen när dashboarden redan kör; aldrig i loggen eller i barnens miljö
+            nyckelfil.parent.mkdir(parents=True, exist_ok=True)
+            tmp = nyckelfil.with_name('.%s.%d.tmp' % (nyckelfil.name, os.getpid()))
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                f.write(NYCKEL['varde'] + '\n')
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, nyckelfil)
+        except OSError as e:
+            print('dashboardnyckeln kunde inte skrivas till %s: %s' % (nyckelfil, e), flush=True)
+    print('Dashboard: http://127.0.0.1:%d (öppna via ./dashboard.sh: skrivande anrop kräver nyckeln i %s)' % (a.port, nyckelfil), flush=True)
     def spaningsklocka():
         while True:
             if klocklage == 'pa':

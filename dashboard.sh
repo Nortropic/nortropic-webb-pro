@@ -38,6 +38,8 @@ fi
 # Dashboardnyckeln: skrivande anrop (ägarens domar, flödets handlingar) kräver den, och bara ägarens webbläsare får den, i
 # adressens fragment (dashboard/server.py NYCKEL). Kör dashboarden redan läses nyckeln ur filen servern skrev (0600).
 NYCKELFIL="$HOME/.nortropic-hemligheter/webb-pro/dashboard-nyckel"
+# bara standardportens instans har ägarens nyckel; en annan port har sin egen fil (server.py instansnyckel)
+[ "$PORT" = 4771 ] || NYCKELFIL="$NYCKELFIL-$PORT"
 # utanför huvudutcheckningen skriver server.py nyckeln i kunder/.dashboard-nyckel (kunskap/arbetsyta.md, Prov)
 [ "$ROOT" = "$HUVUD" ] || NYCKELFIL="$ROOT/kunder/.dashboard-nyckel"
 oppna_korande() {

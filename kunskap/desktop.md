@@ -38,7 +38,9 @@ Appen litar inte på att något svarar på porten. Före varje känsligt anrop p
 2. att motorn kan bevisa dashboardnyckeln: appen skickar en slumpad utmaning till `GET /api/desktop/identitet` och
    motorn svarar med HMAC-SHA256(nyckeln, utmaningen, instansen, roten, pid, porten, commit). Appen läser nyckeln
    native ur motorns nyckelfil (0600, samma användare; huvudutcheckningen `~/.nortropic-hemligheter/webb-pro/
-   dashboard-nyckel`, en worktree `kunder/.dashboard-nyckel`) och jämför. Nyckeln lämnar aldrig appens native-lager
+   dashboard-nyckel`, en worktree `kunder/.dashboard-nyckel`) och jämför. I huvudutcheckningen har bara instansen på
+   standardporten 4771 den nyckeln, skapad en gång och aldrig överskriven (`server.instansnyckel`); en annan port har en
+   egen fil, `dashboard-nyckel-<port>`, och appen behöver då porten 4771. Nyckeln lämnar aldrig appens native-lager
    och skickas först efter beviset;
 3. att pid, port och rot i svaret är den lyssnande processens, och att kontraktet är `desktop/1`.
 

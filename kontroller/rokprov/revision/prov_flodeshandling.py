@@ -5,6 +5,7 @@ import http.client
 import json
 from pathlib import Path
 import sys
+import subprocess
 import threading
 import unittest
 from types import SimpleNamespace
@@ -294,6 +295,58 @@ class Flodeshandling(unittest.TestCase):
         js = (Path(__file__).resolve().parents[3] / 'dashboard' / 'arbetsyta.js').read_text(encoding='utf-8')
         block = js[js.index('async function handling(id, bekraftad)'):js.index('// --- byggflödet ---')]
         self.assertIn('.bindning', block); self.assertIn('{ bindning }', block)
+
+    def test_en_andra_dashboard_skriver_aldrig_over_agarens_nyckel(self):
+        """Granskningen av sigillet, fynd 4: en dashboard på en annan port (NWP_DASHBOARD_PORT=4772 ./dashboard.sh,
+        server.py --port 4999) skrev en ny token i ägarens dashboard-nyckel, och då kunde ägarens portal inte längre
+        godkänna. Nyckelfilen skapas en gång med O_EXCL och skrivs aldrig över; bara standardportens instans i
+        huvudutcheckningen läser den, och dashboard.sh och Nortropic.app läser samma fil."""
+        import stat as stat_
+        kat = self.root / 'hemligt'
+        kat.mkdir()
+        std = kat / 'dashboard-nyckel'
+        std.write_text('agarens-nyckel-0123456789\n'); std.chmod(0o600)
+
+        class Attrapp:  # ThreadingHTTPServer: porten binds, men servern startar inte
+            def __init__(self, *a, **k):
+                pass
+
+            def serve_forever(self):
+                pass
+        huvud = Path.home() / 'nortropic-repos' / 'nortropic-webb-pro'
+        self.stack.enter_context(patch.object(dash, 'ThreadingHTTPServer', Attrapp))
+        self.stack.enter_context(patch.object(dash, 'ROOT', huvud))
+        self.stack.enter_context(patch.object(dash, 'NYCKELFIL', std))
+        self.stack.enter_context(patch.object(dash, 'lan_klocka', lambda: None))
+        for d_ in (dash.NYCKEL, dash.VARD, dash.LAN):
+            self.stack.enter_context(patch.dict(d_))
+        self.stack.enter_context(patch.dict(os.environ))
+        def starta(port, *extra):
+            os.environ['NWP_DASHBOARD_NYCKEL'] = 'vald-av-den-som-startar-0123'
+            with patch.object(sys, 'argv', ['server.py', '--port', str(port), '--klockor', 'av', '--utan-lan', *extra]):
+                dash.main()
+            return dash.NYCKEL['varde']
+        for port in (4999, 4772):
+            n = starta(port)
+            self.assertEqual(std.read_text(), 'agarens-nyckel-0123456789\n', 'port %d skrev över ägarens nyckel' % port)
+            self.assertNotEqual(n, 'agarens-nyckel-0123456789', 'en instans som inte äger nyckeln får den aldrig')
+        self.assertEqual(starta(4771), 'agarens-nyckel-0123456789', 'standardporten tar ägarens befintliga nyckel')
+        self.assertEqual(std.read_text(), 'agarens-nyckel-0123456789\n')
+        std.unlink()
+        n = starta(4771)
+        self.assertEqual(std.read_text().strip(), n, 'saknas filen skapas den en gång')
+        self.assertEqual(stat_.S_IMODE(std.stat().st_mode), 0o600)
+        self.assertNotEqual(n, 'vald-av-den-som-startar-0123', 'ägarens nyckel väljs aldrig ur miljön')
+        # dashboard.sh läser samma fil som servern: standardporten ägarens, en annan port sin egen
+        rot = Path(__file__).resolve().parents[3]
+        sh = (rot / 'dashboard.sh').read_text(encoding='utf-8')
+        val = sh[sh.index('NYCKELFIL="$HOME'):sh.index('oppna_korande()')]
+        for port, vantat in (('4771', 'dashboard-nyckel'), ('4772', 'dashboard-nyckel-4772')):
+            r = subprocess.run(['bash', '-c', 'HOME=/h; ROOT=/r; HUVUD=/r; PORT=%s\n%s\necho "$NYCKELFIL"' % (port, val)],
+                               capture_output=True, text=True)
+            self.assertEqual(r.stdout.strip(), '/h/.nortropic-hemligheter/webb-pro/' + vantat, (port, r.stderr))
+        app = (rot / 'desktop' / 'src-tauri' / 'src' / 'motor.rs').read_text(encoding='utf-8')
+        self.assertIn('.nortropic-hemligheter/webb-pro/dashboard-nyckel"', app, 'appen läser ägarens fil (standardporten 4771)')
 
     def test_portalens_agartoken_foljer_med_till_sigillet(self):
         # ägarens kanal i portalen (BESLUT.md, 2026-10-13): ett anrop som prövats med dashboardnyckeln bär nyckeln som
