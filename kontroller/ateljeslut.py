@@ -157,8 +157,10 @@ def utfall(status):
         return 'fel', 4, 'föll i steg %s, %s: %s' % (var, av.get('tid') or EJ, str(status.get('fel') or av.get('text') or EJ)[:400])
     if steg == 'planprovad':  # stannade på begäran efter planprövningen (kandidater.STOPP_EFTER): inget att välja än, inget fel
         return 'klar', 0, status.get('skal') or 'stannade efter planprövningen; prototyp.py --fortsatt tar vid hos skaparna'
-    if steg == 'forskad':  # stannade efter researchen (kandidater.stanna_efter_forskning): på begäran eller i designfasen
+    if steg == 'forskad':  # stannade efter researchen på begäran (kandidater.stanna_efter_forskning)
         return 'klar', 0, status.get('skal') or 'stannade efter researchen'
+    if steg == 'band':  # riktningarna lämnade till designfasens band (kandidater.lamna_till_bandet): inget att välja i Code
+        return 'klar', 0, status.get('skal') or 'riktningarna är i designfasens band'
     if steg in KLARA:
         import kandidater
         kand = status.get('kandidater') if isinstance(status.get('kandidater'), dict) else None
@@ -306,7 +308,9 @@ def tillstanden(slug, status, slag, kand, beslut_):
     elif status.get('steg') == 'planprovad':
         ag = {'varde': None, 'text': 'inget att bedöma än: körningen stannade efter planprövningen, före skaparna'}
     elif status.get('steg') == 'forskad':
-        ag = {'varde': None, 'text': 'inget att bedöma i Code: körningen stannade efter researchen; riktningarna görs i Claude Design när designfasen är aktiv'}
+        ag = {'varde': None, 'text': 'inget att bedöma än: körningen stannade efter researchen, före planeringen'}
+    elif status.get('steg') == 'band':
+        ag = {'varde': None, 'text': 'inget att bedöma i Code: riktningarna går designfasens band, och ägaren ser dem i riktningarnas privata artefakter'}
     elif slag == 'klar' and kand and not any(k['valbar'] for k in kand):
         ag = {'varde': None, 'text': 'ingen kandidat blev valbar: ägaren har inget att bedöma, och en ny körning behövs'}
     else:
@@ -396,9 +400,9 @@ def bygg(slug, status, korning, typ=TYP, efterhand=None):
             (status.get('startkontroll') or {}).get('kvitto') or 'underlag/%s/atelje/STARTKVITTO-STOPP.md' % slug, slug)],
     }.get(slag, fortsatt)
     if status.get('steg') == 'forskad':
-        import designfas
-        atgarder = (['designfasen tar vid på duken: ägaren startar utföraren med ./design.sh %s (kunskap/claude-design.md)' % slug]
-                    if designfas.aktiv(slug) else ['planeringen tar vid med .venv/bin/python kontroller/prototyp.py %s --fortsatt' % slug])
+        atgarder = ['planeringen tar vid med .venv/bin/python kontroller/prototyp.py %s --fortsatt' % slug]
+    if status.get('steg') == 'band':
+        atgarder = ['designfasens band tar vid i riktningarnas projekt: ägaren startar utföraren med ./design.sh %s (skillen designfas)' % slug]
     if status.get('steg') == 'planprovad':
         atgarder = ['förbered ett metodförsök, om ett ska göras: .venv/bin/python kontroller/ab.py forbered-skiss %s --kandidat k01 '
                     '--variabel effort|metodvariant; ta sedan vid hos skaparna med .venv/bin/python kontroller/prototyp.py %s --fortsatt '

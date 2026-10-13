@@ -237,7 +237,7 @@ def tolka(text=None):
     return ut
 
 
-PROCESSKILLS = ('bygg-sajt', 'kirurg', 'backlog', 'writing-for-agents', 'designfas')  # flödets och systemarbetets egna skills, ingen designroll (designfas: utförarens instruktion i Claude Design)
+PROCESSKILLS = ('bygg-sajt', 'kirurg', 'backlog', 'writing-for-agents', 'designfas')  # flödets och systemarbetets egna skills, ingen designroll (designfas: utförarens instruktion i bandet)
 
 
 def skillstatus(skills=None, k=None, karta=None):

@@ -1,29 +1,37 @@
 #!/usr/bin/env python3
-"""Designfasen i Claude Design (ägarens uppdrag 2026-10-12; kunskap/claude-design.md): mekaniken genom de verkliga
-ingångarna, med attrapper bara för det externa (Design-typens körmiljö, sessionerna och kvittot). Inga modeller och inget nät.
+"""Designfasens band (ägarens beslut 2026-10-13 i BESLUT.md: formgivningen lokalt i Astro; läget duk i Claude Design
+pausat): mekaniken genom de verkliga ingångarna, med attrapper bara för det externa (bygget med Astro, Design-typens
+körmiljö, sessionerna, kvittot och impeccables motor). Inga modeller och inget nät.
 
-- A: en aktiv designfas stoppar kandidatflödet efter researchen (ingen plan och inga skapare i Code), ateljén nekar
-  förfining och uppdrag, och NWP_KANDIDAT_STOPP_EFTER=forskning stannar på samma ställe utan designfas.
-- B: en version ur dukens återlästa filer: kopierad oförändrad, hashad, renderad i 390/768/1440 och med menyn öppen;
-  samma artefaktversion två gånger vägras, en saknad ritning vägras, en okänd tillgång redovisas.
+- A: med en designfas ger kandidatflödet researchen, planen och planprövningen och lämnar sedan riktningarna till bandet
+  (steget band, projekten förberedda, riktningarna registrerade, inga skapare); NWP_KANDIDAT_STOPP_EFTER=forskning
+  stannar efter researchen utan designfas; en dom eller ett uppdrag på en riktning i bandet nekas (en skrivare).
+- B: läget astro: en version ur riktningens projekt med källan, den byggda sidan, startsidan och undersidan renderade
+  med den riktiga rendera.mjs (lata bilder laddade, srcset utan falskt larm, katalogen ger index.html), kontrollerna och
+  insatsen mot förra versionen; läget duk prövas kvar med NWP_DESIGNLAGE=duk och är annars pausat.
 - C: beställning → svar → införd i en ny version, med projekt, duk, version, ritning, uppgift, material och resultat.
 - D: specialistpasset: rollens kompetensblock och verktyg, svaret i schemat, kvittot ur transkriptet; kritiken får inte
-  källan.
-- E: ägarens godkännande i domloggen, bundet till versionens filer och bilder; överlämningen krävs komplett; en ändrad bild
-  eller en senare dom gör det ogiltigt; kor.sh tar vid från ett giltigt designgodkännande.
+  källan; jämförelsen ser alla riktningarnas senaste version.
+- E: ägarens godkännande i domloggen, bundet till versionens filer och bilder; överlämningen krävs komplett (med kalla/
+  i läget astro); installationen lägger källan, package.json, låset och .npmrc i sajten; kor.sh tar vid.
 - F: kompetensplaceringen (designfas-karta) har en rad per skill, tjänst och specialistpass.
 - G: startkommandot: kundvakten, flödets tjänster med --strict-mcp-config och godkännandet nekat för sessionen.
-- H: produktionsbandet: stationerna i processmodellens ordning med metod, versioner med stationen, insatsen synlig,
-  hoppade stationer, kritikens återgång, bandets läge och kvittot som redovisar utan att fälla.
+- H: produktionsbandet på riktningen k01: stationerna i processmodellens ordning med metod, versioner med stationen,
+  hoppade stationer, kritikens återgång, bandets läge, stationens instruktion före och efter riktningens första version.
+- J: artefakten: paketet per riktning med relativa vägar, utan CSP-meta, FILER.json och publiceringen i ARTEFAKT.json.
 """
 import contextlib
 import json
 import os
 from pathlib import Path
+import re
+import shutil
+import struct
 import subprocess
 import sys
 import types
 import unittest
+import zlib
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -33,10 +41,12 @@ import atelje  # noqa: E402
 import designfas as df  # noqa: E402
 import kandidater as kd  # noqa: E402
 import kompetens  # noqa: E402
+import prototyp  # noqa: E402
 import skapande  # noqa: E402
 
 SLUG = 'designfas-prov'
 KANVAS = 'https://claude.ai/artifact/ProvKanvas0123456789'
+ARTEFAKTEN = 'https://claude.ai/artifact/ProvArtefakt0123456789'
 BLOBB = '0c71b2aef889d50acbb8ddc9a36ab2a1'
 # Attrappen av Design-typens körmiljö: visar <x-dc>, döljer <helmet> och låter en menyknapp med aria-expanded växla.
 RUNTIME = ('/* attrapp av dc-runtime.js för provet */\n' + '/' * 12000 + '\n'
@@ -69,6 +79,67 @@ PNG = bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'
                     '1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082')
 
 
+def png(w, h, farg=(40, 90, 160)):
+    """En riktig PNG i bredden w, så att renderingen kan pröva filens bredd mot den visade."""
+    def bit(t, d):
+        return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
+    rader = (b'\x00' + bytes(farg) * w) * h
+    return (b'\x89PNG\r\n\x1a\n' + bit(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + bit(b'IDAT', zlib.compress(rader))
+            + bit(b'IEND', b''))
+
+
+# Astro-projektets startsida i attrappen: index.astro är sidans kropp, och bygget (bygg_attrapp) lägger den i dist/
+# med Astros form: absoluta /_astro/-vägar, en srcset-bild med täthet 2, en lat bild långt ner, sajtens CSP-meta och ett
+# skript som frågar servern efter katalogen /om/ (en katalog ger sin index.html)
+SNURR = '<div class="snurr" style="width:24px;height:24px;background:#2a5;animation:snurra 1.5s linear infinite"></div>'
+STARTSIDA = ('<h1 id="r">Provrubrik</h1>' + SNURR +
+             '<button type="button" aria-label="Pausa rörelsen" style="min-height:44px;min-width:44px">Paus</button>')
+DIST = '''<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="content-security-policy" content="default-src 'self'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+<title>Provverkstan</title><link rel="stylesheet" href="/_astro/x.css"></head>
+<body><header><a href="/">Provverkstan</a> <a href="/om/">Om verkstaden</a></header>
+<main>__KROPP__
+<img src="/_astro/bild-600.png" srcset="/_astro/bild-600.png 600w" sizes="300px" width="300" height="4" alt="Verkstaden" style="width:300px;height:auto;display:block">
+<p style="margin-top:6000px">Längre ner</p>
+<img src="/_astro/lat.png" loading="lazy" width="200" height="4" alt="Ett verktyg" style="width:200px;height:auto;display:block">
+</main>
+<script>fetch('/om/').then(function (r) { return r.text().then(function () { document.getElementById('r').textContent += ' ' + r.status; }); });</script>
+</body></html>
+'''
+OM = '<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>Om</title><link rel="stylesheet" href="/_astro/x.css"></head><body><main><h1>Om verkstaden</h1></main></body></html>'
+CSS = ('@font-face{font-family:Prov;src:url(/_astro/fonts/prov.woff2) format("woff2")} body{margin:0;padding:16px;font-family:system-ui}'
+       '@keyframes snurra{to{transform:rotate(360deg)}}')
+
+
+def bygg_attrapp(sajt):
+    """Attrappen av bygget (designfas.bygg): dist/ ur projektets src/pages/index.astro, med Astros form."""
+    sajt = Path(sajt)
+    d = sajt / 'dist'
+    shutil.rmtree(d, ignore_errors=True)
+    (d / '_astro' / 'fonts').mkdir(parents=True)
+    (d / 'tack').mkdir()
+    (d / 'index.html').write_text(DIST.replace('__KROPP__', (sajt / 'src' / 'pages' / 'index.astro').read_text()))
+    if (sajt / 'src' / 'pages' / 'om').is_dir():  # en undersida bara när projektet har den
+        (d / 'om').mkdir()
+        (d / 'om' / 'index.html').write_text(OM)
+    (d / 'tack' / 'index.html').write_text(OM.replace('Om verkstaden', 'Tack'))
+    (d / '404.html').write_text(OM.replace('Om verkstaden', 'Hittas inte'))
+    (d / '_astro' / 'x.css').write_text(CSS)
+    (d / '_astro' / 'fonts' / 'prov.woff2').write_bytes(b'wOF2' + b'\x00' * 60)
+    (d / '_astro' / 'bild-600.png').write_bytes(png(600, 4))
+    (d / '_astro' / 'lat.png').write_bytes(png(400, 4, (200, 120, 40)))
+    return 0, 'byggt (attrapp)'
+
+
+def motor_attrapp(tmp):
+    """impeccables motor som en attrapp utan fynd (detektor.motor läser IMPECCABLE_BIN)."""
+    m = Path(tmp) / 'motor' / 'impeccable'
+    m.parent.mkdir(parents=True, exist_ok=True)
+    m.write_text('#!%s\nprint("[]")\n' % sys.executable)
+    m.chmod(0o755)
+    return m
+
+
 class Grund(unittest.TestCase):
     def setUp(self):
         self.stack = contextlib.ExitStack()
@@ -78,13 +149,17 @@ class Grund(unittest.TestCase):
         self.stack.enter_context(patch.multiple(atelje, UNDERLAG=self.u, KUNDER=self.k))
         self.stack.enter_context(patch.object(df, 'UNDERLAG', self.u))
         self.stack.enter_context(patch.object(skapande, 'UNDERLAG', self.u))
+        self.stack.enter_context(patch.dict(os.environ))
+        os.environ.pop('NWP_DESIGNLAGE', None)
         (self.u / SLUG / 'bilder').mkdir(parents=True)
         (self.u / SLUG / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Provverkstan', 'fiktiv': True}))
         (self.u / SLUG / 'BRIEF.md').write_text('# Brief\n')
         self.bild = self.u / SLUG / 'bilder' / 'verkstad.png'
         self.bild.write_bytes(PNG)
 
+    # ---- läget duk, pausat: prövas med NWP_DESIGNLAGE=duk ----
     def duk(self, rel='prov-release-1'):
+        os.environ['NWP_DESIGNLAGE'] = 'duk'
         df.ny(SLUG, KANVAS)
         rt = self.tmp / 'dc-runtime.js'
         rt.write_text(RUNTIME)
@@ -100,58 +175,254 @@ class Grund(unittest.TestCase):
         (p / 'Main.dc.html').write_text(ritning)
         return p.parent
 
+    # ---- läget astro: riktningarna som Astro-projekt i kunder/<slug>/kandidater/kNN/sajt ----
+    def projekt(self, kid, startsida=STARTSIDA, las=True):
+        p = self.k / SLUG / 'kandidater' / kid / 'sajt'
+        (p / 'src' / 'pages').mkdir(parents=True, exist_ok=True)
+        (p / 'public').mkdir(exist_ok=True)
+        (p / 'package.json').write_text(json.dumps({'name': 'prov-%s' % kid, 'private': True}))
+        if las:
+            (p / 'package-lock.json').write_text(json.dumps({'name': 'prov-%s' % kid, 'lockfileVersion': 3, 'packages': {}}))
+        (p / 'astro.config.mjs').write_text('export default {};\n')
+        (p / 'src' / 'pages' / 'index.astro').write_text(startsida)
+        (p / 'src' / 'pages' / 'om').mkdir(exist_ok=True)
+        (p / 'src' / 'pages' / 'om' / 'index.astro').write_text('<h1>Om verkstaden</h1>')
+        (p / 'public' / 'robots.txt').write_text('User-agent: *\n')
+        (p / 'RIKTNING.md').write_text('# Riktning %s\n\nReferenslåset och språket står här.\n' % kid)
+        return p
 
-class A_Sparr(Grund):
-    def test_aktiv_designfas_stannar_efter_researchen(self):
+    def astro(self, ids=('k01',)):
         df.ny(SLUG)
-        anrop = []
-        st = {}
-        with patch.multiple(kd, leverera_metod=lambda _: {}, korlage=lambda *a: 'skiss',
+        for kid in ids:
+            self.projekt(kid)
+        df.riktningar(SLUG, list(ids), titlar={k: 'Riktningen %s' % k for k in ids})
+        self.stack.enter_context(patch.object(df, 'bygg', side_effect=bygg_attrapp))
+
+    def fejkbilder(self, v, sidor=('index.html',)):
+        """Bilder och BILDER.json för en version som sparats utan rendering (bilder=False)."""
+        vk = self.u / SLUG / 'design' / 'versioner' / v
+        (vk / 'bilder').mkdir(parents=True, exist_ok=True)
+        rit = {}
+        for s in sidor:
+            st = df.stam(s)
+            rit[s] = {'bilder': {}}
+            for w in (390, 768, 1440):
+                (vk / 'bilder' / ('%s-%d.png' % (st, w))).write_bytes(PNG)
+                rit[s]['bilder'][str(w)] = {'fil': 'bilder/%s-%d.png' % (st, w)}
+        (vk / 'BILDER.json').write_text(json.dumps({'ritningar': rit}))
+        return vk
+
+
+class A_Bandet(Grund):
+    """Spärren är borta (beslutet 2026-10-13, punkt 1): med en designfas går kandidatflödet till och med plan och
+    projekt, och designfas.py är därefter enda skrivaren av riktningarna."""
+
+    def sajt(self):
+        s = self.k / SLUG / 'sajt'
+        (s / 'src' / 'pages').mkdir(parents=True)
+        (s / 'node_modules').mkdir()
+        (s / 'package.json').write_text(json.dumps({'name': 'sajt', 'private': True}))
+        (s / 'package-lock.json').write_text('{}')
+        (s / 'astro.config.mjs').write_text('export default {};\n')
+        (s / 'src' / 'pages' / 'index.astro').write_text('<h1>Mallen</h1>')
+        return s
+
+    def kor(self, plan_finns=False, stopp=''):
+        """Kandidatflödet med attrapper för researchen, planen och planprövningen; skaparna får aldrig starta."""
+        anrop, st, ids = [], {}, ['k01', 'k02', 'k03']
+        planerad = {'ja': plan_finns}
+
+        def planera(slug, n, lage=None):
+            anrop.append('planera')
+            planerad['ja'] = True
+            for kid in ids:
+                kd.satt_status(slug, kid, 'planerad', 'uppdraget skrivet', titel='Titel %s' % kid)
+        if plan_finns:
+            for kid in ids:
+                kd.satt_status(SLUG, kid, 'planerad', 'uppdraget skrivet', titel='Titel %s' % kid)
+        provad = {'ja': False}
+
+        def planprovning(slug, bara=None, _foregaende=None):
+            anrop.append('planprovning')
+            provad['ja'] = True
+            return {}
+        import urval
+        with patch.multiple(kd, STOPP_EFTER=stopp, leverera_metod=lambda _: {}, korlage=lambda *a: 'skiss', arkivera_projekt=lambda *a: None,
                             forska=lambda slug, n, skiss=False: anrop.append('forska') or {'nytt': [], 'fel': None},
-                            planera=lambda *a, **k: anrop.append('planera')):
-            import urval
-            with patch.object(urval, 'vid_start', return_value={}):
-                ut = kd.kor(SLUG, st, lambda: None, n=2)
+                            planera=planera, lista=lambda slug: list(ids) if planerad['ja'] else [],
+                            planprovning_behov=lambda slug, ids_: [] if provad['ja'] else list(ids_), planprovning=planprovning,
+                            referensvarning=lambda *a, **k: (False, []), material_behov=lambda *a, **k: [],
+                            kor_pool=lambda *a, **k: self.fail('skaparna startade'), skissa=lambda *a, **k: self.fail('skissen startade')), \
+                patch.object(urval, 'vid_start', return_value={}):
+            ut = kd.kor(SLUG, st, lambda: None, n=3)
+        return ut, anrop, st, ids
+
+    def test_designfasen_ger_plan_och_projekt_och_lamnar_till_bandet(self):
+        self.sajt()
+        df.ny(SLUG)
+        ut, anrop, st, ids = self.kor()
         self.assertEqual(ut, [])
-        self.assertEqual(anrop, ['forska'], 'researchen körs, planen aldrig')
-        self.assertEqual(st['steg'], 'forskad')
-        self.assertIn('Claude Design', st['skal'])
+        self.assertEqual(anrop, ['forska', 'planera', 'planprovning'], 'researchen, planen och planprövningen körs; inga skapare')
+        self.assertEqual(st['steg'], 'band')
+        self.assertIn('./design.sh %s' % SLUG, st['skal'])
+        rk = json.loads((self.u / SLUG / 'design' / 'DESIGNFAS.json').read_text())['riktningar']
+        self.assertEqual(sorted(rk), ids)
+        for kid in ids:
+            p = self.k / SLUG / 'kandidater' / kid / 'sajt'
+            self.assertTrue((p / 'package.json').is_file() and (p / 'node_modules').is_symlink(), 'forbered_projekt gav projektet')
+            self.assertEqual(df.projekt(SLUG, kid), p)
+            self.assertEqual(rk[kid]['titel'], 'Titel %s' % kid)
+            s = kd.las_status(SLUG, kid)
+            self.assertEqual(s['status'], 'planerad')
+            self.assertIn('i bandet', s['skal'])
+        self.assertEqual(df.status(SLUG)['band']['k01'][-1], {'station': 'artefakt', 'lage': 'inte publicerad', 'url': None,
+                                                               'version': None, 'tid': None})
+
+    def test_en_plan_fran_fore_designfasen_lamnas_till_bandet(self):
+        self.sajt()
+        df.ny(SLUG)
+        _, anrop, st, _ = self.kor(plan_finns=True)
+        self.assertEqual((anrop, st['steg']), (['planprovning'], 'band'))
 
     def test_stoppunkten_forskning_utan_designfas(self):
-        anrop = []
-        st = {}
-        with patch.multiple(kd, STOPP_EFTER='forskning', leverera_metod=lambda _: {}, korlage=lambda *a: 'skiss',
-                            forska=lambda slug, n, skiss=False: anrop.append('forska') or {'nytt': [], 'fel': None},
-                            planera=lambda *a, **k: anrop.append('planera')):
-            import urval
-            with patch.object(urval, 'vid_start', return_value={}):
-                kd.kor(SLUG, st, lambda: None, n=2)
+        _, anrop, st, _ = self.kor(stopp='forskning')
         self.assertEqual((anrop, st['steg']), (['forska'], 'forskad'))
-        self.assertNotIn('Claude Design', st['skal'])
         self.assertIsNone(atelje.fortsatt_nekas({'steg': 'forskad'}, SLUG), 'utan designfas tar --fortsatt vid i planeringen')
         df.ny(SLUG)
-        self.assertIn('Claude Design', atelje.fortsatt_nekas({'steg': 'forskad'}, SLUG))
+        self.assertIsNone(atelje.fortsatt_nekas({'steg': 'forskad'}, SLUG), 'spärren är borta: forskad är bara stoppunkten')
+        self.assertIn('enda skrivaren', atelje.fortsatt_nekas({'steg': 'band'}, SLUG))
 
-    def test_en_plan_fran_fore_designfasen_ger_inga_skapare(self):
-        df.ny(SLUG)
-        st = {}
-        with patch.multiple(kd, leverera_metod=lambda _: {}, korlage=lambda *a: 'skiss', lista=lambda slug: ['k01'],
-                            kor_pool=lambda *a, **k: self.fail('skaparna startade')):
-            import urval
-            with patch.object(urval, 'vid_start', return_value={}):
-                kd.kor(SLUG, st, lambda: None, n=2)
-        self.assertEqual(st['steg'], 'forskad')
+    def test_duken_pausad_stoppar_kandidatflodet_fore_researchen(self):
+        os.environ['NWP_DESIGNLAGE'] = 'duk'
+        df.ny(SLUG, KANVAS)
+        del os.environ['NWP_DESIGNLAGE']
+        with self.assertRaisesRegex(RuntimeError, 'pausat'):
+            self.kor()
 
-    def test_ateljen_nekar_forfining_och_aldre_utforskning(self):
+    def test_ateljens_sparr_ar_borta(self):
         import inspect
         k = inspect.getsource(atelje.arbeta)
-        self.assertLess(k.index('forberedelse.kor(slug, status, skriv)'), k.index('designfas.aktiv(slug, UNDERLAG)'),
-                        'förberedelsen går, allt efter den prövas')
-        self.assertLess(k.index('designfas.aktiv(slug, UNDERLAG)'), k.index('kandidater.forfina_valda'))
-        self.assertIn("lage in ('ny', 'fortsatt')", k)
+        self.assertNotIn('designfas.aktiv(slug, UNDERLAG)', k, 'kandidatflödet nekas inte av en aktiv designfas')
+        self.assertLess(k.index("forra.get('steg') == 'band'"), k.index('kandidater.forfina_valda'), 'valda och putsa nekas i bandet')
+
+    def test_dom_och_uppdrag_pa_en_riktning_i_bandet_nekas(self):
+        """En skrivare per riktning: en dom eller ett uppdrag i Code på en riktning i bandet nekas, med hänvisning till
+        designfasen; prototyp.py stannar och säger vem som skriver."""
+        df.ny(SLUG)
+        for kid in ('k01', 'k02'):
+            kd.satt_status(SLUG, kid, 'planerad', 'i bandet', version='v' * 12)
+        (self.u / SLUG / 'atelje' / 'STATUS.json').write_text(json.dumps({'slug': SLUG, 'steg': 'band', 'kandidatflode': True, 'klar': '2026-10-13T08:00:00Z',
+                                                                          'kandidater': {'k01': 'planerad', 'k02': 'planerad'}}))
+        for beslut, extra in (('valj', {}), ('uppdrag', {'uppdrag': {'typ': 'ratta', 'resultat': 'r', 'omfattning': 'o', 'bevara': 'b'}}),
+                              ('jamfor', {})):
+            with self.assertRaisesRegex(ValueError, 'enda skrivaren'):
+                atelje.doma(SLUG, 'ägaren', beslut, 'en dom i provet', kandidater=[{'id': 'k01', 'version': 'v' * 12}], **extra)
+        self.assertFalse((self.u / SLUG / skapande.DOMLOGG).exists(), 'ingen dom skrevs')
+        vald, skal = prototyp.lage(SLUG)
+        self.assertEqual(vald, 'stopp')
+        self.assertIn('enda skrivaren', skal)
 
 
 class B_Version(Grund):
+    def test_astro_version_byggs_renderas_och_provas(self):
+        """Läget astro: en version ur riktningens projekt med källan (kalla/), den byggda sidan (sida/), startsidan och
+        undersidan renderade med den riktiga rendera.mjs, kontrollerna och insatsen mot förra versionen av riktningen."""
+        self.astro()
+        with patch.dict(os.environ, IMPECCABLE_BIN=str(motor_attrapp(self.tmp))):
+            v1 = df.version(SLUG, None, None, 'strukturen med det verkliga innehållet', station_='innehall', ritning='k01')
+            p = df.projekt(SLUG, 'k01')
+            (p / 'src' / 'pages' / 'index.astro').write_text('<h1 id="r" style="font-size:72px;line-height:1">Provrubrik i ny skala</h1>' + SNURR)
+            shutil.rmtree(p / 'src' / 'pages' / 'om')  # bara startsidan i v2: renderingen tar en sida i stället för två
+            v2 = df.version(SLUG, None, None, 'typskalan', station_='typografi', ritning='k01',
+                            hoppade=['art=provets riktning prövar bara mekaniken, inget språk'])
+        vk = self.u / SLUG / 'design' / 'versioner' / 'v01'
+        self.assertEqual((v1['version'], v1['lage'], v1['ritning'], v1['station']), ('v01', 'astro', 'k01', 'innehall'))
+        self.assertEqual(v1['sidor'], ['index.html', 'om/index.html'], 'startsidan först, mallens sidor (tack, 404) inte')
+        for n in ('src/pages/index.astro', 'package.json', 'package-lock.json', 'astro.config.mjs', 'RIKTNING.md', 'public/robots.txt'):
+            self.assertEqual(v1['filer'][n], df.sha(vk / 'kalla' / n), n)
+        self.assertEqual(v1['las'], 'projektets')
+        self.assertEqual(v1['varningar'], [])
+        self.assertTrue((vk / 'sida' / 'index.html').is_file() and (vk / 'sida' / '_astro' / 'x.css').is_file(), 'dist i sida/')
+        self.assertEqual(v1['rendering']['slutkod'], 0, v1['rendering'])
+        b = json.loads((vk / 'BILDER.json').read_text())
+        self.assertIn('Astro', b['kalla'])
+        self.assertIn('inte en skärmbild', b['kalla'])
+        self.assertNotIn('runtime', b, 'ingen körmiljö i läget astro')
+        r = b['ritningar']['index.html']
+        for w in ('390', '768', '1440'):
+            self.assertTrue((vk / r['bilder'][w]['fil']).is_file(), w)
+            self.assertEqual(r['bilder'][w]['fil'], 'bilder/index-%s.png' % w)
+        self.assertTrue((vk / 'bilder' / 'om-index-390.png').is_file(), 'undersidans stam: om/index.html → om-index')
+        self.assertEqual(r['bilder']['390']['h1'], ['Provrubrik 200'], 'katalogen /om/ ger sin index.html')
+        self.assertEqual(r['fel'], [], 'den lata bilden långt ner laddades före mätningen')
+        lat = next(x for x in r['matt']['390']['bildstorlekar'] if x['src'].endswith('lat.png'))
+        self.assertTrue(lat['lazy'], 'loading=lazy redovisas fortfarande')
+        srcset = next(x for x in r['matt']['390']['bildstorlekar'] if x['src'].endswith('bild-600.png'))
+        self.assertEqual((srcset['naturlig'], srcset['css_bredd'], srcset['kvot']), (600, 300, 1.0), srcset)
+        self.assertFalse([v for v in r['varningar'] if 'suddig' in v], 'srcset-bilden med täthet 2 är inte suddig')
+        # rörelse som pågår mer än 5 s är tillåten när den kan pausas (stationen detaljer, ägarens beslut 2026-10-13)
+        self.assertEqual(r['stillhet']['390']['paus'], ['Pausa rörelsen'])
+        self.assertFalse([v for v in r['varningar'] if 'paus- eller stoppkontroll' in v], 'en synlig pausknapp: ingen varning')
+        r2 = json.loads((self.u / SLUG / 'design' / 'versioner' / 'v02' / 'BILDER.json').read_text())['ritningar']['index.html']
+        self.assertTrue([v for v in r2['varningar'] if 'paus- eller stoppkontroll' in v], 'rörelsen utan pausknapp varnas')
+        self.assertIn('axe', b['kontroll'])
+        self.assertTrue(all(x.get('slutkod') == 0 for x in b['kontroll']['detektor'].values()), b['kontroll']['detektor'])
+        self.assertTrue((vk / 'kontroll' / 'detektor' / 'om-index.html-390.json').is_file(), 'undersidans detektorfil i samma katalog')
+        self.assertEqual(v1['insats']['skal'], 'riktningens första version')
+        self.assertTrue(v2['insats']['synlig'], v2['insats'])
+        self.assertEqual(v2['insats']['jamfort_med'], 'v01')
+        self.assertEqual(v2['sidor'], ['index.html'], 'undersidan togs bort i projektet')
+        self.assertTrue(v2['insats']['bredder']['390']['fore'].endswith('versioner/v01/bilder/index-390.png'), 'bilderna före och efter')
+        self.assertEqual(v2['hoppade'], {'art': 'provets riktning prövar bara mekaniken, inget språk'})
+        rader = [json.loads(x) for x in (self.u / SLUG / 'design' / 'VERSIONER.jsonl').read_text().splitlines()]
+        self.assertEqual([(x['version'], x['ritning'], x['station']) for x in rader], [('v01', 'k01', 'innehall'), ('v02', 'k01', 'typografi')])
+
+    def test_astro_utan_las_och_ett_bygge_som_faller(self):
+        self.astro()
+        shutil.rmtree(self.k / SLUG / 'kandidater' / 'k02', ignore_errors=True)
+        p = self.projekt('k02', las=False)
+        (p / 'RIKTNING.md').unlink()
+        df.riktningar(SLUG, ['k02'])
+        post = df.version(SLUG, None, None, 'första', ritning='k02', bilder=False)
+        self.assertIsNone(post['las'])
+        self.assertTrue(any('låset saknas' in x for x in post['varningar']) and any('RIKTNING.md saknas' in x for x in post['varningar']))
+        with patch.object(df, 'bygg', return_value=(1, 'astro build: ett fel i sidan')):
+            with self.assertRaisesRegex(df.ByggFel, 'ett fel i sidan'):
+                df.version(SLUG, None, None, 'andra', ritning='k02', bilder=False)
+        self.assertEqual(df.versioner(SLUG), ['v01'], 'ett bygge som faller ger ingen version')
+        with self.assertRaisesRegex(df.Fel, 'finns inte i bandet'):
+            df.version(SLUG, None, None, 'x', ritning='k09', bilder=False)
+        with self.assertRaisesRegex(df.Fel, 'ange --ritning'):
+            df.version(SLUG, None, None, 'x', bilder=False)
+
+    def test_duken_ar_pausad(self):
+        """Läget duk står kvar men pausat: ny --kanvas, runtime, tillgang och version --fran nekas utom med
+        NWP_DESIGNLAGE=duk, och startkommandot nekas för en designfas i läget duk."""
+        with self.assertRaisesRegex(df.Fel, 'pausat'):
+            df.ny(SLUG, KANVAS)
+        df.ny(SLUG)
+        self.assertEqual(df.lage(SLUG), 'astro')
+        rt = self.tmp / 'dc-runtime.js'
+        rt.write_text(RUNTIME)
+        for f in (lambda: df.runtime(SLUG, rt, 'r1'), lambda: df.tillgang(SLUG, BLOBB, self.bild),
+                  lambda: df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'x', bilder=False)):
+            with self.assertRaisesRegex(df.Fel, 'pausat'):
+                f()
+        os.environ['NWP_DESIGNLAGE'] = 'duk'
+        with self.assertRaisesRegex(df.Fel, 'läget astro'):
+            df.ny(SLUG, KANVAS)
+        shutil.rmtree(self.u / SLUG / 'design')
+        df.ny(SLUG, KANVAS)
+        self.assertEqual(df.lage(SLUG), 'duk')
+        del os.environ['NWP_DESIGNLAGE']
+        with self.assertRaisesRegex(df.Fel, 'pausat'):
+            df.start(SLUG, skriv_bara=True)
+        # en designfas från före beslutet utan fältet lage är duk när den har en duk
+        d = json.loads((self.u / SLUG / 'design' / 'DESIGNFAS.json').read_text())
+        d.pop('lage')
+        (self.u / SLUG / 'design' / 'DESIGNFAS.json').write_text(json.dumps(d))
+        self.assertEqual(df.lage(SLUG), 'duk')
+
     def test_version_kopieras_hashas_och_renderas(self):
         self.duk()
         # en attrapp av impeccables motor (detektor.motor läser IMPECCABLE_BIN): fynden med kodutdrag och sidtext, och
@@ -194,6 +465,8 @@ class B_Version(Grund):
         self.assertIn('flat-type-hierarchy', df.station_brief(SLUG, 'typografi', 'Main.dc.html', self.u))
         self.assertNotIn('cramped-padding', df.station_brief(SLUG, 'typografi', 'Main.dc.html', self.u))
         self.assertIn('cramped-padding', df.station_brief(SLUG, 'komposition', 'Main.dc.html', self.u))
+        self.assertTrue(all(x in df.station_brief(SLUG, 'detaljer', 'Main.dc.html', self.u) for x in ('flat-type-hierarchy', 'cramped-padding')),
+                        'detaljerna läser alla detektorns fynd')
         self.assertNotIn('detektorns fynd', df.station_brief(SLUG, 'innehall', 'Main.dc.html', self.u))
         self.assertEqual(post['version'], 'v01')
         self.assertEqual((vk / 'kanvas' / 'Main.dc.html').read_text(), RITNING)
@@ -212,6 +485,7 @@ class B_Version(Grund):
         self.assertNotIn('768-meny', r['bilder'], 'menyknappen syns bara i mobilen')
         self.assertEqual(b['tillgangar_begarda'], [BLOBB])
         self.assertIn('inte en skärmbild', b['kalla'])
+        self.assertIn('Design-typens körmiljö', b['kalla'])
         self.assertEqual(b['runtime']['release'], 'prov-release-1')
         self.assertIn('axe', b['kontroll'])
         # tilläggets kontroller (punkt 5): LCP-kandidat, bildstorlekar, rörelse med och utan reducerad rörelse, reflow, fokus, stillhet
@@ -232,6 +506,7 @@ class B_Version(Grund):
             rc = df.main(['ny', SLUG])
         self.assertIn(rc, (0, None))
         self.assertTrue(df.aktiv(SLUG), 'designfasen registrerad genom kommandot')
+        self.assertEqual(df.lage(SLUG), 'astro', 'läget astro är standard')
 
     def test_dubblett_saknad_ritning_och_okand_tillgang(self):
         self.duk()
@@ -247,7 +522,8 @@ class B_Version(Grund):
             df.version(SLUG, self.las_tillbaka('fran5'), '1791822463-0592', '  ', bilder=False)
 
     def test_utan_duk_ingen_version(self):
-        df.ny(SLUG)
+        os.environ['NWP_DESIGNLAGE'] = 'duk'
+        df.ny(SLUG, lage_='duk')
         with self.assertRaisesRegex(df.Fel, 'duken är inte registrerad'):
             df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'x', bilder=False)
 
@@ -274,6 +550,16 @@ class C_Bestallning(Grund):
             df.bestall(SLUG, 'smak', 'v01', 'Main.dc.html', 'en uppgift som är lång nog att godtas')
         with self.assertRaisesRegex(df.Fel, 'finns inte'):
             df.bestall(SLUG, 'typografi', 'v09', 'Main.dc.html', 'en uppgift som är lång nog att godtas')
+
+    def test_livscykeln_i_projekten(self):
+        self.astro(('k01', 'k02'))
+        df.version(SLUG, None, None, 'första', ritning='k01', bilder=False)
+        b = df.bestall(SLUG, 'referenser', 'v01', 'k01', 'Bättre förebilder för prislistan i en lokal verkstad')
+        self.assertEqual((b['lage'], b['kanvas'], b['ritning']), ('astro', None, 'k01'))
+        with self.assertRaisesRegex(df.Fel, 'gäller riktningen k01'):
+            df.bestall(SLUG, 'typografi', 'v01', 'k02', 'en uppgift som är lång nog att godtas')
+        post = df.version(SLUG, None, None, 'prislistan efter B001', ['B001'], ritning='k01', bilder=False)
+        self.assertEqual((df.bestallning(SLUG, 'B001')['status'], post['version']), ('inford', 'v02'))
 
 
 class D_Specialist(Grund):
@@ -317,6 +603,23 @@ class D_Specialist(Grund):
         for typ, (pass_, _, _) in df.TYPER.items():
             self.assertTrue(kompetens.for_pass(pass_), '%s: passet %s har en roll i metodkartan' % (typ, pass_))
 
+    def test_jamforelsen_ser_alla_riktningarnas_senaste_version(self):
+        """Kritiken och jämförelsen före valet körs samlat: med --ritning * får passet varje riktnings senaste version, och
+        en riktnings pass får projektets källa (kalla/), aldrig kritiken."""
+        self.astro(('k01', 'k02', 'k03'))
+        for i, kid in enumerate(('k01', 'k02', 'k03', 'k01')):
+            df.version(SLUG, None, None, 'version %d' % i, ritning=kid, bilder=False)
+            self.fejkbilder('v%02d' % (i + 1))
+        b = df.bestall(SLUG, 'jamforelse', 'v04', '*', 'Falsk variation mellan de tre riktningarna före ägarens val')
+        p = df.specialist_prompt(SLUG, b)
+        for kid, v in (('k01', 'v04'), ('k02', 'v02'), ('k03', 'v03')):
+            self.assertIn('riktningen %s, %s, sidan index.html, 390: ' % (kid, v), p)
+        self.assertNotIn('riktningen k01, v01', p, 'bara riktningens senaste version')
+        self.assertIn('Versionens källa (projektets src/', p)
+        self.assertIn('Astro-sida', p)
+        k = df.bestall(SLUG, 'kritik', 'v04', 'k01', 'Kritik av riktningen som en besökare ser den, före förklaringen')
+        self.assertNotIn('Versionens källa', df.specialist_prompt(SLUG, k))
+
 
 class E_Godkannande(Grund):
     def forbered(self):
@@ -352,9 +655,50 @@ class E_Godkannande(Grund):
         self.assertFalse(df.godkand_giltig(SLUG)[0])
         b.write_bytes(orig)
         self.assertTrue(df.godkand_giltig(SLUG)[0])
+        self.assertEqual(df.installera_godkand(SLUG), [], 'läget duk installerar inget: bygget implementerar förlagan')
         # en senare dom från ägaren tar över
         skapande.lagg_till_dom(SLUG, 'ägaren', 'ny_riktning', 'börja om', underlag=self.u, tid='2099-01-01T00:00:00Z')
         self.assertFalse(df.godkand_giltig(SLUG)[0])
+
+    def test_overlamningen_och_installationen_i_projekten(self):
+        """Läget astro: överlämningen har källan (kalla/) med package.json och låset, och installationen lägger den
+        godkända versionens källa i kunder/<slug>/sajt med samma prövning som en godkänd kandidat; paketen följer med, och
+        sajtens .npmrc låser installationen (beslutet 2026-10-13, punkt 5)."""
+        self.astro()
+        df.version(SLUG, None, None, 'första', station_='innehall', ritning='k01', bilder=False)
+        self.fejkbilder('v01')
+        with self.assertRaisesRegex(df.Fel, 'gäller riktningen k01'):
+            df.godkann(SLUG, 'v01', 'k02')
+        g = df.godkann(SLUG, 'v01', 'k01')
+        self.assertEqual((g['lage'], g['ritning'], g['kanvas']), ('astro', 'k01', None))
+        k = df.overlamna(SLUG)
+        for n in ('kalla/package.json', 'kalla/package-lock.json', 'kalla/src/pages/index.astro', 'kalla/RIKTNING.md', 'bilder/index-390.png'):
+            self.assertTrue((k / n).is_file(), n)
+        self.assertTrue(any('Designvärden' in b for b in df.overlamning_brister(SLUG)))
+        self.fyll(k)
+        self.assertEqual(df.overlamning_brister(SLUG), [])
+        (k / 'kalla' / 'package-lock.json').unlink()
+        self.assertTrue(any('package-lock.json saknas' in b for b in df.overlamning_brister(SLUG)), 'låset krävs i paketet')
+        df.overlamna(SLUG)
+        self.assertTrue(df.godkand_giltig(SLUG)[0])
+        sajt = self.k / SLUG / 'sajt'
+        (sajt / 'src' / 'pages').mkdir(parents=True)
+        (sajt / 'package.json').write_text('{"name": "mallen"}')
+        (sajt / 'src' / 'pages' / 'index.astro').write_text('<h1>Mallen</h1>')
+        (sajt / '.npmrc').write_text('save-exact=true\nfund=false\n')
+        ersatta = df.installera_godkand(SLUG)
+        kalla = self.u / SLUG / 'design' / 'versioner' / 'v01' / 'kalla'
+        for n in ('package.json', 'package-lock.json', 'src/pages/index.astro', 'RIKTNING.md', 'astro.config.mjs'):
+            self.assertEqual((sajt / n).read_bytes(), (kalla / n).read_bytes(), n)
+        npmrc = (sajt / '.npmrc').read_text().splitlines()
+        self.assertEqual(sorted(npmrc), sorted(['fund=false', 'ignore-scripts=true', 'save-exact=true', 'registry=https://registry.npmjs.org/']))
+        self.assertTrue(any(x.endswith('kunder/%s/sajt/.npmrc' % SLUG) or x.endswith('sajt/.npmrc') for x in ersatta), ersatta)
+        undan = list((self.k / SLUG / 'startsida-ersatt').rglob('index.astro'))
+        self.assertEqual([x.read_text() for x in undan], ['<h1>Mallen</h1>'], 'den ersatta startsidan flyttades, inget raderades')
+        self.assertEqual(df.installera_godkand(SLUG), [], 'en andra installation ändrar inget')
+        (kalla / 'package.json').write_text('{"name": "ändrad"}')
+        with self.assertRaisesRegex(df.Fel, 'giltigt'):
+            df.installera_godkand(SLUG)
 
     def test_bygget_jamfors_med_forlagan(self):
         self.forbered()
@@ -386,19 +730,28 @@ class E_Godkannande(Grund):
         k = (ROOT / 'kor.sh').read_text()
         self.assertIn('designfas.godkand_giltig', k)
         self.assertIn('design/overlamning', k)
+        self.assertIn('designfas.installera_godkand', k, 'den godkända källan läggs i sajten före bygget')
+        self.assertIn('npm ci --prefix kunder/$SLUG/sajt', k, 'paketen installeras ur låset')
+        self.assertLess(k.index('kontroller/startkontroll.py'), k.index('designfas.installera_godkand'), 'startkontrollen först')
+        self.assertLess(k.index('designfas.installera_godkand'), k.index('chflags uchg "$ROOT/kunder"'))
         s = (ROOT / '.claude' / 'skills' / 'bygg-sajt' / 'SKILL.md').read_text()
-        self.assertIn('Claude Design', s)
+        self.assertIn('ur designfasen', s)
 
 
 class H_Band(Grund):
-    """Produktionsbandet (ägarens uppdrag 2026-10-12, version 2): stationerna ur metodkartans tabell i processmodellens
-    ordning, varje station med en metod, versioner som bär stationen, insatsen prövad i renderingen, överhoppade stationer
-    med skäl, kritikens återgång, bandets läge per riktning och ett kvitto som redovisar utan att fälla."""
+    """Produktionsbandet (ägarens uppdrag 2026-10-12, version 2) på riktningen k01 i läget astro: stationerna ur
+    metodkartans tabell i processmodellens ordning, varje station med en metod, versioner som bär stationen, överhoppade
+    stationer med skäl, kritikens återgång, bandets läge per riktning och ett kvitto som redovisar utan att fälla."""
 
     def test_tabellen_i_litteraturens_ordning(self):
         st = df.stationer()
         ordning = list(st)
-        self.assertEqual(ordning[:4], ['underlag', 'innehall', 'art', 'komposition'], 'content first, art direction före kompositionen')
+        self.assertEqual(ordning[:5], ['underlag', 'innehall', 'art', 'komposition', 'detaljer'],
+                         'content first, art direction före kompositionen, detaljerna före valet (ägarens beslut 2026-10-13)')
+        self.assertIn('rorelse', st['detaljer']['metoder'])
+        self.assertIn('21st', st['detaljer']['mcp'])
+        self.assertIn('emil-animate/SKILL.md', st['detaljer']['karna'])
+        self.assertIn('ds_rorelse', st['detaljer']['pass'])
         self.assertLess(ordning.index('komposition'), ordning.index('typografi'))
         self.assertLess(ordning.index('rorelse'), ordning.index('kritik'))
         self.assertIn('taste/SKILL.md', [df.filen(f) for f in st['art']['karna']])
@@ -412,60 +765,67 @@ class H_Band(Grund):
         inn = df.station_rader(st['innehall'])
         self.assertTrue(any('rubrikordningen' in r for r in inn), 'tillgängligheten i innehållet (granskningen mot WAI)')
         self.assertFalse(any('kontrast 4,5:1' in r for r in inn), 'de visuella kraven börjar vid art direction')
+        self.assertIn('RIKTNING.md', st['underlag']['utdata'], 'dukens sida Underlag är RIKTNING.md i projektet')
         with self.assertRaisesRegex(df.Fel, 'okänd station'):
             df.station('smak')
 
     def test_bandet_pa_en_riktning(self):
-        self.duk()
-        v1 = df.version(SLUG, self.las_tillbaka('f1', notes={'v01': {'x': 0, 'y': -200, 'text': 'v01 · Innehåll och struktur: sektionerna'}}),
-                        '1791822460-0589', 'struktur med verkligt innehåll', station_='innehall', ritning='Main.dc.html')
-        self.assertEqual((v1['station'], v1['notering'], v1['varningar']), ('innehall', 'v01 · Innehåll och struktur: sektionerna', []))
-        self.assertEqual(v1['insats']['skal'], 'riktningens första version')
-        ny = RITNING.replace('<h1>Provrubrik</h1>', '<h1 style="font-size:72px;line-height:1">Provrubrik i ny skala</h1>')
-        v2 = df.version(SLUG, self.las_tillbaka('f2', ritning=ny), '1791822470-0600', 'typskalan', station_='typografi',
-                        ritning='Main.dc.html', hoppade=['art=provets ritning prövar bara mekaniken, inget språk'])
-        self.assertTrue(v2['insats']['synlig'], v2['insats'])
-        self.assertEqual(v2['insats']['jamfort_med'], 'v01')
-        self.assertTrue(any('notering' in x for x in v2['varningar']), 'utan anteckning på duken varnar versionen')
-        band = df.band(SLUG)['Main.dc.html']
-        lage = {x['station']: x['lage'] for x in band}
+        self.astro(('k01', 'k02'))
+        v1 = df.version(SLUG, None, None, 'struktur med verkligt innehåll', station_='innehall', ritning='k01', bilder=False)
+        self.fejkbilder('v01')
+        v2 = df.version(SLUG, None, None, 'typskalan', station_='typografi', ritning='k01', bilder=False,
+                        hoppade=['art=provets riktning prövar bara mekaniken, inget språk'])
+        self.fejkbilder('v02')
+        self.assertEqual((v1['station'], v2['station'], v2['ritning']), ('innehall', 'typografi', 'k01'))
+        self.assertEqual(df.forra_med(SLUG, 'v02', 'k01'), 'v01')
+        self.assertIsNone(df.forra_med(SLUG, 'v02', 'k02'), 'riktningen k02 har ingen version')
+        band = df.band(SLUG)
+        self.assertEqual(sorted(band), ['k01', 'k02'], 'riktningarna ur DESIGNFAS.json, också före sin första version')
+        lage = {x['station']: x['lage'] for x in band['k01']}
         self.assertEqual((lage['innehall'], lage['typografi'], lage['art']), ('gjord', 'gjord', 'hoppad'))
-        self.assertEqual(lage['formular'], 'ej tillämplig', 'provritningen har inget formulär')
-        self.assertEqual(lage['jamforelse'], 'ej tillämplig')
+        self.assertEqual(lage['formular'], 'ej tillämplig', 'riktningen har inget formulär')
+        self.assertEqual(lage['jamforelse'], 'återstår', 'två riktningar i bandet')
         self.assertEqual(lage['overlamning'], 'väntar')
         self.assertEqual(lage['kritik'], 'återstår')
-        self.assertTrue(next(x for x in band if x['station'] == 'typografi')['synlig'])
-        self.assertIn('band', df.status(SLUG))
+        self.assertEqual({x['station']: x['lage'] for x in band['k02']}['innehall'], 'återstår')
+        s = df.status(SLUG)
+        self.assertEqual((s['lage'], s['riktningar']['k01']['senaste'], s['riktningar']['k02']['senaste']), ('astro', 'v02', None))
 
     def test_kritik_och_tillganglighet_hoppas_inte_over(self):
-        self.duk()
+        self.astro()
         for sid in df.ALLTID:
             with self.assertRaisesRegex(df.Fel, 'körs alltid'):
-                df.version(SLUG, self.las_tillbaka('f-' + sid), '1791822460-0589', 'x', bilder=False, ritning='Main.dc.html',
-                           hoppade=[sid + '=ett skäl som är långt nog att godtas'])
+                df.version(SLUG, None, None, 'x', bilder=False, ritning='k01', hoppade=[sid + '=ett skäl som är långt nog att godtas'])
         with self.assertRaisesRegex(df.Fel, 'skäl'):
-            df.version(SLUG, self.las_tillbaka('f-kort'), '1791822460-0589', 'x', bilder=False, ritning='Main.dc.html', hoppade=['polish=nej'])
+            df.version(SLUG, None, None, 'x', bilder=False, ritning='k01', hoppade=['polish=nej'])
         with self.assertRaisesRegex(df.Fel, 'ritning'):
-            df.version(SLUG, self.las_tillbaka('f-utan'), '1791822460-0589', 'x', bilder=False, station_='art')
+            df.version(SLUG, None, None, 'x', bilder=False, station_='art')
+        self.assertEqual(df.versioner(SLUG), [], 'inget byggdes för ett anrop som nekades')
 
     def test_stationens_instruktion_och_bestallning(self):
-        self.duk()
-        df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'första', bilder=False)
-        (self.u / SLUG / 'design' / 'versioner' / 'v01' / 'BILDER.json').write_text(json.dumps(
-            {'ritningar': {'Main.dc.html': {'bilder': {'390': {'fil': 'bilder/Main-390.png'}}}}}))
-        t = df.station_brief(SLUG, 'typografi', 'Main.dc.html')
+        self.astro()
+        forsta = df.station_brief(SLUG, 'innehall', 'k01')
+        for del_ in ('Station innehall på riktningen k01 (Riktningen k01)', 'riktningens första version', 'v01 blir nästa',
+                     '--station innehall --ritning k01', str(df.projekt(SLUG, 'k01'))[-30:], 'inte publicerad'):
+            self.assertIn(del_, forsta)
+        self.assertNotIn('--fran', forsta)
+        df.version(SLUG, None, None, 'första', ritning='k01', bilder=False)
+        self.fejkbilder('v01')
+        t = df.station_brief(SLUG, 'typografi', 'k01')
         for del_ in ('Station typografi', 'impeccable/reference/typeset.md', 'better-typography/SKILL.md (aktivera med Skill)',
-                     'Stationens metod', '--station typografi --ritning Main.dc.html', 'v02'):
+                     'Stationens metod', '--station typografi --ritning k01', 'v02 blir nästa', 'senaste version v01', 'index-390.png',
+                     'designfas.py artefakt %s k01' % SLUG):
             self.assertIn(del_, t)
-        b = df.bestall(SLUG, 'komponent', 'v01', 'Main.dc.html', 'En tjänstelista ur 21st som implementationsgrund för huvudsektionen')
+        self.assertNotIn('--fran', t)
+        b = df.bestall(SLUG, 'komponent', 'v01', 'k01', 'En tjänstelista ur 21st som implementationsgrund för huvudsektionen')
         self.assertEqual(b['station'], 'komposition')
         with self.assertRaisesRegex(df.Fel, 'har inte passet'):
-            df.bestall(SLUG, 'typografi', 'v01', 'Main.dc.html', 'En typografisk analys som är lång nog att godtas', station_='komposition')
+            df.bestall(SLUG, 'typografi', 'v01', 'k01', 'En typografisk analys som är lång nog att godtas', station_='komposition')
 
     def test_kvittot_faller_inte_och_kritiken_kan_skicka_tillbaka(self):
-        self.duk()
-        df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'första', bilder=False, station_='innehall', ritning='Main.dc.html')
-        df.bestall(SLUG, 'kritik', 'v01', 'Main.dc.html', 'Kritik av versionen som en besökare ser den, före förklaringen')
+        self.astro()
+        df.version(SLUG, None, None, 'första', bilder=False, station_='innehall', ritning='k01')
+        df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av versionen som en besökare ser den, före förklaringen')
         so = {'sammanfattning': 's', 'fynd': [], 'forslag': [], 'referenser': [], 'begransningar': [],
               'kompetens': {'aktiverade': [], 'lasta': [], 'valda': []}, 'atergang': {'till': 'komposition', 'skal': 'hierarkin bär inte'}}
         with patch.object(atelje, 'session', return_value={'session_id': '00000000-0000-4000-8000-000000000002', 'structured_output': so}), \
@@ -477,8 +837,67 @@ class H_Band(Grund):
         md = (self.u / SLUG / 'design' / 'svar' / 'B001' / 'SVAR.md').read_text()
         self.assertIn('fäller ingenting', md)
         self.assertIn('omtag av kompositionen', md)
-        kritik = next(x for x in df.band(SLUG)['Main.dc.html'] if x['station'] == 'kritik')
+        kritik = next(x for x in df.band(SLUG)['k01'] if x['station'] == 'kritik')
         self.assertEqual((kritik['lage'], kritik['atergang']['till']), ('svar', 'komposition'))
+
+
+class J_Artefakt(Grund):
+    """Ägarens visning (beslutet 2026-10-13, punkt 2): en privat artefakt per riktning med den byggda sidan, prövad på en
+    version med Artifact-verktyget. Paketet byggs här; publiceringen gör sessionen och registrerar den."""
+
+    def test_paketet_med_relativa_vagar_och_utan_csp(self):
+        self.astro(('k01', 'k02'))
+        df.version(SLUG, None, None, 'strukturen', station_='innehall', ritning='k01', bilder=False)
+        df.version(SLUG, None, None, 'den andra riktningen', station_='innehall', ritning='k02', bilder=False)
+        df.version(SLUG, None, None, 'språket', station_='art', ritning='k01', bilder=False)
+        r = df.artefakt(SLUG, 'k01')
+        ut = self.u / SLUG / 'design' / 'artefakt' / 'k01'
+        self.assertEqual((r['versioner'], r['varningar']), (['v01', 'v03'], []), 'bara riktningens versioner')
+        sida = (ut / 'index.html').read_text()
+        self.assertNotIn('<html', sida.lower(), 'artefakten lindar in sidan i sitt eget skelett')
+        self.assertNotIn('<head', sida.lower())
+        self.assertTrue(sida.startswith('<title>'))
+        for del_ in ('prefers-color-scheme: dark', ':root[data-theme="dark"]', 'data-w="390"', 'data-w="768"', 'data-w="1440"',
+                     'v01 · Innehåll och struktur', 'v03 · Art direction', 'Öppna versionen som hel sida', 'href="v03/index.html"'):
+            self.assertIn(del_, sida)
+        v1 = (ut / 'v01' / 'index.html').read_text()
+        self.assertNotIn('/_astro/', v1.replace('../_astro/', ''), 'inga absoluta /_astro/-vägar')
+        self.assertIn('href="_astro/x.css"', v1)
+        self.assertIn('srcset="_astro/bild-600.png 600w"', v1)
+        self.assertNotIn('content-security-policy', v1.lower(), 'CSP-metan borttagen i förhandsvisningens kopia')
+        self.assertIn('content-security-policy', (self.u / SLUG / 'design' / 'versioner' / 'v01' / 'sida' / 'index.html').read_text(),
+                      'versionens egen sida är orörd')
+        self.assertIn('url(../_astro/fonts/prov.woff2)', (ut / 'v01' / '_astro' / 'x.css').read_text())
+        filer = [x['path'] for x in json.loads((ut / 'FILER.json').read_text())]
+        self.assertIn('v01/index.html', filer)
+        self.assertIn('v03/_astro/bild-600.png', filer)
+        self.assertNotIn('index.html', filer, 'sidan själv publiceras som file_path')
+        self.assertFalse([f for f in filer if f.startswith('v02/')])
+        self.assertTrue(all((ut / f).is_file() for f in filer))
+        self.assertEqual(r['omgangar'], [df.rel(ut / 'FILER.json')])
+        # publiceringen registreras; samma artefakt per riktning; status och bandet visar adressen
+        with self.assertRaisesRegex(df.Fel, 'gäller inte riktningen'):
+            df.registrera_artefakt(SLUG, 'k01', ARTEFAKTEN, 'v02')
+        a = df.registrera_artefakt(SLUG, 'k01', ARTEFAKTEN, 'v03', '1791900000-0001')
+        self.assertEqual((a['url'], a['version']), (ARTEFAKTEN, 'v03'))
+        self.assertTrue((self.u / SLUG / 'design' / 'riktningar' / 'k01' / 'ARTEFAKT.json').is_file())
+        with self.assertRaisesRegex(df.Fel, 'samma artefakt'):
+            df.registrera_artefakt(SLUG, 'k01', 'https://claude.ai/artifact/EnAnnanArtefakt012345', 'v03')
+        self.assertEqual(df.status(SLUG)['riktningar']['k01']['artefakt'], ARTEFAKTEN)
+        self.assertEqual(df.band(SLUG)['k01'][-1]['url'], ARTEFAKTEN)
+        self.assertIsNone(df.band(SLUG)['k02'][-1]['url'])
+
+    def test_over_255_filer_delas_i_omgangar(self):
+        self.astro()
+        df.version(SLUG, None, None, 'strukturen', ritning='k01', bilder=False)
+        a_ = self.u / SLUG / 'design' / 'versioner' / 'v01' / 'sida' / '_astro'
+        for i in range(300):
+            (a_ / ('del-%03d.js' % i)).write_text('export const x = %d;\n' % i)
+        r = df.artefakt(SLUG, 'k01')
+        self.assertEqual(len(r['omgangar']), 2)
+        delar = [json.loads((df.ROOT / x).read_text()) if not Path(x).is_absolute() else json.loads(Path(x).read_text()) for x in r['omgangar']]
+        self.assertEqual([len(d) for d in delar], [255, r['filer'] - 255])
+
 
 
 class I_Inventering(unittest.TestCase):
@@ -558,6 +977,7 @@ class I_Inventering(unittest.TestCase):
 
     def test_atergang_till_underlaget(self):
         self.assertIn('underlag', df.SVAR_SCHEMA['properties']['atergang']['properties']['till']['enum'])
+        self.assertIn('detaljer', df.SVAR_SCHEMA['properties']['atergang']['properties']['till']['enum'], 'kritiken kan begära omtag av detaljerna')
         md = df.svar_md({'id': 'B001', 'typ': 'kritik', 'version': 'v01', 'ritning': 'Main.dc.html', 'station': 'kritik',
                          'projekt': SLUG, 'uppgift': 'kritik av helheten'},
                         {'svar': {'atergang': {'till': 'underlag', 'skal': 'förebilderna bär inte'}}})
@@ -577,6 +997,10 @@ class F_Karta(unittest.TestCase):
         self.assertTrue(any('skill:slides har varken en station' in x for x in df.karta_prova(utan)))
         ensam = text.replace('| `detalj`, `varv`, `wai` | ny version med före och efter |', '| `varv`, `wai` | ny version med före och efter |')
         self.assertNotEqual(ensam, text, 'polishens metodcell finns')
+        ensam2 = ensam.replace('| `rorelse`, `detalj`, `wai` | ny version med före och efter; RIKTNING.md', '| `rorelse`, `wai` | ny version med före och efter; RIKTNING.md')
+        self.assertNotEqual(ensam2, ensam, 'detaljernas metodcell finns')
+        self.assertFalse(any('metoden detalj har ingen station' in x for x in df.karta_prova(ensam)), 'detaljerna har metoden kvar')
+        ensam = ensam2
         self.assertTrue(any('metoden detalj har ingen station' in x for x in df.karta_prova(ensam)))
 
     def test_en_saknad_skill_falls(self):
@@ -588,7 +1012,7 @@ class F_Karta(unittest.TestCase):
 
 class G_Start(Grund):
     def test_startkommandot(self):
-        df.ny(SLUG, KANVAS)
+        df.ny(SLUG)
         args = df.start(SLUG, skriv_bara=True)
         self.assertIn('--strict-mcp-config', args)
         self.assertEqual(args[-1], '/designfas %s' % SLUG)

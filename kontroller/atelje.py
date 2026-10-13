@@ -1927,7 +1927,6 @@ def installera_godkand(slug):
                 raise RuntimeError('underlaget ändrades sedan godkännandet')
         except (OSError, ValueError) as e:
             raise RuntimeError('underlaget kunde inte verifieras') from e
-    ersatta = []
     par = [(rot / 'vinnare' / 'kod' / 'index.astro', sajt / 'src' / 'pages' / 'index.astro', g.get('sha_index'))]
     if g.get('sha_kod'):  # en kandidat: alla dess sidor, prövade mot katalogens hash innan något läggs dit
         kod = saker_vag(rot / 'vinnare' / 'kod', rot)
@@ -1949,18 +1948,7 @@ def installera_godkand(slug):
             raise RuntimeError('kandidatens material kunde inte verifieras') from e
         par += [(f, sajt / f.relative_to(material), sha256_fil(f)) for f in sorted(material.rglob('*'))
                 if f.is_file() and f.relative_to(material).parts[0] in ('public', 'src')]
-    # Pröva samtliga källor och mål innan den första filen ersätts.
-    for kalla, mal, sha in par:
-        if sha:
-            saker_vag(kalla, rot)
-            saker_vag(mal.parent, KUNDER / slug)
-            for parent in mal.parents:
-                if not parent.is_relative_to(sajt):
-                    break
-                if parent.exists() and not parent.is_dir():
-                    raise RuntimeError('en målkatalog är en vanlig fil; ingen överföring gjordes')
-            if kalla.is_symlink() or not kalla.is_file() or sha256_fil(kalla) != sha:
-                raise RuntimeError('vinnaren innehåller en fil som inte är godkänd')
+    prova_overforing(slug, par, rot, 'vinnaren')
     if g.get('sha_material'):
         # Tillgångarnas två rotkataloger ersätts som helheter. Material som inte längre
         # ingår i kandidaten kan annars läcka tillbaka in i det slutliga bygget.
@@ -1986,12 +1974,40 @@ def installera_godkand(slug):
             undan = ledigt_namn(undan_rot, nu().replace(':', '')) / namn
             undan.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(mal), str(undan))
+    return overfor_godkanda(slug, par, rot, 'underlag/%s/atelje/vinnare' % slug)
+
+
+def prova_overforing(slug, par, kalla_rot, vad):
+    """Före en överföring av godkända filer till kunder/<slug>/sajt (installera_godkand här och designfas.installera_godkand
+    för en godkänd version i designfasen): samtliga källor och mål prövas innan den första filen ersätts. par är
+    (källa, mål, sha256); källan ligger under kalla_rot och målet i kundens katalog utan länk i något led, ingen målkatalog
+    är en vanlig fil, och varje källa har sin godkända hash. vad: det godkända i felbeskedet ("vinnaren")."""
+    sajt = KUNDER / slug / 'sajt'
+    for kalla, mal, sha in par:
+        if sha:
+            saker_vag(kalla, kalla_rot)
+            saker_vag(mal.parent, KUNDER / slug)
+            for parent in mal.parents:
+                if not parent.is_relative_to(sajt):
+                    break
+                if parent.exists() and not parent.is_dir():
+                    raise RuntimeError('en målkatalog är en vanlig fil; ingen överföring gjordes')
+            if kalla.is_symlink() or not kalla.is_file() or sha256_fil(kalla) != sha:
+                raise RuntimeError('%s innehåller en fil som inte är godkänd' % vad)
+
+
+def overfor_godkanda(slug, par, kalla_rot, vad):
+    """De prövade paren (prova_overforing) i sajten: en fil som redan är den godkända lämnas, en annan flyttas till
+    kunder/<slug>/startsida-ersatt/<tid>/ med sin väg i sajten (radera inget), och en länk tas bort utan att följas.
+    vad: källans katalog i felbeskedet. Ger vägarna som ersattes."""
+    sajt = KUNDER / slug / 'sajt'
+    ersatta = []
     for kalla, mal, sha in par:
         if not sha:
             continue
-        saker_vag(kalla, rot)
+        saker_vag(kalla, kalla_rot)
         if not kalla.is_file() or sha256_fil(kalla) != sha:
-            raise RuntimeError('underlag/%s/atelje/vinnare: %s är inte den godkända' % (slug, kalla.name))
+            raise RuntimeError('%s: %s är inte den godkända' % (vad, kalla.name))
         saker_vag(mal.parent, KUNDER / slug)
         if mal.is_file() and not mal.is_symlink() and sha256_fil(mal) == sha:
             continue
@@ -2051,6 +2067,9 @@ def doma(slug, kalla, beslut, text, avser='', tid=None, **extra):
                          'när den är klar' % (st.get('steg'), slug))
     if beslut in skapande.KANDIDATBESLUT and not kflode:
         raise ValueError('beslutet %s gäller kandidatflödet, och körningen har inga kandidater' % beslut)
+    if beslutande and kflode and st.get('steg') == 'band' and (beslut in ('valj', 'jamfor', 'uppdrag', 'putsa', 'godkand') or extra.get('kandidater')):
+        import designfas  # en dom eller ett uppdrag på en riktning i bandet: två skrivare blir det aldrig
+        raise ValueError(designfas.i_bandet(slug))
     klar_steg = 'klar_for_bedomning' if kflode else 'klar'
     if agaren and beslut == 'godkand' and st.get('steg') != klar_steg:  # samma regel som vyn (omgranskning 2, fynd 2)
         raise ValueError('bara en klar körning kan godkännas (körningen är %s)' % (st.get('steg') or 'inte startad'))
@@ -2211,7 +2230,7 @@ def redovisa(slug, rot, status):
     return rot / 'REDOVISNING.md'
 
 
-AVSLUTADE = ('klar', 'forkastad', 'tillbaka', 'klar_for_bedomning', 'forberedd', 'planprovad', 'forskad')  # planprovad, forskad: kandidater.STOPP_EFTER
+AVSLUTADE = ('klar', 'forkastad', 'tillbaka', 'klar_for_bedomning', 'forberedd', 'planprovad', 'forskad', 'band')  # planprovad, forskad: kandidater.STOPP_EFTER; band: kandidater.lamna_till_bandet
 BARS = ('val', 'omgang', 'omgangar', 'overford', 'overforing', 'kompletteringar')  # följer med vid --fortsatt och --putsa
 BARS_FORTSATT = ('putsning', 'forfina_start')  # och vid --fortsatt det som gör en avbruten putsning och förfining hel
 BARS_KANDIDAT = ('kandidatflode', 'valda', 'dom', 'fas', 'forra_lage', 'kandidatlage', 'tider')  # och i kandidatflödet var körningen var (granskning 2, N1)
@@ -2248,9 +2267,11 @@ def fortsatt_nekas(st, slug=None):
     och omprofileringen vid nästa start gick inte att nå)."""
     if st.get('steg') == 'planprovad':
         return None
-    if st.get('steg') == 'forskad':  # stannade efter researchen: planeringen tar vid, utom när designfasen i Claude Design är aktiv
+    if st.get('steg') == 'forskad':  # stannade efter researchen på begäran (NWP_KANDIDAT_STOPP_EFTER): planeringen tar vid
+        return None
+    if st.get('steg') == 'band':  # riktningarna är i designfasens band: designfas.py är enda skrivaren (en skrivare per riktning)
         import designfas
-        return designfas.sparr(slug) if slug and designfas.aktiv(slug, UNDERLAG) else None
+        return designfas.i_bandet(slug or st.get('slug') or '<slug>')
     kand = st.get('kandidater') if isinstance(st.get('kandidater'), dict) else {}
     if st.get('steg') == 'klar_for_bedomning' and st.get('kandidatflode') and kand:
         import kandidater as kd_
@@ -2440,9 +2461,9 @@ def arbeta(slug, lage):
             import forberedelse
             forberedelse.kor(slug, status, skriv)
             return 0
-        import designfas  # designfasen i Claude Design (kunskap/claude-design.md): Code gör bara researchen, ingen egen kunddesign
-        if designfas.aktiv(slug, UNDERLAG) and not (status.get('kandidatflode') and lage in ('ny', 'fortsatt')):
-            raise RuntimeError(designfas.sparr(slug))
+        if lage in ('valda', 'putsa') and forra.get('steg') == 'band':  # riktningarna i bandet har en skrivare: designfas.py
+            import designfas
+            raise RuntimeError(designfas.i_bandet(slug))
         if lage == 'ny':
             forra_ = arkivera_vid_ny_start(rot, kvitto=bool(sk))
             status['foregaende'] = rel(forra_) if forra_ else None
@@ -2782,6 +2803,9 @@ def besked(rot, st):
         return 0
     if steg == 'forskad':
         print('%s %s' % (st.get('skal') or 'Körningen stannade efter researchen.', saknas))
+        return 0
+    if steg == 'band':
+        print('%s %s' % (st.get('skal') or 'Riktningarna är i designfasens band: utföraren startas med ./design.sh %s.' % st.get('slug'), saknas))
         return 0
     if steg == 'klar_for_bedomning':
         print('Kandidaterna är klara för ägarens bedömning (%s). Ägaren jämför och väljer i arbetsytans Förslagen; '

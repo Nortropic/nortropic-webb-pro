@@ -252,13 +252,13 @@ GODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.ar
 import skapande
 ok, skal = skapande.godkand_giltig(sys.argv[2])
 print("ja" if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
-# Claude Design (kunskap/claude-design.md; ägarens uppdrag 2026-10-12): ägarens designgodkännande av en exakt version på
-# duken, med en komplett överlämning (kontroller/designfas.py godkand_giltig). Godkännandet startar inget; bygget är
-# ägarens eget beslut, när kor.sh startas.
+# Designfasen (ägarens beslut 2026-10-13 i BESLUT.md: formgivningen lokalt i Astro; läget duk i Claude Design är
+# pausat): ägarens designgodkännande av en exakt version av en riktning, med en komplett överlämning
+# (kontroller/designfas.py godkand_giltig). Godkännandet startar inget; bygget är ägarens eget beslut, när kor.sh startas.
 DESIGNGODKAND="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import designfas
 ok, skal, g = designfas.godkand_giltig(sys.argv[2])
-print(g["version"] + " " + g["ritning"] if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
+print(g["version"] + " " + g["ritning"] + " " + (g.get("lage") or "duk") if ok else "")' "$ROOT" "$SLUG" 2>/dev/null || true)"
 FRYSTA=()   # godkännandets underlagsgrund, fylld nedan från en godkänd startsida
 AGARENS_STOPP="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import prototyp
@@ -297,21 +297,43 @@ till historik). Saknas INNEHALL.md är TEXTUNDERLAG.md sidans text; innehåll so
 skriver du i kunder/$SLUG/INNEHALL-BYGGE.md. Steg 5–7:s egna arbetsfiler (KONCEPT.md, FRASER.txt, RESOR.json,
 JAMFORELSE.md, GRANSKNINGSLOGG.md med flera) skrivs i underlag/$SLUG/ som förut."
 elif [ -n "$DESIGNGODKAND" ]; then
-  # ägarens designgodkännande i Claude Design: överlämningen och förlagan är frysta, och underlagsgrunden som ovan
-  read -r DVERSION DRITNING <<< "$DESIGNGODKAND"
+  # ägarens designgodkännande i designfasen: överlämningen och förlagan är frysta, och underlagsgrunden som ovan
+  read -r DVERSION DRITNING DLAGE <<< "$DESIGNGODKAND"
+  if [ "$DLAGE" = "astro" ]; then
+    # den godkända versionens källa i sajten, med paketen i package.json och låset, prövad mot versionens hashar som en
+    # godkänd kandidat (designfas.installera_godkand; ägarens beslut 2026-10-13, punkt 5)
+    ERSATT="$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
+import designfas
+print(", ".join(designfas.installera_godkand(sys.argv[2])))' "$ROOT" "$SLUG")" || stopp "den godkända versionen kunde inte läggas i sajten (designfas.installera_godkand)"
+    [ -z "$ERSATT" ] || echo "den godkända versionen lades i sajten: $ERSATT (de ersatta i kunder/$SLUG/startsida-ersatt/)"
+  fi
   IFS=' ' read -r -a FRYSTA <<< "$("$ROOT/.venv/bin/python" -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/kontroller")
 import skapande
 print(" ".join(skapande.UNDERLAGSGRUND + tuple(k + "/**" for k in skapande.UNDERLAGSKATALOGER) + ("design/**",)))' "$ROOT")" \
     || stopp "underlagsgrunden (kontroller/skapande.py UNDERLAGSGRUND) kunde inte läsas"
   [ ${#FRYSTA[@]} -ge 10 ] || stopp "underlagsgrunden (kontroller/skapande.py UNDERLAGSGRUND) är tom"
-  PROMPT="$PROMPT
+  if [ "$DLAGE" = "astro" ]; then
+    PROMPT="$PROMPT
+
+Ägaren har godkänt designen i designfasen (underlag/$SLUG/design/GODKANNANDE.json; BESLUT.md, tillägget 2026-10-13):
+version $DVERSION av riktningen $DRITNING, ett Astro-projekt. Startsidan, komponenterna, stilarna, package.json och låset
+ur den versionen ligger redan i kunder/$SLUG/sajt/ (överlämningens källa: underlag/$SLUG/design/overlamning/$DVERSION/kalla/).
+Installera paketen ur låset med npm ci --prefix kunder/$SLUG/sajt (sajtens .npmrc: inga skript, exakta versioner, bara
+npm-registret) innan du bygger. Läs OVERLAMNING.json och DESIGN.md i överlämningen först, sedan RIKTNING.md och
+jämförelsebilderna i bilder/. Kör inte ateljén och skissa ingen ny riktning: ta vid i steg 5 som skillen bygg-sajt säger
+om en godkänd design ur designfasen, behåll startsidan som den godkändes och bygg resten av sajten i samma riktning. En
+betydande avvikelse från förlagan är ett nytt designbeslut för bandet och ägaren, aldrig ett eget val i bygget."
+  else
+    PROMPT="$PROMPT
 
 Ägaren har godkänt designen i Claude Design (underlag/$SLUG/design/GODKANNANDE.json; kunskap/claude-design.md):
 version $DVERSION, ritningen $DRITNING. Överlämningen är underlag/$SLUG/design/overlamning/$DVERSION/: läs
 OVERLAMNING.json och DESIGN.md först, sedan ritningen i kanvas/ och jämförelsebilderna i bilder/. Kör inte ateljén och
-skissa ingen ny riktning: ta vid i steg 5 som skillen bygg-sajt säger om en godkänd design ur Claude Design och
+skissa ingen ny riktning: ta vid i steg 5 som skillen bygg-sajt säger om en godkänd design ur designfasen och
 implementera startsidan som förlagan, sedan resten av sajten i samma riktning. En betydande avvikelse från förlagan är ett
-nytt designbeslut för duken och ägaren, aldrig ett eget val i bygget.
+nytt designbeslut för duken och ägaren, aldrig ett eget val i bygget."
+  fi
+  PROMPT="$PROMPT
 Steg 1–4 är gjorda och godkännandets underlag är fryst: skriv inte om ${FRYSTA[*]} i underlag/$SLUG/ (Write, Edit och
 sandlådan nekar det). Saknas INNEHALL.md är TEXTUNDERLAG.md sidans text; innehåll som bygget behöver utöver underlaget
 skriver du i kunder/$SLUG/INNEHALL-BYGGE.md. Steg 5–7:s egna arbetsfiler (KONCEPT.md, FRASER.txt, RESOR.json,

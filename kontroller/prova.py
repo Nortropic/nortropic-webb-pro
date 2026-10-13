@@ -820,7 +820,7 @@ def prova(slug, snabb=False):
                                                    dist_sha=dist_hash(sajt / 'dist') if (sajt / 'dist').is_dir() else None)
             except (OSError, ValueError) as e:
                 info['vinnare'] = 'jämförelsen med ateljéns vinnare kördes inte: %s' % e
-        # bygget mot förlagan ur Claude Design (kunskap/claude-design.md, Överlämningen): samma bredder och menyn öppen
+        # bygget mot förlagan ur designfasen (skillen designfas, Överlämningen): samma bredder och menyn öppen
         if (underlag / 'design' / 'GODKANNANDE.json').is_file():
             try:  # informationssteg: ett fel här fäller aldrig hela provet
                 import designfas
@@ -828,7 +828,7 @@ def prova(slug, snabb=False):
                                                                 dist_sha=dist_hash(sajt / 'dist') if (sajt / 'dist').is_dir() else None,
                                                                 underlag=underlag.parent)
             except (OSError, ValueError, subprocess.SubprocessError) as e:
-                info['designforlaga'] = 'jämförelsen med förlagan ur Claude Design kördes inte: %s' % e
+                info['designforlaga'] = 'jämförelsen med förlagan ur designfasen kördes inte: %s' % e
 
         # stil (info): typsnitt, färgfamiljer, kort, nästa sektion, klickytor, modellernas standardval
         rc, out = kor([NODE, str(KONTROLLER / 'stil.mjs'), '--url=' + srv.url, '--sidor=' + lista, '--ut=' + str(prov / 'stil')], timeout=300)
