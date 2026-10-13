@@ -91,7 +91,10 @@ bilderna i 390/768/1440 och kontrollerna), och ägaren ser och kommenterar versi
 --ritning <kNN>`, och överlämningen (`designfas.py overlamna <slug>`, med källan i `kalla/`) är det kor.sh tar vid från i
 steg 6, där den godkända källan med `package.json` och låset läggs i sajten. Spåret står i `underlag/<slug>/design/`
 (versioner, kontroller, beställningar och svar, riktningarnas artefakter, GODKANNANDE.json och `overlamning/<v>/`).
-Läget duk i Claude Design (`kunskap/claude-design.md`) är pausat.
+Sedan ägarens beslut 2026-10-13 ("Autonomous to build") kör drivaren (`designfas.py kor <slug>`, startad av
+kandidatflödet) bandet utan ägaren: riktningarna, kritiken och jämförelsens val, den valda till överlämningen, sigillets
+godkännande och en byggbegäran; ägaren granskar den byggda sajten, och publiceringen väntar på honom (`kunskap/skapandeflodet.md`,
+Bandet i projekten). Läget duk i Claude Design (`kunskap/claude-design.md`) är pausat.
 
 Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
 tills grindarna är gröna och två oberoende granskare godkänt, eller tills taket nås (slutkod 1), och skriver `kunder/<slug>/RAPPORT.md` och sina egna

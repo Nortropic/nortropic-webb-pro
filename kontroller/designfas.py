@@ -8,6 +8,7 @@ sparar varje stations insats som en version. Code gör research, material, speci
 lämnar underlag. Spåret står privat i underlag/<slug>/design/:
 
     ny <slug>                                   designfasen startar i läget astro: DESIGNFAS.json
+    kor <slug> [--bakgrund]                     drivaren: bandet utan ägaren till och med en startad byggbegäran (sigillet godkänner)
     riktningar <slug> kNN … [--nya]             riktningarna registrerade i bandet (kandidatflödet gör det själv);
                                                 --nya: fler på ägarens begäran, med projekten ur sajten
     version <slug> --ritning kNN --orsak TEXT [--station S] [--hoppa S="skäl" …] [--paket namn@version …]
@@ -43,6 +44,8 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -111,6 +114,8 @@ SVAR_SCHEMA = {
                                       'bild_url': {'type': 'string'}, 'visar': {'type': 'string'}, 'anvandning': {'type': 'string'},
                                       'licens': {'type': 'string'}, 'kod': {'type': 'string'}}}},
         'begransningar': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 12},
+        'val': {'type': 'object', 'additionalProperties': False, 'required': ['riktning', 'skal'],
+                'properties': {'riktning': {'type': 'string', 'maxLength': 20}, 'skal': {'type': 'string', 'maxLength': 1200}}},
         'atergang': {'type': 'object', 'additionalProperties': False, 'required': ['till', 'skal'],
                      'properties': {'till': {'type': 'string', 'enum': ['fortsatt', 'underlag', 'innehall', 'art', 'komposition', 'detaljer']},
                                     'skal': {'type': 'string', 'maxLength': 800}}},
@@ -250,6 +255,16 @@ def aktiv(slug, underlag=None):
     except Fel:
         return False
     return bool(isinstance(d, dict) and d.get('aktiv'))
+
+
+def riktningar_i_arbete(slug, underlag=None):
+    """Sant när kunden har en aktiv designfas i läget astro med registrerade riktningar: då skriver bara designfas.py i
+    riktningarnas projekt (ateljéns start nekar --om, --ny-riktning, --valda och --putsa)."""
+    try:
+        d = las(rot(slug, underlag) / 'DESIGNFAS.json')
+    except Fel:
+        return False
+    return bool(isinstance(d, dict) and d.get('aktiv') and d.get('lage', 'astro') == 'astro' and d.get('riktningar'))
 
 
 def i_bandet(slug):
@@ -422,13 +437,35 @@ def tillgang(slug, blob, fil, kalla='', underlag=None):
 # ---- versioner och rendering --------------------------------------------------------------------------------------
 
 def versioner(slug, underlag=None):
+    """De färdiga versionerna: kataloger vNN med VERSION.json. En katalog utan den är en version som avbröts innan den
+    skrevs klart (eller en som en annan riktning håller på med), och den är ingen version (granskningen, fynd 6)."""
     v = rot(slug, underlag) / 'versioner'
-    return sorted((p.name for p in v.iterdir() if p.is_dir() and VERSION.match(p.name)), key=lambda n: int(n[1:])) if v.is_dir() else []
+    return sorted((p.name for p in v.iterdir() if p.is_dir() and VERSION.match(p.name) and (p / 'VERSION.json').is_file()),
+                  key=lambda n: int(n[1:])) if v.is_dir() else []
 
 
 def nasta(slug, underlag=None):
-    vs = versioner(slug, underlag)
-    return 'v%02d' % (int(vs[-1][1:]) + 1 if vs else 1)
+    """Nästa lediga nummer räknat över alla vNN-kataloger, också de som inte blev klara (numren återanvänds aldrig)."""
+    v = rot(slug, underlag) / 'versioner'
+    tal = [int(p.name[1:]) for p in v.iterdir() if p.is_dir() and VERSION.match(p.name)] if v.is_dir() else []
+    return 'v%02d' % (max(tal) + 1 if tal else 1)
+
+
+def reservera_version(slug, underlag=None):
+    """Nästa versionsnummer reserverat atomiskt för hela designfasen: katalogen skapas med mkdir, och finns den redan
+    (en annan riktning tog numret samtidigt) prövas nästa. Skrivlåset gäller en riktning, numret alla (granskningen av
+    astro-flödet 2026-10-13, fynd 6: tre riktningar ska kunna köras samtidigt). Ger (vNN, katalogen)."""
+    d = rot(slug, underlag) / 'versioner'
+    d.mkdir(parents=True, exist_ok=True)
+    for _ in range(1000):
+        tal = [int(p.name[1:]) for p in d.iterdir() if p.is_dir() and VERSION.match(p.name)]
+        v = 'v%02d' % (max(tal) + 1 if tal else 1)
+        try:
+            (d / v).mkdir()
+        except FileExistsError:
+            continue
+        return v, d / v
+    raise Fel('inget ledigt versionsnummer gick att reservera')
 
 
 def version(slug, fran=None, artifact_version=None, orsak='', bestallningar=(), av='utforaren', bilder=True, underlag=None,
@@ -494,9 +531,8 @@ def _version_duk(slug, d, fran, artifact_version, orsak, bestallningar, av, bild
     for v_ in vs:  # samma artefaktversion två gånger är samma version: ingen dubblett
         if (las(rot(slug, underlag) / 'versioner' / v_ / 'VERSION.json') or {}).get('artifact_version') == artifact_version:
             raise Fel('artefaktversionen %s är redan %s' % (artifact_version, v_))
-    v = nasta(slug, underlag)
-    vk = rot(slug, underlag) / 'versioner' / v
-    (vk / 'kanvas').mkdir(parents=True)
+    v, vk = reservera_version(slug, underlag)
+    (vk / 'kanvas').mkdir()
     filer = {}
     for n in ['canvas.json'] + ritningar:
         shutil.copy2(proj / n, vk / 'kanvas' / n)
@@ -562,9 +598,18 @@ def sidor(post):
     return [r['fil'] for r in post.get('ritningar') or []]
 
 
+def sakert(namn):
+    """Ett säkert filnamn: ett namn med annat än A–Z, 0–9, _, . och - translittereras (å → a, NFKD utan accenter) och
+    får en kort hash av originalet (NFC), så att tjänster och tjanster aldrig krockar. rendera.mjs gör exakt samma sak."""
+    s = unicodedata.normalize('NFC', namn)
+    t = re.sub(r'[^A-Za-z0-9_.-]', '-', re.sub('[\u0300-\u036f]', '', unicodedata.normalize('NFKD', s)))
+    return t if t == s else '%s-u%s' % (t, hashlib.sha1(s.encode('utf-8')).hexdigest()[:6])
+
+
 def stam(namn):
-    """Bildernas stam för en sida eller ritning: utan .dc.html eller .html, med / som - (rendera.mjs gör samma)."""
-    return re.sub(r'\.dc\.html$|\.html$', '', namn).replace('/', '-')
+    """Bildernas stam för en sida eller ritning: utan .dc.html eller .html, med / som - och säker (sakert; rendera.mjs
+    gör samma): index.html → index, om/index.html → om-index."""
+    return sakert(re.sub(r'\.dc\.html$|\.html$', '', namn).replace('/', '-'))
 
 
 def bildsida(post_eller_lage, ritning=None):
@@ -601,6 +646,39 @@ def kopiera_kalla(slug, p, mal):
     return filer, las_
 
 
+NPM_REGISTRET = 'https://registry.npmjs.org/'
+
+
+def las_brister(pj, las):
+    """Hör package.json och låset ihop så att npm ci installerar dem i helbygget, och kommer varje paket ur npm-registret?
+    Låsets rot (packages[""]) ska ha exakt package.json:s beroendefält, varje paket med resolved ska komma från
+    NPM_REGISTRET, och inget paket är en lokal länk (granskningen av astro-flödet 2026-10-13, fynd 2: git-, fil- och
+    adresskällor fälls oavsett väg). Ger bristerna, tom lista när allt håller."""
+    import kandidater
+    if not las or not Path(las).is_file():
+        return ['låset (package-lock.json) saknas: helbygget installerar paketen med npm ci ur låset']
+    try:
+        d = json.loads(Path(las).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return ['låset %s går inte att läsa' % rel(las)]
+    brister = []
+    pjf, rot_ = kandidater.paketfalten(pj), kandidater.lasets_rot(las)
+    if pjf != rot_:
+        skiljer = sorted({n for f in kandidater.BEROENDEFALT for n in set((pjf or {}).get(f) or {}) ^ set((rot_ or {}).get(f) or {})}
+                         | {n for f in kandidater.BEROENDEFALT for n, v in ((pjf or {}).get(f) or {}).items()
+                            if ((rot_ or {}).get(f) or {}).get(n) not in (None, v)})
+        brister.append('package.json och låset %s hör inte ihop (%s): kör paketvägen (--paket) så att låset skrivs om'
+                       % (rel(las), ', '.join(skiljer[:8]) or 'fälten skiljer sig'))
+    for namn, x in ((d.get('packages') or {}).items() if isinstance(d, dict) else ()):
+        if not namn or not isinstance(x, dict):
+            continue
+        if x.get('link'):
+            brister.append('%s är en lokal länk i låset, inte ett paket ur npm-registret' % namn)
+        elif x.get('resolved') and not str(x['resolved']).startswith(NPM_REGISTRET):
+            brister.append('%s kommer från %s, inte från npm-registret' % (namn, str(x['resolved'])[:100]))
+    return brister
+
+
 def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, station_, rid, hopp, paket):
     """En version ur riktningens Astro-projekt: paketen (--paket, eller kandidater.paketbehov), bygget, källan i
     kalla/ och dist i sida/, och renderingen av startsidan och undersidorna med kontrollerna. Kandidatens skrivlås hålls
@@ -617,6 +695,9 @@ def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, statio
             paket_ = {'begarda': list(paket), 'rc': rc_p, 'text': ' '.join(text_p.split())[-600:]}
             if rc_p:
                 raise ByggFel('paketen kunde inte installeras i %s (rc %s): %s' % (rel(p), rc_p, ' '.join(text_p.split())[-400:]))
+        brister = las_brister(p / 'package.json', kandidater.projektets_las(slug, rid))
+        if brister:
+            raise ByggFel('källans paket följer inte med till helbygget; ingen version skrevs: %s' % '; '.join(brister)[:900])
         rc, text = bygg(p)
         if rc:
             raise ByggFel('bygget av %s föll; ingen version skrevs: %s' % (rel(p), ' '.join(str(text).split())[-600:]))
@@ -625,9 +706,7 @@ def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, statio
         if 'index.html' not in alla:
             raise ByggFel('bygget gav ingen startsida (%s/dist/index.html)' % rel(p))
         vs = versioner(slug, underlag)
-        v = nasta(slug, underlag)
-        vk = rot(slug, underlag) / 'versioner' / v
-        vk.mkdir(parents=True)
+        v, vk = reservera_version(slug, underlag)
         filer, las_ = kopiera_kalla(slug, p, vk / 'kalla')
         kandidater.kopiera(dist, vk / 'sida')
     forra = [x for x in vs if (las(rot(slug, underlag) / 'versioner' / x / 'VERSION.json') or {}).get('ritning') == rid]
@@ -636,10 +715,8 @@ def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, statio
             'ritning': rid, 'riktning': {'id': rid, 'titel': titel, 'projekt': rel(p)}, 'station': station_, 'hoppade': hopp,
             'filer': filer, 'las': las_, 'paket': paket_, 'sidor': alla[:MAX_SIDOR], 'ej_renderade': alla[MAX_SIDOR:],
             'sekunder_sedan_forra': sekunder_mellan((las(rot(slug, underlag) / 'versioner' / vs[-1] / 'VERSION.json') or {}).get('tid') if vs else None, None)}
-    post['varningar'] = [x for x, ok in (
-        ('RIKTNING.md saknas i projektet: riktningens underlag (referenslåset, språket, skälen för en lättad CSP) står där',
-         'RIKTNING.md' in filer),
-        ('låset saknas: varken projektet eller sajten har package-lock.json, så paketen följer inte med till helbygget', las_)) if not ok]
+    post['varningar'] = [] if 'RIKTNING.md' in filer else [
+        'RIKTNING.md saknas i projektet: riktningens underlag (referenslåset, språket, skälen för en lättad CSP) står där']
     skriv(vk / 'VERSION.json', post)
     with open(rot(slug, underlag) / 'VERSIONER.jsonl', 'a', encoding='utf-8') as fh:
         fh.write(json.dumps({k: post.get(k) for k in ('version', 'tid', 'av', 'orsak', 'bestallningar', 'station', 'ritning', 'hoppade')},
@@ -904,6 +981,10 @@ def specialist_prompt(slug, b, underlag=None):
            'Ägarens måttstock (underlag/niva/MATTSTOCK.md) saknas i den här miljön: din ribba är kvalitetskraven, standarden och litteraturen; säg det i sammanfattningen.',
            'Besvara granskningsfrågorna i kunskap/granskningsfragor.md (läs filen hel), var och en med bredden och bilden svaret bygger på.',
            'Din dom är en AI-bedömning: skriv den som din, aldrig som ägarens, och ändra ingenting.'] if kritik else []),
+        *(['Välj också den riktning som går vidare efter valet: fältet val med riktningens id (%s) och skälet, ur bilderna och '
+           'kritikerna. I designfasens drivare är det valet (ägarens beslut 2026-10-13: den oberoende kritiken och jämförelsen '
+           'väljer riktningen); ägarens eget val går före.' % ', '.join((designfas(slug, underlag).get('riktningar') or {}))]
+          if astro and b['typ'] == 'jamforelse' else []),
         '',
         *station_rader(station(b.get('station') or STATION_FOR_TYP[b['typ']])),
         '',
@@ -1498,11 +1579,46 @@ def sajtens_npmrc(sajt):
     return True
 
 
+def katalogens_filer(k):
+    """{relativ väg: sha256} för filerna under k, eller None när katalogen har en länk (den är då aldrig den godkända)."""
+    ut = {}
+    for dp, dn, fn in os.walk(k, followlinks=False):
+        if any((Path(dp) / n).is_symlink() for n in dn + fn):
+            return None
+        for n in fn:
+            ut[(Path(dp) / n).relative_to(k).as_posix()] = sha(Path(dp) / n)
+    return ut
+
+
+def ersatt_rotkataloger(slug, sajt, filer):
+    """src/ och public/ i sajten ersätts som helheter av den godkända källan (granskningen av astro-flödet 2026-10-13,
+    fynd 3: en sida eller fil som riktningen tagit bort fick annars stå kvar och byggas med), som kandidatvägen gör med
+    materialet (atelje.installera_godkand). En katalog som redan är exakt källans står kvar; en annan flyttas hel till
+    kunder/<slug>/startsida-ersatt/<tid>/ (radera inget), och en länk tas bort utan att följas. Ger katalogerna som flyttades."""
+    import atelje
+    flyttade, undan = [], None
+    for namn in KALLKATALOGER:
+        mal = sajt / namn
+        egna = {n[len(namn) + 1:]: s for n, s in filer.items() if n.startswith(namn + '/')}
+        if mal.is_symlink():
+            mal.unlink()
+            continue
+        if not mal.exists() or (mal.is_dir() and katalogens_filer(mal) == egna):
+            continue
+        if undan is None:
+            undan = atelje.ledigt_namn(atelje.saker_vag(atelje.KUNDER / slug / 'startsida-ersatt', atelje.KUNDER / slug), nu().replace(':', ''))
+            undan.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(mal), str(undan / namn))
+        flyttade.append(rel(mal) + '/')
+    return flyttade
+
+
 def installera_godkand(slug, underlag=None):
     """Före ett bygge från ägarens designgodkännande i läget astro (kor.sh): den godkända versionens källa (kalla/: src/,
     public/, package.json, låset, astro.config.mjs, DESIGN.md och RIKTNING.md) läggs i kunder/<slug>/sajt med samma
     prövning som en godkänd kandidat (atelje.prova_overforing och overfor_godkanda: allt prövas mot versionens hashar
-    innan något ersätts, och det ersatta flyttas till kunder/<slug>/startsida-ersatt/). Paketen följer med i package.json
+    innan något ersätts, och det ersatta flyttas till kunder/<slug>/startsida-ersatt/); src/ och public/ blir exakt
+    källans (ersatt_rotkataloger). Paketen följer med i package.json
     och låset, och sajtens .npmrc låser installationen (sajtens_npmrc). Läget duk installerar inget här: bygget
     implementerar förlagan. Ger vägarna som ersattes eller skrevs."""
     import atelje
@@ -1518,13 +1634,370 @@ def installera_godkand(slug, underlag=None):
     par = [(kalla / n, sajt / n, s) for n, s in sorted(filer.items()) if n != '.npmrc']  # .npmrc skrivs av sajtens_npmrc
     try:
         atelje.saker_vag(sajt, atelje.KUNDER / slug)
-        atelje.prova_overforing(slug, par, kalla, 'den godkända versionen')
-        ersatta = atelje.overfor_godkanda(slug, par, kalla, 'underlag/%s/design/versioner/%s/kalla' % (slug, g['version']))
+        atelje.prova_overforing(slug, par, kalla, 'den godkända versionen')  # allt prövas innan något ersätts
+        ersatta = ersatt_rotkataloger(slug, sajt, filer)
+        ersatta += atelje.overfor_godkanda(slug, par, kalla, 'underlag/%s/design/versioner/%s/kalla' % (slug, g['version']))
     except RuntimeError as e:
         raise Fel(str(e))
     if sajtens_npmrc(sajt):
         ersatta.append(rel(sajt / '.npmrc'))
     return ersatta
+
+
+# ---- drivaren: bandet utan ägaren till och med helbygget (ägarens beslut 2026-10-13: "Autonomous to build") ------
+
+FORE_VALET = ('underlag', 'innehall', 'art', 'komposition', 'detaljer')  # följden före valet för varje riktning
+PASSTATIONER = ('kritik', 'jamforelse', 'overlamning')  # pass eller efter godkännandet, inte utförarens stationer
+MAX_SAMTIDIGT = 3  # riktningar som går bandet samtidigt före valet
+MAX_FORSOK_STATION = 2  # försök per station; ett bygge som faller ger ett nytt försök med felet, sedan stoppar körningen
+FRIST_STATION = int(os.environ.get('NWP_DESIGNFAS_FRIST') or 2400)
+KORNING = 'KORNING.json'  # drivarens spår i underlag/<slug>/design/
+STATION_SCHEMA = {
+    'type': 'object', 'additionalProperties': False, 'required': ['orsak', 'paket', 'hoppa'],
+    'properties': {'orsak': {'type': 'string', 'maxLength': 2000},
+                   'paket': {'type': 'array', 'maxItems': 20, 'items': {'type': 'string', 'maxLength': 120}},
+                   'hoppa': {'type': ['string', 'null'], 'maxLength': 400}},
+}
+_KORLAS = threading.Lock()
+
+
+class Stoppad(Fel):
+    """Drivaren stannar med ett skäl (en station gick inte att spara, ett pass föll, ägaren gav ett uppdrag)."""
+
+
+def autonom():
+    """Drivaren startar av sig själv när kandidatflödet lämnat riktningarna till bandet (standard sedan ägarens beslut
+    2026-10-13; NWP_DESIGNFAS_AUTONOM=av ger den interaktiva utföraren, ./design.sh, som enda väg)."""
+    return (os.environ.get('NWP_DESIGNFAS_AUTONOM') or 'pa') != 'av'
+
+
+def korning(slug, underlag=None):
+    return las(rot(slug, underlag) / KORNING) or {}
+
+
+def logga(slug, underlag=None, **falt):
+    """Drivarens status i KORNING.json: fälten skrivs över, och historik får en rad per anrop."""
+    with _KORLAS:
+        k = korning(slug, underlag)
+        historik = (k.get('historik') or [])[-400:]
+        for nyckel, varde in falt.items():
+            if nyckel == 'station':
+                rid, sid, post = varde
+                k.setdefault('stationer', {}).setdefault(rid, {})[sid] = post
+            elif nyckel == 'pass':
+                namn, post = varde
+                k.setdefault('pass', {})[namn] = post
+            else:
+                k[nyckel] = varde
+        historik.append({'tid': nu(), **{n: (v if n not in ('station', 'pass') else v[:2]) for n, v in falt.items()
+                                         if n in ('steg', 'skal', 'station', 'pass')}})
+        k['historik'] = historik
+        k['uppdaterad'] = nu()
+        skriv(rot(slug, underlag) / KORNING, k)
+        return k
+
+
+def efter_valet():
+    """Stationerna efter valet i bandets ordning, utan passen (kritiken körs på den sista versionen, jämförelsen gäller
+    före valet och överlämningen kommer efter godkännandet)."""
+    st = list(stationer())
+    return [s for s in st[st.index(FORE_VALET[-1]) + 1:] if s not in PASSTATIONER]
+
+
+def station_klar(slug, rid, sid, underlag=None):
+    """Har riktningen en version från stationen, eller en version som hoppade över den med skäl?"""
+    for v in versioner(slug, underlag):
+        post = las(rot(slug, underlag) / 'versioner' / v / 'VERSION.json') or {}
+        if post.get('ritning') == rid and (post.get('station') == sid or sid in (post.get('hoppade') or {})):
+            return v
+    return None
+
+
+def senaste_av(slug, rid, underlag=None):
+    vs = [v for v in versioner(slug, underlag) if (las(rot(slug, underlag) / 'versioner' / v / 'VERSION.json') or {}).get('ritning') == rid]
+    return vs[-1] if vs else None
+
+
+def _regel(verktyg, vag, monster=''):
+    """En tillåtelseregel för en väg: relativ till repots rot (./…) eller absolut (//…)."""
+    v = str(vag).rstrip('/')
+    return '%s(%s%s%s)' % (verktyg, '/' if v.startswith('/') else './', v, monster)
+
+
+def station_verktyg(slug, rid, underlag=None, extra=()):
+    """Utförarsessionens verktyg för en station: läsning, skrivning bara i riktningens projekt (src/, public/,
+    projektfilerna, RIKTNING.md och DESIGN.md) och rollen skapas MCP-verktyg ur metodkartan; inget Bash (drivaren
+    installerar paketen och sparar versionen)."""
+    import kandidater
+    import kompetens
+    p = rel(projekt(slug, rid, underlag))
+    skriv_ = [_regel(v, p, m) for m in ('/src/**', '/public/**') for v in ('Write', 'Edit')]
+    skriv_ += [_regel(v, '%s/%s' % (p, f)) for f in kandidater.PROJEKTFILER + ('RIKTNING.md', 'DESIGN.md') for v in ('Write', 'Edit')]
+    return list(dict.fromkeys(kandidater.LASVERKTYG + skriv_ + list(extra) + kompetens.verktyg('skapa', slug, rid)))
+
+
+def skillens_text():
+    t = (SKILLS / 'designfas' / 'SKILL.md').read_text(encoding='utf-8')
+    return t.split('\n---\n', 1)[1] if t.startswith('---\n') and '\n---\n' in t else t
+
+
+def station_prompt(slug, sid, rid, underlag=None, fel=None):
+    return '\n'.join([
+        'Du är utföraren i designfasens drivare (designfas.py kor; ägarens beslut 2026-10-13: bandet körs utan ägaren till '
+        'och med helbygget). Din arbetsinstruktion är skillen designfas nedan, med tre skillnader i drivaren: du gör bara den '
+        'här stationens insats i riktningens projekt; drivaren installerar paketen, bygger och sparar versionen (kör inte '
+        'designfas.py själv) och publicerar ingen artefakt; och du svarar i schemat: orsak (vad stationen ändrade och varför, '
+        'som versionens orsak), paket (nya paket som namn@version, annars en tom lista) och hoppa (skälet när stationen inte '
+        'gäller sidan, annars null; kritik och tillgänglighet hoppas aldrig över).',
+        *(['Förra försöket gick inte att spara: %s. Rätta det i projektet.' % fel] if fel else []),
+        '', '--- skillen designfas ---', skillens_text(), '--- stationen ---', station_brief(slug, sid, rid, underlag)])
+
+
+def kor_station(slug, rid, sid, underlag=None, extra_verktyg=(), prompt=None, spara=True):
+    """En station i en utförarsession (claude -p genom atelje.session: kundvakten, MCP:erna, dontAsk och stationens
+    verktyg). Svaret blir en version med bilder; ett bygge eller ett svar som inte går att spara ger ett nytt försök med
+    felet, högst MAX_FORSOK_STATION, sedan Stoppad. spara=False: sessionen ensam (överlämningens DESIGN.md)."""
+    import atelje
+    import kandidater
+    fel = None
+    for forsok in range(1, MAX_FORSOK_STATION + 1):
+        ut = rot(slug, underlag) / 'drivare' / rid / ('%s-%d.json' % (sid, forsok))
+        ut.parent.mkdir(parents=True, exist_ok=True)
+        t0 = nu()
+        try:
+            svar = atelje.session((prompt or station_prompt)(slug, sid, rid, underlag, fel), station_verktyg(slug, rid, underlag, extra_verktyg), ut,
+                                  STATION_SCHEMA, 300, None, None, FRIST_STATION, nekas=kandidater.andra_nekas(slug, rid), slug=slug,
+                                  webb=kandidater.SKAPARWEBB)
+        except (subprocess.TimeoutExpired, RuntimeError) as e:
+            svar = {'avbruten': '%s: %s' % (type(e).__name__, str(e)[:300])}
+        so = svar.get('structured_output') if isinstance(svar, dict) else None
+        kv = {'forsok': forsok, 'start': t0, 'slut': nu(), 'session': svar.get('session_id'),
+              'forbrukning': {'listpris_usd': svar.get('total_cost_usd'), 'turer': svar.get('num_turns'), 'ms': svar.get('duration_ms'),
+                              'not': 'listpris, inte kvot: prenumerationens förbrukning mäts i kvot'}}
+        if not isinstance(so, dict):
+            fel = 'sessionen gav inget svar i schemat (%s)' % (svar.get('avbruten') or svar.get('subtype') or 'okänt utfall')
+            logga(slug, underlag, station=(rid, sid, dict(kv, utfall='fel', fel=fel)))
+            continue
+        if not spara:
+            logga(slug, underlag, station=(rid, sid, dict(kv, utfall='klar')))
+            return so
+        try:
+            if so.get('hoppa') and sid not in ALLTID:
+                post = version(slug, None, None, so.get('orsak') or 'stationen %s gäller inte sidan' % sid, underlag=underlag, ritning=rid,
+                               hoppade=['%s=%s' % (sid, so['hoppa'])], paket=so.get('paket') or [])
+            else:
+                post = version(slug, None, None, so.get('orsak') or '', underlag=underlag, station_=sid, ritning=rid, paket=so.get('paket') or [])
+        except Fel as e:  # ByggFel, ett ogiltigt paket eller ett skäl som är för kort: ett nytt försök med felet
+            fel = str(e)[:900]
+            logga(slug, underlag, station=(rid, sid, dict(kv, utfall='fel', fel=fel)))
+            continue
+        try:
+            artefakt(slug, rid, underlag)
+        except Fel:
+            pass  # visningen är ett paket bredvid; publiceringen gör en interaktiv session
+        logga(slug, underlag, station=(rid, sid, dict(kv, utfall='klar', version=post['version'],
+                                                      rendering=(post.get('rendering') or {}).get('slutkod'))))
+        return post
+    raise Stoppad('stationen %s på riktningen %s gick inte att spara efter %d försök: %s' % (sid, rid, MAX_FORSOK_STATION, fel))
+
+
+def kor_riktning(slug, rid, stationerna, underlag=None):
+    for sid in stationerna:
+        if station_klar(slug, rid, sid, underlag):
+            continue
+        kor_station(slug, rid, sid, underlag)
+
+
+def kor_pass(slug, typ, v, ritning, uppgift, underlag=None, station_=None):
+    """En beställning som specialistpass (bestall och specialist), eller den som redan levererats för samma typ,
+    version och riktning (återupptagningen gör inget klart om). Ger beställningen."""
+    for bid in bestallningar(slug, underlag):
+        b = bestallning(slug, bid, underlag)
+        if (b.get('typ'), b.get('version'), b.get('ritning')) == (typ, v, ritning) and b.get('status') in ('levererad', 'inford'):
+            return b
+    b = bestall(slug, typ, v, ritning, uppgift, underlag=underlag, station_=station_)
+    post = specialist(slug, b['id'], underlag)
+    logga(slug, underlag, **{'pass': ('%s %s %s' % (typ, ritning, v), {k_: post.get(k_) for k_ in ('id', 'utfall', 'session_id', 'sekunder',
+                                                                                                      'kostnad_listpris_usd')})})
+    if post.get('utfall') != 'levererad':
+        raise Stoppad('passet %s för %s (%s) gav inget svar' % (typ, ritning, b['id']))
+    return bestallning(slug, b['id'], underlag)
+
+
+def agarens_beslut_efter(slug, start, underlag=None):
+    """Ägarens eget val eller uppdrag i domloggen efter körningens start, eller None: hans beslut går före jämförelsens."""
+    import skapande
+    try:
+        dom = skapande.agarens_senaste(slug, Path(underlag or UNDERLAG))['dom']
+    except (OSError, ValueError):
+        return None
+    return dom if dom and dom.get('tid', '') > (start or '') and dom.get('beslut') in ('valj', 'uppdrag') else None
+
+
+def registrera_val(slug, start, b, underlag=None):
+    """Valet: ägarens eget val efter körningens start, annars jämförelsens (fältet val i svaret), i DESIGNFAS.json och,
+    för jämförelsens, i domloggen med källan jämförelsen, aldrig ägaren. Ett uppdrag från ägaren stoppar drivaren."""
+    import skapande
+    d = designfas(slug, underlag)
+    if (d.get('val') or {}).get('riktning'):
+        return d['val']
+    ag = agarens_beslut_efter(slug, start, underlag)
+    if ag and ag.get('beslut') == 'uppdrag':
+        raise Stoppad('ägaren gav ett uppdrag efter körningens start (%s): drivaren väntar på hans beslut' % ag['tid'])
+    if ag:
+        valda = [x.get('id') for x in ag.get('kandidater') or [] if isinstance(x, dict) and x.get('id') in (d.get('riktningar') or {})]
+        if valda:
+            val = {'riktning': valda[0], 'kalla': 'ägaren', 'tid': ag['tid'], 'skal': 'ägarens val i domloggen'}
+            d['val'] = val
+            skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+            return val
+    so = (las(rot(slug, underlag) / 'svar' / b['id'] / 'SVAR.json') or {}).get('svar') or {}
+    rid = (so.get('val') or {}).get('riktning')
+    if rid not in (d.get('riktningar') or {}):
+        raise Stoppad('jämförelsen (%s) valde ingen riktning i bandet (%r)' % (b['id'], rid))
+    val = {'riktning': rid, 'kalla': 'jämförelsen', 'bestallning': b['id'], 'version': b['version'], 'tid': nu(),
+           'skal': str((so.get('val') or {}).get('skal') or '')[:1200]}
+    skapande.lagg_till_dom(slug, 'jämförelsen', 'valj', 'Jämförelsens val i designfasens drivare: riktningen %s. %s' % (rid, val['skal'] or ''),
+                           avser='designfas val %s' % rid, underlag=Path(underlag or UNDERLAG),
+                           designfas={'riktning': rid, 'bestallning': b['id'], 'version': b['version']})
+    d['val'] = val
+    skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+    return val
+
+
+def overlamning_prompt(slug, sid, rid, underlag=None, fel=None):
+    k, g = overlamning_katalog(slug, underlag)
+    return '\n'.join([
+        'Du är utföraren i designfasens drivare, stationen överlämning (kunskap/metodkarta.md, Bandet: stationerna). Fyll i '
+        '%s ur den godkända versionen %s av riktningen %s: varje rubrik med värden märkta uppmätt: (ur renderingen i %s), '
+        'valt: (beslut i designen) eller uppskattat:, ur källan i %s och projektets DESIGN.md. Skriv bara den filen, och '
+        'svara i schemat med orsak (vad du fyllde i), paket (tom lista) och hoppa (null).' % (
+            rel(k / 'DESIGN.md'), g.get('version'), rid, rel(k / 'bilder'), rel(k / 'kalla')),
+        *(['Förra försöket: %s' % fel] if fel else []),
+        *station_rader(station('overlamning'))])
+
+
+def kor(slug, underlag=None):
+    """Drivaren (ägarens beslut 2026-10-13: "Autonomous to build (Recommended)"): bandet utan ägaren till och med en
+    startad byggbegäran. Före valet går varje riktning underlag, innehåll, art, komposition och detaljer i utförarsessioner,
+    högst tre riktningar samtidigt; sedan kritiken per riktning och jämförelsen; valet är jämförelsens (eller ägarens, om
+    han valt efter starten); den valda går stationerna efter valet och får en ny kritik; sedan godkännandet genom
+    autogodkann (sigillet, en annan gren: saknas det stannar drivaren före godkännandet), överlämningen och helbygget
+    genom samma väg som prototyp.py --helbygge. Publicering gör drivaren aldrig. Varje steg står i KORNING.json; ett avbrott
+    tas upp med kor igen, och det som är klart görs inte om. Ger körningens status."""
+    import fcntl
+    import concurrent.futures as cf
+    d = designfas(slug, underlag)
+    if lage(slug, underlag) != 'astro':
+        raise Fel('drivaren kör läget astro; designfasen för %s är i läget %s' % (slug, lage(slug, underlag)))
+    rk = list(d.get('riktningar') or {})
+    if not rk:
+        raise Fel('inga riktningar i bandet: kandidatflödet lämnar dem (prototyp.py %s)' % slug)
+    fd = os.open(rot(slug, underlag) / '.drivare.las', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Fel('drivaren kör redan för %s (KORNING.json visar läget)' % slug)
+        k = korning(slug, underlag)
+        if k.get('steg') == 'klar':
+            return k
+        start = k.get('start') or nu()
+        logga(slug, underlag, start=start, pid=os.getpid(), steg='fore_valet', skal='riktningarna går stationerna före valet')
+        try:
+            return _kor(slug, rk, start, underlag, cf)
+        except Stoppad as e:
+            return logga(slug, underlag, steg='stoppad', skal=str(e)[:1200], pid=None)
+        except Exception as e:  # noqa: BLE001 — skälet står i spåret, och kor tar vid igen
+            logga(slug, underlag, steg='stoppad', skal='%s: %s' % (type(e).__name__, str(e)[:1100]), pid=None)
+            raise
+    finally:
+        os.close(fd)
+
+
+def _kor(slug, rk, start, underlag, cf):
+    with cf.ThreadPoolExecutor(max_workers=min(MAX_SAMTIDIGT, len(rk))) as ex:
+        framtid = {ex.submit(kor_riktning, slug, rid, FORE_VALET, underlag): rid for rid in rk}
+        fel = []
+        for f in cf.as_completed(framtid):
+            try:
+                f.result()
+            except Fel as e:
+                fel.append('%s: %s' % (framtid[f], e))
+    if fel:
+        raise Stoppad('före valet: ' + '; '.join(fel)[:1100])
+    logga(slug, underlag, steg='kritik', skal='kritiken per riktning och jämförelsen samlat')
+    senaste = {rid: senaste_av(slug, rid, underlag) for rid in rk}
+    for rid in rk:
+        kor_pass(slug, 'kritik', senaste[rid], rid, 'Kritik av riktningen %s som en besökare ser den, före utförarens förklaring, '
+                 'efter följden före valet (detaljerna med)' % rid, underlag, station_='kritik')
+    sista = max(senaste.values(), key=lambda v: int(v[1:]))
+    b = kor_pass(slug, 'jamforelse', sista, '*', 'Jämför riktningarnas senaste versioner sida vid sida, peka ut falsk variation, '
+                 'och välj den riktning som går vidare (fältet val)', underlag, station_='jamforelse') if len(rk) > 1 else None
+    logga(slug, underlag, steg='val')
+    val = registrera_val(slug, start, b, underlag) if b else {'riktning': rk[0], 'kalla': 'ensam riktning', 'tid': nu()}
+    if not b:
+        d = designfas(slug, underlag)
+        d['val'] = val
+        skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+    rid = val['riktning']
+    logga(slug, underlag, val=val, steg='efter_valet', skal='den valda riktningen %s går stationerna efter valet' % rid)
+    kor_riktning(slug, rid, efter_valet(), underlag)
+    v = senaste_av(slug, rid, underlag)
+    kor_pass(slug, 'kritik', v, rid, 'Kritik av den valda riktningens sista version som en besökare ser den, före godkännandet', underlag,
+             station_='kritik')
+    logga(slug, underlag, steg='godkannande', skal='%s av %s till sigillet' % (v, rid))
+    auto = globals().get('autogodkann')
+    if not callable(auto):
+        return logga(slug, underlag, steg='vantar_pa_sigillet', pid=None,
+                     skal='godkännandet görs av sigillet (designfas.autogodkann), som inte finns i den här grenen: drivaren stannar före '
+                          'godkännandet med %s av %s klar' % (v, rid))
+    try:
+        post = auto(slug, v, rid, underlag=underlag)
+    except Fel as e:
+        raise Stoppad('sigillet godkände inte %s av %s: %s' % (v, rid, e))
+    logga(slug, underlag, godkannande={k_: (post or {}).get(k_) for k_ in ('version', 'ritning', 'tid', 'kalla')}, steg='overlamning')
+    overlamna(slug, underlag)
+    if overlamning_brister(slug, underlag):
+        kor_station(slug, rid, 'overlamning', underlag, prompt=overlamning_prompt, spara=False,
+                    extra_verktyg=[_regel(x, rel(overlamning_katalog(slug, underlag)[0] / 'DESIGN.md')) for x in ('Write', 'Edit')])
+        overlamna(slug, underlag)
+    brister = overlamning_brister(slug, underlag)
+    if brister:
+        raise Stoppad('överlämningen är inte komplett: ' + '; '.join(brister)[:900])
+    import flodesstart
+    start_id = (korning(slug, underlag).get('bygge') or {}).get('start_id') or 'designfas-%s' % hashlib.sha1(
+        ('%s %s %s' % (slug, v, start)).encode()).hexdigest()[:24]
+    logga(slug, underlag, bygge={'start_id': start_id, 'tid': nu(), 'handling': 'helbygge'}, steg='bygge')
+    try:
+        rc = flodesstart.starta(slug, 'helbygge', start_id)
+    except (OSError, ValueError, RuntimeError) as e:
+        raise Stoppad('helbygget startade inte: %s' % e)
+    return logga(slug, underlag, bygge={'start_id': start_id, 'tid': nu(), 'handling': 'helbygge', 'slutkod': rc}, steg='klar', pid=None,
+                 skal='byggbegäran %s registrerad (slutkod %s); publiceringen väntar på ägaren' % (start_id, rc))
+
+
+def starta_drivaren(slug, underlag=None):
+    """Drivaren som en egen process (kandidatflödet efter lamna_till_bandet, och prototyp.py när körningen står i
+    bandet): designfas.py kor <slug>, loggen i design/drivare.log. Ger (pid eller None, beskedet)."""
+    k = korning(slug, underlag)
+    if k.get('steg') == 'klar':
+        return None, 'drivaren är klar för %s: %s' % (slug, k.get('skal'))
+    if k.get('pid') and _lever(k['pid']):
+        return k['pid'], 'drivaren kör redan för %s (pid %s, steg %s)' % (slug, k['pid'], k.get('steg'))
+    logg = rot(slug, underlag) / 'drivare.log'
+    with open(logg, 'ab') as fh:
+        p = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), 'kor', slug], cwd=str(ROOT), stdin=subprocess.DEVNULL,
+                             stdout=fh, stderr=subprocess.STDOUT, start_new_session=True)
+    return p.pid, 'drivaren startad för %s (pid %d, loggen %s)' % (slug, p.pid, rel(logg))
+
+
+def _lever(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, ValueError):
+        return False
 
 
 # ---- status, kvitto, karta och start --------------------------------------------------------------------------------
@@ -1604,7 +2077,9 @@ def status(slug, underlag=None):
             'bestallningar': [{k: bestallning(slug, b, underlag).get(k) for k in ('id', 'station', 'typ', 'version', 'status', 'inford_i')}
                               for b in bestallningar(slug, underlag)],
             'band': band(slug, underlag),
-            'godkannande': {'giltigt': ok, 'skal': skal, 'version': (g or {}).get('version')}}
+            'godkannande': {'giltigt': ok, 'skal': skal, 'version': (g or {}).get('version')},
+            'drivare': {k_: korning(slug, underlag).get(k_) for k_ in ('steg', 'skal', 'start', 'uppdaterad', 'pid', 'val', 'bygge')}
+            if astro else None}
 
 
 # Detektorns område per station (renderingens fält omrade ur motorns --scope; valideringen 2026-10-12, skills del 1
@@ -1621,7 +2096,7 @@ def detektor_rader(vk, ritning, sid):
     omr = DETEKTOR_OMRADE[sid]
     fynd = {}
     for w in ('390', '1440'):
-        for f in las(vk / 'kontroll' / 'detektor' / ('%s-%s.json' % (ritning.replace('/', '-'), w))) or []:
+        for f in las(vk / 'kontroll' / 'detektor' / ('%s-%s.json' % (sakert(ritning.replace('/', '-')), w))) or []:
             if isinstance(f, dict) and f.get('antipattern') and (omr is None or f.get('omrade') in omr):
                 x = fynd.setdefault(f['antipattern'], {'namn': f.get('name') or f['antipattern'], 'allvar': f.get('severity'),
                                                         'bredder': [], 'rad': f.get('advisory')})
@@ -1964,6 +2439,7 @@ def main(argv=None):
     a = s.add_parser('ny'); a.add_argument('slug'); a.add_argument('--kanvas'); a.add_argument('--release')
     a.add_argument('--lage', choices=LAGEN)
     a = s.add_parser('riktningar'); a.add_argument('slug'); a.add_argument('riktningar', nargs='+'); a.add_argument('--nya', action='store_true')
+    a = s.add_parser('kor'); a.add_argument('slug'); a.add_argument('--bakgrund', action='store_true')
     a = s.add_parser('artefakt'); a.add_argument('slug'); a.add_argument('riktning'); a.add_argument('--url')
     a.add_argument('--version'); a.add_argument('--artifact-version')
     a = s.add_parser('runtime'); a.add_argument('slug'); a.add_argument('--fil', required=True); a.add_argument('--release', required=True)
@@ -1998,6 +2474,14 @@ def main(argv=None):
     try:
         if x.cmd == 'ny':
             ut(ny(x.slug, x.kanvas, x.release, lage_=x.lage))
+        elif x.cmd == 'kor':
+            if x.bakgrund:
+                pid, text = starta_drivaren(x.slug)
+                print(text)
+                return 0
+            k = kor(x.slug)
+            print('drivaren: %s (%s)' % (k.get('steg'), k.get('skal')))
+            return 1 if k.get('steg') == 'stoppad' else 0
         elif x.cmd == 'riktningar':
             ut(riktningar(x.slug, x.riktningar, nya=x.nya))
         elif x.cmd == 'artefakt':

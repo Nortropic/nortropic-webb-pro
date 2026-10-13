@@ -2461,9 +2461,6 @@ def arbeta(slug, lage):
             import forberedelse
             forberedelse.kor(slug, status, skriv)
             return 0
-        if lage in ('valda', 'putsa') and forra.get('steg') == 'band':  # riktningarna i bandet har en skrivare: designfas.py
-            import designfas
-            raise RuntimeError(designfas.i_bandet(slug))
         if lage == 'ny':
             forra_ = arkivera_vid_ny_start(rot, kvitto=bool(sk))
             status['foregaende'] = rel(forra_) if forra_ else None
@@ -3520,6 +3517,22 @@ def main(argv=None):
         return 2
 
 
+def bandet_nekar(slug, st, handling):
+    """Skälet när en start skulle skriva i eller arkivera riktningarna i designfasens band, annars None: --om,
+    --ny-riktning, --valda, --putsa och en ny körning utan flagga (las_lage) nekas när körningen står i steget band eller
+    när designfasen har riktningar i arbete (designfas.riktningar_i_arbete). --forbered gäller underlaget och --fortsatt
+    prövas av fortsatt_nekas. Prövas i starta innan statusen skrivs (granskningen av astro-flödet 2026-10-13, fynd 5:
+    spärren i arbeta kom efter steget startar och var död, och --om flyttade riktningarnas projekt till arkivet)."""
+    if handling not in ('om', 'ny_riktning', 'putsa', 'valda', 'las_lage'):
+        return None
+    import designfas
+    if st.get('steg') != 'band' and not designfas.riktningar_i_arbete(slug, UNDERLAG):
+        return None
+    return ('%s. --om, --ny-riktning, --valda och --putsa och en ny körning nekas: de skulle arkivera eller skriva riktningarnas '
+            'projekt medan utföraren arbetar i dem. Ska designfasen avslutas, flytta underlag/%s/design/ till historik först.'
+            % (designfas.i_bandet(slug), slug))
+
+
 def starta(a, rot):
     """All muterande startlogik under kundens lås; återanvänds av prototyp och dashboard."""
     st = las_json(rot / 'STATUS.json') or {}
@@ -3539,6 +3552,9 @@ def starta(a, rot):
                 return vanta(rot, a.vanta)
             print('Begäran har redan behandlats; ingen ny körning startas. Läs körningens slutpost.')
             return 5
+    nekad = bandet_nekar(a.slug, st, handling)  # före allt som skriver statusen eller arkiverar (granskningen, fynd 5)
+    if nekad:
+        return avsluta_fore(a.slug, nekad, 2)
     forbereder = a.forbered or (a.fortsatt and (st.get('lage') == 'forbered' or st.get('forra_lage') == 'forbered'))
     import kundstart_kalla
     kundstart_kalla.krav(UNDERLAG / a.slug)

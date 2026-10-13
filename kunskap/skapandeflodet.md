@@ -45,8 +45,20 @@ behov (`--paket namn@version`, exakt version, inga skript), bygget, källan i `k
 startsidan och undersidorna renderade i 390, 768 och 1440 med menyn öppen, axe, stilrapporten och detektorn, och
 insatsen mot förra versionen av riktningen med bilderna före och efter. Ägaren ser varje version i riktningens privata
 artefakt (`designfas.py artefakt <slug> <kNN>`, publicerad av sessionen, samma artefakt per riktning) och kommenterar
-där. Ägarens designgodkännande (`designfas.py godkann`, ägarens eget kommando) binder versionen; överlämningen bär
-källan, och kor.sh lägger den med `package.json` och låset i sajten före helbygget.
+där. Designgodkännandet binder versionen; överlämningen bär källan, och kor.sh lägger den med `package.json` och låset i
+sajten före helbygget.
+
+**Drivaren** (ägarens beslut 2026-10-13: "Autonomous to build (Recommended)"; valets text: den oberoende kritiken och
+jämförelsen väljer riktningen och godkänner den, bygget startar av sig självt, ägaren granskar den byggda sajten, och
+publiceringen väntar på honom): `designfas.py kor <slug>` kör bandet utan ägaren. Kandidatflödet startar den efter
+`lamna_till_bandet` (standard; `NWP_DESIGNFAS_AUTONOM=av` lämnar bandet åt den interaktiva utföraren), och
+`prototyp.py <slug>` eller `--fortsatt` tar vid där den slutade. Följden: stationerna före valet för varje riktning
+(högst tre samtidigt, en utförarsession per station och en version per station, ett nytt försök när ett bygge faller);
+kritiken per riktning och jämförelsen; jämförelsens val (DESIGNFAS.json och domloggen med källan `jämförelsen`; ägarens
+eget val eller uppdrag efter starten går före); stationerna efter valet för den valda och en ny kritik; sigillets
+godkännande (`designfas.autogodkann`), överlämningen och en byggbegäran genom samma väg som `prototyp.py --helbygge`.
+Publiceringen (`--release`, `--aktivera`) gör drivaren aldrig. Varje steg, med sessionskvitton, förbrukning och tid,
+står i `underlag/<slug>/design/KORNING.json`; ett avbrott tas upp med `kor` igen, och det klara görs inte om.
 
 ## Skissläget (standard): full verktygslåda, ren arbetsbänk
 

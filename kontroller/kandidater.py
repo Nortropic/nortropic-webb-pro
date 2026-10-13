@@ -612,11 +612,51 @@ def _installerad(nm, namn):
         return None
 
 
-def paketbehov(slug, kid):
-    """Behöver kandidaten npm install i sitt projekt före bygget? Med länken till sajtens node_modules: när kandidatens
-    package.json kräver ett paket eller en version som sajtens inte bär. Med en egen node_modules: när package.json, eller
-    sajtens paket (ett typsnitt som installerats i sajten), ändrats sedan den senaste installationen. Annars False."""
+BEROENDEFALT = ('dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies')
+
+
+def paketfalten(pj):
+    """Beroendefälten ur en package.json ({fält: {namn: version}}), eller None när filen inte går att läsa."""
+    try:
+        d = json.loads(Path(pj).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    return {f: dict(d.get(f) or {}) for f in BEROENDEFALT} if isinstance(d, dict) else None
+
+
+def lasets_rot(las):
+    """Beroendefälten i låsets rot (package-lock.json, packages[""]), eller None när låset saknas eller inte går att läsa.
+    npm ci installerar bara när de är exakt package.json:s."""
+    try:
+        d = json.loads(Path(las).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    r = ((d.get('packages') or {}).get('') if isinstance(d, dict) else None) or {}
+    return {f: dict(r.get(f) or {}) for f in BEROENDEFALT}
+
+
+def projektets_las(slug, kid):
+    """Låset som kandidatens projekt byggs med: projektets eget, eller sajtens när projektet delar sajtens node_modules
+    genom länken; None annars."""
     s = ksajt(slug, kid)
+    if (s / 'package-lock.json').is_file() and not (s / 'package-lock.json').is_symlink():
+        return s / 'package-lock.json'
+    delad = atelje.KUNDER / slug / 'sajt' / 'package-lock.json'
+    return delad if (s / 'node_modules').is_symlink() and delad.is_file() and not delad.is_symlink() else None
+
+
+def paketbehov(slug, kid):
+    """Behöver kandidaten npm install i sitt projekt före bygget? Först låset: skiljer sig package.json:s beroenden från
+    rotens i låset som projektet byggs med (projektets eget, eller sajtens genom länken), behövs en installation, också
+    när paketet råkar finnas transitivt i node_modules (granskningen av astro-flödet 2026-10-13, fynd 2: annars följer
+    paketet inte med låset till helbygget). Annars, med länken till sajtens node_modules: när package.json kräver ett
+    paket eller en version som sajtens inte bär. Med en egen node_modules: när package.json, eller sajtens paket (ett
+    typsnitt som installerats i sajten), ändrats sedan den senaste installationen. Annars False."""
+    s = ksajt(slug, kid)
+    las = projektets_las(slug, kid)
+    rot_ = lasets_rot(las) if las else None
+    if rot_ is not None and rot_ != paketfalten(s / 'package.json'):
+        return True
     egna = _beroenden(s / 'package.json')
     delade = _beroenden(atelje.KUNDER / slug / 'sajt' / 'package.json')
     nm = s / 'node_modules'
@@ -5024,7 +5064,9 @@ def lamna_till_bandet(slug, status, skriv, ids):
     efter researchen, planen, planprövningen och uppdragsmaterialet. Varje kandidat med ett prövat uppdrag får sitt
     Astro-projekt (forbered_projekt, med stilpaketet ur uppdragsmaterialet) och status planerad med skälet "i bandet",
     riktningarna registreras i DESIGNFAS.json (designfas.riktningar), och körningens steg blir band. Inga skapare startar:
-    därefter är designfas.py enda skrivaren av riktningarna, och utföraren startas med ./design.sh <slug>. Ett uppdrag
+    därefter är designfas.py enda skrivaren av riktningarna. Drivaren (designfas.py kor) startas som en egen process och
+    tar bandet till helbygget utan ägaren (designfas.autonom; NWP_DESIGNFAS_AUTONOM=av lämnar det åt den interaktiva
+    utföraren, ./design.sh <slug>). Ett uppdrag
     som står stoppat (inte planprövat, eller utan uppdrag i planen) behåller sitt skäl och lämnas inte."""
     plan_ = (atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}
     lamnade = []
@@ -5042,10 +5084,14 @@ def lamna_till_bandet(slug, status, skriv, ids):
             '%s: %s' % (k, las_status(slug, k).get('skal') or '') for k in ids)[:600])
     designfas.riktningar(slug, lamnade, atelje.UNDERLAG,
                          titlar={k: (plan_.get(k) or {}).get('titel') or las_status(slug, k).get('titel') for k in lamnade})
-    status.update(steg='band', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in ids},
-                  bandet={'riktningar': lamnade, 'tid': nu()},
-                  skal='%d riktningar i designfasens band (%s): utföraren startas med ./design.sh %s, och designfas.py är enda '
-                       'skrivaren av dem' % (len(lamnade), ', '.join(lamnade), slug))
+    bandet = {'riktningar': lamnade, 'tid': nu()}
+    if designfas.autonom():  # ägarens beslut 2026-10-13 ("Autonomous to build"): drivaren tar bandet till helbygget
+        pid, text = designfas.starta_drivaren(slug, atelje.UNDERLAG)
+        bandet['drivare'] = {'pid': pid, 'text': text}
+    status.update(steg='band', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in ids}, bandet=bandet,
+                  skal='%d riktningar i designfasens band (%s): %s; designfas.py är enda skrivaren av dem' % (
+                      len(lamnade), ', '.join(lamnade), bandet['drivare']['text'] if bandet.get('drivare') else
+                      'utföraren startas med ./design.sh %s' % slug))
     skriv()
     return []
 
