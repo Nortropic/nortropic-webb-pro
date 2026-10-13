@@ -72,9 +72,14 @@ kunden. Varje riktning går underlag, innehåll och struktur, art, komposition o
 version); gör inget omtag per riktning innan de andra finns, men pekar jämförelsen ut två som för lika gör du om den
 svagare innan ägaren ser dem. Ber ägaren om fler (två åt gången), får de sina projekt med `designfas.py riktningar
 <slug> <kNN> <kNN> --nya` (nästa lediga id), du skriver deras uppdrag i RIKTNING.md i underlagsstationen, och de går
-samma följd och jämförs med de tidigare. Ägaren väljer, och den valda går resten av bandet: typografi, responsiv,
-rörelse, formulär, kritik, tillgänglighet och polish.
-**Överlämningen** efter ägarens godkännande: `designfas.py overlamna <slug>`, DESIGN.md i paketet ifylld ur den
+samma följd och jämförs med de tidigare. Jämförelsen väljer riktningen i sitt svar (fältet `val`), och ägarens eget
+val går före; den valda går resten av bandet: typografi, responsiv, rörelse, formulär, kritik, tillgänglighet och polish.
+**Godkännandet** (BESLUT.md, tilläggen 2026-10-13) gäller riktningens senaste version: den autonoma godkännaren
+(`designfas.autogodkann`, som bandets drivare anropar) godkänner när den senaste jämförelsen valde riktningen och den
+senaste kritiken av just den versionen, ett eget `ds_kritik`-pass med sessionskvitto, svarar premium på C5 (fältet
+`detaljniva`) utan fynd med allvar 3 eller 4. Ägaren kan godkänna själv, i sin egen terminal eller i portalen, och hans
+väg och hans senare beslut går före. Varje godkännande är förseglat (`kontroller/sigill.py`); bygget tar vid bara därifrån.
+**Överlämningen** efter godkännandet: `designfas.py overlamna <slug>`, DESIGN.md i paketet ifylld ur den
 godkända versionen, och `overlamna --prova` utan brister; källan med `package.json` och låset står i paketets `kalla/`.
 
 ## Visningen: en privat artefakt per riktning
@@ -98,8 +103,10 @@ artefakten visar inga externa bilder; renderingen prövar sajtens egen CSP.
 
 ## Gränser
 
-- Godkännandet är ägarens: säg till ägaren att köra `! .venv/bin/python kontroller/designfas.py godkann <slug> <v>
-  --ritning <kNN>` (du nekas kommandot). Designgodkännande, byggstart och publicering är tre beslut.
+- Godkännandet sätter den autonoma godkännaren eller ägaren, aldrig du; bygget startar drivaren och publiceringen är
+  bara ägarens. Vill ägaren godkänna själv kör han `.venv/bin/python kontroller/designfas.py godkann <slug> <v> --ritning
+  <kNN>` i sin egen terminal, där kommandot visar versionen och en kod som han skriver tillbaka (`!`-prefixet i en
+  session räcker inte). Du nekas godkännandet, sigillet och nyckeln, `kor.sh`, `--helbygge` och publiceringen.
 - Arbeta bara i riktningarnas projekt och designfasens spår; kandidatflödets ateljé, studion och andra kunders filer rör
   du inte.
 - Externa tjänster får bara generiska frågor; kundvakten stoppar kundens namn, orter och nummer.

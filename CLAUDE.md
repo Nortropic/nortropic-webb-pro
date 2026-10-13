@@ -6,8 +6,11 @@ kundens val → riktad förbättring (Rätta, Omarbeta designen, Bygg ut) → he
 (`kunskap/skapandeflodet.md`). Formgivningen görs sedan 2026-10-13 lokalt i Astro: kandidatflödet gör researchen, planen
 med tre riktningar och projekten, och en utsedd utförare (en interaktiv session i repots rot, `./design.sh <slug>`,
 skillen `designfas`) för varje riktning genom bandets stationer i dess Astro-projekt; varje version visas för ägaren i
-riktningens privata artefakt. Ägaren godkänner en exakt version, och helbygget tar vid från överlämningen med källan och
-paketen. Claude Design (`kunskap/claude-design.md`) är pausat. Det som gäller nu, med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens
+riktningens privata artefakt. Autonomt till och med bygget, och ägaren publicerar (BESLUT.md, tilläggen 2026-10-13): den
+oberoende jämförelsen och kritiken väljer och godkänner en exakt version (`designfas.autogodkann`), ägaren kan godkänna
+själv i sin egen terminal eller i portalen och går före, varje godkännande bär sigillet (`kontroller/sigill.py`), och
+helbygget tar vid av sig självt från överlämningen med källan och paketen; release och aktivering kräver ägarens
+förseglade mandat. Claude Design (`kunskap/claude-design.md`) är pausat. Det som gäller nu, med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens
 beslut) och kundens aktuella domar i `underlag/<slug>/DESIGNDOMAR.jsonl`. Den rena designstarten 2026-10-09
 (`kunskap/ren-designstart.md`) tog gamla byggen, prototyper, bedömningar, kalibreringsankare och de regler som
 härletts ur dem ur den aktiva miljön; de styr ingenting och verifierar inte den nya metoden, och flödets sessioner läser
@@ -25,7 +28,7 @@ besvarar en konkret fråga.
 - `backlog`: genomför den vilande backloggen när ägaren säger "implementera enligt backlog".
 - `designfas`: utförarens arbetsinstruktion i bandet (riktningarnas Astro-projekt, versionerna, artefakterna,
   beställningarna till specialistpassen, överlämningen); `kontroller/designfas.py` håller spåret i
-  `underlag/<slug>/design/`. Godkännandet är ägarens eget kommando, aldrig sessionens.
+  `underlag/<slug>/design/`. Godkännandet sätter den autonoma godkännaren eller ägaren, aldrig en session.
 - Övriga mappar i `.claude/skills/` är designkompetensen. Vilka roller i skapandeflödet som har vilka skills (kärna och
   alternativ), vilka skills som saknar uppgift och varför, och beslutet för varje verktyg hos Refero och Mobbin står i
   `kunskap/metodkarta.md`, avsnittet Kompetenserna (ägarens ord 2026-10-05: alla skills och MCP:er ska användas).
