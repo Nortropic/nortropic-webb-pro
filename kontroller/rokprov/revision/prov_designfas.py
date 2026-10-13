@@ -1842,6 +1842,28 @@ class K_Sigill(Grund):
             df.autogodkann(SLUG, 'v01', 'k01')
         self.assertEqual(json.loads((self.u / SLUG / 'design' / 'GODKANNANDE.json').read_text())['kalla'], 'ägaren')
 
+    def test_ett_aldre_val_fran_agaren_styr_inte_grinden(self):
+        """Granskningen av sigillet, fynd 2: ägarens val räknas bara när det gäller bandets riktningar och kom efter att
+        bandet startade; ett val ur en äldre körning (samma id:n, andra förslag) låser inte grinden och ersätter inte
+        jämförelsens prövning."""
+        (self.u / SLUG).mkdir(parents=True, exist_ok=True)
+        skapande.lagg_till_dom(SLUG, 'ägaren', 'valj', 'Jag väljer k02.', underlag=self.u, tid='2026-09-20T10:00:00Z',
+                               kandidater=[{'id': 'k02', 'version': 'a' * 12}])
+        self.grind()  # jämförelsen väljer k01
+        g = df.autogodkann(SLUG, 'v01', 'k01')
+        self.assertNotIn('agarens_val', g['belagg'])
+        self.assertIn('design/svar/B001/SVAR.json', json.dumps(g['belagg']), 'jämförelsen prövades')
+
+    def test_ett_aldre_val_ersatter_inte_jamforelsen(self):
+        (self.u / SLUG).mkdir(parents=True, exist_ok=True)
+        skapande.lagg_till_dom(SLUG, 'ägaren', 'valj', 'Jag väljer k02.', underlag=self.u, tid='2026-09-20T10:00:00Z',
+                               kandidater=[{'id': 'k02', 'version': 'a' * 12}])
+        self.grind()  # jämförelsen väljer k01
+        kr = df.bestall(SLUG, 'kritik', 'v02', 'k02', 'Kritik av riktningen k02 som en besökare ser den, före förklaringen')
+        self.pass_(kr['id'], dict(SVARET, detaljniva={'svar': 'premium', 'saknas': [], 'belagg': 'index-390.png'}))
+        with self.assertRaisesRegex(df.Fel, 'valde k01'):
+            df.autogodkann(SLUG, 'v02', 'k02')
+
     def test_grinden_basic(self):
         self.grind(c5='basic')
         with self.assertRaisesRegex(df.Fel, 'basic'):

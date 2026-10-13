@@ -1320,7 +1320,8 @@ def autogodkann(slug, version, ritning, underlag=None):
     oberoende jämförelsen och kritiken väljer riktningen och godkänner den, och bygget kan sedan starta av sig självt;
     publiceringen väntar alltid på ägaren. Kräver ingen terminal. Grinden:
     - läget astro; versionen är riktningens senaste version med startsidans bilder i 390, 768 och 1440;
-    - riktningen är vald: ägarens senaste beslut är ett val av den (hans val går före), eller annars valde den senaste
+    - riktningen är vald: ägarens senaste beslut är ett val av den bland bandets riktningar efter bandets start (drivarens
+      start, annars riktningarnas registrering; hans val går före), eller annars valde den senaste
       jämförelsen mellan riktningarna (beställning jamforelse med *, ett eget pass) den (svar.val.riktning) och såg den i
       en tidigare eller samma version (jamforda; drivaren jämför före stationerna efter valet); en ensam riktning i
       bandet har inget att jämföras med;
@@ -1345,7 +1346,12 @@ def autogodkann(slug, version, ritning, underlag=None):
     if ag['oklara']:
         raise Fel(skapande.oklara_text(ag))
     dom0 = ag['dom'] or {}
-    agarens_val = [x.get('id') for x in dom0.get('kandidater') or [] if isinstance(x, dict)] if dom0.get('beslut') == 'valj' else []
+    # ägarens val räknas bara när det gäller bandets riktningar och kom efter att bandet startade: drivarens start i
+    # KORNING.json, annars riktningarnas registrering (granskningen av sigillet, fynd 2: ett val ur en äldre körning)
+    reg = sorted(str(r.get('registrerad')) for r in (d.get('riktningar') or {}).values() if isinstance(r, dict) and r.get('registrerad'))
+    grans = korning(slug, underlag).get('start') or (reg[0] if reg else None)
+    agarens_val = [x.get('id') for x in dom0.get('kandidater') or [] if isinstance(x, dict) and x.get('id') in (d.get('riktningar') or {})] \
+        if dom0.get('beslut') == 'valj' and grans and str(dom0.get('tid') or '') >= grans else []
     if agarens_val and ritning not in agarens_val:
         raise Fel('ägarens val (%s) är %s, inte %s: ägarens val går före' % (dom0.get('tid'), ', '.join(map(str, agarens_val)), ritning))
     alla = [bestallning(slug, b, underlag) for b in bestallningar(slug, underlag)]
