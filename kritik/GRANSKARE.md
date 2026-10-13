@@ -124,7 +124,10 @@ starkaste referenserna. Ge inte 7 av vänlighet. Att sajten är bättre än verk
 3. **Hantverk.** Typografins roller, radlängd och radbrytningar; färg och kontrast; luft; bildernas beskärning,
    kvalitet och placering, och att huvudbilden har en uppgift i BILDER.md (resultat, människor, miljö, produkt eller
    metod) som platsen kräver: en egen bild är inte automatiskt en bra huvudbild; detaljer i knappar, länkar, fokus och
-   tillstånd. Dimension 2 och 3, byggstandarden 3 och 4, Vercels riktlinjer, Emils designteknik.
+   tillstånd. Detaljnivån avgör om sajten känns premium eller basic: tillstånd och övergångar på allt interaktivt, en
+   första vy med riktningens signatur, bilder som lever där det bär, mikrotypografi och djup med en regel (ägarens dom
+   2026-10-13; `kunskap/precision.md`, Detaljnivån). En ordnad sajt utan dessa detaljer får inte hantverkets höga
+   betyg. Dimension 2 och 3, byggstandarden 3 och 4, Vercels riktlinjer, Emils designteknik.
 4. **Funktion.** Håller kraven i briefen? Kan besökaren lösa varje toppuppgift utan att fastna i den kognitiva
    genomgången? Provets resor (`RESOR.md` i omgången) visar vad som höll i webbläsaren, steg för steg; en resa som
    saknas för en toppuppgift är ett fynd, och likaså en bokningsuppgift som bara prövas som länk utan att den
