@@ -58,7 +58,7 @@ första polish; RIKTNING.md listar de block som prövades, valdes och valdes bor
 lades till och varför. **Kritiken** är ett specialistpass som ser bilderna och briefen före din förklaring:
 `designfas.py bestall <slug> --typ kritik --station kritik --version <v> --ritning <kNN> --uppgift "…"` och
 `designfas.py specialist <slug> B00N`. Svaret säger om bandet ska gå tillbaka (`atergang`: underlaget, innehåll och
-struktur, art direction, komposition eller detaljer); är helheten svag gör du omtaget innan du lägger varven på detaljer,
+struktur, art direction, komposition eller detaljer); är helheten svag gör du omtaget innan du lägger varven på finputs,
 med `bolder` eller `quieter` i kompositionen när kritiken fann sidan platt eller överlastad. **Tillgängligheten** utgår
 från renderingens axe, fokus och reflow i versionens BILDER.json och kontroll/. Andra stationer kan också beställas som
 pass (typen och stationen i tabellen) när du vill ha en oberoende insats; svaret förs in i en version med
@@ -70,8 +70,10 @@ kunden. Varje riktning går underlag, innehåll och struktur, art, komposition o
 "Ja, före valet"). När alla tre finns körs kritiken och jämförelsen samlat, med riktningarna sida vid sida (`--typ kritik
 --station kritik` och `--typ jamforelse --station jamforelse`, med `--ritning '*'`, som ger passet varje riktnings senaste
 version); gör inget omtag per riktning innan de andra finns, men pekar jämförelsen ut två som för lika gör du om den
-svagare innan ägaren ser dem. Ber ägaren om fler (två åt gången) går de samma följd och jämförs med de tidigare. Ägaren
-väljer, och den valda går resten av bandet: typografi, responsiv, rörelse, formulär, kritik, tillgänglighet och polish.
+svagare innan ägaren ser dem. Ber ägaren om fler (två åt gången), får de sina projekt med `designfas.py riktningar
+<slug> <kNN> <kNN> --nya` (nästa lediga id), du skriver deras uppdrag i RIKTNING.md i underlagsstationen, och de går
+samma följd och jämförs med de tidigare. Ägaren väljer, och den valda går resten av bandet: typografi, responsiv,
+rörelse, formulär, kritik, tillgänglighet och polish.
 **Överlämningen** efter ägarens godkännande: `designfas.py overlamna <slug>`, DESIGN.md i paketet ifylld ur den
 godkända versionen, och `overlamna --prova` utan brister; källan med `package.json` och låset står i paketets `kalla/`.
 

@@ -8,7 +8,8 @@ sparar varje stations insats som en version. Code gör research, material, speci
 lämnar underlag. Spåret står privat i underlag/<slug>/design/:
 
     ny <slug>                                   designfasen startar i läget astro: DESIGNFAS.json
-    riktningar <slug> kNN …                     riktningarna registrerade i bandet (kandidatflödet gör det själv)
+    riktningar <slug> kNN … [--nya]             riktningarna registrerade i bandet (kandidatflödet gör det själv);
+                                                --nya: fler på ägarens begäran, med projekten ur sajten
     version <slug> --ritning kNN --orsak TEXT [--station S] [--hoppa S="skäl" …] [--paket namn@version …]
             [--bestallning B001 …] [--av utforaren|agaren]   vNN ur riktningens projekt: paketen vid behov, bygget, källan
                                                 i kalla/, dist i sida/, startsidan och undersidorna renderade i 390/768/1440
@@ -318,10 +319,11 @@ def ny(slug, kanvas=None, release=None, underlag=None, lage_=None):
     return d
 
 
-def riktningar(slug, ids, underlag=None, titlar=None):
+def riktningar(slug, ids, underlag=None, titlar=None, nya=False):
     """Riktningarna registrerade i bandet (kandidater.lamna_till_bandet efter planprövningen): kNN och projektets väg
     kunder/<slug>/kandidater/kNN/sajt i DESIGNFAS.json, och ett spår per riktning i design/riktningar/kNN/. Därefter är
-    designfas.py enda skrivaren av riktningarnas versioner."""
+    designfas.py enda skrivaren av riktningarnas versioner. nya: fler riktningar på ägarens begäran (två åt gången) får
+    sina projekt ur sajten med kandidatflödets forbered_projekt; deras uppdrag skriver utföraren i RIKTNING.md."""
     import atelje
     d = designfas(slug, underlag)
     if lage(slug, underlag) != 'astro':
@@ -330,6 +332,16 @@ def riktningar(slug, ids, underlag=None, titlar=None):
     for kid in ids:
         if not re.fullmatch(r'k\d{2}', str(kid)):
             raise Fel('en riktning heter kNN (kandidatens id): %r' % kid)
+        if nya:
+            import kandidater
+            if kid in rk:
+                raise Fel('riktningen %s finns redan i bandet' % kid)
+            try:
+                kandidater.forbered_projekt(slug, kid)
+            except RuntimeError as e:
+                raise Fel('projektet för %s kunde inte förberedas: %s' % (kid, e))
+            kandidater.satt_status(slug, kid, 'planerad', 'i bandet: en riktning till på ägarens begäran; designfasen '
+                                   '(designfas.py) är enda skrivaren', bandet={'tid': nu(), 'fore': None})
         try:
             p = atelje.saker_vag(atelje.KUNDER / slug / 'kandidater' / kid / 'sajt', atelje.KUNDER / slug)
         except RuntimeError as e:
@@ -1951,7 +1963,7 @@ def main(argv=None):
     s = p.add_subparsers(dest='cmd', required=True)
     a = s.add_parser('ny'); a.add_argument('slug'); a.add_argument('--kanvas'); a.add_argument('--release')
     a.add_argument('--lage', choices=LAGEN)
-    a = s.add_parser('riktningar'); a.add_argument('slug'); a.add_argument('riktningar', nargs='+')
+    a = s.add_parser('riktningar'); a.add_argument('slug'); a.add_argument('riktningar', nargs='+'); a.add_argument('--nya', action='store_true')
     a = s.add_parser('artefakt'); a.add_argument('slug'); a.add_argument('riktning'); a.add_argument('--url')
     a.add_argument('--version'); a.add_argument('--artifact-version')
     a = s.add_parser('runtime'); a.add_argument('slug'); a.add_argument('--fil', required=True); a.add_argument('--release', required=True)
@@ -1987,7 +1999,7 @@ def main(argv=None):
         if x.cmd == 'ny':
             ut(ny(x.slug, x.kanvas, x.release, lage_=x.lage))
         elif x.cmd == 'riktningar':
-            ut(riktningar(x.slug, x.riktningar))
+            ut(riktningar(x.slug, x.riktningar, nya=x.nya))
         elif x.cmd == 'artefakt':
             if x.url or x.version:
                 if not (x.url and x.version):

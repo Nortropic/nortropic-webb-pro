@@ -277,6 +277,14 @@ class A_Bandet(Grund):
             self.assertIn('i bandet', s['skal'])
         self.assertEqual(df.status(SLUG)['band']['k01'][-1], {'station': 'artefakt', 'lage': 'inte publicerad', 'url': None,
                                                                'version': None, 'tid': None})
+        # fler riktningar på ägarens begäran, två åt gången: projekten ur sajten, i bandet
+        df.riktningar(SLUG, ['k04', 'k05'], nya=True)
+        for kid in ('k04', 'k05'):
+            self.assertTrue((self.k / SLUG / 'kandidater' / kid / 'sajt' / 'node_modules').is_symlink())
+            self.assertIn('i bandet', kd.las_status(SLUG, kid)['skal'])
+        self.assertEqual(list(df.band(SLUG)), ['k01', 'k02', 'k03', 'k04', 'k05'])
+        with self.assertRaisesRegex(df.Fel, 'finns redan'):
+            df.riktningar(SLUG, ['k04'], nya=True)
 
     def test_en_plan_fran_fore_designfasen_lamnas_till_bandet(self):
         self.sajt()
