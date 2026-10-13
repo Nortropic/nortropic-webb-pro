@@ -42,9 +42,11 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
+import time
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1701,6 +1703,58 @@ class Stoppad(Fel):
     """Drivaren stannar med ett skäl (en station gick inte att spara, ett pass föll, ägaren gav ett uppdrag)."""
 
 
+class Avbruten(Exception):
+    """Drivaren fick SIGTERM eller SIGINT (prototyp.py <slug> --stoppa, eller ett avbrott i terminalen)."""
+
+
+def _stoppa_barnen():
+    """Stoppet: inga nya sessioner (atelje.STOPP), och varje session och annan underprocess som drivaren startat avslutas
+    med sitt träd, också sessionerna i egna processgrupper (atelje.session startar dem med start_new_session)."""
+    import atelje
+    import nastlad
+    atelje.STOPP.set()
+    with atelje.AKTIVA_LAS:
+        pids = list(atelje.AKTIVA)
+    for pid in pids:
+        nastlad.doda_trad(pid)
+    for pid in nastlad.efterkommande(os.getpid()):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+
+def _signal(signum, _ram):
+    _stoppa_barnen()
+    raise Avbruten(signal.Signals(signum).name)
+
+
+def _ar_drivaren(pid, slug):
+    """Är pid kundens drivare (designfas.py kor <slug> på kommandoraden)? Ett återanvänt eller avslutat pid är det inte."""
+    import korregister
+    if not pid or not _lever(pid):
+        return False
+    k = ' %s ' % (korregister.kommando(pid) or '')
+    return 'designfas.py' in k and ' kor ' in k and (' %s ' % slug) in k
+
+
+def stoppa_drivaren(slug, underlag=None, vanta_s=30):
+    """prototyp.py <slug> --stoppa: drivaren får SIGTERM (den avslutar sina sessioner, skriver stoppad och släpper låset);
+    lever den kvar efter vanta_s avslutas den med sitt träd. Ger (pid eller None, beskedet)."""
+    import nastlad
+    pid = korning(slug, underlag).get('pid')
+    if not _ar_drivaren(pid, slug):
+        return None, 'ingen drivare kör för %s' % slug
+    os.kill(int(pid), signal.SIGTERM)
+    slut = time.time() + vanta_s
+    while _ar_drivaren(pid, slug) and time.time() < slut:
+        time.sleep(0.2)
+    if _ar_drivaren(pid, slug):
+        nastlad.doda_trad(pid)
+        logga(slug, underlag, steg='stoppad', skal='drivaren svarade inte på SIGTERM och avslutades med sitt träd', pid=None)
+    return pid, 'drivaren för %s (pid %s) är stoppad; prototyp.py %s --fortsatt tar vid' % (slug, pid, slug)
+
+
 def autonom():
     """Drivaren startar av sig själv när kandidatflödet lämnat riktningarna till bandet (standard sedan ägarens beslut
     2026-10-13; NWP_DESIGNFAS_AUTONOM=av ger den interaktiva utföraren, ./design.sh, som enda väg)."""
@@ -1951,19 +2005,29 @@ def kor(slug, underlag=None):
         k = korning(slug, underlag)
         if k.get('steg') == 'klar':
             return k
+        import atelje
         import korregister  # som arbetaren och kor.sh: underhållet byter inget i den delade miljön medan bandet går
         korregister.registrera('designfas', slug)
+        gamla = {}
+        if threading.current_thread() is threading.main_thread():  # SIGTERM (prototyp.py --stoppa) och SIGINT stoppar
+            gamla = {s: signal.signal(s, _signal) for s in (signal.SIGTERM, signal.SIGINT)}
         try:
             start = k.get('start') or nu()
             logga(slug, underlag, start=start, pid=os.getpid(), steg='fore_valet', skal='riktningarna går stationerna före valet')
             try:
                 return _kor(slug, rk, start, underlag, cf)
+            except Avbruten as e:
+                return logga(slug, underlag, steg='stoppad', pid=None,
+                             skal='stoppad med %s: sessionerna avslutades; prototyp.py %s --fortsatt tar vid' % (e, slug))
             except Stoppad as e:
                 return logga(slug, underlag, steg='stoppad', skal=str(e)[:1200], pid=None)
             except Exception as e:  # noqa: BLE001 — skälet står i spåret, och kor tar vid igen
                 logga(slug, underlag, steg='stoppad', skal='%s: %s' % (type(e).__name__, str(e)[:1100]), pid=None)
                 raise
         finally:
+            for s, h in gamla.items():
+                signal.signal(s, h)
+            atelje.STOPP.clear()
             korregister.avregistrera()
     finally:
         os.close(fd)
@@ -2483,6 +2547,10 @@ def start(slug, skriv_bara=False, underlag=None):
     import atelje
     import kundvakt
     designfas(slug, underlag)
+    k = korning(slug, underlag)
+    if _ar_drivaren(k.get('pid'), slug):  # en skrivare: den interaktiva utföraren startar inte medan drivaren kör
+        raise Fel('drivaren kör för %s (pid %s, steg %s): stoppa den med prototyp.py %s --stoppa innan en interaktiv '
+                  'utförare startar' % (slug, k['pid'], k.get('steg'), slug))
     if lage(slug, underlag) == 'duk':
         duk_pausad('./design.sh för en designfas i läget duk')
     inst = json.loads(kundvakt.installningar(slug, Path(underlag or UNDERLAG)))

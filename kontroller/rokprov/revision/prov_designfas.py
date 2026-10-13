@@ -1124,6 +1124,10 @@ if m:
     sid, rid = m.groups()
     with logg.open('a') as f:
         f.write('station %%s %%s\n' %% (rid, sid))
+    if [rid, sid] in conf.get('sov', []):  # en session som arbetar länge: stoppet ska avsluta den
+        import os, time
+        Path(conf['sovfil']).write_text(str(os.getpid()))
+        time.sleep(30)
     if [rid, sid] in conf.get('falla', []):
         print(json.dumps({'type': 'result', 'subtype': 'error_during_execution', 'is_error': True, 'result': 'attrappen faller'}))
         sys.exit(1)
@@ -1258,6 +1262,63 @@ class M_Drivaren(Grund):
             self.assertIsNone(re.search(r'inget Bash|utan Bash', text), namn)
             for s in skript:
                 self.assertTrue(s in text, (namn, s))
+
+    def test_en_signal_stoppar_drivaren_och_dess_sessioner(self):
+        """Andra granskningens fynd 2, stoppet: vid SIGTERM avslutar drivaren sina sessioner (egna processgrupper),
+        skriver stoppad med skälet, avanmäler sig och släpper låset."""
+        import fcntl
+        import signal
+        import threading
+        import time
+        sovfil = self.tmp / 'fejk' / 'sov.pid'
+        self.conf(sov=[['k01', 'underlag']], sovfil=str(sovfil))
+
+        def ingen_hanterare(*_):
+            raise AssertionError('drivaren har ingen signalhanterare')
+        gammal = signal.signal(signal.SIGTERM, ingen_hanterare)
+        self.addCleanup(signal.signal, signal.SIGTERM, gammal)
+
+        def skicka():
+            slut = time.time() + 30
+            while not sovfil.is_file() and time.time() < slut:
+                time.sleep(0.1)
+            time.sleep(0.3)
+            os.kill(os.getpid(), signal.SIGTERM)
+        threading.Thread(target=skicka, daemon=True).start()
+        t0 = time.time()
+        k = df.kor(SLUG)
+        self.assertLess(time.time() - t0, 25, 'sessionen avslutades i stället för att sova klart')
+        self.assertEqual(k['steg'], 'stoppad')
+        self.assertIn('SIGTERM', k['skal'])
+        self.assertFalse(df._lever(int(sovfil.read_text())), 'stationens session är avslutad')
+        self.assertEqual(self.register[-1], ('ut',))
+        self.assertFalse(atelje.STOPP.is_set(), 'stoppet gäller bara drivaren')
+        fd = os.open(self.u / SLUG / 'design' / '.drivare.las', os.O_RDWR)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # låset är släppt
+        finally:
+            os.close(fd)
+
+    def dummy_drivare(self):
+        """En process som ser ut som drivaren (designfas.py kor <slug> på kommandoraden) och avslutas på SIGTERM."""
+        p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)', 'designfas.py', 'kor', SLUG], start_new_session=True)
+        self.addCleanup(lambda: (p.poll() is None and p.kill(), p.wait()))
+        time_ = __import__('time')
+        time_.sleep(0.3)
+        df.logga(SLUG, pid=p.pid, steg='fore_valet')
+        return p
+
+    def test_stoppa_nar_drivaren_och_start_nekas_medan_den_kor(self):
+        p = self.dummy_drivare()
+        with self.assertRaisesRegex(df.Fel, 'drivaren kör'):
+            df.start(SLUG, skriv_bara=True)
+        self.bandets_status()
+        import io
+        with contextlib.redirect_stdout(io.StringIO()) as ut:
+            prototyp.main([SLUG, '--stoppa'])
+        self.assertIn('drivaren', ut.getvalue())
+        self.assertIsNotNone(p.wait(timeout=20), 'prototyp.py --stoppa nådde drivaren')
+        df.start(SLUG, skriv_bara=True)  # när drivaren inte kör går starten igen
 
     def test_drivaren_anmaler_sig_i_korregistret(self):
         """Andra granskningens fynd 4: drivaren anmäler sig i körregistret som arbetaren och kor.sh, så att underhållet
