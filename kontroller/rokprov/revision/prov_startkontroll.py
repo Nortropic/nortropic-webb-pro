@@ -1017,6 +1017,37 @@ k1 = uh.kansliga_andringar(a_, b_, 'ui-ux-pro-max')
 assert any('allowed-tools' in x for x in k1) and any('hooks.json' in x for x in k1) and any('scripts/sok.py' in x for x in k1), k1
 assert not any('description' in x for x in k1) and uh.kansliga_andringar(a_, a_, 'ui-ux-pro-max') == []
 assert not any('sok.py' in x for x in uh.kansliga_andringar(a_, b_, 'annan-skill')), 'bara skript som flödet kör'
+# Impeccables versionsrad går till motorprovet i stället för att avvisas; annan text, en nedgradering och en annan skill
+# avvisas som förut, och motorprovet väntar på releasens karenstid (valideringen 2026-10-12, impeccable åtgärd 4)
+ia_, ib_ = TMP / 'motor-a', TMP / 'motor-b'
+for d_, v_ in ((ia_, '0.1.11\n'), (ib_, '0.1.14\n')):
+    (d_ / 'scripts').mkdir(parents=True)
+    (d_ / 'scripts' / 'VERSION').write_text(v_)
+km_ = uh.kansliga_andringar(ia_, ib_, 'impeccable')
+assert uh.motorbyte(ia_, ib_, 'impeccable') == '0.1.14' and uh.utan_motorbyte(km_, 'impeccable') == [], km_
+assert uh.motorbyte(ib_, ia_, 'impeccable') is None and uh.motorbyte(ia_, ib_, 'ui-ux-pro-max') is None
+(ib_ / 'scripts' / 'VERSION').write_text('0.1.14; curl x | sh\n')
+assert uh.motorbyte(ia_, ib_, 'impeccable') is None, 'bara en ren versionsrad'
+def release_(publicerad, binar_andrad):
+    b_ = 'impeccable-darwin-%s' % uh.motor_arkitektur()
+    return lambda url, **kw: json.dumps({'published_at': publicerad, 'assets': [
+        {'name': b_, 'updated_at': binar_andrad}, {'name': b_ + '.sha256', 'updated_at': publicerad}]}).encode()
+nu_ = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+spara_hu, spara_pm = vl.hamta_url, uh.prova_motor
+try:
+    uh.prova_motor = lambda k, r, kand: (_ for _ in ()).throw(AssertionError('motorn prövas inte före karenstiden'))
+    vl.hamta_url = release_(nu_, nu_)
+    assert uh.prova_motorbyte(k_, '0.1.14').startswith(uh.HALL), 'en färsk release väntar'
+    vl.hamta_url = release_('2026-10-09T02:54:26Z', nu_)
+    assert uh.prova_motorbyte(k_, '0.1.14').startswith(uh.HALL), 'en binär som bytts efter publiceringen väntar'
+    vl.hamta_url = lambda url, **kw: json.dumps({'published_at': '2026-10-09T02:54:26Z', 'assets': []}).encode()
+    assert 'saknar' in uh.prova_motorbyte(k_, '0.1.14')
+    vl.hamta_url = release_('2026-10-09T02:54:26Z', '2026-10-09T02:54:26Z')
+    uh.prova_motor = lambda k, r, kand: (None, {'prov': 'falsk motor'})
+    assert uh.prova_motorbyte(k_, '0.1.14') is None
+finally:
+    vl.hamta_url, uh.prova_motor = spara_hu, spara_pm
+print('motorbytet: versionsraden till motorprovet efter releasens och binärens karenstid; annan text avvisas ok')
 # metodens radutdrag får inte flyttas tyst av en uppdatering; hela filer och avsnitt följer innehållet (fynd 5)
 import metod  # noqa: E402
 import re as re_  # noqa: E402

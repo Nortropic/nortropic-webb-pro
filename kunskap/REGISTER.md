@@ -6843,15 +6843,16 @@ Tidigare bedömningar, gjorda med de gamla reglerna, ligger i `REGISTER-arkiv-20
 - Steg: där impeccable redan står (bandets stationer, kompetensblocken, detektorn).
 - Jämfört med i dag: Operate- och Read-ytor alltid kodledda, artefakterna i världen beskrivs också till utseendet
   (art-stationens radutdrag new-work.md rad 45–47), audit-tabellens dimensioner i rätt ordning och kortare comp-prompter.
-  Motorn 0.1.12–0.1.14 har detektorns precisionsrättelser (valideringen 2026-10-12, impeccable), men den tas inte in här.
+  Motorn 0.1.12–0.1.14 har detektorns precisionsrättelser (valideringen 2026-10-12, impeccable); den följer grinden nedan.
 - Skäl: ägarens beslut 2026-10-13, punkt 8 ("impeccable 4.5.2 och motorn 0.1.14: tas in vid den senaste commit som är
   äldre än karenstiden, med granskning"); d631a88 är den senaste commit som är äldre än karenstiden.
 - Kostnad: +575 token i skillmappen.
 - Säkerhet: förgranskningen MEDEL vid både 769aa84 och d631a88, samma fem skript och inga nya risker; inga nya kommandon
   utöver flaggbytet `--kind` → `--decision-comp` i build-phase, som flödet inte kör.
-- Förslag: textfilerna vid d631a88 och `scripts/VERSION` kvar på 0.1.11 tills ägaren godkänt ändringen av underhållets
-  grind för VERSION (diffen visad för ägaren); då sätts VERSION till 0.1.14 och underhållet prövar och installerar motorn.
-- Utfall: textfilerna intagna 2026-10-13 på grenen `claude/lyften-20261013`; motorn väntar på ägaren.
+- Förslag: textfilerna vid d631a88, och `scripts/VERSION` till 0.1.14 när ägaren godkänt ändringen av underhållets grind
+  för VERSION (diffen visad för ägaren).
+- Utfall: textfilerna intagna 2026-10-13 på grenen `claude/lyften-20261013`. Ägaren godkände grinden och VERSION samma
+  morgon ("Del 1 + Del 2 (Rekommenderas)"); nästa underhåll prövar och installerar motorn 0.1.14.
 - Backlog: ingen
 
 ## 2026-10-08 — semantiska resor och obevakade skillvillkor

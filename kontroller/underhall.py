@@ -34,10 +34,10 @@ Per slag (kunskap/beroenden.md, avsnittet Underhåll):
   något faller.
 - Skillsen: i den senaste commit i källan som är äldre än karenstiden; trevägssammanslagning (källan vid vår commit,
   vår mapp, källan då) i en kopia; ändrade behörigheter,
-  krokar, konfigurationsfiler eller skript som flödet kör avvisas; förgranskningen (granska_repo.py) får inte visa nya
-  risker; metodkartans utdrag ur skillen får inte byta text; en liten Sonnet-session läser ändringen mot metodkartans
-  Avgöranden; metodkartan och kompetensblocken prövas i en kopia av repot. Omlåsningen kräver rena kunskap/, skills,
-  kritik/ och mall/.
+  krokar, konfigurationsfiler eller skript som flödet kör avvisas, utom Impeccables versionsrad, som går till
+  motorprovet; förgranskningen (granska_repo.py) får inte visa nya risker; metodkartans utdrag ur skillen får inte byta
+  text; en liten Sonnet-session läser ändringen mot metodkartans Avgöranden; metodkartan och kompetensblocken prövas i
+  en kopia av repot. Omlåsningen kräver rena kunskap/, skills, kritik/ och mall/.
 - Sajtens paket (grupper: astro med @astrojs/*, react med react-dom, tailwind med @tailwindcss/vite): installation
   utan skript, npm audit, rökprovets sajt byggd med mallen och kundrepots bygge som Cloudflare Worker; en huvudversion
   också hela rökprovet.
@@ -52,11 +52,13 @@ Per slag (kunskap/beroenden.md, avsnittet Underhåll):
   huvudversion (git, gh) prövas med hela rökprovet efter bytet (avbrutet om en start väntar), och den förra kegen länkas
   tillbaka om något faller. Efter varje install och uppgradering prövas de fyra formlernas bibliotekslänkar (brew
   linkage --test), och det som gått sönder installeras om.
-- Impeccables motor: den version skillen pinnar, hämtad med kontrollsumman och prövad på en sida.
+- Impeccables motor: den version skillen pinnar, hämtad med kontrollsumman och prövad på en sida; en skilluppdatering som
+  byter versionen prövar den nya motorn först (releasens karenstid, kontrollsumman, provsidan).
 - macOS, Xcode-verktygen och Homebrew självt redovisas bara.
 Intag i kontrollernas node_modules och i .venv görs bara i en utcheckning som äger dem (inte länkade från en annan).
 """
 import argparse
+import calendar
 import json
 import os
 import re
@@ -96,6 +98,13 @@ KONFIGFILER = ('settings.json', 'settings.local.json', 'plugin.json', '.mcp.json
 # skills vars skript flödet kör (kontroller/uxsok.py), och Impeccables VERSION, som väljer motorn detektorn kör
 # (granskningen av r72, fynd L3)
 KORDA_SKRIPT = {'ui-ux-pro-max': ('scripts/',), 'impeccable': ('scripts/VERSION',)}
+KORT_SKRIPT = 'skriptet %s, som flödet kör, ändras'
+# Impeccables VERSION är en versionsrad, inget skript: en uppdatering som bara byter den till en nyare ren versionsrad
+# prövas med motorprovet (releasen äldre än karenstiden, kontrollsumman och detektering innanför processgränsen) i stället
+# för att avvisas; allt annat i filen avvisas som förut (valideringen 2026-10-12, impeccable åtgärd 4; ägarens godkännande)
+MOTORFIL = {'impeccable': 'scripts/VERSION'}
+VERSIONSRAD = re.compile(r'\d+\.\d+\.\d+')
+MOTOR_RELEASE = 'https://api.github.com/repos/pbakaus/impeccable/releases/tags/engine-v%s'
 TILLATNA = ('.claude/skills/', 'mall/astro/package.json', 'mall/astro/package-lock.json', 'mall/leverans/package.json',
             'mall/leverans/package-lock.json', 'kontroller/package.json', 'kontroller/package-lock.json', 'requirements.txt',
             'requirements-lock.txt', 'kunskap/metodkarta.lock.json')
@@ -979,8 +988,60 @@ def kansliga_andringar(gammal, ny, namn):
                 if fm_e.get(nyckel) != fm_f.get(nyckel):
                     ut.append('%s: frontmatternyckeln %s ändras' % (rel_, nyckel))
         if any(rel_.startswith(prefix) for prefix in KORDA_SKRIPT.get(namn, ())) and f.suffix in ('.py', '.sh', '.js', '.mjs', '.cjs', ''):
-            ut.append('skriptet %s, som flödet kör, ändras' % rel_)
+            ut.append(KORT_SKRIPT % rel_)
     return ut
+
+
+def motorbyte(gammal, ny, namn):
+    """Den nya motorversionen när uppdateringen byter skillens motorfil (MOTORFIL) till en nyare, ren versionsrad
+    ("0.1.14"), annars None: en annan text i filen, en äldre version eller en skill utan motorfil går som förut till
+    kansliga_andringar och avvisas."""
+    fil = MOTORFIL.get(namn)
+    if not fil:
+        return None
+    g, n = Path(gammal) / fil, Path(ny) / fil
+    if not n.is_file() or n.is_symlink() or n.stat().st_size > 64:
+        return None
+    fore = g.read_text(encoding='utf-8', errors='replace').strip() if g.is_file() else ''
+    efter = n.read_text(encoding='utf-8', errors='replace').strip()
+    return efter if VERSIONSRAD.fullmatch(efter) and vl.nyare(efter, fore) else None
+
+
+def utan_motorbyte(kansliga, namn):
+    """De känsliga ändringarna utom motorfilens, som motorprovet har avgjort."""
+    return [x for x in kansliga if x != KORT_SKRIPT % MOTORFIL.get(namn, '')]
+
+
+def motor_arkitektur():
+    import platform
+    return {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'x64'}.get(platform.machine(), platform.machine())
+
+
+def prova_motorbyte(k, version):
+    """Motorprovet för en version som en skilluppdatering pinnar: releasen engine-v<version> finns och är ingen
+    förhandsversion, releasen och den här maskinens binär och kontrollsumma är äldre än karenstiden (en tillgång kan bytas
+    efter publiceringen, så deras updated_at räknas också), och prova_motor godkänner den (kontrollsumman ur releasen och
+    detektering på en provsida innanför processgränsen). Motorn läggs bredvid de andra i ~/.impeccable/bin/<version>/ och
+    väljs först när skillens VERSION är intagen (detektor.motor). Ger felet, med TILL eller HALL, eller None."""
+    try:
+        d = json.loads(vl.hamta_url(MOTOR_RELEASE % version, timeout=60, huvuden={'Accept': 'application/vnd.github+json'}))
+    except Exception as e:  # noqa: BLE001
+        return nat('releasen engine-v%s gick inte att läsa: %s: %s' % (version, type(e).__name__, vl.sista(e, 160)))
+    if d.get('draft') or d.get('prerelease'):
+        return 'engine-v%s är en förhandsversion eller ett utkast' % version
+    binar = 'impeccable-darwin-%s' % motor_arkitektur()
+    tider = [d.get('published_at')] + [a.get('updated_at') for a in d.get('assets') or [] if a.get('name') in (binar, binar + '.sha256')]
+    if len(tider) != 3:
+        return 'engine-v%s saknar %s med kontrollsumma' % (version, binar)
+    try:
+        yngst = max(calendar.timegm(time.strptime(str(x), '%Y-%m-%dT%H:%M:%SZ')) for x in tider)
+    except ValueError:
+        return 'engine-v%s saknar publiceringstid för releasen eller binären' % version
+    if time.time() - yngst < vl.KARENS_DAGAR * 86400:
+        return HALL + 'motorn %s (releasen eller binären ändrad %s) är yngre än karenstiden (%g dygn); prövas när den gått ut' % (
+            version, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(yngst)), vl.KARENS_DAGAR)
+    fel, _staged = prova_motor(k, None, {'version': version})
+    return fel
 
 
 def utdrag_som_andras(tmp, namn):
@@ -1117,6 +1178,12 @@ def prova_skill(k, r, kand):
         ny = tmp / '.claude' / 'skills' / mapp.name
         tillampa(ny, plan)
         kansliga = kansliga_andringar(mapp, ny, mapp.name)
+        motor = motorbyte(mapp, ny, mapp.name)
+        if motor:  # bara Impeccables versionsrad: motorprovet avgör i stället för att uppdateringen avvisas
+            fel = prova_motorbyte(k, motor)
+            if fel:
+                return foreg('motorn %s som uppdateringen pinnar: ' % motor, fel), None
+            kansliga = utan_motorbyte(kansliga, mapp.name)
         if kansliga:  # behörigheter, krokar och körda skript tas aldrig in automatiskt
             return 'uppdateringen ändrar behörigheter eller körning: ' + '; '.join(kansliga[:4]), None
         fore, efter = forgranska(mapp), forgranska(ny)
@@ -1172,7 +1239,11 @@ def ta_in_skill(k, r, kand, staged):
         ny_mapp = kontroll / '.claude' / 'skills' / mapp.name
         shutil.rmtree(ny_mapp, ignore_errors=True)
         shutil.copytree(staged['mapp'], ny_mapp, symlinks=True)
-        hinder = ['ändrar behörigheter eller körning: ' + '; '.join(x[:3]) for x in [kansliga_andringar(mapp, ny_mapp, mapp.name)] if x]
+        kansl = kansliga_andringar(mapp, ny_mapp, mapp.name)
+        motor = motorbyte(mapp, ny_mapp, mapp.name)
+        if motor and os.access(vl.motor_hem() / motor / 'impeccable', os.X_OK):  # motorprovet installerade den nya motorn
+            kansl = utan_motorbyte(kansl, mapp.name)
+        hinder = ['ändrar behörigheter eller körning: ' + '; '.join(kansl[:3])] if kansl else []
         hinder += ['metodkartans utdrag ändras (%s)' % '; '.join(x[:3]) for x in [utdrag_som_andras(kontroll, mapp.name)] if x]
     finally:
         shutil.rmtree(kontroll, ignore_errors=True)
@@ -1990,9 +2061,8 @@ def ta_in_node_huvud(k, r, kand, staged):
 # --- Impeccables motor ---
 
 def prova_motor(k, r, kand):
-    import platform
     version = kand['version']
-    arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'x64'}.get(platform.machine(), platform.machine())
+    arch = motor_arkitektur()
     url = 'https://github.com/pbakaus/impeccable/releases/download/engine-v%s/impeccable-darwin-%s' % (version, arch)
     tmp = Path(korregister.egen_tmp('nwp-motor-', 'underhall'))
     try:

@@ -5729,7 +5729,8 @@ och regelinventeringens åtgärder". Ingen människa svarade; besluten nedan är
 **Status:** gäller; genomfört av Claude i grenen `claude/lyften-20261013`, punkt 6 och 8 i ägarens beslut 2026-10-13
 (ordagrant i `underlag/uppdrag/PROMPT-Nortropic-Astro-artefakt-resten-20261013.md`, privat). Ingen människa svarade
 under arbetet; besluten nedan är sessionens egna, med antagandena utskrivna. Ändringen av underhållets säkerhetsgrind
-för `scripts/VERSION` är inte gjord: den väntar på ägarens godkännande.
+för `scripts/VERSION` visades för ägaren och godkändes samma morgon, ordagrant: "Del 1 + Del 2 (Rekommenderas)" (Del 1
+grinden, Del 2 VERSION 0.1.14 nu; punkten impeccable nedan).
 
 Ägarens ord, ordagrant: "6 väntar då vi har figma redo." och "8. ja fixa dessa", och i beslutets punkter:
 
@@ -5769,8 +5770,11 @@ för `scripts/VERSION` är inte gjord: den väntar på ägarens godkännande.
 - **impeccable 4.5.2:** textfilerna står ordagranna vid d631a88, granskade (diffen, scripts/ och förgranskningen).
   Antagande: skillen går att ta in utan motorn, eftersom flödet kör motorn bara genom `kontroller/detektor.py`, som
   väljer den version `scripts/VERSION` anger, och det enda i texten som kräver 0.1.14 är flaggan `--decision-comp` i
-  build-phase, som flödet inte kör. `scripts/VERSION` står kvar på 0.1.11 (KALLA.md, Undantaget). Efter ägarens
-  godkännande av grinden sätts den till källans 0.1.14, och underhållet prövar och installerar motorn.
+  build-phase, som flödet inte kör. Efter ägarens godkännande av grinden står `scripts/VERSION` på källans 0.1.14, och
+  nästa underhåll prövar och installerar motorn. Grinden: en uppdatering som bara byter versionsraden till en nyare ren
+  version går till motorprovet (releasen och binären äldre än karenstiden, kontrollsumman, provsidan innanför
+  processgränsen) i stället för att avvisas; annan text i filen avvisas som förut (`kontroller/underhall.py`,
+  `motorbyte`; `kunskap/beroenden.md`, Skydden runt en ny version).
 - **emil-animation-performance:** inte intagen; den vilande backlogposten
   `B-20261013-emil-animation-performance-in-nar-karenstiden-ga` säger när (efter 2026-10-14T13:31Z) och hur.
 - **21st-generering och Motion+** förs inte in. Två rader i metodkartan som sa annat är rättade (21st `get_usage` och
