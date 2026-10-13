@@ -224,6 +224,15 @@ class B_Version(Grund):
         self.assertIn('reducerad', r['reducerad_rorelse']['1440'])
         self.assertTrue(r['fokus']['1440'] and all(x['synlig'] for x in r['fokus']['1440']), r['fokus'])
 
+    def test_kommandot_ny_genom_main(self):
+        # design.sh kör `designfas.py ny <slug>` för en ny kund; ett lokalt namn ny i main() gav UnboundLocalError
+        # (utförarens fynd 2026-10-13, infört i 8e22e52)
+        import io
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = df.main(['ny', SLUG])
+        self.assertIn(rc, (0, None))
+        self.assertTrue(df.aktiv(SLUG), 'designfasen registrerad genom kommandot')
+
     def test_dubblett_saknad_ritning_och_okand_tillgang(self):
         self.duk()
         df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'första', bilder=False)

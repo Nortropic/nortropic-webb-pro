@@ -1436,14 +1436,14 @@ def main(argv=None):
         elif x.cmd == 'station':
             print(station_brief(x.slug, x.station, x.ritning))
         elif x.cmd == 'inventera':
-            rapport, ny = inventera(placera=x.placera)
-            if ny is not None:
-                KARTA.write_text(ny, encoding='utf-8')
+            rapport, ny_karta = inventera(placera=x.placera)  # inte "ny": det namnet är kommandot ny i hela main()
+            if ny_karta is not None:
+                KARTA.write_text(ny_karta, encoding='utf-8')
             print('\n'.join(rapport) if rapport else 'inventeringen: varje skill, fil och tjänst har sin plats, och kartan följer tabellerna')
             if x.placera:  # underhållet läser slutkoden: kartan ska hålla efter placeringen, också när inget skrevs
                 f = karta_prova()
                 print('\n'.join(['kartan efter placeringen:'] + f) if f else 'kartan %s och prövad (karta --prova utan fel)' % (
-                    'skriven' if ny is not None else 'oförändrad'))
+                    'skriven' if ny_karta is not None else 'oförändrad'))
                 return 1 if f else 0
             return 0
         elif x.cmd == 'karta':
