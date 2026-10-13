@@ -22,17 +22,20 @@ lämnar underlag. Spåret står privat i underlag/<slug>/design/:
     specialist <slug> BNNN                      kör beställningen som ett pass i repot (rollens kompetensblock, kvitto)
     svar <slug> BNNN --fil SVAR.md --utforare TEXT       ett svar som gjorts på annat sätt (manuell överlämning)
     infor <slug> BNNN --version vNN --bedomning TEXT     beställningens resultat infört i en version, med bedömningen
-    godkann <slug> vNN --ritning kNN [--text TEXT]   ÄGARENS designgodkännande (nekas sessionerna; ägaren kör det själv)
+    godkann <slug> vNN --ritning kNN [--text TEXT]   ÄGARENS designgodkännande, i hans egen terminal (koden på /dev/tty)
     overlamna <slug> [--prova]                  överlämningspaketet till helbygget ur den godkända versionen, med kalla/
     status <slug> · kvitto <slug> --session ID [--pass skapa] · karta --prova · start <slug> [--skriv-bara]
     inventera [--placera]                       förmågorna mot kartan; --placera skriver stationerna, flödena och preliminära
                                                 rader för nya skills och filer (underhållet kör det vid varje skillintag)
 
 Läget duk (Claude Design, kunskap/claude-design.md) står kvar men är pausat: ny --kanvas, runtime, tillgang och
-version --fran nekas utom med NWP_DESIGNLAGE=duk. Designgodkännande, byggstart och publicering är tre beslut: godkann
-startar inget, kor.sh tar vid först när ägaren startar bygget (och lägger den godkända källan i kunder/<slug>/sajt med
-installera_godkand), och publiceringen är lanseringens eget steg (kunskap/lansering.md). Slutkoder: 0 klart, 1 en kontroll
-eller ett bygge föll eller något saknas, 2 fel i anropet.
+version --fran nekas utom med NWP_DESIGNLAGE=duk. Godkännandet (BESLUT.md, tilläggen 2026-10-13): den autonoma
+godkännaren (autogodkann, anropad av bandets drivare) godkänner den riktning som jämförelsen valt när kritiken av dess
+senaste version svarar premium utan blockerande fynd; ägaren kan godkänna själv (godkann, i hans egen terminal eller i
+portalen), och hans väg och hans senare beslut går före. Varje godkännande är förseglat (kontroller/sigill.py). kor.sh tar
+vid bara från ett förseglat, giltigt godkännande (och lägger den godkända källan i kunder/<slug>/sajt med
+installera_godkand); publiceringen är alltid ägarens (kunskap/lansering.md). Slutkoder: 0 klart, 1 en kontroll eller ett
+bygge föll eller något saknas, 2 fel i anropet.
 """
 import argparse
 import fnmatch
@@ -119,8 +122,28 @@ SVAR_SCHEMA = {
                                      'lasta': {'type': 'array', 'items': {'type': 'string'}},
                                      'valda': {'type': 'array', 'items': {'type': 'string'}},
                                      'misslyckade': {'type': 'array', 'items': {'type': 'string'}}}},
+        # kritiken (ds_kritik, krävs): svaret på C5 i kunskap/precision.md, Detaljnivån; den autonoma godkännaren läser det
+        'detaljniva': {'type': 'object', 'additionalProperties': False, 'required': ['svar', 'saknas', 'belagg'],
+                       'properties': {'svar': {'type': 'string', 'enum': ['premium', 'basic']},
+                                      'saknas': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 12},
+                                      'belagg': {'type': 'string', 'maxLength': 1200}}},
+        # jämförelsen (ds_jamforelse, krävs): riktningen som bär kunden bäst, med skälet ur bilderna
+        'val': {'type': 'object', 'additionalProperties': False, 'required': ['riktning', 'skal'],
+                'properties': {'riktning': {'type': 'string'}, 'skal': {'type': 'string', 'maxLength': 1600}}},
     },
 }
+SVAR_KRAV = {'ds_kritik': 'detaljniva', 'ds_jamforelse': 'val'}  # fältet som passet måste svara med (svar_schema)
+BLOCKERANDE = 3  # allvar 3 och 4 är blockerande (kritik/GRANSKARE.md); den autonoma godkännaren godkänner aldrig med ett sådant fynd
+GODKANNARE = ('ägaren', 'autonom granskning')  # GODKANNANDE.json: kalla (BESLUT.md, tillägget 2026-10-13 om autonomin)
+AUTONOM = 'autonom granskning'
+
+
+def svar_schema(pass_):
+    """Svarsschemat för passet: SVAR_SCHEMA, med kritikens svar på C5 och jämförelsens val som krav."""
+    s = json.loads(json.dumps(SVAR_SCHEMA))
+    if pass_ in SVAR_KRAV:
+        s['required'] = s['required'] + [SVAR_KRAV[pass_]]
+    return s
 # byggstandardens avsnitt som varje specialistpass bedömer mot (tillägget 2026-10-12, punkt 5), utöver rollens kärna
 STANDARD = {
     'ds_granskning': '2 (HTML och semantik), 3.3 och 3.4 (träffytor, kontrast, fokus), 5 (tillgänglighet) och 6 (formulär)',
@@ -903,7 +926,14 @@ def specialist_prompt(slug, b, underlag=None):
            if MATTSTOCK.is_file() else
            'Ägarens måttstock (underlag/niva/MATTSTOCK.md) saknas i den här miljön: din ribba är kvalitetskraven, standarden och litteraturen; säg det i sammanfattningen.',
            'Besvara granskningsfrågorna i kunskap/granskningsfragor.md (läs filen hel), var och en med bredden och bilden svaret bygger på.',
+           ('Svara på C5 i kunskap/precision.md (avsnittet Detaljnivån) i fältet detaljniva: premium eller basic, med Apple och '
+            'Nike som ribba för detaljtätheten, vilka detaljer (D1–D6) som saknas och vilka bilder svaret bygger på. Ett fynd '
+            'med allvar %d eller 4 är blockerande (kritik/GRANSKARE.md). Den autonoma godkännaren godkänner aldrig en version '
+            'med ett blockerande fynd eller svaret basic; döm därför som om ägaren inte skulle se versionen före bygget.' % BLOCKERANDE),
            'Din dom är en AI-bedömning: skriv den som din, aldrig som ägarens, och ändra ingenting.'] if kritik else []),
+        *(['Välj i fältet val den riktning som bär kunden bäst, med skälet ur bilderna. Valet är den autonoma godkännarens '
+           'underlag (BESLUT.md, tillägget 2026-10-13 om autonomin): kritiken av den riktningens senaste version avgör sedan.']
+          if b['pass'] == 'ds_jamforelse' else []),
         '',
         *station_rader(station(b.get('station') or STATION_FOR_TYP[b['typ']])),
         '',
@@ -979,8 +1009,10 @@ def specialist(slug, bid, underlag=None, modell=None, frist=None):
     sk.mkdir(parents=True, exist_ok=True)
     uppdatera_bestallning(slug, bid, underlag, status='pagar', utforare='specialistpass %s (claude -p i repot)' % pass_)
     t0 = nu()
+    # det passet bedömer, bundet före sessionen: versionens avtryck, eller (*) riktningarnas senaste versioner (autogodkann)
+    sag = {'jamforda': senaste_per_riktning(slug, underlag)} if b['ritning'] == '*' else {'avtryck': versionens_avtryck(slug, b['version'], underlag)}
     svar = atelje.session(specialist_prompt(slug, b, underlag), ['Read', 'Glob', 'Grep'] + kompetens.verktyg(pass_, slug),
-                          sk / 'svar-session.json', SVAR_SCHEMA, 120, modell or atelje.MODELL, atelje.EFFORT,
+                          sk / 'svar-session.json', svar_schema(pass_), 120, modell or atelje.MODELL, atelje.EFFORT,
                           frist or 2400, slug=slug, webb=webb)
     so = svar.get('structured_output') if isinstance(svar, dict) else None
     st = station(b.get('station') or STATION_FOR_TYP[b['typ']])
@@ -990,7 +1022,7 @@ def specialist(slug, bid, underlag=None, modell=None, frist=None):
             'ej_observerat': ej_observerat,
             'nivaer': 'tillgång, aktivering och läsning, verktygsanrop och resultat står i kvittot; tillämpning i designen och '
                       'kvalitet bedöms först i versionen som för in svaret, av utföraren och ägaren',
-            'kostnad_listpris_usd': svar.get('total_cost_usd')}
+            'kostnad_listpris_usd': svar.get('total_cost_usd'), 'version': b['version'], 'ritning': b['ritning'], **sag}
     if isinstance(so, dict):
         post['bilder'] = ladda_referensbilder(sk, so.get('referenser') or [])
     skriv(sk / 'SVAR.json', post)
@@ -1095,11 +1127,9 @@ def versionens_avtryck(slug, v, underlag=None):
     return {'filer': filer, 'bilder': bilder}
 
 
-def godkann(slug, v, ritning, text='', underlag=None):
-    """ÄGARENS designgodkännande: en rad i domloggen (källa ägaren, beslut godkand) och GODKANNANDE.json bundna till
-    versionens filer och bilder och till underlagets version. Sessionerna nekas kommandot (design.sh och projektets
-    inställningar); ägaren kör det själv, i terminalen eller med !-prefixet i sin session. Startar inget bygge."""
-    import skapande
+def versionen_att_godkanna(slug, v, ritning, underlag=None):
+    """(designfasen, versionens post) för ett godkännande: versionen finns, gäller riktningen eller ritningen och har
+    startsidans bilder i varje bredd. Fel annars."""
     d = designfas(slug, underlag)
     if v not in versioner(slug, underlag):
         raise Fel('versionen %s finns inte' % v)
@@ -1115,38 +1145,169 @@ def godkann(slug, v, ritning, text='', underlag=None):
     if saknas:
         raise Fel('%s saknar bilder i %s: kör designfas.py rendera %s %s först' % (
             'startsidan' if astro else 'ritningen', ', '.join(map(str, saknas)), slug, v))
+    return d, post
+
+
+def sigillfalt(slug, g):
+    """Fälten som sigillet binder (kontroller/sigill.py): vem, versionen, riktningen, avtrycket, underlaget och domen."""
+    return {'slug': slug, **{k: g.get(k) for k in ('tid', 'dom_tid', 'version', 'ritning', 'avtryck', 'underlag_sha', 'kalla')}}
+
+
+def godkann(slug, v, ritning, text='', underlag=None):
+    """ÄGARENS designgodkännande: en rad i domloggen (källa ägaren, beslut godkand) och GODKANNANDE.json bundna till
+    versionens filer och bilder och till underlagets version, förseglade med ägarens sigill (kontroller/sigill.py). Sigillet
+    sätts bara genom ägarens kanaler: hans egen terminal, där kommandot visar versionen, riktningen och en slumpkod som han
+    skriver tillbaka på /dev/tty, eller portalen med ägartoken. Utan dem nekas godkännandet, också för ett anrop med
+    python -c; inget skrivs då. Ägarens väg går före den autonoma godkännaren (autogodkann). Startar inget bygge."""
+    import sigill
+    import skapande
+    d, post = versionen_att_godkanna(slug, v, ritning, underlag)
+    astro = post.get('lage') == 'astro'
     u = Path(underlag or UNDERLAG)
     tid = nu()
     text = text.strip() or ('Designen godkänd: %s, riktningen %s (%s).' % (v, ritning, (post.get('riktning') or {}).get('projekt')) if astro else
                             'Designen godkänd i Claude Design: %s, ritningen %s (artefaktversion %s).' % (v, ritning, post['artifact_version']))
-    dom = skapande.lagg_till_dom(slug, 'ägaren', 'godkand', text, avser='designfas %s %s' % (v, ritning), underlag=u, tid=tid,
-                                 belagg='ägarens eget kommando: designfas.py godkann %s %s --ritning %s, %s' % (slug, v, ritning, tid),
-                                 designfas={'version': v, 'ritning': ritning, 'lage': post.get('lage') or 'duk', 'kanvas': kanvas_url(d),
-                                            'artifact_version': post.get('artifact_version')})
     g = {'schema': 1, 'slug': slug, 'tid': tid, 'kalla': 'ägaren', 'version': v, 'ritning': ritning, 'lage': post.get('lage') or 'duk',
          'kanvas': kanvas_url(d), 'artifact_version': post.get('artifact_version'), 'avtryck': versionens_avtryck(slug, v, underlag),
-         'underlag_sha': skapande.underlagsversion(slug, u), 'dom_tid': dom['tid'],
-         'betyder': 'designen är godkänd; byggstart och publicering är egna beslut (kor.sh startar bygget, lanseringen publicerar)'}
+         'underlag_sha': skapande.underlagsversion(slug, u), 'dom_tid': tid,
+         'betyder': 'designen är godkänd; byggstarten följer av godkännandet, publiceringen är ägarens eget beslut (lanseringen)'}
+    visning = ['Designgodkännande för %s' % slug,
+               'version %s av %s %s%s' % (v, 'riktningen' if astro else 'ritningen', ritning,
+                                         ' (%s)' % (post.get('riktning') or {}).get('projekt') if astro else ''),
+               'bilderna: %s' % rel(rot(slug, underlag) / 'versioner' / v / 'bilder'),
+               'Godkännandet gäller den versionen; bygget kan sedan starta av sig självt.']
+    try:
+        g['sigill'], g['kanal'] = sigill.forsegla_agaren('designfas', sigillfalt(slug, g), rot(slug, underlag), visning)
+    except sigill.Nekad as e:
+        raise Fel('designgodkännandet är ägarens och sätts bara i hans egen terminal eller i portalen: %s' % e)
+    skapande.lagg_till_dom(slug, 'ägaren', 'godkand', text, avser='designfas %s %s' % (v, ritning), underlag=u, tid=tid,
+                           belagg='ägarens eget kommando (%s): designfas.py godkann %s %s --ritning %s, %s' % (g['kanal'], slug, v, ritning, tid),
+                           designfas={'version': v, 'ritning': ritning, 'lage': post.get('lage') or 'duk', 'kanvas': kanvas_url(d),
+                                      'artifact_version': post.get('artifact_version')})
+    skriv(rot(slug, underlag) / 'GODKANNANDE.json', g)
+    return g
+
+
+def _eget_pass(slug, b, underlag=None):
+    """SVAR.json för en beställning som körts som ett eget specialistpass (specialist): levererat i schemat, med ett eget
+    session-id och ett verifierat kvitto ur sessionens transkript. Ett svar som förts in för hand (svar) är inget pass.
+    Ger (svaret, sökvägen); Fel annars."""
+    p = rot(slug, underlag) / 'svar' / b['id'] / 'SVAR.json'
+    sv = las(p) or {}
+    if sv.get('manuell') or not isinstance(sv.get('svar'), dict) or sv.get('utfall') != 'levererad':
+        raise Fel('%s (%s) är inget eget pass: svaret är infört för hand eller saknas (designfas.py specialist %s %s)' % (
+            b['id'], b['typ'], slug, b['id']))
+    if not re.fullmatch(r'[0-9a-f-]{36}', str(sv.get('session_id') or '')) or not (sv.get('kvitto') or {}).get('verifierad'):
+        raise Fel('%s (%s) saknar en egen session med ett verifierat kvitto ur transkriptet' % (b['id'], b['typ']))
+    return sv, p
+
+
+def autogodkann(slug, version, ritning, underlag=None):
+    """DEN AUTONOMA GODKÄNNAREN (BESLUT.md, tillägget 2026-10-13: ägarens val "Autonomous to build (Recommended)"): den
+    oberoende jämförelsen och kritiken väljer riktningen och godkänner den, och bygget kan sedan starta av sig självt;
+    publiceringen väntar alltid på ägaren. Kräver ingen terminal. Grinden:
+    - läget astro; versionen är riktningens senaste version med startsidans bilder i 390, 768 och 1440;
+    - den senaste jämförelsen mellan riktningarna (beställning jamforelse med *, ett eget pass) valde riktningen
+      (svar.val.riktning) och såg just den versionen av den (jamforda);
+    - den senaste kritiken av versionen (beställning kritik på versionen och riktningen, ds_kritik i ett eget pass med
+      verifierat sessionskvitto) gällde versionens avtryck som det är nu, har inget fynd med allvar BLOCKERANDE eller mer och
+      svarar premium på C5 (detaljniva.svar);
+    - ägarens väg går före: inget gällande godkännande från ägaren, och inget beslut från ägaren efter versionen.
+    Posten och domloggens rad har källan 'autonom granskning' (aldrig ägaren; skapande.ar_agarens) med belägg i
+    svarsfilerna, och sigillet sätts av den Python-process som anropar funktionen (bandets drivare). Ger posten; Fel
+    med skälet när grinden inte håller."""
+    import sigill
+    import skapande
+    if lage(slug, underlag) != 'astro':
+        raise Fel('den autonoma godkännaren gäller läget astro')
+    d, post = versionen_att_godkanna(slug, version, ritning, underlag)
+    senaste = senaste_per_riktning(slug, underlag).get(ritning)
+    if senaste != version:
+        raise Fel('%s är inte riktningens senaste version med bilder (%s)' % (version, senaste))
+    alla = [bestallning(slug, b, underlag) for b in bestallningar(slug, underlag)]
+    jam = [b for b in alla if b.get('typ') == 'jamforelse' and b.get('ritning') == '*' and b.get('status') in ('levererad', 'inford')]
+    if not jam:
+        raise Fel('ingen jämförelse mellan riktningarna (designfas.py bestall --typ jamforelse --ritning *)')
+    sj, pj = _eget_pass(slug, jam[-1], underlag)
+    val = (sj['svar'].get('val') or {}).get('riktning')
+    if val != ritning:
+        raise Fel('jämförelsen %s valde %s, inte %s' % (jam[-1]['id'], val or 'ingen riktning', ritning))
+    if (sj.get('jamforda') or {}).get(ritning) != version:
+        raise Fel('jämförelsen %s såg %s av %s, inte %s' % (jam[-1]['id'], (sj.get('jamforda') or {}).get(ritning), ritning, version))
+    kr = [b for b in alla if b.get('typ') == 'kritik' and b.get('version') == version and b.get('ritning') == ritning
+          and b.get('status') in ('levererad', 'inford')]
+    if not kr:
+        raise Fel('ingen oberoende kritik av %s (designfas.py bestall --typ kritik --version %s --ritning %s)' % (version, version, ritning))
+    sk, pk = _eget_pass(slug, kr[-1], underlag)
+    if sk.get('avtryck') != versionens_avtryck(slug, version, underlag):
+        raise Fel('kritiken %s gällde inte versionens avtryck som det är nu: filerna eller bilderna har ändrats' % kr[-1]['id'])
+    block = [f for f in sk['svar'].get('fynd') or [] if isinstance(f, dict) and int(f.get('allvar') or 0) >= BLOCKERANDE]
+    if block:
+        raise Fel('kritiken %s har %d blockerande fynd (allvar %d eller mer): %s' % (
+            kr[-1]['id'], len(block), BLOCKERANDE, '; '.join('%s: %s' % (f.get('plats'), f.get('vad')) for f in block[:4])))
+    c5 = (sk['svar'].get('detaljniva') or {}).get('svar')
+    if c5 != 'premium':
+        raise Fel('kritiken %s svarar %s på C5 (kunskap/precision.md, Detaljnivån), inte premium' % (kr[-1]['id'], c5 or 'inte'))
+    u = Path(underlag or UNDERLAG)
+    ok_, _, g0 = godkand_giltig(slug, underlag)
+    if ok_ and (g0 or {}).get('kalla') == 'ägaren':
+        raise Fel('ägarens godkännande gäller redan (%s, %s): ägarens väg går före den autonoma' % (g0['version'], g0['ritning']))
+    ag = skapande.agarens_senaste(slug, u)
+    if ag['oklara']:
+        raise Fel(skapande.oklara_text(ag))
+    if ag['dom'] and str(ag['dom'].get('tid') or '') > str(post.get('tid') or ''):
+        raise Fel('ägarens beslut %s (%s) kom efter versionen %s: ägarens beslut går före den autonoma godkännaren' % (
+            ag['dom'].get('tid'), ag['dom'].get('beslut'), version))
+    tid = nu()
+    belagg = {'kritik': rel(pk), 'kritik_sha256': sha(pk), 'kritik_session': sk.get('session_id'),
+              'jamforelse': rel(pj), 'jamforelse_sha256': sha(pj), 'jamforelse_session': sj.get('session_id')}
+    g = {'schema': 1, 'slug': slug, 'tid': tid, 'kalla': AUTONOM, 'version': version, 'ritning': ritning, 'lage': 'astro',
+         'kanvas': None, 'artifact_version': None, 'avtryck': versionens_avtryck(slug, version, underlag),
+         'underlag_sha': skapande.underlagsversion(slug, u), 'dom_tid': tid, 'belagg': belagg, 'kanal': 'autonom',
+         'betyder': 'designen är godkänd av den autonoma godkännaren; bygget kan starta, publiceringen väntar på ägaren'}
+    try:
+        g['sigill'] = sigill.forsegla_autonomt('designfas', sigillfalt(slug, g), rot(slug, underlag))
+    except sigill.Nekad as e:
+        raise Fel(str(e))
+    skapande.lagg_till_dom(slug, AUTONOM, 'godkand', 'Den autonoma godkännaren: %s av riktningen %s, vald av jämförelsen %s och '
+                           'bedömd premium utan blockerande fynd av kritiken %s.' % (version, ritning, jam[-1]['id'], kr[-1]['id']),
+                           avser='designfas %s %s' % (version, ritning), underlag=u, tid=tid,
+                           belagg='%s (sha256 %s) och %s (sha256 %s)' % (belagg['kritik'], belagg['kritik_sha256'][:12],
+                                                                      belagg['jamforelse'], belagg['jamforelse_sha256'][:12]),
+                           designfas={'version': version, 'ritning': ritning, 'lage': 'astro', 'kanvas': None, 'artifact_version': None})
     skriv(rot(slug, underlag) / 'GODKANNANDE.json', g)
     return g
 
 
 def godkand_giltig(slug, underlag=None):
-    """(giltig, skäl, godkännandet): ägarens designgodkännande gäller när domloggens senaste ägarbeslut är just det,
-    versionens filer och bilder är oförändrade, underlaget är oförändrat och överlämningen är komplett och bunden."""
+    """(giltig, skäl, godkännandet): ett designgodkännande gäller när det är förseglat (kontroller/sigill.py) av ägaren
+    eller den autonoma godkännaren, domloggen bär det (ägarens: hans senaste beslut är just det; den autonoma: dess rad
+    finns och inget beslut från ägaren eller kunden har kommit efter den), versionens filer och bilder är oförändrade,
+    underlaget är oförändrat och överlämningen är komplett och bunden."""
+    import sigill
     import skapande
     u = Path(underlag or UNDERLAG)
     try:
         g = las(rot(slug, underlag) / 'GODKANNANDE.json')
     except Fel as e:
         return False, str(e), None
-    if not isinstance(g, dict) or g.get('kalla') != 'ägaren':
-        return False, 'inget designgodkännande från ägaren (design/GODKANNANDE.json)', None
+    if not isinstance(g, dict) or g.get('kalla') not in GODKANNARE:
+        return False, 'inget designgodkännande från ägaren eller den autonoma godkännaren (design/GODKANNANDE.json)', None
+    ok_s, skal_s = sigill.prova('designfas', sigillfalt(slug, g), g.get('sigill'), rot(slug, underlag))
+    if not ok_s:
+        return False, skal_s, g
     ag = skapande.agarens_senaste(slug, u)
     if ag['oklara']:
         return False, skapande.oklara_text(ag), g
     dom = ag['dom']
-    if not dom or dom.get('beslut') != 'godkand' or dom.get('tid') != g.get('dom_tid'):
+    if g['kalla'] == AUTONOM:
+        rad = next((r for r, _s, p in reversed(skapande.domlogg(slug, u)['domar'])
+                    if p.get('kalla') == AUTONOM and p.get('beslut') == 'godkand' and p.get('tid') == g.get('dom_tid')), None)
+        if rad is None:
+            return False, 'den autonoma godkännarens rad saknas i domloggen', g
+        if ag['rad'] and ag['rad'] > rad:
+            return False, 'ägarens senare beslut i domloggen (%s, %s) går före den autonoma godkännaren' % (dom.get('tid'), dom.get('beslut')), g
+    elif not dom or dom.get('beslut') != 'godkand' or dom.get('tid') != g.get('dom_tid'):
         return False, 'ägarens senaste dom i domloggen är inte designgodkännandet', g
     if versionens_avtryck(slug, g['version'], underlag) != g.get('avtryck'):
         return False, 'den godkända versionens filer eller bilder är ändrade sedan godkännandet', g
@@ -1158,7 +1319,8 @@ def godkand_giltig(slug, underlag=None):
     brister = overlamning_brister(slug, underlag)
     if brister:
         return False, 'överlämningen är inte komplett: ' + '; '.join(brister), g
-    return True, 'designen godkänd %s (%s, %s)' % (g['tid'], g['version'], g['ritning']), g
+    return True, 'designen godkänd %s (%s, %s; %s)' % (g['tid'], g['version'], g['ritning'],
+                                                     'den autonoma godkännaren' if g['kalla'] == AUTONOM else 'ägaren'), g
 
 
 def overlamning_katalog(slug, underlag=None):
@@ -1173,7 +1335,7 @@ def overlamna(slug, underlag=None):
     kvar, och bara de kopierade delarna och OVERLAMNING.json förnyas."""
     k, g = overlamning_katalog(slug, underlag)
     if not g:
-        raise Fel('inget designgodkännande: ägaren godkänner en version först (designfas.py godkann)')
+        raise Fel('inget designgodkännande: ägaren (designfas.py godkann) eller den autonoma godkännaren (autogodkann) godkänner en version först')
     vk = rot(slug, underlag) / 'versioner' / g['version']
     for n in ('kanvas', 'kalla', 'bilder', 'kontroll'):
         if (k / n).exists():
@@ -1936,6 +2098,15 @@ def inventera(placera=False, text=None, idag=None):
     return rapport, text[:m.start('rader')] + '\n'.join(rader) + '\n' + text[m.end('rader'):]
 
 
+# Utförarens session (design.sh): godkännandet, domarna, bandets drivare, den autonoma godkännaren, sigillet, bygget och
+# publiceringen nekas, liksom nyckeln (kundvaktens inställningar, sigill.nekanden). Det är drivaren som godkänner och
+# startar bygget, och ägaren som publicerar (BESLUT.md, tilläggen 2026-10-13).
+UTFORAREN_NEKAS = ['Bash(*designfas.py godkann*)', 'Bash(*skapande.py dom*)', 'Bash(*designfas.py kor*)', 'Bash(*autogodkann*)',
+                   'Bash(*sigill*)', 'Bash(*kor.sh*)', 'Bash(*prototyp.py*--helbygge*)', 'Bash(*prototyp.py*--release*)',
+                   'Bash(*prototyp.py*--aktivera*)', 'Bash(*kundrepo.py*--release*)', 'Bash(*aktivera.py*--kor*)',
+                   'Bash(*flodesstart.py*)']
+
+
 def start(slug, skriv_bara=False, underlag=None):
     """Kommandot som startar utföraren: en interaktiv session i repots rot med kundvakten för slug, tjänsterna ur
     kontroller/mcp/ (nyckelfilerna privat), --strict-mcp-config, godkännandet nekat, och skillen designfas som första
@@ -1946,7 +2117,9 @@ def start(slug, skriv_bara=False, underlag=None):
     if lage(slug, underlag) == 'duk':
         duk_pausad('./design.sh för en designfas i läget duk')
     inst = json.loads(kundvakt.installningar(slug, Path(underlag or UNDERLAG)))
-    inst.setdefault('permissions', {}).setdefault('deny', []).extend(['Bash(*designfas.py godkann*)', 'Bash(*skapande.py dom*)'])
+    inst.setdefault('permissions', {}).setdefault('deny', []).extend(UTFORAREN_NEKAS + [
+        '%s(./underlag/%s/%s)' % (v_, slug, f_) for v_ in ('Edit', 'Write')
+        for f_ in ('design/GODKANNANDE.json', 'design/svar/**', 'design/bestallningar/**', 'DESIGNDOMAR.jsonl', 'DESIGNDOMAR-belagg.jsonl')])
     f = rot(slug, underlag) / 'session' / 'installningar.json'
     skriv(f, inst)
     mcp = [atelje.refero_mcp_fil(), str(ROOT / 'kontroller' / 'mcp' / 'mobbin.json'), str(ROOT / 'kontroller' / 'mcp' / 'motion.json'),
@@ -2038,9 +2211,10 @@ def main(argv=None):
         elif x.cmd == 'infor':
             ut(infor(x.slug, x.bestallning, x.version, x.bedomning))
         elif x.cmd == 'godkann':
-            ut(godkann(x.slug, x.version, x.ritning, x.text))
-            print('Designen är godkänd. Bygget startar inte av det: nästa steg är överlämningen (designfas.py overlamna) och '
-                  'sedan ditt beslut om byggstart (./kor.sh %s "<verksamhet>").' % x.slug)
+            g = godkann(x.slug, x.version, x.ritning, x.text)
+            ut({k: v for k, v in g.items() if k != 'sigill'})
+            print('Designen är godkänd och förseglad (%s). Nästa steg är överlämningen (designfas.py overlamna); därefter kan '
+                  'bygget starta (bandets drivare, eller ./kor.sh %s "<verksamhet>"). Publiceringen väntar på dig.' % (g['kanal'], x.slug))
         elif x.cmd == 'overlamna':
             if not x.prova:
                 print('paketet: %s' % rel(overlamna(x.slug)))

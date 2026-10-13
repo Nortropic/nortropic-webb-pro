@@ -136,6 +136,8 @@ def argument(slug, val, settings):
         skydd = json.loads(kundvakt.installningar(slug, atelje.UNDERLAG, rot=atelje.ROOT))
         for typ, poster in skydd['hooks'].items():
             ut.setdefault('hooks', {}).setdefault(typ, []).extend(poster)
+        neka = ut.setdefault('permissions', {}).setdefault('deny', [])  # kundvaktens nekanden (sigillets nyckel) följer med
+        neka += [r for r in (skydd.get('permissions') or {}).get('deny') or [] if r not in neka]
     args = ['--settings', json.dumps(ut, ensure_ascii=False)]
     if filer:
         args += ['--mcp-config', *filer]

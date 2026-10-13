@@ -76,6 +76,9 @@ AVSANDARTYPER = {  # typ: (namn, definition)
     'kunden': ('kundens egna ord och beslut', 'det kunden själv har valt, begärt eller underkänt bland förslagen; räknas för '
                                              'kundens val och uppdrag, aldrig för godkännandet för helbygge eller publicering, '
                                              'och en AI-bedömning bokförs aldrig som kundens'),
+    'autonom': ('den autonoma godkännaren', 'designfasens oberoende jämförelse och kritik, som godkänner en version för bygget '
+                                            '(designfas.autogodkann, förseglat; BESLUT.md, tillägget 2026-10-13 om autonomin); '
+                                            'aldrig ägarens beslut, aldrig publicering, och ägarens senare beslut går före'),
 }
 # Domloggens källor (fältet kalla): avsändartypen och definitionen.
 KALLOR = {
@@ -92,6 +95,8 @@ KALLOR = {
     'hypotes': ('hypotes', 'en hypotes som inte är prövad'),
     'kunden': ('kunden', 'kundens egna ord och beslut, ordagrant: förda in av ägaren i arbetsytan eller med skapande.py dom, '
                          'med ett belägg för var kundens ord står (samtalet, meddelandet och tiden)'),
+    'autonom granskning': ('autonom', 'den autonoma godkännarens godkännande i designfasen, skrivet av designfas.autogodkann med '
+                                      'belägg i kritikens och jämförelsens svarsfiler; aldrig ägarens'),
 }
 # Källan som alltid är ägarens egen (arbetsytans Förslagen). Ägaren via Codex räknas bara med ett belägg: avgör
 # ägarens beslut med ar_agarens, inte med den här listan (omgranskningen av skapandeflödet, fynd 2, räknade båda).
@@ -1196,8 +1201,19 @@ def sha256_katalog_strikt(p):
     return h.hexdigest()
 
 
+SIGILLFALT_KANDIDAT = ('tid', 'av', 'underlag_sha', 'sha_index', 'sha_kod', 'sha_kodsrc', 'sha_design', 'sha_material', 'kandidat',
+                      'version', 'omfattning', 'underlag_fotograferat')
+
+
+def sigillfalt_kandidat(slug, g):
+    """Fälten i kandidatvägens godkännande som ägarens sigill binder (kontroller/sigill.py): tiden, avsändaren,
+    underlaget och sha-fälten för den godkända startsidan, sidorna, komponenterna, DESIGN.md och materialet."""
+    return {'slug': slug, **{k: g.get(k) for k in SIGILLFALT_KANDIDAT}}
+
+
 def godkand_giltig(slug, underlag=None, kunder=None):
-    """(giltig, skäl): ägarens godkännande i atelje/VINNARE.json gäller bara när ägarens senaste dom i domloggen
+    """(giltig, skäl): ägarens godkännande i atelje/VINNARE.json gäller bara när det bär ägarens sigill
+    (kontroller/sigill.py, satt i terminalen eller portalen av atelje.godkannande), ägarens senaste dom i domloggen
     (ar_agarens: ägaren, eller ägaren via Codex med belägg) är just det godkännandet och den godkända startsidan och
     DESIGN.md i atelje/vinnare/ är oförändrade sedan dess. En vidarebefordrad AI-bedömning varken godkänner eller drar
     tillbaka något. Går en rad efter godkännandet inte att läsa gäller det inte: där kan ägarens senare beslut stå. kor.sh
@@ -1211,6 +1227,10 @@ def godkand_giltig(slug, underlag=None, kunder=None):
     g = (las_json(u / 'atelje' / 'VINNARE.json') or {}).get('godkand')
     if not isinstance(g, dict) or not g.get('tid'):
         return False, 'inget godkännande i VINNARE.json'
+    import sigill  # ägarens sigill (BESLUT.md, 2026-10-13): ett godkännande som inte är förseglat av ägaren gäller aldrig
+    ok_s, skal_s = sigill.prova('kandidat', sigillfalt_kandidat(slug, g), g.get('sigill'), u)
+    if not ok_s:
+        return False, skal_s
     ag = agarens_senaste(slug, u.parent)
     if ag['oklara']:
         return False, oklara_text(ag)
@@ -1252,7 +1272,7 @@ def main(argv=None):
     sub = p.add_subparsers(dest='cmd', required=True)
     d = sub.add_parser('dom', help='lägg till en dom i underlag/<slug>/DESIGNDOMAR.jsonl')
     d.add_argument('slug')
-    d.add_argument('--kalla', required=True, choices=list(KALLOR), help='avsändaren (KALLOR): en bedömning som ägaren vidarebefordrat '
+    d.add_argument('--kalla', required=True, choices=[k for k in KALLOR if KALLOR[k][0] != 'autonom'], help='avsändaren (KALLOR): en bedömning som ägaren vidarebefordrat '
                    'förs in med källan "vidarebefordrad AI-bedömning", aldrig som ägarens')
     d.add_argument('--beslut', required=True, choices=BESLUT)
     d.add_argument('--fil', required=True, help='textfil med domen ordagrant')

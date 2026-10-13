@@ -53,16 +53,19 @@ if ! mkdir "$LAS" 2>/dev/null; then
   else echo "en annan start av dashboarden pågår; försök igen om en stund" >&2; exit 1; fi
 fi
 trap 'rmdir "$LAS" 2>/dev/null' EXIT
-NYCKEL="$("$ROOT/.venv/bin/python" -c 'import secrets; print(secrets.token_urlsafe(24))')"
+# Servern väljer nyckeln själv och skriver den i nyckelfilen innan den svarar; sidan öppnas med nyckeln ur filen
+# (kontroller/sigill.py: portalens ägartoken prövas mot ägarens nyckelfil, som ingen annan process får bestämma).
 if [ -n "$BAKGRUND" ]; then  # startgenvägen: tjänsten lossad från terminalen, loggen i ~/Library/Logs; inget arbete startas
   mkdir -p "$HOME/Library/Logs"
-  ( cd "$ROOT" && NWP_DASHBOARD_NYCKEL="$NYCKEL" nohup "$ROOT/.venv/bin/python" -B "$ROOT/dashboard/server.py" --port "$PORT" \
+  ( cd "$ROOT" && env -u NWP_DASHBOARD_NYCKEL nohup "$ROOT/.venv/bin/python" -B "$ROOT/dashboard/server.py" --port "$PORT" \
       >>"$HOME/Library/Logs/nortropic-dashboard.log" 2>&1 & )
   for _ in $(seq 1 30); do curl -fs -o /dev/null "$URL/api/oversikt" && break; sleep 0.5; done
   curl -fs -o /dev/null "$URL/api/oversikt" || { echo "dashboarden svarade inte; se ~/Library/Logs/nortropic-dashboard.log" >&2; exit 1; }
-  [ -n "${NWP_UTAN_OPPNA:-}" ] || open "$URL/#nyckel=$NYCKEL$TILL"; echo "Dashboarden kör i bakgrunden: $URL"; exit 0
+  NYCKEL="$(cat "$NYCKELFIL" 2>/dev/null | tr -d '[:space:]')"
+  [ -n "${NWP_UTAN_OPPNA:-}" ] || /usr/bin/open "$URL/#nyckel=$NYCKEL$TILL"; echo "Dashboarden kör i bakgrunden: $URL"; exit 0
 fi
 trap - EXIT
 (for _ in $(seq 1 30); do curl -fs -o /dev/null "$URL/api/oversikt" && break; sleep 0.5; done; rmdir "$LAS" 2>/dev/null
- [ -n "${NWP_UTAN_OPPNA:-}" ] || open "$URL/#nyckel=$NYCKEL$TILL") &
-NWP_DASHBOARD_NYCKEL="$NYCKEL" exec "$ROOT/.venv/bin/python" -B "$ROOT/dashboard/server.py" --port "$PORT"
+ NYCKEL="$(cat "$NYCKELFIL" 2>/dev/null | tr -d '[:space:]')"
+ [ -n "${NWP_UTAN_OPPNA:-}" ] || /usr/bin/open "$URL/#nyckel=$NYCKEL$TILL") &
+exec env -u NWP_DASHBOARD_NYCKEL "$ROOT/.venv/bin/python" -B "$ROOT/dashboard/server.py" --port "$PORT"

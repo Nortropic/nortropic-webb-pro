@@ -103,6 +103,9 @@ def installningar(slug, domaner=(), gh_dir=None, sandlada=True, root=None, hem=N
     # Sessionens egna filverktyg (Read) nekas hemlighetsmappen med en vanlig regel, med eller utan sandlåda (Codex R24; där
     # ligger också dashboardnyckeln, dashboard/server.py NYCKELFIL)
     ut['permissions']['deny'].append('Read(//%s/.nortropic-hemligheter/**)' % hem.strip('/'))
+    # och nyckeln till sigillet: Edit, Write och Bash-mönster som nämner mappen (utan sandlådan når Bash annars filen)
+    import sigill
+    ut['permissions']['deny'] += [r for r in sigill.nekanden(hem) if r not in ut['permissions']['deny']]
     return ut
 
 
