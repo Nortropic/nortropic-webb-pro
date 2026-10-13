@@ -1925,15 +1925,20 @@ def kor(slug, underlag=None):
         k = korning(slug, underlag)
         if k.get('steg') == 'klar':
             return k
-        start = k.get('start') or nu()
-        logga(slug, underlag, start=start, pid=os.getpid(), steg='fore_valet', skal='riktningarna går stationerna före valet')
+        import korregister  # som arbetaren och kor.sh: underhållet byter inget i den delade miljön medan bandet går
+        korregister.registrera('designfas', slug)
         try:
-            return _kor(slug, rk, start, underlag, cf)
-        except Stoppad as e:
-            return logga(slug, underlag, steg='stoppad', skal=str(e)[:1200], pid=None)
-        except Exception as e:  # noqa: BLE001 — skälet står i spåret, och kor tar vid igen
-            logga(slug, underlag, steg='stoppad', skal='%s: %s' % (type(e).__name__, str(e)[:1100]), pid=None)
-            raise
+            start = k.get('start') or nu()
+            logga(slug, underlag, start=start, pid=os.getpid(), steg='fore_valet', skal='riktningarna går stationerna före valet')
+            try:
+                return _kor(slug, rk, start, underlag, cf)
+            except Stoppad as e:
+                return logga(slug, underlag, steg='stoppad', skal=str(e)[:1200], pid=None)
+            except Exception as e:  # noqa: BLE001 — skälet står i spåret, och kor tar vid igen
+                logga(slug, underlag, steg='stoppad', skal='%s: %s' % (type(e).__name__, str(e)[:1100]), pid=None)
+                raise
+        finally:
+            korregister.avregistrera()
     finally:
         os.close(fd)
 

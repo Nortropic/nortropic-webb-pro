@@ -1165,6 +1165,9 @@ class M_Drivaren(Grund):
         import flodesstart
         self.stack.enter_context(patch.object(flodesstart, 'starta', side_effect=lambda slug, handling, start_id=None:
                                               self.byggen.append((slug, handling, start_id)) or 5))
+        self.register = []  # körregistret på maskinen skrivs aldrig av provet
+        self.stack.enter_context(patch.object(korregister, 'registrera', side_effect=lambda vad, slug=None, **k: self.register.append(('in', vad, slug))))
+        self.stack.enter_context(patch.object(korregister, 'avregistrera', side_effect=lambda pid=None: self.register.append(('ut',))))
         self.astro(('k01', 'k02', 'k03'))
 
     def conf(self, **falt):
@@ -1233,6 +1236,17 @@ class M_Drivaren(Grund):
                 self.assertNotIn('station %s %s' % (rid, sid), andra, 'det klara görs inte om')
         self.assertIn('station k03 art', andra)
         self.assertNotIn('station k03 innehall', andra)
+
+    def test_drivaren_anmaler_sig_i_korregistret(self):
+        """Andra granskningens fynd 4: drivaren anmäler sig i körregistret som arbetaren och kor.sh, så att underhållet
+        inte byter verktyg mitt i ett band, och avanmäler sig vid slut och vid stopp."""
+        df.kor(SLUG)
+        self.assertEqual(self.register, [('in', 'designfas', SLUG), ('ut',)])
+
+    def test_drivaren_avanmaler_sig_vid_stopp(self):
+        self.conf(falla=[['k01', 'art']])
+        self.assertEqual(df.kor(SLUG)['steg'], 'stoppad')
+        self.assertEqual(self.register, [('in', 'designfas', SLUG), ('ut',)], 'avanmäld också vid stopp')
 
     def test_ett_svar_utan_giltigt_val_ger_en_ny_jamforelse(self):
         """Granskningens fynd 1 (andra granskningen): ett jämförelsesvar utan val, eller med ett val som inte är en
