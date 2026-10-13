@@ -1,17 +1,28 @@
-// rendera.mjs — en version ur Claude Design (dukens .dc.html-ritningar) renderad lokalt med Design-typens egen körmiljö
-// (dc-runtime.js ur typens release, sparad privat i underlag/<slug>/design/runtime/), så att Code kan se, mäta och pröva
-// exakt den källa som duken visar (kunskap/claude-design.md, Observation). Bilderna är inte skärmbilder ur Designs
-// gränssnitt: de är ritningens källa i en vanlig Chromium-sida i den bredd som anges, och märks så i BILDER.json.
-//   node kontroller/designfas/rendera.mjs --sida <katalog> --ritningar A.dc.html,B.dc.html --ut <katalog> [--kontroll] [--bredder 390,768,1440]
-// Katalogen --sida har ritningarna, support.js (körmiljön) och _blob/<id> (dukens uppladdade tillgångar, med
-// _blob/index.json {id: medietyp}). Skriver <ut>/bilder/<ritning>-<bredd>.png, <ritning>-390-meny.png när en menyknapp
+// rendera.mjs — en version i designfasens band renderad lokalt i Chromium, så att Code kan se, mäta och pröva exakt det
+// som versionen är (kunskap/skapandeflodet.md, Bandet i projekten). Två slag av sidor:
+// - läget astro (BESLUT.md 2026-10-13): riktningens byggda Astro-sida, dist/ ur kandidatens projekt, med startsidan
+//   (index.html) och undersidorna (om/index.html, högst tre nivåer ner);
+// - läget duk, pausat: dukens .dc.html-ritningar ur Claude Design med Design-typens egen körmiljö (dc-runtime.js ur typens
+//   release, sparad privat i underlag/<slug>/design/runtime/; kunskap/claude-design.md, Observation).
+// Bilderna är inte skärmbilder ur en förhandsvisning eller Designs gränssnitt: de är sidans källa i en vanlig
+// Chromium-sida i den bredd som anges, och fältet kalla i BILDER.json säger vad som renderades.
+//   node kontroller/designfas/rendera.mjs --sida <katalog> --ritningar index.html,om/index.html --ut <katalog> [--kontroll] [--bredder 390,768,1440]
+// Katalogen --sida är dist/ (läget astro), eller ritningarna, support.js (körmiljön) och _blob/<id> (dukens uppladdade
+// tillgångar, med _blob/index.json {id: medietyp}). En katalog i servern ger sin index.html. Skriver
+// <ut>/bilder/<stam>-<bredd>.png (stammen är sidans väg utan .html eller .dc.html, med / som -: index, om-index),
+// <stam>-390-meny.png när en menyknapp
 // (aria-expanded i sidhuvudet eller navigationen) finns, och <ut>/BILDER.json med mätningarna per bredd: LCP-kandidaten,
 // layoutskiften, bildernas storlek mot visad storlek, rörelsen vid laddningen och efter 5,5 s, och samma rörelse med
-// prefers-reduced-motion: reduce i 390 och 1440 (varningar, inte fel); med --kontroll också axe (med menyn öppen och
+// prefers-reduced-motion: reduce i 390 och 1440 (varningar, inte fel; rörelse efter 5 s varnas bara utan en synlig paus- eller
+// stoppkontroll, WCAG 2.2.2); med --kontroll också axe (med menyn öppen och
 // formulären skickade tomma), stilrapporten och impeccables detektor (med IMPECCABLE_MOTOR) i <ut>/kontroll/. Dessutom reflow i 320, synlig fokus för de tio första
 // tabbstegen i 390 och 1440 (bild med och utan fokus) och om sidan förändras mellan 6 och 7 s utan interaktion. LCP och
 // CLS här gäller ritningen lokalt, inte fältdata. Exit 0 när allt renderades, 1 när en ritning föll
-// (sidfel, ingen h1, sidledsspill), 2 vid fel i anropet. Inget lämnar maskinen utom Google Fonts-länkar som ritningen själv har.
+// (sidfel, ingen h1, sidledsspill), 2 vid fel i anropet. Inget lämnar maskinen utom adresser som sidan själv laddar (Google
+// Fonts-länkar i en ritning, en extern bild som riktningens CSP släpper).
+// Före helsidesbilden får varje bild loading=eager och laddas klart (en lat bild nedanför första skärmen blev annars tom i
+// helsidesbilden), och varningen "suddig" läser den laddade filens egen bredd (currentSrc), inte naturalWidth, som för
+// en srcset-bild är omräknad till CSS-pixlar (båda fynden i natt, 2026-10-13).
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
 import { join, extname, resolve, dirname, sep } from 'node:path';
@@ -25,20 +36,28 @@ const ut = arg('ut');
 const ritningar = (arg('ritningar') || '').split(',').filter(Boolean);
 const bredder = (arg('bredder') || '390,768,1440').split(',').map((x) => parseInt(x, 10)).filter((x) => x >= 280 && x <= 2560);
 const kontroll = process.argv.includes('--kontroll');
-const NAMN = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,200}\.dc\.html$/;
+// en byggd sida (index.html, om/index.html, högst tre kataloger ner) eller en dukritning (.dc.html); inget segment börjar med punkt
+const NAMN = /^(?:[A-Za-z0-9_][A-Za-z0-9_.-]{0,100}\/){0,3}[A-Za-z0-9_][A-Za-z0-9_.-]{0,200}\.html$/;
 if (!sida || !ut || !ritningar.length || ritningar.some((r) => !NAMN.test(r)) || !bredder.length) {
-  console.error('användning: node kontroller/designfas/rendera.mjs --sida KATALOG --ritningar A.dc.html[,B.dc.html] --ut KATALOG [--kontroll] [--bredder 390,768,1440]');
+  console.error('användning: node kontroller/designfas/rendera.mjs --sida KATALOG --ritningar index.html[,om/index.html] --ut KATALOG [--kontroll] [--bredder 390,768,1440]');
   process.exit(2);
 }
+const duk = ritningar.some((r) => r.endsWith('.dc.html'));
+const stam = (r) => r.replace(/\.dc\.html$|\.html$/, '').replace(/\//g, '-');
 const rot = resolve(sida);
-if (!existsSync(join(rot, 'support.js'))) { console.error('körmiljön saknas: ' + join(rot, 'support.js')); process.exit(2); }
+if (duk && !existsSync(join(rot, 'support.js'))) { console.error('körmiljön saknas: ' + join(rot, 'support.js')); process.exit(2); }
 const bloblista = existsSync(join(rot, '_blob', 'index.json')) ? JSON.parse(readFileSync(join(rot, '_blob', 'index.json'), 'utf-8')) : {};
-const TYP = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.css': 'text/css' };
+const TYP = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+  '.json': 'application/json', '.css': 'text/css', '.webp': 'image/webp', '.avif': 'image/avif', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.gif': 'image/gif', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml', '.glsl': 'text/plain; charset=utf-8', '.wasm': 'application/wasm',
+  '.mp4': 'video/mp4', '.webm': 'video/webm' };
 const begarda = [];
 const srv = createServer((req, res) => {
   const vag = decodeURIComponent((req.url || '/').split('?')[0]);
-  const p = resolve(join(rot, vag));
+  let p = resolve(join(rot, vag));
   if (!(p + sep).startsWith(rot + sep) && p !== rot) { res.writeHead(403); return res.end(); }
+  if (existsSync(p) && statSync(p).isDirectory()) p = join(p, 'index.html');  // /om/ och /om ger om/index.html, som Astros katalogform
   let typ = TYP[extname(p)];
   const blob = vag.match(/^\/_blob\/([0-9a-f]{32})$/);
   if (blob) { typ = bloblista[blob[1]]; begarda.push(blob[1]); }
@@ -61,13 +80,22 @@ try {
     text: el && !el.currentSrc ? (el.textContent || '').trim().slice(0, 60) : null }); })).observe({ type: 'largest-contentful-paint', buffered: true });
   new PerformanceObserver((l) => l.getEntries().forEach((e) => { if (!e.hadRecentInput) window.__nwp.cls += e.value; })).observe({ type: 'layout-shift', buffered: true });
 } catch (e) { window.__nwp.fel = String(e); }`;
+// en synlig kontroll som pausar eller stoppar rörelsen (WCAG 2.2.2): rörelse som pågår mer än 5 s är tillåten när den kan
+// pausas (stationen detaljer, ägarens beslut 2026-10-13); stillheten efter 5 s är inget krav på att inget rör sig
+const PAUSKONTROLL = () => [...document.querySelectorAll('button, [role=button], [aria-pressed], input[type=checkbox]')].filter((e) => {
+  const x = e.getBoundingClientRect();
+  const namn = (e.getAttribute('aria-label') || e.getAttribute('title') || e.textContent || '').trim();
+  return x.width > 0 && x.height > 0 && /paus|pause|stopp|stop|spela|play/i.test(namn);
+}).map((e) => (e.getAttribute('aria-label') || e.getAttribute('title') || e.textContent || '').trim().slice(0, 40));
 const ROREDATA = () => {
   const a = document.getAnimations();
   return { antal: a.length, oandliga: a.filter((x) => x.effect && x.effect.getComputedTiming().iterations === Infinity).length,
     pagar: a.filter((x) => x.playState === 'running').length };
 };
 const b = await chromium.launch();
-const post = { tid: new Date().toISOString(), kalla: 'lokal rendering av dukens källa med Design-typens körmiljö (inte en skärmbild ur Designs gränssnitt)', bredder, ritningar: {} };
+const post = { tid: new Date().toISOString(), bredder, ritningar: {},
+  kalla: duk ? 'lokal rendering av dukens källa med Design-typens körmiljö (inte en skärmbild ur Designs gränssnitt)'
+    : 'lokal rendering av projektets byggda sida (Astro, dist/) i Chromium (inte en skärmbild ur en förhandsvisning)' };
 let fallna = 0;
 for (const r of ritningar) {
   const rp = { bilder: {}, fel: [], varningar: [], konsol: [], matt: {} };
@@ -81,6 +109,17 @@ for (const r of ritningar) {
     pg.on('pageerror', (e) => rp.fel.push(`${w} sidfel: ${e.message}`.slice(0, 300)));
     await pg.goto(`${bas}/${r}`, { waitUntil: 'networkidle', timeout: 60000 });
     await pg.waitForTimeout(700);
+    // lata bilder laddas före mätningen och helsidesbilden; det ursprungliga loading=lazy står kvar i data-nwp-lazy
+    await pg.evaluate(() => new Promise((klar) => {
+      const lata = [...document.images].filter((i) => i.getAttribute('loading') === 'lazy');
+      for (const i of lata) { i.setAttribute('data-nwp-lazy', ''); i.loading = 'eager'; }
+      const vantar = lata.filter((i) => !i.complete);
+      if (!vantar.length) return klar();
+      let kvar = vantar.length;
+      const en = () => { kvar -= 1; if (kvar <= 0) klar(); };
+      for (const i of vantar) { i.addEventListener('load', en, { once: true }); i.addEventListener('error', en, { once: true }); }
+      setTimeout(klar, 8000);
+    }));
     const info = await pg.evaluate((menysel) => {
       const h1 = [...document.querySelectorAll('h1')].map((x) => x.textContent.trim().slice(0, 120));
       const knapp = document.querySelector(menysel);
@@ -94,21 +133,27 @@ for (const r of ritningar) {
         formular: document.forms.length };
     }, MENY);
     // bildernas storlek mot visad storlek (× pixeltäthet) och LCP-kandidaten; rörelsen nu och efter 5,5 s
-    const matt = await pg.evaluate(() => {
+    // naturalWidth är för en srcset-bild omräknad till CSS-pixlar (filens bredd delad med täthetsfaktorn ur sizes); den
+    // laddade filens egen bredd läses ur currentSrc i ett nytt Image()-objekt. En vektorbild har ingen pixelbredd att pröva.
+    const matt = await pg.evaluate(async () => {
       const dpr = devicePixelRatio || 1;
-      const bilder = [...document.images].filter((i) => i.complete && i.naturalWidth > 0).map((i) => {
+      const filbredd = (src) => new Promise((ok) => { const x = new Image(); x.onload = () => ok(x.naturalWidth); x.onerror = () => ok(null); x.src = src; });
+      const bilder = await Promise.all([...document.images].filter((i) => i.complete && i.naturalWidth > 0).map(async (i) => {
         const x = i.getBoundingClientRect();
         const behov = Math.round(x.width * dpr);
-        return { src: new URL(i.currentSrc || i.src, location.href).pathname.slice(-60), naturlig: i.naturalWidth, visad: Math.round(x.width), behov,
-          kvot: behov ? +(i.naturalWidth / behov).toFixed(2) : null, lazy: i.getAttribute('loading') === 'lazy', i_forsta_vyn: x.top < innerHeight };
-      });
+        const kalla = i.currentSrc || i.src;
+        const vektor = /\.svg(?:[?#]|$)/i.test(kalla) || kalla.startsWith('data:image/svg');
+        const fil = vektor ? null : ((await filbredd(kalla)) || i.naturalWidth);
+        return { src: new URL(kalla, location.href).pathname.slice(-60), naturlig: fil, css_bredd: i.naturalWidth, visad: Math.round(x.width), behov,
+          kvot: behov && fil ? +(fil / behov).toFixed(2) : null, vektor, lazy: i.hasAttribute('data-nwp-lazy') || i.getAttribute('loading') === 'lazy',
+          i_forsta_vyn: x.top < innerHeight };
+      }));
       return { bilder, lcp: (window.__nwp.lcp || []).slice(-1)[0] || null, cls: +((window.__nwp.cls || 0).toFixed(4)) };
     });
     const rorelse0 = await pg.evaluate(ROREDATA);
     await pg.waitForTimeout(5500);
     const rorelse55 = await pg.evaluate(ROREDATA);
-    const stam = r.replace(/\.dc\.html$/, '');
-    const fil = `${stam}-${w}.png`;
+    const fil = `${stam(r)}-${w}.png`;
     await pg.screenshot({ path: join(ut, 'bilder', fil), fullPage: true });
     rp.bilder[w] = { fil: `bilder/${fil}`, ...info };
     rp.matt = rp.matt || {};
@@ -120,7 +165,9 @@ for (const r of ritningar) {
     }
     if (matt.lcp && matt.lcp.lazy) rp.varningar.push(`${w}: LCP-elementet (${matt.lcp.tagg}) har loading=lazy`);
     if (matt.cls > 0.1) rp.varningar.push(`${w}: layoutskiften ${matt.cls} (> 0,1) under laddningen`);
-    if (rorelse55.pagar > 0) rp.varningar.push(`${w}: ${rorelse55.pagar} animation(er) pågår efter 5,5 s (WCAG 2.2.2 kräver paus, stopp eller dölj för rörelse > 5 s)`);
+    const paus = await pg.evaluate(PAUSKONTROLL);
+    rp.matt[w].rorelse.paus = paus;
+    if (rorelse55.pagar > 0 && !paus.length) rp.varningar.push(`${w}: ${rorelse55.pagar} animation(er) pågår efter 5,5 s utan en synlig paus- eller stoppkontroll (WCAG 2.2.2)`);
     if (info.sidled) rp.fel.push(`${w}: sidledsspill`);
     if (!info.h1.length) rp.fel.push(`${w}: ingen h1`);
     if (info.bilder.some((x) => !x.laddad)) rp.fel.push(`${w}: ${info.bilder.filter((x) => !x.laddad).length} bild(er) laddades inte`);
@@ -129,7 +176,7 @@ for (const r of ritningar) {
       await k.click();
       await pg.waitForTimeout(400);
       const oppen = await k.getAttribute('aria-expanded');
-      const mfil = `${stam}-${w}-meny.png`;
+      const mfil = `${stam(r)}-${w}-meny.png`;
       await pg.screenshot({ path: join(ut, 'bilder', mfil), fullPage: false });
       rp.bilder[`${w}-meny`] = { fil: `bilder/${mfil}`, aria_expanded_efter_klick: oppen };
       if (oppen !== 'true') rp.fel.push(`${w}: menyknappen öppnade inget (aria-expanded ${oppen})`);
@@ -158,8 +205,9 @@ for (const r of ritningar) {
     const a1 = await pg.screenshot();
     await pg.waitForTimeout(1000);
     const a2 = await pg.screenshot();
-    rp.stillhet[w] = { lika_6_och_7_s: a1.equals(a2) };
-    if (!a1.equals(a2)) rp.varningar.push(`${w}: sidan förändras mellan 6 och 7 s utan interaktion (WCAG 2.2.2 kräver paus, stopp eller dölj)`);
+    const paus = await pg.evaluate(PAUSKONTROLL);
+    rp.stillhet[w] = { lika_6_och_7_s: a1.equals(a2), paus };
+    if (!a1.equals(a2) && !paus.length) rp.varningar.push(`${w}: sidan förändras mellan 6 och 7 s utan interaktion och utan en synlig paus- eller stoppkontroll (WCAG 2.2.2)`);
     const resultat = [];
     for (let i = 0; i < 10; i++) {
       await pg.keyboard.press('Tab');
@@ -258,7 +306,7 @@ if (kontroll) {
         if (fynd) fynd = fynd.map((f) => Object.fromEntries([
           ...['antipattern', 'rule', 'name', 'description', 'severity', 'category', 'advisory'].filter((n) => f[n] !== undefined).map((n) => [n, f[n]]),
           ...(omrade[f.antipattern] ? [['omrade', omrade[f.antipattern]]] : [])]));
-        const fil = join(d, `${r}-${vp.split('x')[0]}.json`);
+        const fil = join(d, `${r.replace(/\//g, '-')}-${vp.split('x')[0]}.json`);  // en undersida (om/index.html) i samma katalog
         writeFileSync(fil, JSON.stringify(fynd && x.status !== 1 ? fynd : { fel: (x.stderr || '').slice(-800), slutkod: x.status }, null, 1) + '\n');
         post.kontroll.detektor[`${r} ${vp}`] = fynd && x.status !== 1 ? { fynd: fynd.length, slutkod: x.status }
           : { fel: fynd ? 'motorn kunde inte skanna sidan (slutkod 1)' : 'motorn gav inget läsbart svar', slutkod: x.status };
