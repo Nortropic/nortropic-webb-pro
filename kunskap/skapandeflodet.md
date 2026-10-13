@@ -19,14 +19,34 @@ helbygge → verifierad leverans. Målet är en snabbare väg till hög kvalitet
 verktygsanrop eller varv är inget kvalitetsmått. Flödet startar från en ren designstart (`kunskap/ren-designstart.md`):
 inget designmaterial från före 2026-10-09 finns i den aktiva miljön.
 
-**Sedan 2026-10-12 görs formgivningen i Claude Design** (`kunskap/claude-design.md`): för en kund med aktiv designfas
-(`underlag/<slug>/design/DESIGNFAS.json`) gör flödet här bara förberedelsen och researchen (steg 1–2; körningen stannar i
-steget `forskad`), och riktningarna, valet, förfiningen och godkännandet sker på duken. Skissläget nedan står kvar för
-kunder utan designfas och som återställningsväg.
+**Sedan 2026-10-13 görs formgivningen lokalt i Astro** (`BESLUT.md`, tillägget 2026-10-13; Claude Design är pausat):
+för en kund med designfas (`underlag/<slug>/design/DESIGNFAS.json`, `designfas.py ny <slug>`) gör flödet här
+förberedelsen, researchen, planen med tre riktningar, planprövningen och uppdragsmaterialet, och lämnar sedan varje
+riktning till bandet (avsnittet Bandet i projekten nedan). Skissläget nedan står kvar för kunder utan designfas och som
+återställningsväg.
 
 Sammanhållningen följer ett välgrundat val, och iterationen får ändra grundidén. Därför utforskas skilda grundidéer
 först, och huvudreferensen blir den valda riktningens referens efteråt. Beställaren (ägaren, eller kunden med belägg)
 väljer själv bland förslagen innan något förbättras; ingen panel utser en vinnare.
+
+## Bandet i projekten (designfasen, sedan 2026-10-13)
+
+Kandidatflödet lämnar riktningarna i steget `band` (`kandidater.lamna_till_bandet`): varje riktning är ett Astro-projekt
+i `kunder/<slug>/kandidater/kNN/sajt` med kundens bilder, sajtens komponenter och fria paket, och dess uppdrag ur planen
+står i `underlag/<slug>/atelje/kandidater/kNN/UPPDRAG.md`. Därefter är `kontroller/designfas.py` enda skrivaren av
+riktningarna; en dom eller ett uppdrag i Code på en riktning i bandet nekas. Utföraren (`./design.sh <slug>`, skillen
+`designfas`) går bandets stationer i tur och ordning per riktning (`kunskap/metodkarta.md`, Bandet: stationerna): före
+valet underlag, innehåll och struktur, art direction, komposition och detaljer, sedan kritiken och jämförelsen samlat;
+efter valet resten av bandet på den valda. Riktningens underlag, referenslåset, språket, de prövade och valda 21st-blocken
+och skälen för en lättad CSP står i projektets RIKTNING.md, inte på en duk.
+
+Varje station blir en version (`designfas.py version <slug> --station <s> --ritning <kNN> --orsak …`): paketen vid
+behov (`--paket namn@version`, exakt version, inga skript), bygget, källan i `kalla/`, den byggda sidan i `sida/`,
+startsidan och undersidorna renderade i 390, 768 och 1440 med menyn öppen, axe, stilrapporten och detektorn, och
+insatsen mot förra versionen av riktningen med bilderna före och efter. Ägaren ser varje version i riktningens privata
+artefakt (`designfas.py artefakt <slug> <kNN>`, publicerad av sessionen, samma artefakt per riktning) och kommenterar
+där. Ägarens designgodkännande (`designfas.py godkann`, ägarens eget kommando) binder versionen; överlämningen bär
+källan, och kor.sh lägger den med `package.json` och låset i sajten före helbygget.
 
 ## Skissläget (standard): full verktygslåda, ren arbetsbänk
 

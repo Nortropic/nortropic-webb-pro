@@ -5457,6 +5457,9 @@ specifikation) ger ordningen; dess fasta sektionsordning, HTML/Netlify och "kör
 **Status:** gäller; genomfört av Claude i grenen `claude/claude-design-20261012`. Mekaniken prövad (`prov_designfas`),
 miljön prövad med en provduk; det fiktiva fallet och vad som är oprövat står i slutrapporten
 (`underlag/rapporter/RAPPORT-2026-10-12-claude-design.md`, privat). Ingen design är bedömd av ägaren.
+**Delvis ersatt av:** Tillägg 2026-10-13: formgivningen lokalt i Astro (platsen för formgivningen: riktningarna görs i
+kundens Astro-projekt i stället för på duken, som är pausad; utföraren skriver projekten; spärren som stoppade
+kandidatflödet efter researchen är borta). Övrigt gäller.
 
 Ägarens uppdrag (inklistrat, ankomst före 2026-10-12T16:18:56Z; ordagrant i
 `underlag/uppdrag/PROMPT-Nortropic-Claude-Design-konvertering-20261012.md`, privat), med tillägget om best practice 2026
@@ -5488,6 +5491,8 @@ samtidigt utveckla en konkurrerande kunddesign." "Designgodkännande, byggstart 
 **Status:** gäller; genomfört av Claude i grenen `claude/produktionsband-20261012`. Mekaniken prövad (`prov_designfas`);
 bandet prövat mot primärkällorna av en oberoende granskare och på Navets representativa riktning, redovisat i
 slutrapporten. Ingen design är bedömd av ägaren.
+**Delvis ersatt av:** Tillägg 2026-10-13: formgivningen lokalt i Astro (bandet går i riktningarnas projekt i stället för
+på duken, och stationen detaljer kommer efter kompositionen före valet). Övrigt gäller.
 
 Ägarens uppdrag i två versioner (inklistrade, ankomst före 2026-10-12T17:35:44Z och före 17:46:33Z; den andra ersätter
 den första; ordagrant i `underlag/uppdrag/PROMPT-Nortropic-Designfasen-produktionsband-20261012.md` och
@@ -5560,6 +5565,8 @@ gör nytta, ner till filnivå, kontrollerbart och utan nytt register.
 **Status:** gäller; genomfört av Claude i grenen `claude/tre-riktningar-20261012`. Ersätter beslutet 2026-10-09 om tio
 förslag (och omkring tio riktningar i designfasen) i den delen; tilläggen 2026-10-09 ~17:53Z och om produktionsbandet är
 markerade. Ingen omgång med tre riktningar är gjord eller bedömd av ägaren.
+**Delvis ersatt av:** Tillägg 2026-10-13: formgivningen lokalt i Astro (följden före valet har stationen detaljer efter
+kompositionen). Övrigt gäller.
 
 Ägarens beslut och uppdrag (inklistrat, ankomst före 2026-10-12T18:47:55Z; ordagrant i
 `underlag/uppdrag/PROMPT-Nortropic-Tre-riktningar-20261012.md`, privat). Ägarens ord, ordagrant:
@@ -5717,3 +5724,69 @@ och regelinventeringens åtgärder". Ingen människa svarade; besluten nedan är
 - **Källraderna i better-break och better-interface-review** har rätt datum och plugin-version (B3). Orsaken är att
   underhållet bara byter hashen i källraden; de nya källraderna säger därför vilken commit datumet gäller. Det
   ändrades inte i underhållet.
+
+## Tillägg 2026-10-13: formgivningen lokalt i Astro
+
+**Status:** gäller; genomfört av Claude i grenen `claude/astro-flode-20261013`. Mekaniken prövad (`prov_designfas`,
+`prov_standard`); ingen riktning i Astro är gjord eller bedömd av ägaren, och ingen kvalitetshöjning påstås förrän
+ägaren sett Navets riktningar i Astro. Ersätter delvis tilläggen 2026-10-12 om designfasen i Claude Design, om
+produktionsbandet och om tre riktningar (markerade). Ingen människa svarade under arbetet; besluten nedan som inte är
+ägarens är sessionens egna, med antagandena utskrivna.
+
+Ägarens beslut och uppdrag (inklistrat, ankomst före 2026-10-13T05:29:17Z; ordagrant i
+`underlag/uppdrag/PROMPT-Nortropic-Astro-artefakt-resten-20261013.md`, privat). Ägarens svar på morgonrapporten,
+ordagrant: "Ja till Astro och tror du artefakt är bra så visst. Vi kör om i Astro. Fixa 3an, jag manuellt approvar.
+Astro numera. Ja till 5:an. 6 väntar då vi har figma redo. 7. städa inför astro bygge. 8. ja fixa dessa". I sak, punkt 1:
+formgivningen görs lokalt i Astro och ersätter beslutet om Claude Design; riktningarna byggs som riktiga Astro-sidor i
+kundens projekt med hela verktygslådan och fria paket, i befintlig kod och utan ett parallellt system; bandets
+stationer, metoderna, de tre riktningarna, renderingen och kontrollerna gäller som förut, och varje station ger en byggd
+version med bilder före och efter; spärren mot kandidatflödet tas bort; Claude Design pausas men raderas inte. Punkt 2:
+varje version av en riktning visas för ägaren som en privat artefakt med sina egna filer (den byggda sidan, inte en
+bild), med riktningarna och versionerna åtskilda och kommentarer möjliga; inget publiceras offentligt. Samma morgon,
+efter artefaktprovet, ordagrant: "Det är ju detaljer, detaljer, detaljer som lyfter den från basic till premium
+känslan?", och ägarens val på frågan om riktningarna ska få sina detaljer före valet, ordagrant: "Ja, före valet".
+
+- **Vägen:** kandidatflödet ger researchen, planen med tre riktningar (prövade mot axlarna), planprövningen och
+  uppdragsmaterialet och lämnar varje riktning som ett Astro-projekt i `kunder/<slug>/kandidater/kNN/sajt`
+  (`kandidater.lamna_till_bandet`, steget `band`; skaparna startar inte). Därefter är `designfas.py` enda skrivaren:
+  stationerna i tur och ordning per riktning, en version per station (paketen vid behov, bygget, källan i `kalla/`, den
+  byggda sidan i `sida/`, startsidan och undersidorna renderade med kontrollerna, insatsen mot förra versionen av
+  riktningen), beställningarna och specialistpassen, ägarens godkännande, överlämningen och kor.sh. Utföraren är en
+  interaktiv session (`./design.sh <slug>`, skillen `designfas`) som arbetar i projekten. Projekten, paketvägen och
+  byggvägen är kandidatflödets, spåret designfasens.
+- **Spärren är borta:** en aktiv designfas stoppar inte kandidatflödet efter researchen;
+  `NWP_KANDIDAT_STOPP_EFTER=forskning` står kvar som stoppunkt. En dom, ett val eller ett uppdrag i Code på en riktning i bandet nekas, så att varje
+  riktning har en skrivare.
+- **Claude Design pausat:** läget duk står kvar i `designfas.py` och `kunskap/claude-design.md`; `ny --kanvas`,
+  `runtime`, `tillgang`, `version --fran` och utförarens start för en duk nekas utom med `NWP_DESIGNLAGE=duk`, och en
+  designfas i läget duk stoppar kandidatflödet före researchen tills `design/` flyttats till historik.
+- **Visningen:** en privat artefakt per riktning, prövad på en version 2026-10-13. Artefaktens sida lindas in i ett eget
+  skelett (ingen egen `<html>` eller `<head>`), andra HTML-filer serveras som de är, Astros absoluta `/_astro/`-vägar skrivs
+  om till relativa, och sidans CSP-meta tas bort i förhandsvisningens kopia (hasharna stämmer inte efter omskrivningen;
+  sajtens CSP prövas i den lokala renderingen). Artefaktens skydd släpper bara egna filer, så en extern bild syns inte där,
+  och en publicering tar högst 255 filer. `designfas.py artefakt <slug> <kNN>` bygger paketet; sessionen publicerar det
+  privat med Artifact-verktyget efter varje sparad version, samma artefakt per riktning, och registrerar adressen med
+  `--url --version`; status och bandet visar den.
+- **CSP per sajt (punkt 4):** mallens CSP behålls och mallen ändras inte. En riktning som behöver Radix-dialoger, WASM
+  eller externa bilder lättar CSP:n i sitt projekt, med skälet på en rad som börjar med "CSP:" i RIKTNING.md;
+  `standard_kontroll` godtar lättnaden med skälet och fäller den utan. Antagande: ett skriptdirektiv med
+  `'unsafe-inline'`, `'unsafe-eval'`, `*` eller ett helt schema fälls också med skäl, eftersom det gör direktivet
+  verkningslöst (byggstandarden 8.2).
+- **Paketen till helbygget (punkt 5, första delen):** `designfas.installera_godkand`, som kor.sh kör före ett bygge från
+  ett designgodkännande, lägger den godkända versionens källa med `package.json` och låset i `kunder/<slug>/sajt` med samma
+  prövning som en godkänd kandidat (den delade kärnan `atelje.prova_overforing` och `overfor_godkanda`), och sajtens
+  `.npmrc` får `ignore-scripts=true`, `save-exact=true` och `registry=https://registry.npmjs.org/`. Bygget installerar
+  med `npm ci --prefix kunder/<slug>/sajt`; sandlådans nät har redan npm-registret. Sandlådans nya gallerier (punkt 5,
+  andra delen) ingår inte här.
+- **Detaljerna före valet:** stationen `detaljer` (Detaljer och signatur) efter kompositionen: signaturrörelsen i första
+  vyn, tillstånd och övergångar på allt interaktivt, 21st-block där ett passande finns, bilder som avtäcks eller lever,
+  mikrotypografi och en första polish, med reducerad rörelse och 44 px kvar. Före valet går varje riktning underlag,
+  innehåll och struktur, art direction, komposition och detaljer; kritiken och jämförelsen körs samlat efter detaljerna,
+  och rörelsen och polishen efter valet fördjupar dem. Renderingen varnar för rörelse som pågår efter 5 s bara när ingen
+  synlig paus- eller stoppkontroll finns (WCAG 2.2.2): stillheten är inget krav på att inget rör sig.
+- **Rättat i renderingen:** en bild med `loading="lazy"` laddas före helsidesbilden (den blev tom), och varningen
+  "suddig" läser den laddade filens bredd i stället för `naturalWidth`, som för en srcset-bild är omräknad till CSS-pixlar.
+- **Antaganden:** högst fyra sidor renderas per version (startsidan och tre undersidor; resten står i versionens
+  `ej_renderade`); ett bygge som faller ger ingen version (slutkod 1); delar projektet sajtens `node_modules` följer
+  sajtens lås med i källan; källan bär också `tsconfig.json`, `components.json` och `.npmrc`, men installationen skriver
+  sajtens `.npmrc` själv.

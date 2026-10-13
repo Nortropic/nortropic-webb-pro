@@ -3,10 +3,11 @@
 Bygger webbplatser åt riktiga verksamheter. Normalflödet (ägarens uppdrag 2026-10-09): kundunderlag → kundförståelse →
 starka branschreferenser → visuell inspiration och användbara mallar och komponenter → tre kundanpassade riktningar (ägarens beslut 2026-10-12; fler på begäran, två åt gången) →
 kundens val → riktad förbättring (Rätta, Omarbeta designen, Bygg ut) → helbygge → verifierad leverans
-(`kunskap/skapandeflodet.md`). Formgivningen görs sedan 2026-10-12 i Claude Design: en utsedd utförare (en interaktiv
-session i repots rot, `./design.sh <slug>`, skillen `designfas`) skriver kundens duk, och Code gör research,
-specialistbedömningar och kontroller men ingen egen kunddesign; ägaren godkänner en exakt version, och helbygget tar vid
-från överlämningen (`kunskap/claude-design.md`). Det som gäller nu, med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens
+(`kunskap/skapandeflodet.md`). Formgivningen görs sedan 2026-10-13 lokalt i Astro: kandidatflödet gör researchen, planen
+med tre riktningar och projekten, och en utsedd utförare (en interaktiv session i repots rot, `./design.sh <slug>`,
+skillen `designfas`) för varje riktning genom bandets stationer i dess Astro-projekt; varje version visas för ägaren i
+riktningens privata artefakt. Ägaren godkänner en exakt version, och helbygget tar vid från överlämningen med källan och
+paketen. Claude Design (`kunskap/claude-design.md`) är pausat. Det som gäller nu, med räckvidd: `kunskap/designregler.md` (kvalitetskraven och ägarens
 beslut) och kundens aktuella domar i `underlag/<slug>/DESIGNDOMAR.jsonl`. Den rena designstarten 2026-10-09
 (`kunskap/ren-designstart.md`) tog gamla byggen, prototyper, bedömningar, kalibreringsankare och de regler som
 härletts ur dem ur den aktiva miljön; de styr ingenting och verifierar inte den nya metoden, och flödets sessioner läser
@@ -22,9 +23,9 @@ besvarar en konkret fråga.
 - `kirurg`: bedömer ett repo, en skill, en artikel eller en YouTube-video (`/kirurg <url>`). Lägger aktuella fynd i
   backloggen automatiskt.
 - `backlog`: genomför den vilande backloggen när ägaren säger "implementera enligt backlog".
-- `designfas`: utförarens arbetsinstruktion i Claude Design (duken, versionerna, beställningarna till specialistpassen,
-  överlämningen); `kontroller/designfas.py` håller spåret i `underlag/<slug>/design/`. Godkännandet är ägarens eget
-  kommando, aldrig sessionens.
+- `designfas`: utförarens arbetsinstruktion i bandet (riktningarnas Astro-projekt, versionerna, artefakterna,
+  beställningarna till specialistpassen, överlämningen); `kontroller/designfas.py` håller spåret i
+  `underlag/<slug>/design/`. Godkännandet är ägarens eget kommando, aldrig sessionens.
 - Övriga mappar i `.claude/skills/` är designkompetensen. Vilka roller i skapandeflödet som har vilka skills (kärna och
   alternativ), vilka skills som saknar uppgift och varför, och beslutet för varje verktyg hos Refero och Mobbin står i
   `kunskap/metodkarta.md`, avsnittet Kompetenserna (ägarens ord 2026-10-05: alla skills och MCP:er ska användas).
