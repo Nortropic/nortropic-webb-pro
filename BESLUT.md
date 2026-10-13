@@ -573,7 +573,9 @@ för framtida byggen innan provet visat att det fungerar och tillför kvalitet.
    med webbläsarens rendering i samma bredder.
 2. **Bara i piloten.** Normalflödet går utan Figma (`kunskap/skapandeflodet.md`, Figma). Piloten är inte avslutad. Dess
    sessioner slår på Figma-pluginen i sin egen `--settings` och kundvakten slås inte av, men körskripten ingår inte i
-   repot, och ingen kod prövar vad som laddas upp till Figma (kundvakten gäller Refero och Mobbin).
+   repot, och ingen kod prövar vad som laddas upp till Figma (kundvakten gäller Refero och Mobbin). **Delvis ersatt
+   av:** tillägget 2026-10-13 om lyften (Figma, build-design, impeccable 4.5.2): Figmas läsväg ur kundens Figmafil och `generate_image` har uppgifter i flödet; Figma som
+   arbetsyta är kvar i piloten. Övrigt gäller.
 3. **Kundmaterialet:** privat kundmaterial laddas upp bara till ett nytt projekt i ägarens team (ägarens val ~18:48Z;
    länken given ~20:09Z), bara för den kund som beskedet gäller, med metadata borttagen (foton utan EXIF och GPS),
    texterna som de står i underlaget och inga uppgifter om privatpersoner utöver det som redan står på kundens sajt.
@@ -5553,7 +5555,9 @@ gör nytta, ner till filnivå, kontrollerbart och utan nytt register.
   kompositionen och formuläret, och Mobbins `ai_usage_notice` förs ordagrant in i svaret.
 - **Lyft till ägaren** (kostnad, konto eller ny tjänst; införs inte på eget initiativ): Figma (`generate_image`, Weave,
   läsvägen för kundfiler), 21st-generering och video, Mobbins läge deep, claude-in-chrome för duken, Claude Docs,
-  computer-use, bildgenerering och logotyper, licensfrågan i ui-styling och läsningen av intagskrav 4.
+  computer-use, bildgenerering och logotyper, licensfrågan i ui-styling och läsningen av intagskrav 4. **Delvis
+  ersatt av:** tillägget 2026-10-13 om lyften (Figma, build-design, impeccable 4.5.2): Figmas läsväg och `generate_image` har uppgifter, och 21st-generering förs inte
+  in. Övrigt gäller.
 
 ## Tillägg 2026-10-12: tre riktningar i stället för omkring tio
 
@@ -5713,7 +5717,63 @@ och regelinventeringens åtgärder". Ingen människa svarade; besluten nedan är
   karenstiden; samordnaren påpekade det, och karenstiden flyttar vi inte själva.
 - **state-machine** är intagen ordagrant och är ett alternativ i bandets station `formular` och i rollen granskning
   (`ds_granskning`, formulärstationens pass), så att den har en roll i kompetenskartan (B2). **build-design** togs
-  inte in; Figmavägen är ett lyft till ägaren.
+  inte in; Figmavägen är ett lyft till ägaren. **Delvis ersatt av:** tillägget 2026-10-13 om lyften (Figma, build-design, impeccable 4.5.2): build-design är intagen
+  vid d574cc8 på ägarens beslut. Övrigt gäller.
 - **Källraderna i better-break och better-interface-review** har rätt datum och plugin-version (B3). Orsaken är att
   underhållet bara byter hashen i källraden; de nya källraderna säger därför vilken commit datumet gäller. Det
   ändrades inte i underhållet.
+
+
+## Tillägg 2026-10-13: lyften (Figma, build-design, impeccable 4.5.2)
+
+**Status:** gäller; genomfört av Claude i grenen `claude/lyften-20261013`, punkt 6 och 8 i ägarens beslut 2026-10-13
+(ordagrant i `underlag/uppdrag/PROMPT-Nortropic-Astro-artefakt-resten-20261013.md`, privat). Ingen människa svarade
+under arbetet; besluten nedan är sessionens egna, med antagandena utskrivna. Ändringen av underhållets säkerhetsgrind
+för `scripts/VERSION` är inte gjord: den väntar på ägarens godkännande.
+
+Ägarens ord, ordagrant: "6 väntar då vi har figma redo." och "8. ja fixa dessa", och i beslutets punkter:
+
+> 6. Bildgenerering: Figma i första hand
+>    - Gemini-, Higgsfield- och Seedance-nycklarna väntar.
+>    - Figmas generate_image får användas inom Pro-krediterna när en riktning behöver illustrativt
+>      material. En genererad bild utger sig aldrig för att visa verksamheten, och källan står i
+>      BILDER.md.
+>
+> 8. Lyften
+>    - impeccable 4.5.2 och motorn 0.1.14: tas in vid den senaste commit som är äldre än karenstiden,
+>      med granskning. Ändringen av underhållets säkerhetsgrind för scripts/VERSION visas för mig
+>      innan den görs, och jag godkänner.
+>    - Figmas läsväg för kunder som har en Figmafil (get_variable_defs, get_design_context,
+>      search_design_system, get_screenshot): en uppgift i stationen underlag och i kundens
+>      designsystem, när kunden har Figma.
+>    - build-design (jakubkrehel/skills, läsvägen ur Figma): tas in vid en commit som är äldre än
+>      karenstiden, som alternativ där Figmavägen används.
+>    - emil-animation-performance: tas in när karenstiden gått ut, tidigast 2026-10-14.
+>    - 21st-generering och Motion+ förs inte in. spring() ger fjädrarna gratis.
+
+- **Karenstiden:** gränsen vid arbetet var 2026-10-10T05:52Z (`date -u` minus 72 timmar). build-design intogs vid
+  jakubkrehel/skills d574cc8 (2026-10-05) och impeccable vid pbakaus/impeccable d631a88 (2026-10-09T04:19Z, skill
+  4.5.2), de senaste commits som var äldre än gränsen. Motorn 0.1.14 publicerades 2026-10-09T02:54Z.
+- **Figmas läsväg och build-design:** build-design står ordagrant med husets tillämpning i `NORTROPIC.md`, som är
+  läsvägens enda beskrivning: kundens Figmafil är kundens identitet, inte sidan; de fyra verktygen; värdena med källa i
+  riktningens anteckning, tillgångarna i `bilder/` med BILDER.md och variablerna mappade på kundens designsystem.
+  Alternativ i bandets stationer underlag och overlamning.
+- **generate_image:** `kunskap/bild.md`, Genererat material: bara på platser med anspråket illustrative eller none,
+  generisk prompt, ett anrop per bildplats inom Pro-krediterna, bilden nedladdad samma dag och källan i BILDER.md.
+  Stationen komposition frågar efter det. Gemini, Higgsfield och Seedance väntar på nycklarna.
+- **Figma når inte flödets sessioner:** utföraren, ateljén och helbygget startar med `--strict-mcp-config` och bara
+  Refero, Mobbin, Motion och 21st, och kundvakten prövar inte Figma-anrop. Antagande: inkopplingen är ingen liten
+  ändring (kundvakten och sessionernas argument, och om pluginens inloggning räcker under `--strict-mcp-config` är
+  oprövat), så den står i den vilande backlogposten `B-20261013-figma-mcp-n-i-flodets-sessioner-bakom-kundvakten`.
+  Texterna säger vad som gäller tills dess, och bandets tabell har ingen token `mcp:figma` förrän verktygen når sessionen.
+- **impeccable 4.5.2:** textfilerna står ordagranna vid d631a88, granskade (diffen, scripts/ och förgranskningen).
+  Antagande: skillen går att ta in utan motorn, eftersom flödet kör motorn bara genom `kontroller/detektor.py`, som
+  väljer den version `scripts/VERSION` anger, och det enda i texten som kräver 0.1.14 är flaggan `--decision-comp` i
+  build-phase, som flödet inte kör. `scripts/VERSION` står kvar på 0.1.11 (KALLA.md, Undantaget). Efter ägarens
+  godkännande av grinden sätts den till källans 0.1.14, och underhållet prövar och installerar motorn.
+- **emil-animation-performance:** inte intagen; den vilande backlogposten
+  `B-20261013-emil-animation-performance-in-nar-karenstiden-ga` säger när (efter 2026-10-14T13:31Z) och hur.
+- **21st-generering och Motion+** förs inte in. Två rader i metodkartan som sa annat är rättade (21st `get_usage` och
+  `fil:motion/performance-audit/*`, där MotionScore kräver Motion+).
+- **Skillen designfas** är inte ändrad: den beskriver inte underlagets innehåll (stationens instruktion kommer ur
+  bandets tabell), och den parallella ändringen till lokala Astro-sidor skriver om den.
