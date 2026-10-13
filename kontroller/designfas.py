@@ -1532,11 +1532,46 @@ def sajtens_npmrc(sajt):
     return True
 
 
+def katalogens_filer(k):
+    """{relativ väg: sha256} för filerna under k, eller None när katalogen har en länk (den är då aldrig den godkända)."""
+    ut = {}
+    for dp, dn, fn in os.walk(k, followlinks=False):
+        if any((Path(dp) / n).is_symlink() for n in dn + fn):
+            return None
+        for n in fn:
+            ut[(Path(dp) / n).relative_to(k).as_posix()] = sha(Path(dp) / n)
+    return ut
+
+
+def ersatt_rotkataloger(slug, sajt, filer):
+    """src/ och public/ i sajten ersätts som helheter av den godkända källan (granskningen av astro-flödet 2026-10-13,
+    fynd 3: en sida eller fil som riktningen tagit bort fick annars stå kvar och byggas med), som kandidatvägen gör med
+    materialet (atelje.installera_godkand). En katalog som redan är exakt källans står kvar; en annan flyttas hel till
+    kunder/<slug>/startsida-ersatt/<tid>/ (radera inget), och en länk tas bort utan att följas. Ger katalogerna som flyttades."""
+    import atelje
+    flyttade, undan = [], None
+    for namn in KALLKATALOGER:
+        mal = sajt / namn
+        egna = {n[len(namn) + 1:]: s for n, s in filer.items() if n.startswith(namn + '/')}
+        if mal.is_symlink():
+            mal.unlink()
+            continue
+        if not mal.exists() or (mal.is_dir() and katalogens_filer(mal) == egna):
+            continue
+        if undan is None:
+            undan = atelje.ledigt_namn(atelje.saker_vag(atelje.KUNDER / slug / 'startsida-ersatt', atelje.KUNDER / slug), nu().replace(':', ''))
+            undan.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(mal), str(undan / namn))
+        flyttade.append(rel(mal) + '/')
+    return flyttade
+
+
 def installera_godkand(slug, underlag=None):
     """Före ett bygge från ägarens designgodkännande i läget astro (kor.sh): den godkända versionens källa (kalla/: src/,
     public/, package.json, låset, astro.config.mjs, DESIGN.md och RIKTNING.md) läggs i kunder/<slug>/sajt med samma
     prövning som en godkänd kandidat (atelje.prova_overforing och overfor_godkanda: allt prövas mot versionens hashar
-    innan något ersätts, och det ersatta flyttas till kunder/<slug>/startsida-ersatt/). Paketen följer med i package.json
+    innan något ersätts, och det ersatta flyttas till kunder/<slug>/startsida-ersatt/); src/ och public/ blir exakt
+    källans (ersatt_rotkataloger). Paketen följer med i package.json
     och låset, och sajtens .npmrc låser installationen (sajtens_npmrc). Läget duk installerar inget här: bygget
     implementerar förlagan. Ger vägarna som ersattes eller skrevs."""
     import atelje
@@ -1552,8 +1587,9 @@ def installera_godkand(slug, underlag=None):
     par = [(kalla / n, sajt / n, s) for n, s in sorted(filer.items()) if n != '.npmrc']  # .npmrc skrivs av sajtens_npmrc
     try:
         atelje.saker_vag(sajt, atelje.KUNDER / slug)
-        atelje.prova_overforing(slug, par, kalla, 'den godkända versionen')
-        ersatta = atelje.overfor_godkanda(slug, par, kalla, 'underlag/%s/design/versioner/%s/kalla' % (slug, g['version']))
+        atelje.prova_overforing(slug, par, kalla, 'den godkända versionen')  # allt prövas innan något ersätts
+        ersatta = ersatt_rotkataloger(slug, sajt, filer)
+        ersatta += atelje.overfor_godkanda(slug, par, kalla, 'underlag/%s/design/versioner/%s/kalla' % (slug, g['version']))
     except RuntimeError as e:
         raise Fel(str(e))
     if sajtens_npmrc(sajt):

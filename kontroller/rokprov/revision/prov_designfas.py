@@ -763,8 +763,21 @@ class E_Godkannande(Grund):
         (sajt / 'src' / 'pages').mkdir(parents=True)
         (sajt / 'package.json').write_text('{"name": "mallen"}')
         (sajt / 'src' / 'pages' / 'index.astro').write_text('<h1>Mallen</h1>')
+        (sajt / 'src' / 'pages' / 'tjanster.astro').write_text('<h1>En sida som riktningen tog bort</h1>')
+        (sajt / 'public').mkdir()
+        (sajt / 'public' / 'gammal.svg').write_text('<svg/>')
+        (sajt / 'node_modules').mkdir()
+        (sajt / 'node_modules' / 'kvar.txt').write_text('sajtens installation rörs inte')
         (sajt / '.npmrc').write_text('save-exact=true\nfund=false\n')
         ersatta = df.installera_godkand(SLUG)
+        # exakt den godkända källan: src/ och public/ ersätts som helheter (granskningens fynd 3)
+        self.assertEqual(sorted(x.relative_to(sajt).as_posix() for x in (sajt / 'src').rglob('*') if x.is_file()),
+                         sorted(n for n in json.loads((self.u / SLUG / 'design' / 'versioner' / 'v01' / 'VERSION.json').read_text())['filer']
+                                if n.startswith('src/')))
+        self.assertEqual(sorted(x.name for x in (sajt / 'public').iterdir()), ['robots.txt'], 'public/ är källans')
+        self.assertTrue((sajt / 'node_modules' / 'kvar.txt').is_file())
+        for borta in ('tjanster.astro', 'gammal.svg'):
+            self.assertTrue(list((self.k / SLUG / 'startsida-ersatt').rglob(borta)), '%s flyttades undan, inget raderades' % borta)
         kalla = self.u / SLUG / 'design' / 'versioner' / 'v01' / 'kalla'
         for n in ('package.json', 'package-lock.json', 'src/pages/index.astro', 'RIKTNING.md', 'astro.config.mjs'):
             self.assertEqual((sajt / n).read_bytes(), (kalla / n).read_bytes(), n)
