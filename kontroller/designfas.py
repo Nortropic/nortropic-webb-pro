@@ -1341,9 +1341,10 @@ def autogodkann(slug, version, ritning, underlag=None):
       från (registrerad_jamforelse; jamforelse med *, ett eget pass) den (svar.val.riktning) och såg den i
       en tidigare eller samma version (jamforda; drivaren jämför före stationerna efter valet); en ensam riktning i
       bandet har inget att jämföras med;
-    - varje levererad kritik av versionen och riktningen som gällde versionens avtryck som det är nu har inget fynd med
-      allvar BLOCKERANDE eller mer och svarar premium på C5 (detaljniva.svar), och minst en av dem är ett eget ds_kritik-pass
-      med verifierat sessionskvitto (ett sämre svar döljs inte av ett senare);
+    - varje levererad kritik av versionen och riktningen, oavsett avtryck, har inget fynd med allvar BLOCKERANDE eller mer
+      och svarar premium på C5 (detaljniva.svar): en fällande kritik fäller versionen för gott, också efter en ny rendering;
+      och minst en av dem gäller versionens avtryck som det är nu och är ett eget ds_kritik-pass med verifierat
+      sessionskvitto;
     - ägarens väg går före: inget godkännande från ägaren i designfasen som hans senaste beslut, och inget annat beslut
       från honom efter versionen.
     Posten och domloggens rad har källan 'autonom granskning' (aldrig ägaren; skapande.ar_agarens) med belägg i
@@ -1389,8 +1390,10 @@ def autogodkann(slug, version, ritning, underlag=None):
         sag = (sj.get('jamforda') or {}).get(ritning)
         if not sag or not VERSION.match(sag) or int(sag[1:]) > int(version[1:]):
             raise Fel('jämförelsen %s såg inte riktningen %s före %s (såg %s)' % (bid, ritning, version, sag))
-    # varje levererad kritik av versionens avtryck ska hålla: ett sämre svar döljs inte av ett senare (fynd 3); minst en är
-    # ett eget pass med verifierat kvitto
+    # varje levererad kritik av versionen och riktningen ska hålla, oavsett avtryck: en version ändras inte efter att den
+    # skrivits, så en fällande kritik fäller den för gott, också efter en ny rendering, och ett nytt varv blir en ny version
+    # (granskningen av sigillet, fynd 3, och kontrollgranskningen, B). Minst en kritik gäller versionens avtryck som det är
+    # nu och är ett eget pass med verifierat kvitto.
     nu_avtryck = versionens_avtryck(slug, version, underlag)
     kr = [b for b in alla if b.get('typ') == 'kritik' and b.get('version') == version and b.get('ritning') == ritning
           and b.get('status') in ('levererad', 'inford')]
@@ -1399,8 +1402,8 @@ def autogodkann(slug, version, ritning, underlag=None):
     giltiga, fel_ = [], []
     for b in kr:
         sv = las(rot(slug, underlag) / 'svar' / b['id'] / 'SVAR.json') or {}
-        if sv.get('manuell') or not isinstance(sv.get('svar'), dict) or sv.get('avtryck') != nu_avtryck:
-            continue  # infört för hand, eller en kritik av ett annat avtryck: varken godkänner eller fäller
+        if sv.get('manuell') or not isinstance(sv.get('svar'), dict):
+            continue  # infört för hand: ett svar utan passets form varken godkänner eller fäller
         block = [f for f in sv['svar'].get('fynd') or [] if isinstance(f, dict) and int(f.get('allvar') or 0) >= BLOCKERANDE]
         if block:
             raise Fel('kritiken %s har %d blockerande fynd (allvar %d eller mer): %s' % (
@@ -1408,6 +1411,9 @@ def autogodkann(slug, version, ritning, underlag=None):
         c5 = (sv['svar'].get('detaljniva') or {}).get('svar')
         if c5 != 'premium':
             raise Fel('kritiken %s svarar %s på C5 (kunskap/precision.md, Detaljnivån), inte premium' % (b['id'], c5 or 'inte'))
+        if sv.get('avtryck') != nu_avtryck:
+            fel_.append('%s gällde ett annat avtryck än versionens nuvarande' % b['id'])
+            continue
         try:
             giltiga.append((b, *_eget_pass(slug, b, underlag)))
         except Fel as e:

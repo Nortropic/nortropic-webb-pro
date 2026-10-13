@@ -5913,9 +5913,10 @@ beslut": godkännandet och byggstarten är autonoma, publiceringen är fortfaran
   vald, av ägaren (hans senaste beslut är ett val av den bland bandets riktningar, efter drivarens start eller annars
   riktningarnas registrering) eller annars av jämförelsen som valet registrerades från (`registrera_val`; `jamforelse`
   med `*`, ett eget pass, fältet `val`), som såg riktningen i en tidigare eller samma version (en ensam riktning behöver
-  ingen jämförelse); och varje levererad kritik av versionens avtryck som det är nu (`ds_kritik`) har inget fynd med
-  allvar 3 eller 4 och svarar premium på C5 (`kunskap/precision.md`, Detaljnivån) i fältet `detaljniva`, och minst en
-  av dem är ett eget pass med verifierat sessionskvitto (ett sämre svar döljs inte av ett senare). Posten och domloggens rad har källan
+  ingen jämförelse); och varje levererad kritik av versionen (`ds_kritik`), oavsett avtryck, har inget fynd med allvar
+  3 eller 4 och svarar premium på C5 (`kunskap/precision.md`, Detaljnivån) i fältet `detaljniva`: en fällande kritik
+  fäller versionen för gott, också efter en ny rendering, och ett nytt varv blir en ny version; minst en av dem gäller
+  versionens avtryck som det är nu och är ett eget pass med verifierat sessionskvitto. Posten och domloggens rad har källan
   `autonom granskning`, aldrig ägarens (`skapande.ar_agarens`), med belägg i kritikens och jämförelsens svarsfiler;
   jämförelsens val står i domloggen med källan `jämförelsen`, som inte heller är ett beslut. `godkand_giltig`,
   `flodesstart.krav` (helbyggets väg, också drivarens) och kor.sh godtar ett förseglat autonomt godkännande.

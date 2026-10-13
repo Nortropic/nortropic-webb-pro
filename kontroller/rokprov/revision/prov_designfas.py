@@ -1902,6 +1902,28 @@ class K_Sigill(Grund):
         with self.assertRaisesRegex(df.Fel, 'B003.*basic'):
             df.autogodkann(SLUG, 'v01', 'k01')
 
+    def omrendera(self, v='v01'):
+        """designfas.py rendera samma version igen: nya bildfiler, samma källa, ett annat avtryck."""
+        for p_ in (self.u / SLUG / 'design' / 'versioner' / v / 'bilder').glob('*.png'):
+            p_.write_bytes(p_.read_bytes() + b'omrenderad')
+
+    def test_en_omrendering_raknar_inte_bort_en_fallande_kritik(self):
+        """Kontrollgranskningen av sigillet, B: en kritik som fällt versionen fäller den för gott, också efter en ny
+        rendering och en ny kritik med premium; ett nytt varv blir en ny version."""
+        self.grind(c5='basic', allvar=4)  # B002 fäller v01
+        self.omrendera()
+        kr = df.bestall(SLUG, 'kritik', 'v01', 'k01', 'Kritik av riktningen efter omrenderingen, som en besökare ser den')
+        self.pass_(kr['id'], dict(SVARET, detaljniva={'svar': 'premium', 'saknas': [], 'belagg': 'index-390.png'}))
+        with self.assertRaisesRegex(df.Fel, 'B002'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+        self.assertFalse((self.u / SLUG / 'design' / 'GODKANNANDE.json').exists())
+
+    def test_en_omrendering_utan_ny_kritik_godkanns_inte(self):
+        self.grind()  # B002 premium, för avtrycket före omrenderingen
+        self.omrendera()
+        with self.assertRaisesRegex(df.Fel, 'avtryck'):
+            df.autogodkann(SLUG, 'v01', 'k01')
+
     def test_grinden_laser_den_registrerade_jamforelsen(self):
         """Fynd 3: grinden läser jämförelsen som valet registrerades från, inte den senaste beställningen."""
         self.grind()  # B001 valde k01 och är registrerad
