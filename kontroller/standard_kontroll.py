@@ -59,6 +59,14 @@ def _lokala_typer():
 LOKALA_TYPER = _lokala_typer()
 # CSP: skript bara med hash (byggstandarden 8.2); källor som släpper igenom annat gör direktivet verkningslöst
 CSP_SKRIPT_OK = re.compile(r"^('self'|'none'|'strict-dynamic'|'sha(256|384|512)-[A-Za-z0-9+/=]+'|'nonce-[A-Za-z0-9+/=_-]+')$")
+# CSP per sajt (ägarens beslut 2026-10-13, punkt 4): mallens CSP (mall/astro/astro.config.mjs) är utgångsläget. En riktning
+# som behöver Radix-dialoger, WASM eller externa bilder lättar den i sitt projekt, med skälet på en rad som börjar med
+# "CSP:" i projektets RIKTNING.md; då är lättnaden en upplysning, annars ett fel. Mallen släpper utöver 'self', 'none',
+# hashar och nonce bara data: för bilder och 'unsafe-inline' för stilattribut. Ett skriptdirektiv med någon av källorna
+# i CSP_SKRIPT_ALDRIG blir verkningslöst och är ett fel också med skäl (byggstandarden 8.2: skript bara med hash).
+CSP_MALL_EXTRA = {'img-src': {'data:'}, 'style-src-attr': {"'unsafe-inline'"}}
+CSP_SKRIPT_ALDRIG = {"'unsafe-inline'", "'unsafe-eval'", '*', 'http:', 'https:', 'data:', 'blob:'}
+SKRIPTDIREKTIV = ('script-src', 'script-src-elem', 'script-src-attr')
 RASTER = ('.jpg', '.jpeg', '.png', '.gif')
 GENERISKA_LANKTEXTER = {'läs mer', 'klicka här', 'här', 'mer', 'länk', 'läs mer här', 'se mer', 'read more', 'click here'}
 SIPS = shutil.which('sips')
@@ -534,13 +542,24 @@ def granska(dist, kontakt=None):
         if not csp:
             F('8.2', sida, 'ingen CSP; slå på security.csp i astro.config.mjs (se mallen)')
         else:
+            skal = csp_skal(dist)
             for namn, kallor in csp_skriptkallor(csp[0]).items():
                 if kallor is None:
                     F('8.2', sida, 'CSP:ns %s saknas (och ingen script-src eller default-src att falla tillbaka på)' % namn)
                     continue
                 otillatna = [k for k in kallor if not CSP_SKRIPT_OK.match(k)]
-                if otillatna:
+                if otillatna and (not skal or any(k.lower() in CSP_SKRIPT_ALDRIG for k in otillatna)):
                     F('8.2', sida, "CSP:ns %s släpper igenom annat än 'self' och hashar: %s" % (namn, ' '.join(otillatna[:4])))
+                elif otillatna:
+                    I('8.2', sida, 'CSP:ns %s är lättad mot mallen (%s), med skäl i RIKTNING.md: %s' % (namn, ' '.join(otillatna[:4]), skal[0][:200]))
+            ovriga = {d: k for d, k in csp_lattnader(csp[0]).items() if d not in SKRIPTDIREKTIV}
+            if ovriga:
+                lattnad = '; '.join('%s %s' % (d, ' '.join(k[:4])) for d, k in sorted(ovriga.items()))
+                if skal:
+                    I('8.2', sida, 'CSP:n är lättad mot mallen (%s), med skäl i RIKTNING.md: %s' % (lattnad, skal[0][:200]))
+                else:
+                    F('8.2', sida, 'CSP:n är lättad mot mallen (%s) utan skäl: en lättnad i riktningens projekt har sitt skäl på en '
+                                   'rad som börjar med "CSP:" i RIKTNING.md' % lattnad)
         # 9.2 nästa steg på varje indexerbar sida, med kundens kontaktvägar (BRIEF.md §4); var de står (sidhuvud, list,
         # sektion) är riktningens val, aldrig ett fel
         if sida not in ('/404.html',) and rel.name != '404.html' and not any(
@@ -801,6 +820,35 @@ def csp_skriptkallor(policy):
     reserv = direktiv.get('script-src', direktiv.get('default-src'))
     # script-src självt styr fortfarande 'unsafe-eval' och är reserv för båda; det prövas också (omgång tre, F22)
     return {'script-src': reserv, 'script-src-elem': direktiv.get('script-src-elem', reserv), 'script-src-attr': direktiv.get('script-src-attr', reserv)}
+
+
+def csp_lattnader(policy):
+    """{direktiv: [källor]} som policyn släpper utöver mallens: andra källor än 'self', 'none', hashar och nonce, utom
+    data: i img-src och 'unsafe-inline' i style-src-attr (CSP_MALL_EXTRA). Ett direktiv utan källor lättar inget."""
+    ut = {}
+    for del_ in policy.split(';'):
+        bitar = del_.split()
+        if not bitar:
+            continue
+        d = bitar[0].lower()
+        extra = [k for k in bitar[1:] if not CSP_SKRIPT_OK.match(k) and k not in CSP_MALL_EXTRA.get(d, set())]
+        if extra:
+            ut.setdefault(d, []).extend(extra)
+    return ut
+
+
+def csp_skal(dist):
+    """Riktningens skäl för en lättad CSP: raderna i projektets RIKTNING.md (bredvid dist/) som börjar med "CSP:" och
+    har ett skäl på minst 15 tecken. Tom lista när filen eller raden saknas."""
+    f = Path(dist).parent / 'RIKTNING.md'
+    if f.is_symlink() or not f.is_file():
+        return []
+    ut = []
+    for rad in f.read_text(encoding='utf-8', errors='replace').splitlines():
+        r = rad.strip().lstrip('-* ').strip()
+        if r.startswith('CSP:') and len(r[4:].strip()) >= 15:
+            ut.append(r[4:].strip())
+    return ut
 
 
 def sida_av(dist, f):
