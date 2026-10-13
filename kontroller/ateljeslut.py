@@ -160,6 +160,11 @@ def utfall(status):
     if steg == 'forskad':  # stannade efter researchen på begäran (kandidater.stanna_efter_forskning)
         return 'klar', 0, status.get('skal') or 'stannade efter researchen'
     if steg == 'band':  # riktningarna lämnade till designfasens band (kandidater.lamna_till_bandet): inget att välja i Code
+        dv = status.get('drivare') if isinstance(status.get('drivare'), dict) else {}
+        if dv.get('lage') == 'stoppad':  # drivarens läge (designfas.kor) avgör utfallet
+            return 'stoppad', 4, 'drivaren stoppades i bandet: %s' % (dv.get('skal') or EJ)
+        if dv.get('lage'):
+            return 'klar', 0, 'riktningarna i designfasens band; drivaren: %s (%s)' % (dv['lage'], dv.get('skal') or EJ)
         return 'klar', 0, status.get('skal') or 'riktningarna är i designfasens band'
     if steg in KLARA:
         import kandidater
@@ -401,8 +406,23 @@ def bygg(slug, status, korning, typ=TYP, efterhand=None):
     }.get(slag, fortsatt)
     if status.get('steg') == 'forskad':
         atgarder = ['planeringen tar vid med .venv/bin/python kontroller/prototyp.py %s --fortsatt' % slug]
-    if status.get('steg') == 'band':
-        atgarder = ['designfasens band tar vid i riktningarnas projekt: ägaren startar utföraren med ./design.sh %s (skillen designfas)' % slug]
+    if status.get('steg') == 'band':  # åtgärden ur drivarens läge (designfas.kor), annars den väg som tar vid
+        import designfas
+        dv = status.get('drivare') if isinstance(status.get('drivare'), dict) else {}
+        atgarder = {
+            'kor': ['drivaren kör bandet (%s; underlag/%s/design/KORNING.json); stoppa den med .venv/bin/python kontroller/prototyp.py %s '
+                    '--stoppa' % (dv.get('skal') or EJ, slug, slug)],
+            'stoppad': ['rätta det som stoppade drivaren (%s) och ta vid med .venv/bin/python kontroller/prototyp.py %s --fortsatt'
+                        % (dv.get('skal') or EJ, slug)],
+            'vantar_pa_sigillet': ['sigillet (designfas.autogodkann) godkänner den valda versionen; drivaren tar sedan vid med '
+                                   '.venv/bin/python kontroller/prototyp.py %s --fortsatt' % slug],
+            'helbygge startat': ['helbygget är startat (start-id %s); följ det i Byggflöde, och publiceringen väntar på ägaren'
+                                 % (dv.get('start_id') or EJ)],
+            'klar': ['ägaren granskar den byggda sajten; publiceringen väntar på honom'],
+        }.get(dv.get('lage')) or (
+            ['drivaren tar bandet till helbygget: .venv/bin/python kontroller/prototyp.py %s --fortsatt startar den' % slug]
+            if designfas.autonom() else
+            ['designfasens band tar vid i riktningarnas projekt: ägaren startar utföraren med ./design.sh %s (skillen designfas)' % slug])
     if status.get('steg') == 'planprovad':
         atgarder = ['förbered ett metodförsök, om ett ska göras: .venv/bin/python kontroller/ab.py forbered-skiss %s --kandidat k01 '
                     '--variabel effort|metodvariant; ta sedan vid hos skaparna med .venv/bin/python kontroller/prototyp.py %s --fortsatt '

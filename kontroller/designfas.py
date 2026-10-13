@@ -1784,7 +1784,44 @@ def logga(slug, underlag=None, **falt):
         k['historik'] = historik
         k['uppdaterad'] = nu()
         skriv(rot(slug, underlag) / KORNING, k)
+        if 'steg' in falt:
+            visa_i_ateljen(slug, k, underlag)
         return k
+
+
+TERMINALA = ('stoppad', 'vantar_pa_sigillet', 'helbygge startat', 'klar')
+
+
+def drivarens_lage(k):
+    """Drivarens läge för ateljén och portalen: kor, stoppad, vantar_pa_sigillet, helbygge startat eller klar."""
+    steg = k.get('steg')
+    if steg in ('stoppad', 'vantar_pa_sigillet'):
+        return steg
+    if steg == 'klar':
+        return 'helbygge startat' if (k.get('bygge') or {}).get('slutkod') == 5 else 'klar'
+    return 'kor'
+
+
+def visa_i_ateljen(slug, k, underlag=None):
+    """Drivarens läge i atelje/STATUS.json (fältet drivare), som portalen och ateljeslut läser, och vid ett slutläge en
+    ny slutpost med läget och åtgärden (atelje.slutpost). Bara när kandidatflödets körning står i bandet; ett fel här
+    stoppar aldrig drivaren."""
+    import atelje
+    try:
+        r = Path(underlag or UNDERLAG) / slug / 'atelje'
+        with atelje.processlas(r):
+            st = atelje.las_json(r / 'STATUS.json')
+            if not isinstance(st, dict) or st.get('steg') != 'band':
+                return
+            lage_ = drivarens_lage(k)
+            forra = (st.get('drivare') or {}).get('lage')
+            st['drivare'] = {'lage': lage_, 'skal': k.get('skal'), 'steg': k.get('steg'), 'pid': k.get('pid'), 'tid': nu(),
+                             'start_id': (k.get('bygge') or {}).get('start_id')}
+            if lage_ in TERMINALA and lage_ != forra:
+                atelje.slutpost(slug, st)
+            atelje.skriv_status(r, st)
+    except Exception as e:  # noqa: BLE001 — synligheten stoppar aldrig bandet
+        print('designfas: drivarens läge kunde inte skrivas i ateljén: %s: %s' % (type(e).__name__, str(e)[:200]), file=sys.stderr)
 
 
 def efter_valet():

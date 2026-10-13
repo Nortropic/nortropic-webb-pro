@@ -1196,7 +1196,9 @@ class M_Drivaren(Grund):
         return self.logg.read_text().splitlines() if self.logg.is_file() else []
 
     def test_hela_vagen_till_en_startad_byggbegaran(self):
-        def autogodkann(slug, v, ritning, underlag=None):  # sigillets attrapp (den riktiga finns i en annan gren)
+        # sigillets attrapp: den skriver som ägaren genom df.godkann och ersätts av den riktiga designfas.autogodkann
+        # (källan 'autonom granskning') när huvudsessionen slår ihop grenarna
+        def autogodkann(slug, v, ritning, underlag=None):
             return df.godkann(slug, v, ritning, text='sigillets attrapp i provet')
         with patch.object(df, 'autogodkann', autogodkann, create=True):
             k = df.kor(SLUG)
@@ -1319,6 +1321,32 @@ class M_Drivaren(Grund):
         self.assertIn('drivaren', ut.getvalue())
         self.assertIsNotNone(p.wait(timeout=20), 'prototyp.py --stoppa nådde drivaren')
         df.start(SLUG, skriv_bara=True)  # när drivaren inte kör går starten igen
+
+    def test_drivarens_lage_star_i_status_och_slutposten(self):
+        """Andra granskningens fynd 2, synligheten: drivarens läge (kor, stoppad med skälet, vantar_pa_sigillet,
+        helbygge startat, klar) står i atelje/STATUS.json och i slutposten, och ateljeslut ger utfallet och åtgärden ur
+        läget i stället för klar och ./design.sh."""
+        import ateljeslut
+        self.bandets_status()
+        status = self.u / SLUG / 'atelje' / 'STATUS.json'
+        df.kor(SLUG)
+        st = json.loads(status.read_text())
+        self.assertEqual(st['drivare']['lage'], 'vantar_pa_sigillet')
+        _f, post = ateljeslut.post_for(SLUG, st)
+        self.assertIsNotNone(post, 'slutposten skrevs för drivarens läge')
+        self.assertTrue(any('sigillet' in a for a in post['atgarder']), post['atgarder'])
+        self.assertFalse(any('design.sh' in a for a in post['atgarder']))
+        self.assertEqual(ateljeslut.utfall({'steg': 'band', 'drivare': {'lage': 'stoppad', 'skal': 'bygget föll'}})[:2], ('stoppad', 4))
+        self.assertEqual(ateljeslut.utfall({'steg': 'band', 'drivare': {'lage': 'kor', 'skal': 'före valet'}})[:2], ('klar', 0))
+
+        def autogodkann(slug, v, ritning, underlag=None):  # attrapp; ersätts av den riktiga autogodkann vid sammanslagningen
+            return df.godkann(slug, v, ritning, text='sigillets attrapp i provet')
+        with patch.object(df, 'autogodkann', autogodkann, create=True):
+            df.kor(SLUG)
+        st = json.loads(status.read_text())
+        self.assertEqual(st['drivare']['lage'], 'helbygge startat')
+        _f, post = ateljeslut.post_for(SLUG, st)
+        self.assertTrue(any('Byggflöde' in a for a in post['atgarder']), post['atgarder'])
 
     def test_drivaren_anmaler_sig_i_korregistret(self):
         """Andra granskningens fynd 4: drivaren anmäler sig i körregistret som arbetaren och kor.sh, så att underhållet
