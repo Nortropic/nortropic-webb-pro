@@ -83,7 +83,7 @@ under byggstandardens 200 kB (3.7), men GSAP är det tyngsta valet och bär sig 
   designens och implementationens behov och skriver valet med skäl i passets `teknikval` och i RIKTNING.md: CSS först
   när den räcker (tillstånd, enkla övergångar, `@starting-style`, korta staggers med `transition-delay`), Motion för
   fjädrar, avbrytbara gester, layoutanimationer och React-öar, GSAP för tidslinjer med flera steg och scrollsekvenser
-  (ScrollTrigger). Ett genomtänkt beslut kan vara att något ska vara stilla, och ingen rörelse läggs till för att fylla
+  (ScrollTrigger). Rörelsen tjänar upplevelsen och riktningens känsla, och premiumnivån sitter i detaljerna (`kunskap/precision.md`, Detaljnivån); ingen rörelse läggs till för att fylla
   en kvot. Beslutstabellen är `motion/best-practices/css-or-motion.md` (läses hel före valet i passet rörelse)
   tillsammans med raden ovan.
 - **Komponentbibliotek och 21st.** shadcn-grunden finns i mallen: aliaset `@/*`, `components.json` med registren för

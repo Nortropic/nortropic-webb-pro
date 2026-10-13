@@ -81,8 +81,9 @@ sessionerna.
   (`kunskap/beroenden.md`; ägarens besked 2026-10-12). Rörelsens teknik väljs per beteende ur designens och
   implementationens behov: CSS först när den räcker, Motion (`motion` i ett `<script>`, `motion/react` i en React-ö;
   det äldre namnet är Framer Motion) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer och
-  scrollsekvenser; valet skrivs med skäl av rollen rorelse, och ingen rörelse läggs till för att fylla en kvot (ägarens
-  uppdrag 2026-10-07, punkt 5C). Innehållet och navigationen fungerar utan JavaScript, rörelse respekterar
+  scrollsekvenser; valet skrivs med skäl av rollen rorelse; rörelsen tjänar upplevelsen och läggs aldrig till för att fylla en kvot (ägarens
+  uppdrag 2026-10-07, punkt 5C), och premiumnivån sitter i detaljerna (ägarens dom 2026-10-13; `kunskap/precision.md`,
+  Detaljnivån). Innehållet och navigationen fungerar utan JavaScript, rörelse respekterar
   `prefers-reduced-motion`, prestandabudgeten håller, inget hämtas från ett CDN, och det som rör sig mer än 5 s kan
   pausas eller stoppas (WCAG 2.2.2; K14–K21, K40). Mjuk scroll är ett designval med villkoren i `kunskap/beroenden.md`.
 - **Referens och stil (ägarbeslut 2026-10-03):** huvudreferensen får bära layout, palett och typografi, och särprägeln
@@ -387,7 +388,7 @@ visar: menyn och den primära handlingen prövade i förhandsvisningens tillstå
 
 ```kompetens rorelse
 namn: Interaktion och rörelse
-uppgift: Välja och genomföra de beteenden som passar sidan, var och en med ett syfte, och välja tekniken per beteende med skäl: CSS först när den räcker, Motion (motion i ett <script>, motion/react i en React-ö) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer och scrollsekvenser; ett genomtänkt beslut kan vara att något ska vara stilla, och ingen rörelse läggs till för att fylla en kvot (ägarens uppdrag 2026-10-07, punkt 5C). Beslutstabellen motion/best-practices/css-or-motion.md läses hel före valet i passet rörelse (i skissen när rörelse väljs). Motions dokumentations-MCP har sin uppgift bara genom ett faktiskt anrop med kontrollerat resultat när ett beteende byggs med Motion.
+uppgift: Välja och genomföra de beteenden som passar sidan, var och en med ett syfte, och välja tekniken per beteende med skäl: CSS först när den räcker, Motion (motion i ett <script>, motion/react i en React-ö) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer och scrollsekvenser; rörelsen tjänar upplevelsen och riktningens känsla och läggs aldrig till för att fylla en kvot, premiumnivån sitter i detaljerna (kunskap/precision.md, Detaljnivån), och ett element som ska stå stilla skrivs som teknikvalet stilla med skäl (ägarens uppdrag 2026-10-07, punkt 5C). Beslutstabellen motion/best-practices/css-or-motion.md läses hel före valet i passet rörelse (i skissen när rörelse väljs). Motions dokumentations-MCP har sin uppgift bara genom ett faktiskt anrop med kontrollerat resultat när ett beteende byggs med Motion.
 pass: rorelse, ds_rorelse
 kärna: impeccable/reference/animate.md; emil-design-eng/SKILL.md; emil-animate/SKILL.md; kunskap/byggstandard.md
 efter: emil-improve-animations/SKILL.md; emil-review-animations/SKILL.md

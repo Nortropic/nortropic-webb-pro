@@ -27,7 +27,7 @@ Valet mellan CSS, Motion och GSAP görs per beteende och följer designen och im
 (`kunskap/metodkarta.md`, Avgörandena Teknik och rollen rorelse; `kunskap/beroenden.md`, Så används de): CSS först när
 den räcker (tillstånd, enkla övergångar, `@starting-style`), Motion (`motion` i ett `<script>`, `motion/react` i en
 React-ö) för fjädrar, avbrytbara gester och layoutanimationer, GSAP för tidslinjer med flera steg och scrollsekvenser
-(ScrollTrigger). Ett genomtänkt beslut kan vara att något ska vara stilla. Skillens uppmaning att rekommendera GSAP
+(ScrollTrigger). Rörelsen tjänar upplevelsen, och premiumnivån sitter i detaljerna (`kunskap/precision.md`, Detaljnivån). Skillens uppmaning att rekommendera GSAP
 när ingen bett om det är ingen regel här, och ingen rörelse läggs till för att fylla en kvot. Valet skrivs med skäl i
 passets `teknikval` och i RIKTNING.md.
 

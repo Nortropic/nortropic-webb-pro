@@ -52,6 +52,35 @@ plattformsnormer och inga krav på webben.
 - **Ribban brister också.** Nikes vita text var oläslig över videons första bildruta, och videon spelade vidare med
   reducerad rörelse. Text över bild eller video ska därför vara läsbar i varje bildruta.
 
+## Detaljnivån: det som lyfter en sida från basic till premium
+
+Ägarens dom 2026-10-13, ordagrant i `underlag/niva/MATTSTOCK.md`: "det är ju detaljer, detaljer, detaljer som lyfter den
+från basic till premium känslan". Precision utan detaljer ger en ordnad men basic sida. Premiumkänslan kommer av att
+varje kontaktyta är genomarbetad, och därför får ägaren se riktningarna med sina detaljer redan före valet (stationen
+`detaljer`, ägarens beslut samma dag). Rörelsen tjänar upplevelsen och riktningens känsla; den läggs aldrig till för att
+fylla en kvot (ägarens uppdrag 2026-10-07, punkt 5C), och den uteblir aldrig av försiktighet. Detaljerna är:
+
+- **Tillstånd och övergångar på allt interaktivt.**
+  - Hovring, tryck, fokus, öppna och stäng, formulärets svar och laddning har var sitt läge.
+  - Övergången hör till riktningens rörelseregister: korta varaktigheter och en eller två kurvor, med fjädrar ur
+    `spring()` där det passar.
+  - Ett element som ändrar läge utan övergång syns som basic.
+- **En koreograferad första vy.**
+  - Riktningens signatur visas när sidan öppnas: rubriken, bilden och handlingen i en genomtänkt ordning, eller ett
+    motiv som rör sig med syfte.
+  - Med reducerad rörelse står första vyn färdig direkt.
+- **Bilder som lever där det bär**, till exempel en avtäckning, en mjuk skala vid hovring, en lätt parallax eller ett byte
+  mellan beskärningar. Bilden är alltid verksamhetens egen eller märkt illustrativ.
+- **Sektionerna utgår från 21st-block** där ett passande block finns, till exempel hero, tjänster, pris, omdömen, frågor
+  eller kontakt. Blocket porteras enligt `kunskap/beroenden.md` och formges om till riktningens språk. Id och licens
+  står i RIKTNING.md, liksom de block som prövades och valdes bort.
+- **Mikrotypografi:** hängande skiljetecken, optisk linjering, tabellsiffror i priser och tider, fasta mellanslag, och
+  rubriker som bryts där meningen bryts.
+- **Djup och material med en regel:** ytor, skuggor, linjer och radier som följer samma logik genom hela sidan.
+
+Apple och Nike är ribban för detaljtätheten, inte för stilen (MATTSTOCK.md). Stilrapporten räknar de interaktiva
+elementen med en övergång (`precision.overgangar` i STIL.json). Resten bedöms i bilderna och genom att använda sidan.
+
 ## Frågorna per station
 
 **art**
@@ -85,6 +114,18 @@ plattformsnormer och inga krav på webben.
 - K6. Är varje bild beskuren för sin bredd och sin roll, följer hörnradien en regel, och är text över bild eller video
   läsbar i varje bildruta? (Images; Materials)
 
+**detaljer** (före valet; Detaljnivån ovan)
+- D1. Vilket är riktningens signaturögonblick i första vyn, och syns det i 390 och 1440? Står första vyn färdig med
+  reducerad rörelse?
+- D2. Har varje interaktivt element, alltså länkar, knappar, menyn, frågor och fält, ett eget läge för hovring, tryck
+  och fokus med en övergång ur registret? Vilka byter läge utan övergång?
+- D3. Vilka sektioner utgår från ett 21st-block, och vilka block prövades och valdes bort, med id och licens? Är blocket
+  omformat till riktningens språk, eller syns det som ett lånat block?
+- D4. Lever bilderna där det bär, och är varje bildrörelse avbrytbar och stilla med reducerad rörelse?
+- D5. Är mikrotypografin gjord: tabellsiffror i priser och tider, fasta mellanslag, hängande skiljetecken och
+  rubrikbrytningar?
+- D6. Var känns sidan fortfarande basic, och vilken detalj saknas där?
+
 **rörelse**
 - R1. Har rörelsen ett litet register med 3–5 varaktigheter på högst omkring 0,4 s och 1–2 kurvor, och har varje
   rörelse ett syfte? (Motion)
@@ -113,9 +154,12 @@ plattformsnormer och inga krav på webben.
 - C2. Beter sig det som ser likadant ut likadant, och står handlingarna på samma plats på alla sidor? (Familiarity)
 - C3. Vilka detaljer avslöjar slarv (P1–P4)? (Craft)
 - C4. Vilken känsla förmedlas, och passar den kunden? Står dekor i vägen för uppgiften? (Delight)
+- C5. Känns sidan premium eller basic, med Apple och Nike som ribba för detaljtätheten? Var saknas detaljer (D1–D6)?
+  (ägarens dom 2026-10-13)
 
 Frågorna T1, T3, K2, K3 och P3 mäts ur renderingen av stilrapporten (`kontroller/stil.mjs`, avsnittet Precision i
 STIL.md och fältet `precision` i STIL.json): typstegen som par av storlek, radhöjd och spärrning med antalet varianter per
 grad, graderna med radhöjd utan hela pixlar, vänsterkanterna, avståndsvärdena med de tio vanligastes täckning och
-handlingarnas höjd och radie. Talen prövas mot riktningens egen regel, aldrig mot apple.com eller nike.com. De övriga
+handlingarnas höjd och radie. D2 mäts delvis: hur många interaktiva element som har en övergång. Talen prövas mot
+riktningens egen regel, aldrig mot apple.com eller nike.com. De övriga
 frågorna kräver bilderna och en bedömning, som är en AI-bedömning och aldrig ägarens dom.

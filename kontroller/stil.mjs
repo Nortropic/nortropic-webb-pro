@@ -268,7 +268,19 @@ function matPaSidan() {
     const k = `${Math.round(el.getBoundingClientRect().height)}|${Math.round(parseFloat(s.borderTopLeftRadius) || 0)}`;
     handl[k] = (handl[k] || 0) + 1;
   }
-  const precision = { grader: typsteg.length, typsteg, stegMedFleraVarianter: typsteg.filter((x) => x.varianter > 1).map((x) => x.px),
+  // detaljnivån (kunskap/precision.md, D2): interaktiva element med en övergång eller animation; ett element som byter läge
+  // utan övergång syns som basic (ägarens dom 2026-10-13)
+  const interaktiva = [...document.querySelectorAll('a[href], button, [role="button"], summary, input:not([type="hidden"]), select, textarea')]
+    .filter((el) => synlig(el) && !el.closest('[aria-hidden="true"]'));
+  const harOvergang = (el) => {
+    const s = getComputedStyle(el);
+    const t = s.transitionProperty !== 'none' && s.transitionDuration.split(',').some((d) => parseFloat(d) > 0);
+    return t || (s.animationName && s.animationName !== 'none');
+  };
+  const utanOvergang = interaktiva.filter((el) => !harOvergang(el));
+  const overgangar = { interaktiva: interaktiva.length, medOvergang: interaktiva.length - utanOvergang.length,
+    utan: utanOvergang.slice(0, 8).map((el) => el.tagName.toLowerCase() + ((el.textContent || '').trim() ? ' "' + (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 24) + '"' : '')) };
+  const precision = { grader: typsteg.length, typsteg, overgangar, stegMedFleraVarianter: typsteg.filter((x) => x.varianter > 1).map((x) => x.px),
     radhojdUtanHelaPx: Object.keys(steg).map(Number).sort((a, b) => a - b).filter((px) => Object.keys(steg[px])
       .some((v) => { const lh = v.split('|')[0]; return lh !== 'normal' && Math.abs(+lh - Math.round(+lh)) > 0.01; })),
     vansterkanter: kanter.length, vansterkanterPx: kanter.slice(0, 12), avstandsvarden: avstSort.length,
@@ -409,9 +421,10 @@ const md = ['# Stilrapport', '', 'Information, ingen grind. Varningarna är val 
     `- Eget foto i första skärmen: ${mobilStart.fotoIForsta ? 'ja' : 'nej'} (${mobilStart.bilder} bilder i main)`,
     `- Fast list längst ned: ${mobilStart.fastList ? [mobilStart.fastList.ring && 'Ring', mobilStart.fastList.skriv && 'Skriv'].filter(Boolean).join(' och ') || 'utan Ring och Skriv' : 'ingen'}`] : ['- startsidan mättes inte']), '',
   '## Precision (kunskap/precision.md: T1, T3, K2, K3, P3; information)', '',
-  '| Sida | Vy | Grader | Steg med flera varianter, px | Radhöjd utan hela px, vid px | Vänsterkanter | Avståndsvärden (de tio vanligaste täcker) | Handlingar, höjd/radie × antal |',
-  '|---|---|---|---|---|---|---|---|',
-  ...rader.filter((r) => r.precision).map((r) => { const p = r.precision; return `| ${r.sida} | ${r.vy} | ${p.grader} | ${p.stegMedFleraVarianter.join(', ') || '-'} | ${p.radhojdUtanHelaPx.join(', ') || '-'} | ${p.vansterkanter} | ${p.avstandsvarden} (${p.tioVanligasteTacker ?? '-'} %) | ${p.handlingar.slice(0, 4).map((h) => h.hojd + '/' + h.radie + ' × ' + h.antal).join(', ') || '-'} |`; }), '',
+  '| Sida | Vy | Grader | Steg med flera varianter, px | Radhöjd utan hela px, vid px | Vänsterkanter | Avståndsvärden (de tio vanligaste täcker) | Handlingar, höjd/radie × antal | Interaktiva med övergång |',
+  '|---|---|---|---|---|---|---|---|---|',
+  ...rader.filter((r) => r.precision).map((r) => { const p = r.precision; return `| ${r.sida} | ${r.vy} | ${p.grader} | ${p.stegMedFleraVarianter.join(', ') || '-'} | ${p.radhojdUtanHelaPx.join(', ') || '-'} | ${p.vansterkanter} | ${p.avstandsvarden} (${p.tioVanligasteTacker ?? '-'} %) | ${p.handlingar.slice(0, 4).map((h) => h.hojd + '/' + h.radie + ' × ' + h.antal).join(', ') || '-'} | ${p.overgangar ? p.overgangar.medOvergang + ' av ' + p.overgangar.interaktiva : '-'} |`; }), '',
+  ...rader.filter((r) => r.sida === '/' && r.vy === '1440' && r.precision?.overgangar?.utan?.length).map((r) => 'Utan övergång på startsidan i 1440 (detaljnivån, D2): ' + r.precision.overgangar.utan.join('; ')), '',
   ...rader.filter((r) => r.sida === '/' && r.precision).flatMap((r) => [`Typstegen på startsidan i ${r.vy} (px: radhöjd, kvot, spärrning i em): ` +
     r.precision.typsteg.map((x) => `${x.px}: ${x.radhojd ?? 'normal'}, ${x.kvot ?? '-'}, ${x.sparrningEm}`).join('; '), '']),
   '## Varningar', '', ...(varningar.length ? varningar.map((v) => '- ' + v) : ['Inga.']), '',

@@ -37,6 +37,10 @@ genom ägarens Apple/Nike-besked 2026-10-12, precisionen på den nivån och inte
 14. Om sidan är vacker: finns ändå en funktionsbrist? Döm estetik och funktion var för sig. (Hassenzahl & Monk 2010;
     NN/g, The Aesthetic-Usability Effect 2024, efter Kurosu & Kashimura 1995: K)
 15. Är första vyn lugn för en besökare med ett akut problem, eller drar dekoren uppmärksamheten? (Norman 2004: T)
+16. Känns sidan premium eller basic? Peka ut var detaljer saknas: interaktiva element utan läge och övergång, en
+    första vy utan signatur, bilder som står stilla där de kunnat leva, sektioner som kunnat utgå från ett 21st-block,
+    och mikrotypografi. Apple och Nike är ribban för detaljtätheten, inte för stilen. (Ägarens dom 2026-10-13 i
+    `underlag/niva/MATTSTOCK.md`; frågorna D1–D6 i `kunskap/precision.md`: K)
 
 ## Vad forskningen visar och inte visar
 
