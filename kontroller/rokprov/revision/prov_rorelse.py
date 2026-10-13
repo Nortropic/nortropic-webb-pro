@@ -301,11 +301,11 @@ def _gsap_sidan():
         mv = pj['dependencies'].get('motion') or ''
         assert re.fullmatch(r'\d+\.\d+\.\d+', mv) and 'framer-motion' not in pj['dependencies'], ('motion kvar, aldrig framer-motion bredvid', m, mv)
         motionversioner.add(mv)
-    assert len(motionversioner) == 1, ('samma motion i båda mallarna', motionversioner)
         las = json.loads((KOPIA / 'mall' / m / 'package-lock.json').read_text(encoding='utf-8'))
         g = las['packages']['node_modules/gsap']
         assert g['version'] == '3.15.0' and not g.get('hasInstallScript') and not g.get('dependencies') and 'standard-license' in g.get('license', ''), (m, g)
         assert las['packages']['']['dependencies'].get('gsap') == '3.15.0', (m, 'rotens beroenden i låset')
+    assert len(motionversioner) == 1, ('samma motion i båda mallarna', motionversioner)
     b = (KOPIA / 'kunskap' / 'beroenden.md').read_text(encoding='utf-8')
     assert re.search(r'^\| gsap \| 3\.15\.0 \| Standard "No Charge" GSAP License', b, re.M), 'beroendetabellen'
     assert 'gzip' in b and '2026-10-07' in b and 'matchMedia' in b, 'kostnaden uppmätt och kravet på reducerad rörelse'
