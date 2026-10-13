@@ -86,6 +86,29 @@ class CspPerSajt(unittest.TestCase):
         self.assertTrue(any("'wasm-unsafe-eval'" in i for i in info), info)
         self.assertTrue(self.fynd82(policy, riktning=skal.replace('CSP: ', 'CSP: kort\n'))[0], 'ett skäl under 15 tecken räknas inte')
 
+    def test_ett_borttaget_direktiv_ar_en_lattnad(self):
+        # granskningens fixtur p1: mallens default-src, object-src, base-uri och form-action saknas
+        p1 = "img-src 'self' data:; script-src 'self' 'sha256-AAAA'; style-src 'self'; style-src-attr 'unsafe-inline';"
+        fel, _ = self.fynd82(p1)
+        for d in ('default-src', 'object-src', 'base-uri', 'form-action'):
+            self.assertTrue(any('lättad mot mallen' in f and '%s saknas' % d in f for f in fel), (d, fel))
+        fel, info = self.fynd82(p1, riktning='CSP: provets riktning tar bort direktiven medvetet, med skäl\n')
+        self.assertEqual(fel, [])
+        self.assertTrue(any('default-src saknas' in i for i in info), info)
+
+    def test_mot_mallens_riktiga_astro_config(self):
+        """Policyn som mallens astro.config.mjs ger (security.csp: directives, och de hashade script-src och style-src
+        som Astro skriver) har inga fynd, och varje direktiv som tas bort ur den är en lättnad utan skäl."""
+        import re
+        text = (Path(sk.__file__).resolve().parents[1] / 'mall' / 'astro' / 'astro.config.mjs').read_text(encoding='utf-8')
+        direktiv = re.findall(r'"([^"]+)"', re.search(r'directives\s*:\s*\[(.*?)\]', text, re.S).group(1))
+        self.assertIn("default-src 'self'", direktiv)
+        policy = ';'.join(direktiv + ["script-src 'self' 'sha256-AAAA'", "style-src 'self' 'sha256-BBBB'", "style-src-attr 'unsafe-inline'"]) + ';'
+        self.assertEqual(self.fynd82(policy), ([], []))
+        for d in direktiv:
+            fel, _ = self.fynd82(policy.replace(d + ';', ''))
+            self.assertTrue(any('%s saknas' % d.split()[0] in f for f in fel), (d, fel))
+
     def test_ett_verkningslost_skriptdirektiv_ar_ett_fel_aven_med_skal(self):
         fel, _ = self.fynd82(MALL.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"),
                              riktning='CSP: en inbäddad tjänst kräver inline-skript utan hash\n')

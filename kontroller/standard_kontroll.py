@@ -61,10 +61,14 @@ LOKALA_TYPER = _lokala_typer()
 CSP_SKRIPT_OK = re.compile(r"^('self'|'none'|'strict-dynamic'|'sha(256|384|512)-[A-Za-z0-9+/=]+'|'nonce-[A-Za-z0-9+/=_-]+')$")
 # CSP per sajt (ägarens beslut 2026-10-13, punkt 4): mallens CSP (mall/astro/astro.config.mjs) är utgångsläget. En riktning
 # som behöver Radix-dialoger, WASM eller externa bilder lättar den i sitt projekt, med skälet på en rad som börjar med
-# "CSP:" i projektets RIKTNING.md; då är lättnaden en upplysning, annars ett fel. Mallen släpper utöver 'self', 'none',
-# hashar och nonce bara data: för bilder och 'unsafe-inline' för stilattribut. Ett skriptdirektiv med någon av källorna
-# i CSP_SKRIPT_ALDRIG blir verkningslöst och är ett fel också med skäl (byggstandarden 8.2: skript bara med hash).
-CSP_MALL_EXTRA = {'img-src': {'data:'}, 'style-src-attr': {"'unsafe-inline'"}}
+# "CSP:" i projektets RIKTNING.md; då är lättnaden en upplysning, annars ett fel. Mallens direktiv läses ur
+# mall/astro/astro.config.mjs (security.csp.directives); en extra källa i ett direktiv och ett direktiv som mallen har och
+# sidan saknar är båda lättnader. Utöver 'self', 'none', hashar och nonce släpper mallen data: för bilder (ur
+# konfigurationen) och 'unsafe-inline' för stilattribut (styleDirective). Ett skriptdirektiv med någon av källorna i
+# CSP_SKRIPT_ALDRIG blir verkningslöst och är ett fel också med skäl (byggstandarden 8.2: skript bara med hash).
+MALL_CONFIG = Path(__file__).resolve().parents[1] / 'mall' / 'astro' / 'astro.config.mjs'
+CSP_MALL_RESERV = ("default-src 'self'", "img-src 'self' data:", "object-src 'none'", "base-uri 'self'", "form-action 'self'")
+CSP_MALL_EXTRA = {'style-src-attr': {"'unsafe-inline'"}}
 CSP_SKRIPT_ALDRIG = {"'unsafe-inline'", "'unsafe-eval'", '*', 'http:', 'https:', 'data:', 'blob:'}
 SKRIPTDIREKTIV = ('script-src', 'script-src-elem', 'script-src-attr')
 RASTER = ('.jpg', '.jpeg', '.png', '.gif')
@@ -554,7 +558,7 @@ def granska(dist, kontakt=None):
                     I('8.2', sida, 'CSP:ns %s är lättad mot mallen (%s), med skäl i RIKTNING.md: %s' % (namn, ' '.join(otillatna[:4]), skal[0][:200]))
             ovriga = {d: k for d, k in csp_lattnader(csp[0]).items() if d not in SKRIPTDIREKTIV}
             if ovriga:
-                lattnad = '; '.join('%s %s' % (d, ' '.join(k[:4])) for d, k in sorted(ovriga.items()))
+                lattnad = '; '.join('%s saknas' % d if k == ['(saknas)'] else '%s %s' % (d, ' '.join(k[:4])) for d, k in sorted(ovriga.items()))
                 if skal:
                     I('8.2', sida, 'CSP:n är lättad mot mallen (%s), med skäl i RIKTNING.md: %s' % (lattnad, skal[0][:200]))
                 else:
@@ -822,18 +826,42 @@ def csp_skriptkallor(policy):
     return {'script-src': reserv, 'script-src-elem': direktiv.get('script-src-elem', reserv), 'script-src-attr': direktiv.get('script-src-attr', reserv)}
 
 
-def csp_lattnader(policy):
-    """{direktiv: [källor]} som policyn släpper utöver mallens: andra källor än 'self', 'none', hashar och nonce, utom
-    data: i img-src och 'unsafe-inline' i style-src-attr (CSP_MALL_EXTRA). Ett direktiv utan källor lättar inget."""
+def mallens_csp(fil=None):
+    """{direktiv: [källor]} ur mallens astro.config.mjs (security.csp.directives, strängarna med dubbla citattecken);
+    CSP_MALL_RESERV när filen saknas eller inte går att läsa. script-src och style-src skriver Astro själv med hashar."""
+    try:
+        text = Path(fil or MALL_CONFIG).read_text(encoding='utf-8')
+        m = re.search(r'directives\s*:\s*\[(.*?)\]', text, re.S)
+        poster = re.findall(r'"([^"]+)"', m.group(1)) if m else []
+    except OSError:
+        poster = []
     ut = {}
+    for post in poster or CSP_MALL_RESERV:
+        bitar = post.split()
+        if bitar:
+            ut[bitar[0].lower()] = bitar[1:]
+    return ut
+
+
+def csp_lattnader(policy, mall=None):
+    """{direktiv: [källor]} som policyn släpper utöver mallens: andra källor än 'self', 'none', hashar och nonce och de
+    källor mallens direktiv själv har (data: i img-src) eller CSP_MALL_EXTRA ('unsafe-inline' i style-src-attr), och
+    "(saknas)" för ett direktiv som mallen har och policyn saknar. Ett direktiv utan källor lättar inget."""
+    mall = mallens_csp() if mall is None else mall
+    ut, sedda = {}, set()
     for del_ in policy.split(';'):
         bitar = del_.split()
         if not bitar:
             continue
         d = bitar[0].lower()
-        extra = [k for k in bitar[1:] if not CSP_SKRIPT_OK.match(k) and k not in CSP_MALL_EXTRA.get(d, set())]
+        sedda.add(d)
+        tillatna = set(mall.get(d) or []) | CSP_MALL_EXTRA.get(d, set())
+        extra = [k for k in bitar[1:] if not CSP_SKRIPT_OK.match(k) and k not in tillatna]
         if extra:
             ut.setdefault(d, []).extend(extra)
+    for d in mall:
+        if d not in sedda:
+            ut.setdefault(d, []).append('(saknas)')
     return ut
 
 
