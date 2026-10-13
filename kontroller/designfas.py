@@ -8,6 +8,7 @@ sparar varje stations insats som en version. Code gör research, material, speci
 lämnar underlag. Spåret står privat i underlag/<slug>/design/:
 
     ny <slug>                                   designfasen startar i läget astro: DESIGNFAS.json
+    kor <slug> [--bakgrund]                     drivaren: bandet utan ägaren till och med en startad byggbegäran (sigillet godkänner)
     riktningar <slug> kNN … [--nya]             riktningarna registrerade i bandet (kandidatflödet gör det själv);
                                                 --nya: fler på ägarens begäran, med projekten ur sajten
     version <slug> --ritning kNN --orsak TEXT [--station S] [--hoppa S="skäl" …] [--paket namn@version …]
@@ -43,6 +44,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -112,6 +114,8 @@ SVAR_SCHEMA = {
                                       'bild_url': {'type': 'string'}, 'visar': {'type': 'string'}, 'anvandning': {'type': 'string'},
                                       'licens': {'type': 'string'}, 'kod': {'type': 'string'}}}},
         'begransningar': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 12},
+        'val': {'type': 'object', 'additionalProperties': False, 'required': ['riktning', 'skal'],
+                'properties': {'riktning': {'type': 'string', 'maxLength': 20}, 'skal': {'type': 'string', 'maxLength': 1200}}},
         'atergang': {'type': 'object', 'additionalProperties': False, 'required': ['till', 'skal'],
                      'properties': {'till': {'type': 'string', 'enum': ['fortsatt', 'underlag', 'innehall', 'art', 'komposition', 'detaljer']},
                                     'skal': {'type': 'string', 'maxLength': 800}}},
@@ -977,6 +981,10 @@ def specialist_prompt(slug, b, underlag=None):
            'Ägarens måttstock (underlag/niva/MATTSTOCK.md) saknas i den här miljön: din ribba är kvalitetskraven, standarden och litteraturen; säg det i sammanfattningen.',
            'Besvara granskningsfrågorna i kunskap/granskningsfragor.md (läs filen hel), var och en med bredden och bilden svaret bygger på.',
            'Din dom är en AI-bedömning: skriv den som din, aldrig som ägarens, och ändra ingenting.'] if kritik else []),
+        *(['Välj också den riktning som går vidare efter valet: fältet val med riktningens id (%s) och skälet, ur bilderna och '
+           'kritikerna. I designfasens drivare är det valet (ägarens beslut 2026-10-13: den oberoende kritiken och jämförelsen '
+           'väljer riktningen); ägarens eget val går före.' % ', '.join((designfas(slug, underlag).get('riktningar') or {}))]
+          if astro and b['typ'] == 'jamforelse' else []),
         '',
         *station_rader(station(b.get('station') or STATION_FOR_TYP[b['typ']])),
         '',
@@ -1636,6 +1644,362 @@ def installera_godkand(slug, underlag=None):
     return ersatta
 
 
+# ---- drivaren: bandet utan ägaren till och med helbygget (ägarens beslut 2026-10-13: "Autonomous to build") ------
+
+FORE_VALET = ('underlag', 'innehall', 'art', 'komposition', 'detaljer')  # följden före valet för varje riktning
+PASSTATIONER = ('kritik', 'jamforelse', 'overlamning')  # pass eller efter godkännandet, inte utförarens stationer
+MAX_SAMTIDIGT = 3  # riktningar som går bandet samtidigt före valet
+MAX_FORSOK_STATION = 2  # försök per station; ett bygge som faller ger ett nytt försök med felet, sedan stoppar körningen
+FRIST_STATION = int(os.environ.get('NWP_DESIGNFAS_FRIST') or 2400)
+KORNING = 'KORNING.json'  # drivarens spår i underlag/<slug>/design/
+STATION_SCHEMA = {
+    'type': 'object', 'additionalProperties': False, 'required': ['orsak', 'paket', 'hoppa'],
+    'properties': {'orsak': {'type': 'string', 'maxLength': 2000},
+                   'paket': {'type': 'array', 'maxItems': 20, 'items': {'type': 'string', 'maxLength': 120}},
+                   'hoppa': {'type': ['string', 'null'], 'maxLength': 400}},
+}
+_KORLAS = threading.Lock()
+
+
+class Stoppad(Fel):
+    """Drivaren stannar med ett skäl (en station gick inte att spara, ett pass föll, ägaren gav ett uppdrag)."""
+
+
+def autonom():
+    """Drivaren startar av sig själv när kandidatflödet lämnat riktningarna till bandet (standard sedan ägarens beslut
+    2026-10-13; NWP_DESIGNFAS_AUTONOM=av ger den interaktiva utföraren, ./design.sh, som enda väg)."""
+    return (os.environ.get('NWP_DESIGNFAS_AUTONOM') or 'pa') != 'av'
+
+
+def korning(slug, underlag=None):
+    return las(rot(slug, underlag) / KORNING) or {}
+
+
+def logga(slug, underlag=None, **falt):
+    """Drivarens status i KORNING.json: fälten skrivs över, och historik får en rad per anrop."""
+    with _KORLAS:
+        k = korning(slug, underlag)
+        historik = (k.get('historik') or [])[-400:]
+        for nyckel, varde in falt.items():
+            if nyckel == 'station':
+                rid, sid, post = varde
+                k.setdefault('stationer', {}).setdefault(rid, {})[sid] = post
+            elif nyckel == 'pass':
+                namn, post = varde
+                k.setdefault('pass', {})[namn] = post
+            else:
+                k[nyckel] = varde
+        historik.append({'tid': nu(), **{n: (v if n not in ('station', 'pass') else v[:2]) for n, v in falt.items()
+                                         if n in ('steg', 'skal', 'station', 'pass')}})
+        k['historik'] = historik
+        k['uppdaterad'] = nu()
+        skriv(rot(slug, underlag) / KORNING, k)
+        return k
+
+
+def efter_valet():
+    """Stationerna efter valet i bandets ordning, utan passen (kritiken körs på den sista versionen, jämförelsen gäller
+    före valet och överlämningen kommer efter godkännandet)."""
+    st = list(stationer())
+    return [s for s in st[st.index(FORE_VALET[-1]) + 1:] if s not in PASSTATIONER]
+
+
+def station_klar(slug, rid, sid, underlag=None):
+    """Har riktningen en version från stationen, eller en version som hoppade över den med skäl?"""
+    for v in versioner(slug, underlag):
+        post = las(rot(slug, underlag) / 'versioner' / v / 'VERSION.json') or {}
+        if post.get('ritning') == rid and (post.get('station') == sid or sid in (post.get('hoppade') or {})):
+            return v
+    return None
+
+
+def senaste_av(slug, rid, underlag=None):
+    vs = [v for v in versioner(slug, underlag) if (las(rot(slug, underlag) / 'versioner' / v / 'VERSION.json') or {}).get('ritning') == rid]
+    return vs[-1] if vs else None
+
+
+def _regel(verktyg, vag, monster=''):
+    """En tillåtelseregel för en väg: relativ till repots rot (./…) eller absolut (//…)."""
+    v = str(vag).rstrip('/')
+    return '%s(%s%s%s)' % (verktyg, '/' if v.startswith('/') else './', v, monster)
+
+
+def station_verktyg(slug, rid, underlag=None, extra=()):
+    """Utförarsessionens verktyg för en station: läsning, skrivning bara i riktningens projekt (src/, public/,
+    projektfilerna, RIKTNING.md och DESIGN.md) och rollen skapas MCP-verktyg ur metodkartan; inget Bash (drivaren
+    installerar paketen och sparar versionen)."""
+    import kandidater
+    import kompetens
+    p = rel(projekt(slug, rid, underlag))
+    skriv_ = [_regel(v, p, m) for m in ('/src/**', '/public/**') for v in ('Write', 'Edit')]
+    skriv_ += [_regel(v, '%s/%s' % (p, f)) for f in kandidater.PROJEKTFILER + ('RIKTNING.md', 'DESIGN.md') for v in ('Write', 'Edit')]
+    return list(dict.fromkeys(kandidater.LASVERKTYG + skriv_ + list(extra) + kompetens.verktyg('skapa', slug, rid)))
+
+
+def skillens_text():
+    t = (SKILLS / 'designfas' / 'SKILL.md').read_text(encoding='utf-8')
+    return t.split('\n---\n', 1)[1] if t.startswith('---\n') and '\n---\n' in t else t
+
+
+def station_prompt(slug, sid, rid, underlag=None, fel=None):
+    return '\n'.join([
+        'Du är utföraren i designfasens drivare (designfas.py kor; ägarens beslut 2026-10-13: bandet körs utan ägaren till '
+        'och med helbygget). Din arbetsinstruktion är skillen designfas nedan, med tre skillnader i drivaren: du gör bara den '
+        'här stationens insats i riktningens projekt; drivaren installerar paketen, bygger och sparar versionen (kör inte '
+        'designfas.py själv) och publicerar ingen artefakt; och du svarar i schemat: orsak (vad stationen ändrade och varför, '
+        'som versionens orsak), paket (nya paket som namn@version, annars en tom lista) och hoppa (skälet när stationen inte '
+        'gäller sidan, annars null; kritik och tillgänglighet hoppas aldrig över).',
+        *(['Förra försöket gick inte att spara: %s. Rätta det i projektet.' % fel] if fel else []),
+        '', '--- skillen designfas ---', skillens_text(), '--- stationen ---', station_brief(slug, sid, rid, underlag)])
+
+
+def kor_station(slug, rid, sid, underlag=None, extra_verktyg=(), prompt=None, spara=True):
+    """En station i en utförarsession (claude -p genom atelje.session: kundvakten, MCP:erna, dontAsk och stationens
+    verktyg). Svaret blir en version med bilder; ett bygge eller ett svar som inte går att spara ger ett nytt försök med
+    felet, högst MAX_FORSOK_STATION, sedan Stoppad. spara=False: sessionen ensam (överlämningens DESIGN.md)."""
+    import atelje
+    import kandidater
+    fel = None
+    for forsok in range(1, MAX_FORSOK_STATION + 1):
+        ut = rot(slug, underlag) / 'drivare' / rid / ('%s-%d.json' % (sid, forsok))
+        ut.parent.mkdir(parents=True, exist_ok=True)
+        t0 = nu()
+        try:
+            svar = atelje.session((prompt or station_prompt)(slug, sid, rid, underlag, fel), station_verktyg(slug, rid, underlag, extra_verktyg), ut,
+                                  STATION_SCHEMA, 300, None, None, FRIST_STATION, nekas=kandidater.andra_nekas(slug, rid), slug=slug,
+                                  webb=kandidater.SKAPARWEBB)
+        except (subprocess.TimeoutExpired, RuntimeError) as e:
+            svar = {'avbruten': '%s: %s' % (type(e).__name__, str(e)[:300])}
+        so = svar.get('structured_output') if isinstance(svar, dict) else None
+        kv = {'forsok': forsok, 'start': t0, 'slut': nu(), 'session': svar.get('session_id'),
+              'forbrukning': {'listpris_usd': svar.get('total_cost_usd'), 'turer': svar.get('num_turns'), 'ms': svar.get('duration_ms'),
+                              'not': 'listpris, inte kvot: prenumerationens förbrukning mäts i kvot'}}
+        if not isinstance(so, dict):
+            fel = 'sessionen gav inget svar i schemat (%s)' % (svar.get('avbruten') or svar.get('subtype') or 'okänt utfall')
+            logga(slug, underlag, station=(rid, sid, dict(kv, utfall='fel', fel=fel)))
+            continue
+        if not spara:
+            logga(slug, underlag, station=(rid, sid, dict(kv, utfall='klar')))
+            return so
+        try:
+            if so.get('hoppa') and sid not in ALLTID:
+                post = version(slug, None, None, so.get('orsak') or 'stationen %s gäller inte sidan' % sid, underlag=underlag, ritning=rid,
+                               hoppade=['%s=%s' % (sid, so['hoppa'])], paket=so.get('paket') or [])
+            else:
+                post = version(slug, None, None, so.get('orsak') or '', underlag=underlag, station_=sid, ritning=rid, paket=so.get('paket') or [])
+        except Fel as e:  # ByggFel, ett ogiltigt paket eller ett skäl som är för kort: ett nytt försök med felet
+            fel = str(e)[:900]
+            logga(slug, underlag, station=(rid, sid, dict(kv, utfall='fel', fel=fel)))
+            continue
+        try:
+            artefakt(slug, rid, underlag)
+        except Fel:
+            pass  # visningen är ett paket bredvid; publiceringen gör en interaktiv session
+        logga(slug, underlag, station=(rid, sid, dict(kv, utfall='klar', version=post['version'],
+                                                      rendering=(post.get('rendering') or {}).get('slutkod'))))
+        return post
+    raise Stoppad('stationen %s på riktningen %s gick inte att spara efter %d försök: %s' % (sid, rid, MAX_FORSOK_STATION, fel))
+
+
+def kor_riktning(slug, rid, stationerna, underlag=None):
+    for sid in stationerna:
+        if station_klar(slug, rid, sid, underlag):
+            continue
+        kor_station(slug, rid, sid, underlag)
+
+
+def kor_pass(slug, typ, v, ritning, uppgift, underlag=None, station_=None):
+    """En beställning som specialistpass (bestall och specialist), eller den som redan levererats för samma typ,
+    version och riktning (återupptagningen gör inget klart om). Ger beställningen."""
+    for bid in bestallningar(slug, underlag):
+        b = bestallning(slug, bid, underlag)
+        if (b.get('typ'), b.get('version'), b.get('ritning')) == (typ, v, ritning) and b.get('status') in ('levererad', 'inford'):
+            return b
+    b = bestall(slug, typ, v, ritning, uppgift, underlag=underlag, station_=station_)
+    post = specialist(slug, b['id'], underlag)
+    logga(slug, underlag, **{'pass': ('%s %s %s' % (typ, ritning, v), {k_: post.get(k_) for k_ in ('id', 'utfall', 'session_id', 'sekunder',
+                                                                                                      'kostnad_listpris_usd')})})
+    if post.get('utfall') != 'levererad':
+        raise Stoppad('passet %s för %s (%s) gav inget svar' % (typ, ritning, b['id']))
+    return bestallning(slug, b['id'], underlag)
+
+
+def agarens_beslut_efter(slug, start, underlag=None):
+    """Ägarens eget val eller uppdrag i domloggen efter körningens start, eller None: hans beslut går före jämförelsens."""
+    import skapande
+    try:
+        dom = skapande.agarens_senaste(slug, Path(underlag or UNDERLAG))['dom']
+    except (OSError, ValueError):
+        return None
+    return dom if dom and dom.get('tid', '') > (start or '') and dom.get('beslut') in ('valj', 'uppdrag') else None
+
+
+def registrera_val(slug, start, b, underlag=None):
+    """Valet: ägarens eget val efter körningens start, annars jämförelsens (fältet val i svaret), i DESIGNFAS.json och,
+    för jämförelsens, i domloggen med källan jämförelsen, aldrig ägaren. Ett uppdrag från ägaren stoppar drivaren."""
+    import skapande
+    d = designfas(slug, underlag)
+    if (d.get('val') or {}).get('riktning'):
+        return d['val']
+    ag = agarens_beslut_efter(slug, start, underlag)
+    if ag and ag.get('beslut') == 'uppdrag':
+        raise Stoppad('ägaren gav ett uppdrag efter körningens start (%s): drivaren väntar på hans beslut' % ag['tid'])
+    if ag:
+        valda = [x.get('id') for x in ag.get('kandidater') or [] if isinstance(x, dict) and x.get('id') in (d.get('riktningar') or {})]
+        if valda:
+            val = {'riktning': valda[0], 'kalla': 'ägaren', 'tid': ag['tid'], 'skal': 'ägarens val i domloggen'}
+            d['val'] = val
+            skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+            return val
+    so = (las(rot(slug, underlag) / 'svar' / b['id'] / 'SVAR.json') or {}).get('svar') or {}
+    rid = (so.get('val') or {}).get('riktning')
+    if rid not in (d.get('riktningar') or {}):
+        raise Stoppad('jämförelsen (%s) valde ingen riktning i bandet (%r)' % (b['id'], rid))
+    val = {'riktning': rid, 'kalla': 'jämförelsen', 'bestallning': b['id'], 'version': b['version'], 'tid': nu(),
+           'skal': str((so.get('val') or {}).get('skal') or '')[:1200]}
+    skapande.lagg_till_dom(slug, 'jämförelsen', 'valj', 'Jämförelsens val i designfasens drivare: riktningen %s. %s' % (rid, val['skal'] or ''),
+                           avser='designfas val %s' % rid, underlag=Path(underlag or UNDERLAG),
+                           designfas={'riktning': rid, 'bestallning': b['id'], 'version': b['version']})
+    d['val'] = val
+    skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+    return val
+
+
+def overlamning_prompt(slug, sid, rid, underlag=None, fel=None):
+    k, g = overlamning_katalog(slug, underlag)
+    return '\n'.join([
+        'Du är utföraren i designfasens drivare, stationen överlämning (kunskap/metodkarta.md, Bandet: stationerna). Fyll i '
+        '%s ur den godkända versionen %s av riktningen %s: varje rubrik med värden märkta uppmätt: (ur renderingen i %s), '
+        'valt: (beslut i designen) eller uppskattat:, ur källan i %s och projektets DESIGN.md. Skriv bara den filen, och '
+        'svara i schemat med orsak (vad du fyllde i), paket (tom lista) och hoppa (null).' % (
+            rel(k / 'DESIGN.md'), g.get('version'), rid, rel(k / 'bilder'), rel(k / 'kalla')),
+        *(['Förra försöket: %s' % fel] if fel else []),
+        *station_rader(station('overlamning'))])
+
+
+def kor(slug, underlag=None):
+    """Drivaren (ägarens beslut 2026-10-13: "Autonomous to build (Recommended)"): bandet utan ägaren till och med en
+    startad byggbegäran. Före valet går varje riktning underlag, innehåll, art, komposition och detaljer i utförarsessioner,
+    högst tre riktningar samtidigt; sedan kritiken per riktning och jämförelsen; valet är jämförelsens (eller ägarens, om
+    han valt efter starten); den valda går stationerna efter valet och får en ny kritik; sedan godkännandet genom
+    autogodkann (sigillet, en annan gren: saknas det stannar drivaren före godkännandet), överlämningen och helbygget
+    genom samma väg som prototyp.py --helbygge. Publicering gör drivaren aldrig. Varje steg står i KORNING.json; ett avbrott
+    tas upp med kor igen, och det som är klart görs inte om. Ger körningens status."""
+    import fcntl
+    import concurrent.futures as cf
+    d = designfas(slug, underlag)
+    if lage(slug, underlag) != 'astro':
+        raise Fel('drivaren kör läget astro; designfasen för %s är i läget %s' % (slug, lage(slug, underlag)))
+    rk = list(d.get('riktningar') or {})
+    if not rk:
+        raise Fel('inga riktningar i bandet: kandidatflödet lämnar dem (prototyp.py %s)' % slug)
+    fd = os.open(rot(slug, underlag) / '.drivare.las', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Fel('drivaren kör redan för %s (KORNING.json visar läget)' % slug)
+        k = korning(slug, underlag)
+        if k.get('steg') == 'klar':
+            return k
+        start = k.get('start') or nu()
+        logga(slug, underlag, start=start, pid=os.getpid(), steg='fore_valet', skal='riktningarna går stationerna före valet')
+        try:
+            return _kor(slug, rk, start, underlag, cf)
+        except Stoppad as e:
+            return logga(slug, underlag, steg='stoppad', skal=str(e)[:1200], pid=None)
+        except Exception as e:  # noqa: BLE001 — skälet står i spåret, och kor tar vid igen
+            logga(slug, underlag, steg='stoppad', skal='%s: %s' % (type(e).__name__, str(e)[:1100]), pid=None)
+            raise
+    finally:
+        os.close(fd)
+
+
+def _kor(slug, rk, start, underlag, cf):
+    with cf.ThreadPoolExecutor(max_workers=min(MAX_SAMTIDIGT, len(rk))) as ex:
+        framtid = {ex.submit(kor_riktning, slug, rid, FORE_VALET, underlag): rid for rid in rk}
+        fel = []
+        for f in cf.as_completed(framtid):
+            try:
+                f.result()
+            except Fel as e:
+                fel.append('%s: %s' % (framtid[f], e))
+    if fel:
+        raise Stoppad('före valet: ' + '; '.join(fel)[:1100])
+    logga(slug, underlag, steg='kritik', skal='kritiken per riktning och jämförelsen samlat')
+    senaste = {rid: senaste_av(slug, rid, underlag) for rid in rk}
+    for rid in rk:
+        kor_pass(slug, 'kritik', senaste[rid], rid, 'Kritik av riktningen %s som en besökare ser den, före utförarens förklaring, '
+                 'efter följden före valet (detaljerna med)' % rid, underlag, station_='kritik')
+    sista = max(senaste.values(), key=lambda v: int(v[1:]))
+    b = kor_pass(slug, 'jamforelse', sista, '*', 'Jämför riktningarnas senaste versioner sida vid sida, peka ut falsk variation, '
+                 'och välj den riktning som går vidare (fältet val)', underlag, station_='jamforelse') if len(rk) > 1 else None
+    logga(slug, underlag, steg='val')
+    val = registrera_val(slug, start, b, underlag) if b else {'riktning': rk[0], 'kalla': 'ensam riktning', 'tid': nu()}
+    if not b:
+        d = designfas(slug, underlag)
+        d['val'] = val
+        skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+    rid = val['riktning']
+    logga(slug, underlag, val=val, steg='efter_valet', skal='den valda riktningen %s går stationerna efter valet' % rid)
+    kor_riktning(slug, rid, efter_valet(), underlag)
+    v = senaste_av(slug, rid, underlag)
+    kor_pass(slug, 'kritik', v, rid, 'Kritik av den valda riktningens sista version som en besökare ser den, före godkännandet', underlag,
+             station_='kritik')
+    logga(slug, underlag, steg='godkannande', skal='%s av %s till sigillet' % (v, rid))
+    auto = globals().get('autogodkann')
+    if not callable(auto):
+        return logga(slug, underlag, steg='vantar_pa_sigillet', pid=None,
+                     skal='godkännandet görs av sigillet (designfas.autogodkann), som inte finns i den här grenen: drivaren stannar före '
+                          'godkännandet med %s av %s klar' % (v, rid))
+    try:
+        post = auto(slug, v, rid, underlag=underlag)
+    except Fel as e:
+        raise Stoppad('sigillet godkände inte %s av %s: %s' % (v, rid, e))
+    logga(slug, underlag, godkannande={k_: (post or {}).get(k_) for k_ in ('version', 'ritning', 'tid', 'kalla')}, steg='overlamning')
+    overlamna(slug, underlag)
+    if overlamning_brister(slug, underlag):
+        kor_station(slug, rid, 'overlamning', underlag, prompt=overlamning_prompt, spara=False,
+                    extra_verktyg=[_regel(x, rel(overlamning_katalog(slug, underlag)[0] / 'DESIGN.md')) for x in ('Write', 'Edit')])
+        overlamna(slug, underlag)
+    brister = overlamning_brister(slug, underlag)
+    if brister:
+        raise Stoppad('överlämningen är inte komplett: ' + '; '.join(brister)[:900])
+    import flodesstart
+    start_id = (korning(slug, underlag).get('bygge') or {}).get('start_id') or 'designfas-%s' % hashlib.sha1(
+        ('%s %s %s' % (slug, v, start)).encode()).hexdigest()[:24]
+    logga(slug, underlag, bygge={'start_id': start_id, 'tid': nu(), 'handling': 'helbygge'}, steg='bygge')
+    try:
+        rc = flodesstart.starta(slug, 'helbygge', start_id)
+    except (OSError, ValueError, RuntimeError) as e:
+        raise Stoppad('helbygget startade inte: %s' % e)
+    return logga(slug, underlag, bygge={'start_id': start_id, 'tid': nu(), 'handling': 'helbygge', 'slutkod': rc}, steg='klar', pid=None,
+                 skal='byggbegäran %s registrerad (slutkod %s); publiceringen väntar på ägaren' % (start_id, rc))
+
+
+def starta_drivaren(slug, underlag=None):
+    """Drivaren som en egen process (kandidatflödet efter lamna_till_bandet, och prototyp.py när körningen står i
+    bandet): designfas.py kor <slug>, loggen i design/drivare.log. Ger (pid eller None, beskedet)."""
+    k = korning(slug, underlag)
+    if k.get('steg') == 'klar':
+        return None, 'drivaren är klar för %s: %s' % (slug, k.get('skal'))
+    if k.get('pid') and _lever(k['pid']):
+        return k['pid'], 'drivaren kör redan för %s (pid %s, steg %s)' % (slug, k['pid'], k.get('steg'))
+    logg = rot(slug, underlag) / 'drivare.log'
+    with open(logg, 'ab') as fh:
+        p = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), 'kor', slug], cwd=str(ROOT), stdin=subprocess.DEVNULL,
+                             stdout=fh, stderr=subprocess.STDOUT, start_new_session=True)
+    return p.pid, 'drivaren startad för %s (pid %d, loggen %s)' % (slug, p.pid, rel(logg))
+
+
+def _lever(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 # ---- status, kvitto, karta och start --------------------------------------------------------------------------------
 
 def band(slug, underlag=None):
@@ -1713,7 +2077,9 @@ def status(slug, underlag=None):
             'bestallningar': [{k: bestallning(slug, b, underlag).get(k) for k in ('id', 'station', 'typ', 'version', 'status', 'inford_i')}
                               for b in bestallningar(slug, underlag)],
             'band': band(slug, underlag),
-            'godkannande': {'giltigt': ok, 'skal': skal, 'version': (g or {}).get('version')}}
+            'godkannande': {'giltigt': ok, 'skal': skal, 'version': (g or {}).get('version')},
+            'drivare': {k_: korning(slug, underlag).get(k_) for k_ in ('steg', 'skal', 'start', 'uppdaterad', 'pid', 'val', 'bygge')}
+            if astro else None}
 
 
 # Detektorns område per station (renderingens fält omrade ur motorns --scope; valideringen 2026-10-12, skills del 1
@@ -2073,6 +2439,7 @@ def main(argv=None):
     a = s.add_parser('ny'); a.add_argument('slug'); a.add_argument('--kanvas'); a.add_argument('--release')
     a.add_argument('--lage', choices=LAGEN)
     a = s.add_parser('riktningar'); a.add_argument('slug'); a.add_argument('riktningar', nargs='+'); a.add_argument('--nya', action='store_true')
+    a = s.add_parser('kor'); a.add_argument('slug'); a.add_argument('--bakgrund', action='store_true')
     a = s.add_parser('artefakt'); a.add_argument('slug'); a.add_argument('riktning'); a.add_argument('--url')
     a.add_argument('--version'); a.add_argument('--artifact-version')
     a = s.add_parser('runtime'); a.add_argument('slug'); a.add_argument('--fil', required=True); a.add_argument('--release', required=True)
@@ -2107,6 +2474,14 @@ def main(argv=None):
     try:
         if x.cmd == 'ny':
             ut(ny(x.slug, x.kanvas, x.release, lage_=x.lage))
+        elif x.cmd == 'kor':
+            if x.bakgrund:
+                pid, text = starta_drivaren(x.slug)
+                print(text)
+                return 0
+            k = kor(x.slug)
+            print('drivaren: %s (%s)' % (k.get('steg'), k.get('skal')))
+            return 1 if k.get('steg') == 'stoppad' else 0
         elif x.cmd == 'riktningar':
             ut(riktningar(x.slug, x.riktningar, nya=x.nya))
         elif x.cmd == 'artefakt':

@@ -19,6 +19,9 @@ körmiljö, sessionerna, kvittot och impeccables motor). Inga modeller och inget
 - H: produktionsbandet på riktningen k01: stationerna i processmodellens ordning med metod, versioner med stationen,
   hoppade stationer, kritikens återgång, bandets läge, stationens instruktion före och efter riktningens första version.
 - J: artefakten: paketet per riktning med relativa vägar, utan CSP-meta, FILER.json och publiceringen i ARTEFAKT.json.
+- K, L: paketen följer riktningen till helbygget (låsets rot, npm-registret); versionsnumret reserveras atomiskt.
+- M: drivaren (ägarens beslut 2026-10-13, "Autonomous to build"): från tre riktningar till en startad byggbegäran med en
+  attrapp för claude; publiceringen anropas aldrig, ett avbrott tas upp, och ägarens val går före jämförelsens.
 """
 import contextlib
 import json
@@ -154,6 +157,7 @@ class Grund(unittest.TestCase):
         self.stack.enter_context(patch.object(skapande, 'UNDERLAG', self.u))
         self.stack.enter_context(patch.dict(os.environ))
         os.environ.pop('NWP_DESIGNLAGE', None)
+        os.environ['NWP_DESIGNFAS_AUTONOM'] = 'av'  # drivaren startas bara av proven som prövar den (M_Drivaren)
         (self.u / SLUG / 'bilder').mkdir(parents=True)
         (self.u / SLUG / 'VERKSAMHET.json').write_text(json.dumps({'namn': 'Provverkstan', 'fiktiv': True}))
         (self.u / SLUG / 'BRIEF.md').write_text('# Brief\n')
@@ -1087,6 +1091,183 @@ class J_Artefakt(Grund):
         delar = [json.loads((df.ROOT / x).read_text()) if not Path(x).is_absolute() else json.loads(Path(x).read_text()) for x in r['omgangar']]
         self.assertEqual([len(d) for d in delar], [255, r['filer'] - 255])
 
+
+
+# Attrappen av claude för drivaren (fejkclaude-mönstret i kontroller/rokprov/andringar/): svarar som claude -p med
+# --output-format json. En station gör en synlig ändring i riktningens projekt och svarar i stationens schema; ett
+# specialistpass svarar i SVAR_SCHEMA (jämförelsen med fältet val); överlämningen fyller DESIGN.md. Inställningarna
+# (vilket val, vilka anrop som faller) står i en JSON-fil bredvid skriptet, och varje anrop skrivs i en logg.
+FEJKCLAUDE = r'''#!%(python)s
+import json, re, sys, uuid
+from pathlib import Path
+conf = json.loads(Path(__file__).with_suffix('.json').read_text())
+if '--help' in sys.argv:
+    print('fejkclaude: ingen hjälp')
+    sys.exit(0)
+prompt = sys.stdin.read()
+logg = Path(conf['logg'])
+def svar(so):
+    print(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'session_id': str(uuid.uuid4()), 'num_turns': 3,
+                      'duration_ms': 1200, 'total_cost_usd': 0.01, 'structured_output': so}))
+    sys.exit(0)
+m = re.search(r'Station (\w+) på riktningen (k\d\d)', prompt)
+if m:
+    sid, rid = m.groups()
+    with logg.open('a') as f:
+        f.write('station %%s %%s\n' %% (rid, sid))
+    if [rid, sid] in conf.get('falla', []):
+        print(json.dumps({'type': 'result', 'subtype': 'error_during_execution', 'is_error': True, 'result': 'attrappen faller'}))
+        sys.exit(1)
+    projekt = Path(re.search(r'Projektet: (\S+) \(', prompt).group(1))
+    sida = projekt / 'src' / 'pages' / 'index.astro'
+    sida.write_text(sida.read_text() + '<p>stationen %%s</p>' %% sid)
+    svar({'orsak': 'attrappen: stationen %%s gjorde en synlig insats på %%s' %% (sid, rid), 'paket': [], 'hoppa': None})
+m = re.search(r'Fyll i (\S+DESIGN\.md) ur den godkända versionen', prompt)
+if m:
+    with logg.open('a') as f:
+        f.write('overlamning\n')
+    rubriker = conf['rubriker']
+    Path(m.group(1)).write_text('# DESIGN\n\n' + '\n'.join('## %%s\n\nuppmätt: ett värde ur renderingen, tillräckligt långt för provet.\n' %% r for r in rubriker))
+    svar({'orsak': 'DESIGN.md ifylld', 'paket': [], 'hoppa': None})
+m = re.search(r'Beställning (B\d+) .* typ (\w+) ', prompt)
+typ = m.group(2) if m else '?'
+with logg.open('a') as f:
+    f.write('pass %%s\n' %% typ)
+so = {'sammanfattning': 'attrappens %%s' %% typ, 'fynd': [], 'forslag': [], 'referenser': [], 'begransningar': [],
+      'kompetens': {'aktiverade': [], 'lasta': [], 'valda': []}}
+if typ == 'jamforelse':
+    so['val'] = {'riktning': conf['val'], 'skal': 'attrappens val: riktningen bär besökarens uppgift bäst'}
+svar(so)
+'''
+
+
+class M_Drivaren(Grund):
+    """Drivaren (ägarens beslut 2026-10-13: "Autonomous to build (Recommended)"): bandet utan ägaren från tre riktningar
+    till en startad byggbegäran, med en attrapp för claude, bygget, renderingen och helbyggets start. Publiceringen anropas
+    aldrig, ett avbrott tas upp, och ägarens eget val går före jämförelsens."""
+
+    def setUp(self):
+        super().setUp()
+        self.fejk = self.tmp / 'fejk' / 'claude'
+        self.fejk.parent.mkdir(parents=True)
+        self.fejk.write_text(FEJKCLAUDE % {'python': sys.executable})
+        self.fejk.chmod(0o755)
+        self.logg = self.tmp / 'fejk' / 'anrop.log'
+        self.conf(val='k02')
+        os.environ.update(NWP_OBSERVATION='av', NWP_MEDDELANDEN='av', NWP_SKAPARWEBB='av')
+        self.stack.enter_context(patch.object(atelje, 'claude', return_value=str(self.fejk)))
+        self.stack.enter_context(patch.object(df, 'rendera', side_effect=self.rendera))
+        self.stack.enter_context(patch.object(df, 'insats', return_value={'synlig': True, 'jamfort_med': None}))
+        self.byggen = []
+        import flodesstart
+        self.stack.enter_context(patch.object(flodesstart, 'starta', side_effect=lambda slug, handling, start_id=None:
+                                              self.byggen.append((slug, handling, start_id)) or 5))
+        self.astro(('k01', 'k02', 'k03'))
+
+    def conf(self, **falt):
+        c = {'logg': str(self.logg), 'val': 'k02', 'falla': [], 'rubriker': list(df.OVERLAMNING_RUBRIKER)}
+        c.update(falt)
+        self.fejk.with_suffix('.json').write_text(json.dumps(c))
+
+    def rendera(self, slug, v, kontroll=False, underlag=None):
+        self.fejkbilder(v)
+        return {'slutkod': 0, 'saknade_tillgangar': [], 'besked': 'attrappens rendering'}
+
+    def anrop(self):
+        return self.logg.read_text().splitlines() if self.logg.is_file() else []
+
+    def test_hela_vagen_till_en_startad_byggbegaran(self):
+        def autogodkann(slug, v, ritning, underlag=None):  # sigillets attrapp (den riktiga finns i en annan gren)
+            return df.godkann(slug, v, ritning, text='sigillets attrapp i provet')
+        with patch.object(df, 'autogodkann', autogodkann, create=True):
+            k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'klar', k.get('skal'))
+        self.assertEqual([(h, s) for s, h, _ in self.byggen], [('helbygge', SLUG)], 'en byggbegäran, genom helbyggets väg')
+        self.assertFalse([b for b in self.byggen if b[1] in ('release', 'aktivera')], 'publiceringen anropas aldrig')
+        rader = self.anrop()
+        for rid in ('k01', 'k02', 'k03'):
+            for sid in df.FORE_VALET:
+                self.assertEqual(rader.count('station %s %s' % (rid, sid)), 1, (rid, sid))
+                self.assertTrue(df.station_klar(SLUG, rid, sid))
+        for sid in df.efter_valet():
+            self.assertEqual(rader.count('station k02 %s' % sid), 1, sid)
+            self.assertEqual(rader.count('station k01 %s' % sid), 0, 'bara den valda går vidare')
+        self.assertEqual((rader.count('pass kritik'), rader.count('pass jamforelse'), rader.count('overlamning')), (4, 1, 1))
+        val = df.designfas(SLUG)['val']
+        self.assertEqual((val['riktning'], val['kalla']), ('k02', 'jämförelsen'))
+        domar = [json.loads(x) for x in (self.u / SLUG / skapande.DOMLOGG).read_text().splitlines()]
+        jmf = [x for x in domar if x['kalla'] == 'jämförelsen']
+        self.assertEqual([(x['beslut'], x['designfas']['riktning']) for x in jmf], [('valj', 'k02')])
+        self.assertFalse(skapande.ar_agarens(jmf[0]) or skapande.ar_beslut(jmf[0]), 'jämförelsens val är aldrig ägarens')
+        self.assertEqual(df.overlamning_brister(SLUG), [])
+        kn = df.korning(SLUG)
+        self.assertTrue(all(x.get('session') and x.get('forbrukning') for r in kn['stationer'].values() for x in r.values()))
+        self.assertEqual(kn['bygge']['handling'], 'helbygge')
+        self.assertEqual(df.kor(SLUG)['steg'], 'klar', 'en klar körning görs inte om')
+        self.assertEqual(len(self.byggen), 1)
+
+    def test_utan_sigillet_stannar_drivaren_fore_godkannandet(self):
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
+        self.assertIn('autogodkann', k['skal'])
+        self.assertEqual(self.byggen, [])
+        self.assertFalse((self.u / SLUG / 'design' / 'GODKANNANDE.json').exists())
+
+    def test_ett_avbrott_tas_upp_utan_att_det_klara_gors_om(self):
+        self.conf(falla=[['k03', 'art']])
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'stoppad')
+        self.assertIn('art', k['skal'])
+        self.assertIn('k03', k['skal'])
+        forsta = self.anrop()
+        self.assertEqual(forsta.count('station k03 art'), df.MAX_FORSOK_STATION, 'ett nytt försök inom taket')
+        self.conf()
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
+        andra = self.anrop()[len(forsta):]
+        for rid in ('k01', 'k02'):
+            for sid in df.FORE_VALET:
+                self.assertNotIn('station %s %s' % (rid, sid), andra, 'det klara görs inte om')
+        self.assertIn('station k03 art', andra)
+        self.assertNotIn('station k03 innehall', andra)
+
+    def test_agarens_val_efter_starten_gar_fore(self):
+        df.logga(SLUG, start='2026-01-01T00:00:00Z')
+        skapande.lagg_till_dom(SLUG, 'ägaren', 'valj', 'Jag väljer riktningen k03.', underlag=self.u,
+                               kandidater=[{'id': 'k03', 'version': 'v' * 12}])
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
+        val = df.designfas(SLUG)['val']
+        self.assertEqual((val['riktning'], val['kalla']), ('k03', 'ägaren'))
+        self.assertIn('station k03 typografi', self.anrop())
+        self.assertFalse([x for x in (self.u / SLUG / skapande.DOMLOGG).read_text().splitlines() if 'jämförelsen' in x])
+
+    def test_kandidatflodet_och_prototyp_startar_drivaren(self):
+        startade = []
+        self.stack.enter_context(patch.object(df, 'starta_drivaren', side_effect=lambda slug, underlag=None: startade.append(slug) or (4711, 'startad')))
+        os.environ['NWP_DESIGNFAS_AUTONOM'] = 'pa'
+        (self.u / SLUG / 'atelje').mkdir(parents=True, exist_ok=True)
+        (self.u / SLUG / 'atelje' / 'STATUS.json').write_text(json.dumps({'slug': SLUG, 'steg': 'band', 'kandidatflode': True}))
+        import io
+        for argv in ([SLUG], [SLUG, '--fortsatt']):
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(prototyp.main(argv), 0)
+        self.assertEqual(startade, [SLUG, SLUG])
+        st = {}
+        with patch.multiple(kd, forbered_projekt=lambda slug, kid: None, stilpaket_i_projekt=lambda slug, kid: None):
+            kd.lamna_till_bandet(SLUG, st, lambda: None, ['k01'])
+        self.assertEqual(st['bandet']['drivare']['pid'], 4711)
+        self.assertEqual(startade, [SLUG, SLUG, SLUG], 'kandidatflödet startar drivaren efter lamna_till_bandet')
+
+    def test_helbyggets_start_godtar_designgodkannandet(self):
+        import flodesstart
+        with patch.object(flodesstart, 'startmiljo', return_value={'hinder': None}), patch.object(flodesstart, 'atelje_ledig'), \
+                patch.object(skapande, 'godkand_giltig', return_value=(False, 'ingen kandidat godkänd')):
+            with patch.object(df, 'godkand_giltig', return_value=(True, 'designen godkänd', {'version': 'v01'})):
+                flodesstart.krav(SLUG, 'helbygge')
+            with patch.object(df, 'godkand_giltig', return_value=(False, 'inget designgodkännande', None)):
+                with self.assertRaisesRegex(ValueError, 'inget designgodkännande'):
+                    flodesstart.krav(SLUG, 'helbygge')
 
 
 class I_Inventering(unittest.TestCase):

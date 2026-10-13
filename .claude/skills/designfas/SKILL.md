@@ -77,6 +77,20 @@ rörelse, formulär, kritik, tillgänglighet och polish.
 **Överlämningen** efter ägarens godkännande: `designfas.py overlamna <slug>`, DESIGN.md i paketet ifylld ur den
 godkända versionen, och `overlamna --prova` utan brister; källan med `package.json` och låset står i paketets `kalla/`.
 
+## Drivaren: bandet utan ägaren
+
+Sedan ägarens beslut 2026-10-13 ("Autonomous to build (Recommended)") kör drivaren bandet till och med helbygget utan
+ägaren: `designfas.py kor <slug>` (kandidatflödet startar den efter att riktningarna lämnats till bandet, och
+`prototyp.py <slug>` eller `--fortsatt` tar vid där den slutade; `NWP_DESIGNFAS_AUTONOM=av` stänger av den). Före valet går
+varje riktning underlag, innehåll, art, komposition och detaljer, högst tre samtidigt; varje station är en
+utförarsession (`claude -p` med kundvakten, tjänsterna, dontAsk och skrivning bara i riktningens projekt) med den här
+instruktionen och stationens arbetsinstruktion, och drivaren sparar versionen. Sedan kritiken per riktning och
+jämförelsen; jämförelsens val står i DESIGNFAS.json och i domloggen med källan `jämförelsen`, och ägarens eget val efter
+starten går före. Den valda går stationerna efter valet och får en ny kritik; sigillet (`designfas.autogodkann`)
+godkänner, och drivaren gör överlämningen och startar helbygget genom samma väg som `prototyp.py --helbygge`. Publicering
+gör den aldrig. Läget står i `underlag/<slug>/design/KORNING.json` och i `status`. Kör du som utförarsession i drivaren:
+gör bara stationens insats och svara i schemat; drivaren sparar, och artefakten publicerar en interaktiv session.
+
 ## Visningen: en privat artefakt per riktning
 
 Efter varje sparad version: `designfas.py artefakt <slug> <kNN>` bygger paketet i

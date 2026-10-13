@@ -252,6 +252,14 @@ def main(argv=None):
               '--stoppa-overgang begär stopp.' % (prototyp_namn(handling), a.slug, a.start_id, rc,
                                                  'begäran registrerad eller pågår' if rc == 5 else 'avslutad'), flush=True)
         return rc
+    if not (a.forbered or a.stoppa or a.ny_riktning or a.putsa or a.om or a.valda):  # utan flagga eller med --fortsatt
+        st_ = atelje.las_json(atelje.UNDERLAG / a.slug / 'atelje' / 'STATUS.json') or {}
+        import designfas
+        if st_.get('steg') == 'band' and designfas.aktiv(a.slug, atelje.UNDERLAG) and designfas.autonom():
+            # riktningarna är i bandet: drivaren tar vid där den slutade (ägarens beslut 2026-10-13, "Autonomous to build")
+            _pid, text = designfas.starta_drivaren(a.slug, atelje.UNDERLAG)
+            print('Prototyp %s: %s.' % (a.slug, text), flush=True)
+            return 0
     if a.forbered or a.fortsatt or a.stoppa:
         handling = 'forbered' if a.forbered else 'fortsatt' if a.fortsatt else 'stoppa'
         return atelje.main([a.slug, '--' + handling, '--vanta', str(a.vanta)] + extra)

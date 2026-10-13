@@ -5064,7 +5064,9 @@ def lamna_till_bandet(slug, status, skriv, ids):
     efter researchen, planen, planprövningen och uppdragsmaterialet. Varje kandidat med ett prövat uppdrag får sitt
     Astro-projekt (forbered_projekt, med stilpaketet ur uppdragsmaterialet) och status planerad med skälet "i bandet",
     riktningarna registreras i DESIGNFAS.json (designfas.riktningar), och körningens steg blir band. Inga skapare startar:
-    därefter är designfas.py enda skrivaren av riktningarna, och utföraren startas med ./design.sh <slug>. Ett uppdrag
+    därefter är designfas.py enda skrivaren av riktningarna. Drivaren (designfas.py kor) startas som en egen process och
+    tar bandet till helbygget utan ägaren (designfas.autonom; NWP_DESIGNFAS_AUTONOM=av lämnar det åt den interaktiva
+    utföraren, ./design.sh <slug>). Ett uppdrag
     som står stoppat (inte planprövat, eller utan uppdrag i planen) behåller sitt skäl och lämnas inte."""
     plan_ = (atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}
     lamnade = []
@@ -5082,10 +5084,14 @@ def lamna_till_bandet(slug, status, skriv, ids):
             '%s: %s' % (k, las_status(slug, k).get('skal') or '') for k in ids)[:600])
     designfas.riktningar(slug, lamnade, atelje.UNDERLAG,
                          titlar={k: (plan_.get(k) or {}).get('titel') or las_status(slug, k).get('titel') for k in lamnade})
-    status.update(steg='band', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in ids},
-                  bandet={'riktningar': lamnade, 'tid': nu()},
-                  skal='%d riktningar i designfasens band (%s): utföraren startas med ./design.sh %s, och designfas.py är enda '
-                       'skrivaren av dem' % (len(lamnade), ', '.join(lamnade), slug))
+    bandet = {'riktningar': lamnade, 'tid': nu()}
+    if designfas.autonom():  # ägarens beslut 2026-10-13 ("Autonomous to build"): drivaren tar bandet till helbygget
+        pid, text = designfas.starta_drivaren(slug, atelje.UNDERLAG)
+        bandet['drivare'] = {'pid': pid, 'text': text}
+    status.update(steg='band', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in ids}, bandet=bandet,
+                  skal='%d riktningar i designfasens band (%s): %s; designfas.py är enda skrivaren av dem' % (
+                      len(lamnade), ', '.join(lamnade), bandet['drivare']['text'] if bandet.get('drivare') else
+                      'utföraren startas med ./design.sh %s' % slug))
     skriv()
     return []
 

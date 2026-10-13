@@ -92,6 +92,8 @@ KALLOR = {
     'hypotes': ('hypotes', 'en hypotes som inte är prövad'),
     'kunden': ('kunden', 'kundens egna ord och beslut, ordagrant: förda in av ägaren i arbetsytan eller med skapande.py dom, '
                          'med ett belägg för var kundens ord står (samtalet, meddelandet och tiden)'),
+    'jämförelsen': ('granskare', 'den oberoende jämförelsens val av riktning i designfasens drivare (designfas.py kor; ägarens beslut '
+                                 '2026-10-13); en AI-bedömning, aldrig ägarens eller kundens beslut'),
 }
 # Källan som alltid är ägarens egen (arbetsytans Förslagen). Ägaren via Codex räknas bara med ett belägg: avgör
 # ägarens beslut med ar_agarens, inte med den här listan (omgranskningen av skapandeflödet, fynd 2, räknade båda).
