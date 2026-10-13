@@ -2067,13 +2067,21 @@ def doma(slug, kalla, beslut, text, avser='', tid=None, **extra):
                          'när den är klar' % (st.get('steg'), slug))
     if beslut in skapande.KANDIDATBESLUT and not kflode:
         raise ValueError('beslutet %s gäller kandidatflödet, och körningen har inga kandidater' % beslut)
-    if beslutande and kflode and st.get('steg') == 'band' and (beslut in ('valj', 'jamfor', 'uppdrag', 'putsa', 'godkand') or extra.get('kandidater')):
-        import designfas  # en dom eller ett uppdrag på en riktning i bandet: två skrivare blir det aldrig
+    i_bandet = beslutande and kflode and st.get('steg') == 'band'
+    band_dom = i_bandet and beslut in ('valj', 'uppdrag')
+    if band_dom:
+        # ägarens (och kundens) val och uppdrag på en riktning i bandet går till domloggen, där designfasens drivare läser
+        # dem: ett val tar riktningen vidare, ett uppdrag stoppar drivaren (andra granskningen, fynd 2); skrivaren är
+        # fortfarande en, drivaren eller utföraren
+        import designfas
+        extra['kandidater'] = designfas.prova_val_i_bandet(slug, extra.get('kandidater'), UNDERLAG)
+    elif i_bandet and (beslut in ('jamfor', 'putsa', 'godkand') or extra.get('kandidater')):
+        import designfas  # en annan dom på en riktning i bandet: två skrivare blir det aldrig
         raise ValueError(designfas.i_bandet(slug))
     klar_steg = 'klar_for_bedomning' if kflode else 'klar'
     if agaren and beslut == 'godkand' and st.get('steg') != klar_steg:  # samma regel som vyn (omgranskning 2, fynd 2)
         raise ValueError('bara en klar körning kan godkännas (körningen är %s)' % (st.get('steg') or 'inte startad'))
-    if kflode and beslutande:  # ägarens uppdrag 2026-10-05, punkt 10: valet binds till kandidat och version
+    if kflode and beslutande and not band_dom:  # ägarens uppdrag 2026-10-05, punkt 10: valet binds till kandidat och version
         import kandidater
         kand = extra.get('kandidater')
         if not kand and beslut in ('putsa', 'godkand'):  # en dom via Codex utan kandidater gäller de förfinade
@@ -2116,7 +2124,7 @@ def doma(slug, kalla, beslut, text, avser='', tid=None, **extra):
         skriv_vinnare(UNDERLAG / slug / 'atelje', post)
     elif beslutande and beslut != 'jamfor' or agaren:  # ett nytt uppdrag eller val drar tillbaka ett tidigare godkännande
         aterkalla(slug)
-    if kflode and beslutande:
+    if kflode and beslutande and not band_dom:  # i bandet står kandidaternas status kvar; drivaren läser domen
         kandidater.efter_beslut(slug, dom)
     return dom
 

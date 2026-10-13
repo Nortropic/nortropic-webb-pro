@@ -345,19 +345,28 @@ class A_Bandet(Grund):
                 self.assertEqual(json.loads(status.read_text())['steg'], steg, 'statusen skrevs inte om')
                 self.assertTrue((p / 'src' / 'pages' / 'index.astro').is_file(), 'riktningens projekt står kvar')
 
-    def test_dom_och_uppdrag_pa_en_riktning_i_bandet_nekas(self):
-        """En skrivare per riktning: en dom eller ett uppdrag i Code på en riktning i bandet nekas, med hänvisning till
-        designfasen; prototyp.py stannar och säger vem som skriver."""
+    def test_dom_och_uppdrag_pa_en_riktning_i_bandet(self):
+        """En skrivare per riktning: ägarens (och kundens) val och uppdrag på en riktning i bandet går genom doma till
+        domloggen, där drivaren läser dem (andra granskningen, fynd 2); en jämförelse, en putsning, ett godkännande och en
+        riktning utanför bandet nekas, med hänvisning till designfasen; prototyp.py stannar och säger vem som skriver."""
         df.ny(SLUG)
         for kid in ('k01', 'k02'):
+            self.projekt(kid)
             kd.satt_status(SLUG, kid, 'planerad', 'i bandet', version='v' * 12)
+        df.riktningar(SLUG, ['k01', 'k02'])
         (self.u / SLUG / 'atelje' / 'STATUS.json').write_text(json.dumps({'slug': SLUG, 'steg': 'band', 'kandidatflode': True, 'klar': '2026-10-13T08:00:00Z',
                                                                           'kandidater': {'k01': 'planerad', 'k02': 'planerad'}}))
-        for beslut, extra in (('valj', {}), ('uppdrag', {'uppdrag': {'typ': 'ratta', 'resultat': 'r', 'omfattning': 'o', 'bevara': 'b'}}),
-                              ('jamfor', {})):
+        for beslut, extra in (('jamfor', {}), ('putsa', {})):
             with self.assertRaisesRegex(ValueError, 'enda skrivaren'):
                 atelje.doma(SLUG, 'ägaren', beslut, 'en dom i provet', kandidater=[{'id': 'k01', 'version': 'v' * 12}], **extra)
+        with self.assertRaisesRegex(ValueError, 'k07'):
+            atelje.doma(SLUG, 'ägaren', 'valj', 'en riktning som inte finns', kandidater=[{'id': 'k07'}])
         self.assertFalse((self.u / SLUG / skapande.DOMLOGG).exists(), 'ingen dom skrevs')
+        atelje.doma(SLUG, 'ägaren', 'valj', 'Jag väljer k02.', kandidater=[{'id': 'k02'}])
+        atelje.doma(SLUG, 'ägaren', 'uppdrag', 'Rätta menyn.', kandidater=[{'id': 'k02'}],
+                    uppdrag={'typ': 'ratta', 'resultat': 'menyn öppnar', 'omfattning': 'sidhuvudet', 'bevara': 'resten'})
+        domar = [json.loads(x) for x in (self.u / SLUG / skapande.DOMLOGG).read_text().splitlines()]
+        self.assertEqual([(d['beslut'], [k['id'] for k in d['kandidater']]) for d in domar], [('valj', ['k02']), ('uppdrag', ['k02'])])
         vald, skal = prototyp.lage(SLUG)
         self.assertEqual(vald, 'stopp')
         self.assertIn('enda skrivaren', skal)
@@ -1289,16 +1298,44 @@ class M_Drivaren(Grund):
         self.assertEqual(s['properties']['val']['properties']['riktning']['enum'], ['k01', 'k02', 'k03'])
         self.assertNotIn('val', df.SVAR_SCHEMA['required'], 'de andra passens schema är oförändrat')
 
+    def bandets_status(self):
+        (self.u / SLUG / 'atelje').mkdir(parents=True, exist_ok=True)
+        (self.u / SLUG / 'atelje' / 'STATUS.json').write_text(json.dumps({'slug': SLUG, 'steg': 'band', 'kandidatflode': True,
+                                                                          'klar': '2026-10-13T08:00:00Z'}))
+
     def test_agarens_val_efter_starten_gar_fore(self):
+        """Ägarens val i arbetsytan eller med skapande.py dom går genom atelje.doma (andra granskningen, fynd 2: provet
+        skrev förut direkt i domloggen och passerade av fel skäl)."""
+        self.bandets_status()
         df.logga(SLUG, start='2026-01-01T00:00:00Z')
-        skapande.lagg_till_dom(SLUG, 'ägaren', 'valj', 'Jag väljer riktningen k03.', underlag=self.u,
-                               kandidater=[{'id': 'k03', 'version': 'v' * 12}])
+        atelje.doma(SLUG, 'ägaren', 'valj', 'Jag väljer riktningen k03.', kandidater=[{'id': 'k03'}])
         k = df.kor(SLUG)
         self.assertEqual(k['steg'], 'vantar_pa_sigillet', k.get('skal'))
         val = df.designfas(SLUG)['val']
         self.assertEqual((val['riktning'], val['kalla']), ('k03', 'ägaren'))
         self.assertIn('station k03 typografi', self.anrop())
         self.assertFalse([x for x in (self.u / SLUG / skapande.DOMLOGG).read_text().splitlines() if 'jämförelsen' in x])
+
+    def test_agarens_uppdrag_stoppar_drivaren(self):
+        self.bandets_status()
+        df.logga(SLUG, start='2026-01-01T00:00:00Z')
+        atelje.doma(SLUG, 'ägaren', 'uppdrag', 'Rätta menyn i k01.', kandidater=[{'id': 'k01'}],
+                    uppdrag={'typ': 'ratta', 'resultat': 'menyn öppnar', 'omfattning': 'sidhuvudet', 'bevara': 'resten'})
+        k = df.kor(SLUG)
+        self.assertEqual(k['steg'], 'stoppad')
+        self.assertIn('uppdrag', k['skal'])
+
+    def test_agarens_val_efter_jamforelsens_tar_over(self):
+        """Ägarens val som kommer efter jämförelsens tar den riktningen vidare."""
+        self.bandets_status()
+        self.assertEqual(df.kor(SLUG)['steg'], 'vantar_pa_sigillet')
+        self.assertEqual(df.designfas(SLUG)['val']['riktning'], 'k02')
+        atelje.doma(SLUG, 'ägaren', 'valj', 'Nej, k01 ska vidare.', kandidater=[{'id': 'k01'}])
+        df.logga(SLUG, steg='vantar_pa_sigillet')
+        df.kor(SLUG)
+        val = df.designfas(SLUG)['val']
+        self.assertEqual((val['riktning'], val['kalla']), ('k01', 'ägaren'))
+        self.assertIn('station k01 typografi', self.anrop())
 
     def test_kandidatflodet_och_prototyp_startar_drivaren(self):
         startade = []

@@ -267,6 +267,21 @@ def riktningar_i_arbete(slug, underlag=None):
     return bool(isinstance(d, dict) and d.get('aktiv') and d.get('lage', 'astro') == 'astro' and d.get('riktningar'))
 
 
+def prova_val_i_bandet(slug, kandidater, underlag=None):
+    """Ägarens eller kundens val eller uppdrag på riktningar i bandet (atelje.doma): varje id är en registrerad riktning,
+    och versionen är riktningens senaste. Ger kandidaterna till domen; ValueError annars."""
+    rk = (designfas(slug, underlag).get('riktningar') or {}) if aktiv(slug, underlag) else {}
+    if not isinstance(kandidater, list) or not kandidater:
+        raise ValueError('välj en riktning i bandet (%s)' % (', '.join(rk) or 'inga riktningar'))
+    ut = []
+    for k in kandidater:
+        rid = str((k or {}).get('id') if isinstance(k, dict) else k or '').strip().lower()
+        if rid not in rk:
+            raise ValueError('%s är ingen riktning i bandet (%s)' % (rid[:20], ', '.join(rk) or 'inga riktningar'))
+        ut.append({'id': rid, 'version': senaste_av(slug, rid, underlag), 'bandet': True})
+    return ut
+
+
 def i_bandet(slug):
     """Beskedet när ett val, en förfining eller ett uppdrag i Code möter riktningar i bandet (ateljén, prototyp, domen)."""
     return BANDET % (slug, slug, slug)
@@ -1827,6 +1842,7 @@ def kor_riktning(slug, rid, stationerna, underlag=None):
     for sid in stationerna:
         if station_klar(slug, rid, sid, underlag):
             continue
+        folj_agaren(slug, korning(slug, underlag).get('start'), underlag)
         kor_station(slug, rid, sid, underlag)
 
 
@@ -1858,23 +1874,32 @@ def agarens_beslut_efter(slug, start, underlag=None):
     return dom if dom and dom.get('tid', '') > (start or '') and dom.get('beslut') in ('valj', 'uppdrag') else None
 
 
+def folj_agaren(slug, start, underlag=None):
+    """Ett uppdrag från ägaren (eller kunden) efter körningens start stoppar drivaren: han har tagit över riktningen."""
+    ag = agarens_beslut_efter(slug, start, underlag)
+    if ag and ag.get('beslut') == 'uppdrag':
+        raise Stoppad('ägaren gav ett uppdrag efter körningens start (%s): drivaren väntar på hans beslut' % ag['tid'])
+
+
 def registrera_val(slug, start, b, underlag=None):
     """Valet: ägarens eget val efter körningens start, annars jämförelsens (fältet val i svaret), i DESIGNFAS.json och,
     för jämförelsens, i domloggen med källan jämförelsen, aldrig ägaren. Ett uppdrag från ägaren stoppar drivaren."""
     import skapande
     d = designfas(slug, underlag)
-    if (d.get('val') or {}).get('riktning'):
-        return d['val']
+    folj_agaren(slug, start, underlag)
     ag = agarens_beslut_efter(slug, start, underlag)
-    if ag and ag.get('beslut') == 'uppdrag':
-        raise Stoppad('ägaren gav ett uppdrag efter körningens start (%s): drivaren väntar på hans beslut' % ag['tid'])
-    if ag:
+    if ag:  # ägarens eget val går före jämförelsens, också när jämförelsen redan valt
         valda = [x.get('id') for x in ag.get('kandidater') or [] if isinstance(x, dict) and x.get('id') in (d.get('riktningar') or {})]
         if valda:
             val = {'riktning': valda[0], 'kalla': 'ägaren', 'tid': ag['tid'], 'skal': 'ägarens val i domloggen'}
-            d['val'] = val
-            skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
-            return val
+            if (d.get('val') or {}).get('riktning') != val['riktning'] or (d.get('val') or {}).get('kalla') != 'ägaren':
+                d['val'] = val
+                skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+            return d['val']
+    if (d.get('val') or {}).get('riktning'):
+        return d['val']
+    if b is None:
+        raise Stoppad('ingen jämförelse att välja ur')
     so = (las(rot(slug, underlag) / 'svar' / b['id'] / 'SVAR.json') or {}).get('svar') or {}
     rid = jamforelsens_val(slug, b, underlag)
     if not rid:
@@ -1974,17 +1999,18 @@ def _kor(slug, rk, start, underlag, cf):
             raise Stoppad('jämförelsen gav inget giltigt val bland riktningarna efter %d försök (senast %s)' % (
                 MAX_FORSOK_STATION, (b or {}).get('id')))
     logga(slug, underlag, steg='val')
-    val = registrera_val(slug, start, b, underlag) if b else {'riktning': rk[0], 'kalla': 'ensam riktning', 'tid': nu()}
-    if not b:
+    if not b and not (designfas(slug, underlag).get('val') or {}).get('riktning'):
         d = designfas(slug, underlag)
-        d['val'] = val
+        d['val'] = {'riktning': rk[0], 'kalla': 'ensam riktning', 'tid': nu()}
         skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+    val = registrera_val(slug, start, b, underlag)
     rid = val['riktning']
     logga(slug, underlag, val=val, steg='efter_valet', skal='den valda riktningen %s går stationerna efter valet' % rid)
     kor_riktning(slug, rid, efter_valet(), underlag)
     v = senaste_av(slug, rid, underlag)
     kor_pass(slug, 'kritik', v, rid, 'Kritik av den valda riktningens sista version som en besökare ser den, före godkännandet', underlag,
              station_='kritik')
+    folj_agaren(slug, start, underlag)
     logga(slug, underlag, steg='godkannande', skal='%s av %s till sigillet' % (v, rid))
     auto = globals().get('autogodkann')
     if not callable(auto):
