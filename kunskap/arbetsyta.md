@@ -12,6 +12,8 @@ kompletta arbetsplatsen. Arbetet: `backlog/B-20261009-visuella-arbetsytan-samtal
 ./dashboard.sh start [kund]         # tjänsten i bakgrunden om den inte kör, sedan arbetsytan; startar inget arbete
 ./dashboard.sh arbetsyta [kund]     # som förut: dashboarden i terminalen (Ctrl-C stoppar) och arbetsytan
 ./dashboard.sh genvag               # engångsinstallation: Mac-appen ~/Applications/Nortropic arbetsyta.app (anropar start)
+./dashboard.sh stop                 # stoppar den här utcheckningens server på porten, aldrig en annan utchecknings
+./dashboard.sh restart              # stop och start i bakgrunden utan webbläsaren, till exempel efter en merge
 ```
 
 Ägarens vanliga väg in är Nortropic.app (`kunskap/desktop.md`): samma arbetsyta i appens eget fönster, inne i portalens

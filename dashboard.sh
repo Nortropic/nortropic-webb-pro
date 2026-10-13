@@ -5,6 +5,8 @@
 #                                     inga modellsessioner (Mac-appen Nortropic arbetsyta anropar den)
 #   ./dashboard.sh genvag             skapar Mac-appen ~/Applications/Nortropic arbetsyta.app (engångsinstallation, bara
 #                                     från huvudutcheckningen: appen pekar på den utcheckning där genvägen skapades)
+#   ./dashboard.sh stop               stoppar den här utcheckningens server på porten (aldrig en annan utchecknings)
+#   ./dashboard.sh restart            stop och sedan start i bakgrunden, utan att öppna webbläsaren (efter en merge)
 ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 HUVUD="$(cd "$HOME/nortropic-repos/nortropic-webb-pro" 2>/dev/null && pwd -P)"
 PORT="${NWP_DASHBOARD_PORT:-4771}"
@@ -29,6 +31,32 @@ fi
 if ! command -v claude >/dev/null 2>&1 || ! command -v node >/dev/null 2>&1; then
   P="$(/bin/zsh -lc 'printf %s "$PATH"' 2>/dev/null)"
   [ -n "$P" ] && export PATH="$P:$PATH"
+fi
+# stop och restart (ägarens besked 2026-10-13: driften utan ägaren): bara den server på porten vars kommandorad är den här
+# utcheckningens dashboard/server.py stoppas; svarar porten men är någon annans görs ingenting.
+if [ "${1:-}" = "stop" ] || [ "${1:-}" = "restart" ]; then
+  HANDLING="$1"
+  PIDS=""
+  for P in $(lsof -nP -t -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null); do
+    case "$(ps -o command= -p "$P" 2>/dev/null)" in
+      *"$ROOT/dashboard/server.py --port $PORT"*) PIDS="$PIDS $P" ;;
+    esac
+  done
+  if [ -z "$PIDS" ] && curl -fs -o /dev/null "$URL/api/oversikt"; then
+    echo "porten $PORT svarar, men servern är inte $ROOT/dashboard/server.py; inget stoppat" >&2; exit 1
+  fi
+  if [ -n "$PIDS" ]; then
+    kill $PIDS 2>/dev/null
+    for _ in $(seq 1 20); do curl -fs -o /dev/null "$URL/api/oversikt" || break; sleep 0.5; done
+    if curl -fs -o /dev/null "$URL/api/oversikt"; then
+      kill -9 $PIDS 2>/dev/null
+      for _ in $(seq 1 10); do curl -fs -o /dev/null "$URL/api/oversikt" || break; sleep 0.5; done
+    fi
+    if curl -fs -o /dev/null "$URL/api/oversikt"; then echo "dashboarden på $URL stoppade inte (pid$PIDS)" >&2; exit 1; fi
+  fi
+  if [ "$HANDLING" = stop ]; then echo "Dashboarden stoppad${PIDS:+ (pid$PIDS)}"; exit 0; fi
+  export NWP_UTAN_OPPNA=1  # omstarten öppnar ingen webbläsare; ägarens sida laddar om med samma nyckel ur nyckelfilen
+  set -- start "${2:-}"
 fi
 if [ "${1:-}" = "start" ]; then BAKGRUND=1; set -- arbetsyta "${2:-}"; fi
 if [ "${1:-}" = "arbetsyta" ]; then
