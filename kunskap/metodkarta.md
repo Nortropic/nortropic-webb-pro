@@ -628,7 +628,7 @@ search_picker: ingen uppgift — ett interaktivt urvalsverktyg för en människa
 get_profile: ingen uppgift — profilen på 21st.dev är ägarens konto och ändras aldrig av flödets sessioner; prövat 2026-10-08
 edit_profile: ingen uppgift — profilen på 21st.dev är ägarens konto och ändras aldrig av flödets sessioner; prövat 2026-10-08
 upload_profile_media: ingen uppgift — profilen på 21st.dev är ägarens konto och ändras aldrig av flödets sessioner; prövat 2026-10-08
-get_usage: ingen uppgift — kvoten och `aiGenerationEnabled` läses av ägaren; ingen kod läser dem i dag, och att startkvittot och underhållet gör det är lyft till ägaren tillsammans med 21st-genereringen; prövat 2026-10-12
+get_usage: ingen uppgift — kvoten och `aiGenerationEnabled` läses av ägaren; ingen kod läser dem i dag, och 21st-genereringen förs inte in (ägarens beslut 2026-10-13); prövat 2026-10-12
 bookmark: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
 create_bookmark_list: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
 add_to_list: ingen uppgift — bokmärken och listor är kontots egna; flödets urval skrivs i RIKTNING.md med källa och licens; prövat 2026-10-08
@@ -1332,7 +1332,7 @@ fil:emil-animate-expo/* | emilkowalski/skills | ingen | skäl: React Native och 
 fil:emil-ask-sonner/* | emilkowalski/skills | ingen | skäl: Sonners API; Sonner finns inte i låset och formulärets bekräftelse är en tacksida | ingen uppgift
 fil:gsap/gsap-* | greensock/gsap-skills | Code | flöden: helbygge; nås genom gsap/SKILL.md när ett beteende kräver dem: plugins och verktyg; gsap-react bara med en React-ö; gsap-frameworks (Vue, Svelte) används inte | uppslag; oprövat
 fil:motion/codex/* | motiondivision/ai-kit | Code | flöden: helbygge; bruksanvisningen för Motions sökning (search-motion-docs) före en icke-trivial animation | uppslag; Motion-servern saknades i inventeringens session
-fil:motion/performance-audit/* | motiondivision/ai-kit | Code | flöden: helbygge, granskning; MotionScore graderar rörelsens kostnad i renderingen | uppslag; oprövat
+fil:motion/performance-audit/* | motiondivision/ai-kit | ingen | skäl: MotionScore-metoden (motion://skills/performance-audit) och granskningarnas historik finns bara på Motion+-servern, och Motion+ förs inte in (ägarens beslut 2026-10-13); index.md säger själv att ingen gradering görs utan den. Rörelsens kostnad bedöms enligt Avgörandet Rörelserådets räckvidd (ändrade egenskaper; layout, paint och compositing mäts vid relevant risk) | ingen uppgift: Motion+ (betalt)
 fil:motion/css-spring/* | motiondivision/ai-kit | ingen | skäl: beskriver verktyget generate-css-easing, som är Motion+ (betalt) och aldrig finns på den fria servern; samma fjädrar ger `spring()` ur motion vid bygget (`kunskap/beroenden.md`, Motion) | ingen uppgift: Motion+ (betalt)
 fil:motion/transition-preview/* | motiondivision/ai-kit | ingen | skäl: förhandsvisning av en övergångs känsla i Motions verktyg; duken och rendera.mjs visar övergångarna | ingen uppgift
 fil:motion/best-practices/* | motiondivision/ai-kit | båda | flöden: band, specialistpass, helbygge; css-or-motion.md, index.md och motion.md har stationen rorelse; base-ui.md och vue.md används inte (varken Base UI eller Vue i mallen) | delvis i stationen
