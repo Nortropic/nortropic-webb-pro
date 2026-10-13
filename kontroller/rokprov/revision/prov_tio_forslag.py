@@ -163,6 +163,26 @@ class RenDesignstart(unittest.TestCase):
         skriv(self.rot / 'LARDOMAR.md', '# Lärdomar\n\n## L1 · 2026-10-02 · kund-a\n')
         self.assertIn('domar från före brytpunkten i LARDOMAR.md', [f['vad'] for f in rd.prova(self.rot)])
 
+    def test_vakten_slapper_mallens_config_med_sajtens_doman(self):
+        # drift 2026-10-13: Navets nya sajt ur mallen fick samma astro.config.mjs (mallens fil med site satt av ny_sajt.py)
+        # som den arkiverade sajten; den är mallens fil, inte återkommet material. En annan config prövas som förut.
+        mallconf = "export default {\n  site: 'https://ERSATT-MED-DOMAN.se',\n  output: 'static',\n};\n"
+        sajtconf = mallconf.replace('https://ERSATT-MED-DOMAN.se', 'https://kund-a.example')
+        skriv(self.rot / 'mall' / 'astro' / 'astro.config.mjs', mallconf)
+        skriv(self.rot / 'kunder' / 'kund-a' / 'sajt' / 'astro.config.mjs', sajtconf)
+        rd.arkivera(self.rot, self.arkiv)
+        (self.rot / 'kunskap/visuell-niva.md').unlink()
+        skriv(self.rot / 'LARDOMAR.md', '# Lärdomar\n')
+        ny = self.rot / 'kunder' / 'kund-a' / 'sajt' / 'astro.config.mjs'
+        skriv(ny, sajtconf)  # ny_sajt.py skapar sajten igen ur samma mall och med samma domän
+        self.assertEqual(rd.prova(self.rot), [], 'mallens config med sajtens domän är inget återkommet material')
+        self.assertTrue(rd.ur_mallen(self.rot / 'mall' / 'astro' / 'astro.config.mjs', ny))
+        skriv(ny, sajtconf.replace("output: 'static'", "output: 'server'"))
+        self.assertFalse(rd.ur_mallen(self.rot / 'mall' / 'astro' / 'astro.config.mjs', ny), 'en ändrad config är inte mallens')
+        gammal = self.arkiv / 'kunder/kund-a/sajt/src/pages/index.astro'
+        skriv(self.rot / 'kunder' / 'kund-a' / 'sajt' / 'src' / 'pages' / 'index.astro', gammal.read_bytes())
+        self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)])
+
     def test_vakten_slapper_forberedelsens_kopia_av_kundens_arbetsfiler(self):
         # drift 2026-10-12: Navets andra förberedelse stoppades av den förstas fore/, kundens brief byte för byte lika med
         # en äldre förberedelses kopia i den arkiverade ateljén

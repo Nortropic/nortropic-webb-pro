@@ -65,7 +65,9 @@ samma sha256 som en arkiverad fil (utom mallens egna filer och node_modules); de
 inne i repot och en spårad fil i sin gamla version. Förberedelsens kopia av kundens arbetsfiler (`paket/fore/`, med den
 sha256 som förberedelsens kvitto registrerade i `arbetsunderlag_fore`) är kundens underlag och räknas inte: arbetsfilerna
 stod kvar vid brytpunkten, så en äldre förberedelses kopia i den arkiverade ateljén har samma innehåll (drift 2026-10-12,
-Navets andra förberedelse). `kontroller/styrning.py` fäller de ersatta reglerna i agenternas
+Navets andra förberedelse). I en kundsajt räknas också mallens fil med `ny_sajt.py`:s enda ändring (`site` satt till
+verksamhetens domän) som mallens: en ny sajt ur samma mall och med samma domän får samma `astro.config.mjs` som den
+arkiverade (drift 2026-10-13, Navets sajt). `kontroller/styrning.py` fäller de ersatta reglerna i agenternas
 texter (minimiantalet varv, nivåfilen, ett val som startar fördjupningen).
 
 ## Kalibreringen efter brytpunkten

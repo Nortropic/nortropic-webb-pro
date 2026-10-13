@@ -366,9 +366,26 @@ def forberedelsernas_fore(root):
     return ut
 
 
+MALLENS_PLATS = 'https://ERSATT-MED-DOMAN.se'  # mall/astro/astro.config.mjs; ny_sajt.py byter den mot verksamhetens domän
+
+
+def ur_mallen(mallfil, fil):
+    """Är fil mallens fil med ny_sajt.py:s enda ändring, site satt till en domän? En ny sajt ur mallen får då samma
+    astro.config.mjs som en arkiverad sajt med samma domän, och det är mallens fil, inte återkommet designmaterial
+    (drift 2026-10-13, Navets sajt). Allt annat prövas som förut."""
+    try:
+        mt, ft = Path(mallfil).read_text(encoding='utf-8'), Path(fil).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return False
+    if MALLENS_PLATS not in mt:
+        return False
+    return any(mt.replace(MALLENS_PLATS, u) == ft for u in set(re.findall(r'https://[A-Za-z0-9.-]+', ft)))
+
+
 def prova(root=None):
     """Vakten: fynd när arkiverat material kommit tillbaka i den aktiva miljön. En post som finns igen räknas bara när den
-    innehåller en fil med samma sha256 som en arkiverad fil (utom mallens egna filer, node_modules och förberedelsens
+    innehåller en fil med samma sha256 som en arkiverad fil (utom mallens egna filer och mallens filer med ny_sajt.py:s
+    enda ändring i en sajt, ur_mallen, node_modules och förberedelsens
     kopia av kundens arbetsfiler med den sha256 som kvittot registrerade, forberedelsernas_fore), eller när den
     skapats före brytpunkten; en ny körnings sajt ur mallen är nytt material. Dessutom: inga länkar in i arkivet, inget
     arkiv inne i repot, ingen kalibrering eller visuell-niva.md, och LARDOMAR.md utan domar från före brytpunkten."""
@@ -419,6 +436,8 @@ def prova(root=None):
                 continue
             if h in hashar and h not in mall:
                 if rel and kundkopior.get('%s/%s' % (p['sokvag'], rel)) == h:
+                    continue
+                if rel and str(p['sokvag']).endswith('/sajt') and ur_mallen(mrot / rel, k / rel):
                     continue
                 ut.append({'vad': 'arkiverat material har kommit tillbaka', 'detalj': '%s/%s' % (p['sokvag'], rel)})
                 break
