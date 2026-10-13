@@ -183,6 +183,36 @@ class RenDesignstart(unittest.TestCase):
         skriv(self.rot / 'kunder' / 'kund-a' / 'sajt' / 'src' / 'pages' / 'index.astro', gammal.read_bytes())
         self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)])
 
+    def test_vakten_slapper_kundens_bilder_metodtexter_och_ny_research(self):
+        # drift 2026-10-13: Navets fortsättning efter researchen stoppades av 74 filer med arkiverade sha256: kundens egna
+        # bilder kopierade till sajten, metodtexterna som metod.py skriver i varje körning, och dagens hämtningar i
+        # referenserna (tjänsternas bilder, referenspaketets svep) som var byte för byte lika med äldre hämtningar
+        u, k = self.rot / 'underlag' / 'kund-a', self.rot / 'kunder' / 'kund-a'
+        skriv(k / 'sajt' / 'src' / 'assets' / 'atelje' / 'verkstad.jpg', b'JPEG-kundens-egen')
+        skriv(u / 'atelje' / 'metod' / 'METOD-skapa.md', '# Metoden: Skapa\nutdrag ur kunskap/\n')
+        skriv(u / 'referenser' / 'tjanster' / 'refero' / 'bilder-2026-10-01T000000Z' / 'a.png', b'PNG-refero-skarm')
+        skriv(u / 'referenser' / 'paket-v01' / 'sajt-x' / '01-start' / 'SVEP.json', '{"bredder": []}')
+        rd.arkivera(self.rot, self.arkiv)
+        (self.rot / 'kunskap/visuell-niva.md').unlink()
+        skriv(self.rot / 'LARDOMAR.md', '# Lärdomar\n')
+        skriv(k / 'sajt' / 'src' / 'assets' / 'atelje' / 'verkstad.jpg', b'JPEG-kundens-egen')  # kundens bild, kopierad igen
+        skriv(u / 'atelje' / 'metod' / 'METOD-skapa.md', '# Metoden: Skapa\nutdrag ur kunskap/\n')  # metod.py skriver om den
+        skriv(u / 'referenser' / 'tjanster' / 'refero' / 'bilder-2099-01-01T000000Z' / 'a.png', b'PNG-refero-skarm')
+        skriv(u / 'referenser' / 'paket-v02' / 'PAKET.json', '{"tid": "2099-01-01T00:00:00Z"}')
+        skriv(u / 'referenser' / 'paket-v02' / 'sajt-x' / '01-start' / 'SVEP.json', '{"bredder": []}')
+        self.assertEqual(rd.prova(self.rot), [], 'kundens bilder, metodtexterna och en ny körnings hämtningar är inget återkommet material')
+        gammal = u / 'referenser' / 'tjanster' / 'refero' / 'bilder-2000-01-01T000000Z' / 'a.png'  # en hämtning från före brytpunkten
+        skriv(gammal, b'PNG-refero-skarm')
+        self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)])
+        gammal.unlink()
+        skriv(u / 'referenser' / 'paket-v03' / 'PAKET.json', '{"tid": "2000-01-01T00:00:00Z"}')
+        skriv(u / 'referenser' / 'paket-v03' / 'sajt-x' / '01-start' / 'SVEP.json', '{"bredder": []}')
+        self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)], 'ett paket utan ny tid prövas som förut')
+        (u / 'referenser' / 'paket-v03' / 'PAKET.json').unlink()
+        (u / 'referenser' / 'paket-v03' / 'sajt-x' / '01-start' / 'SVEP.json').unlink()
+        skriv(k / 'sajt' / 'src' / 'pages' / 'index.astro', '<h1>gammal genererad sida</h1>')  # verkligt återkommet designmaterial
+        self.assertIn('arkiverat material har kommit tillbaka', [f['vad'] for f in rd.prova(self.rot)])
+
     def test_vakten_slapper_forberedelsens_kopia_av_kundens_arbetsfiler(self):
         # drift 2026-10-12: Navets andra förberedelse stoppades av den förstas fore/, kundens brief byte för byte lika med
         # en äldre förberedelses kopia i den arkiverade ateljén

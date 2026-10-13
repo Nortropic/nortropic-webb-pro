@@ -67,7 +67,12 @@ sha256 som förberedelsens kvitto registrerade i `arbetsunderlag_fore`) är kund
 stod kvar vid brytpunkten, så en äldre förberedelses kopia i den arkiverade ateljén har samma innehåll (drift 2026-10-12,
 Navets andra förberedelse). I en kundsajt räknas också mallens fil med `ny_sajt.py`:s enda ändring (`site` satt till
 verksamhetens domän) som mallens: en ny sajt ur samma mall och med samma domän får samma `astro.config.mjs` som den
-arkiverade (drift 2026-10-13, Navets sajt). `kontroller/styrning.py` fäller de ersatta reglerna i agenternas
+arkiverade (drift 2026-10-13, Navets sajt). Tre slag till räknas inte (drift 2026-10-13, Navets fortsättning efter
+researchen): en kopia av kundens originalbild (samma sha256 som en fil i `underlag/<slug>/bilder/`), metodtexterna
+`atelje/metod/METOD-*.md` som `metod.py` skriver ur `kunskap/` i varje körning, och en körnings egna hämtningar i
+kundens referenser efter brytpunkten (tjänsternas kataloger med körningens tid, `referenser/tjanster/<tjänst>/<slag>-<tid>/`,
+och referenspaket vars `PAKET.json` har en tid efter brytpunkten): samma källa ger samma byte. En hämtning eller ett
+paket från före brytpunkten prövas som förut. `kontroller/styrning.py` fäller de ersatta reglerna i agenternas
 texter (minimiantalet varv, nivåfilen, ett val som startar fördjupningen).
 
 ## Kalibreringen efter brytpunkten

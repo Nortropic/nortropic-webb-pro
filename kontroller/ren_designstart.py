@@ -382,11 +382,49 @@ def ur_mallen(mallfil, fil):
     return any(mt.replace(MALLENS_PLATS, u) == ft for u in set(re.findall(r'https://[A-Za-z0-9.-]+', ft)))
 
 
+def kundens_original(root):
+    """sha256 för kundernas originalmaterial (underlag/<slug>/bilder/, bevarat vid den rena designstarten). En kopia av
+    kundens egen bild i en ny sajt eller ett nytt projekt är kundens material, inte återkommet designmaterial (drift
+    2026-10-13: Navets sajt fick kundens arbetsbank.jpg och nio bilder till)."""
+    ut = set()
+    for b in sorted(Path(root, 'underlag').glob('*/bilder')):
+        if b.is_symlink() or not b.is_dir():
+            continue
+        for r, ds, fs in os.walk(b):
+            ut.update(sha256(Path(r) / n) for n in fs if not os.path.islink(os.path.join(r, n)))
+    return ut
+
+
+METODTEXT = re.compile(r'underlag/[^/]+/atelje/metod/METOD-[^/]+\.md')  # metod.py skriver dem ur kunskap/ i varje körning
+
+
+def ny_forskning(root, vag, bryt):
+    """Är vag (relativ till root) en körnings egen hämtning i kundens referenser efter brytpunkten? Tjänsternas bilder och
+    svar ligger i kataloger med körningens tid (referenser/tjanster/<tjänst>/<slag>-<tid>/), och referenspaketet bär sin
+    tid i PAKET.json (referenser/paket-vNN/). En ny hämtning ur samma källa ger samma byte som en arkiverad hämtning
+    när källan inte ändrats; det är dagens research, inte återkommet designmaterial (drift 2026-10-13, Navets research)."""
+    d = Path(vag).parts
+    if len(d) < 5 or d[0] != 'underlag' or d[2] != 'referenser':
+        return False
+    if d[3] == 'tjanster' and len(d) >= 7:
+        m = re.search(r'-(\d{4}-\d{2}-\d{2})T(\d{2})(\d{2})(\d{2})Z$', d[5])
+        return bool(m) and '%sT%s:%s:%sZ' % m.groups() >= bryt
+    if re.fullmatch(r'paket-v\d+', d[3]):
+        try:
+            tid = json.loads((Path(root) / d[0] / d[1] / d[2] / d[3] / 'PAKET.json').read_text(encoding='utf-8')).get('tid')
+        except (OSError, ValueError, AttributeError):
+            return False
+        return isinstance(tid, str) and tid >= bryt
+    return False
+
+
 def prova(root=None):
     """Vakten: fynd när arkiverat material kommit tillbaka i den aktiva miljön. En post som finns igen räknas bara när den
     innehåller en fil med samma sha256 som en arkiverad fil (utom mallens egna filer och mallens filer med ny_sajt.py:s
-    enda ändring i en sajt, ur_mallen, node_modules och förberedelsens
-    kopia av kundens arbetsfiler med den sha256 som kvittot registrerade, forberedelsernas_fore), eller när den
+    enda ändring i en sajt, ur_mallen, node_modules, förberedelsens
+    kopia av kundens arbetsfiler med den sha256 som kvittot registrerade, forberedelsernas_fore, kopior av kundens
+    originalbilder, kundens_original, metodtexterna som metod.py skriver i varje körning, METODTEXT, och en körnings egna
+    hämtningar i kundens referenser efter brytpunkten, ny_forskning), eller när den
     skapats före brytpunkten; en ny körnings sajt ur mallen är nytt material. Dessutom: inga länkar in i arkivet, inget
     arkiv inne i repot, ingen kalibrering eller visuell-niva.md, och LARDOMAR.md utan domar från före brytpunkten."""
     root = Path(root or ROOT)
@@ -415,6 +453,7 @@ def prova(root=None):
             mall.update(sha256(Path(r) / n) for n in fs if not os.path.islink(os.path.join(r, n)))
     bryt = reg.get('brytpunkt') or ''
     kundkopior = forberedelsernas_fore(root)
+    original = kundens_original(root)
     for p in reg.get('poster') or []:
         if p.get('fel') or not p.get('verifierad') or str(p.get('sokvag', '')).startswith(('tmp/', 'git/')):
             continue
@@ -438,6 +477,9 @@ def prova(root=None):
                 if rel and kundkopior.get('%s/%s' % (p['sokvag'], rel)) == h:
                     continue
                 if rel and str(p['sokvag']).endswith('/sajt') and ur_mallen(mrot / rel, k / rel):
+                    continue
+                full = '%s/%s' % (p['sokvag'], rel) if rel else str(p['sokvag'])
+                if h in original or METODTEXT.fullmatch(full) or (bryt and ny_forskning(root, full, bryt)):
                     continue
                 ut.append({'vad': 'arkiverat material har kommit tillbaka', 'detalj': '%s/%s' % (p['sokvag'], rel)})
                 break
