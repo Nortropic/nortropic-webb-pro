@@ -1,11 +1,15 @@
 # Designfasen i Claude Design
 
+**Pausat sedan ägarens beslut 2026-10-13** (`BESLUT.md`, tillägget 2026-10-13: formgivningen lokalt i Astro): riktningarna
+görs i kundens Astro-projekt (skillen `designfas`, metodkartans band). Texten nedan gäller läget duk, som står kvar men
+nekas utom med `NWP_DESIGNLAGE=duk`; bandets tabell finns i `kunskap/metodkarta.md`, Designfasen: bandet i Astro-projekten.
+
 Ägarens uppdrag 2026-10-12 (ordagrant i `underlag/uppdrag/PROMPT-Nortropic-Claude-Design-konvertering-20261012.md`,
 tillägget om best practice samma dag i `…-tillagg-best-practice-2026-20261012.md`; sammanfattat i `BESLUT.md`):
 formgivningen görs i Claude Design, från kundförståelse och referenser till riktningar, återkoppling, förfining och
 godkänd design; därefter tar Claude Code över helbygget och verifierar leveransen. Nortropics metoder, litteratur,
 skills, tjänster och specialistkompetenser har uppgifter genom hela designarbetet (placeringen:
-`kunskap/metodkarta.md`, Designfasen i Claude Design). Verktyget är `kontroller/designfas.py`; utförarens instruktion är
+`kunskap/metodkarta.md`, Designfasen: bandet i Astro-projekten). Verktyget är `kontroller/designfas.py`; utförarens instruktion är
 skillen `designfas`.
 
 ## Målmiljön

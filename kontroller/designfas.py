@@ -1,31 +1,38 @@
 #!/usr/bin/env python3
-"""designfas.py — designfasen i Claude Design (kunskap/claude-design.md; ägarens uppdrag 2026-10-12, ordagrant i
-underlag/uppdrag/PROMPT-Nortropic-Claude-Design-konvertering-20261012.md). Claude Design formger på en duk (Design-typen,
-en artefakt på claude.ai); en utsedd utförare, en interaktiv Claude Code-session i repot, är den enda som skriver dukens
-versioner. Code gör research, material, specialistbedömningar och kontroller som lämnar underlag, aldrig en egen
-kunddesign. Det här verktyget håller designfasens spår på disken, privat i underlag/<slug>/design/:
+"""designfas.py — designfasens band (ägarens beslut 2026-10-13 i BESLUT.md: formgivningen görs lokalt i Astro; bandet i
+kunskap/metodkarta.md, Bandet: stationerna). Kandidatflödet gör researchen, planen med tre riktningar, planprövningen
+och uppdragsmaterialet och lämnar varje riktning som ett Astro-projekt i kunder/<slug>/kandidater/kNN/sajt
+(kandidater.lamna_till_bandet). Därefter är det här verktyget enda skrivaren av riktningarnas versioner: en utsedd
+utförare, en interaktiv Claude Code-session i repots rot (./design.sh <slug>, skillen designfas), arbetar i projekten och
+sparar varje stations insats som en version. Code gör research, material, specialistbedömningar och kontroller som
+lämnar underlag. Spåret står privat i underlag/<slug>/design/:
 
-    ny <slug> [--kanvas URL] [--release R]      designfasen startar: DESIGNFAS.json; kandidatflödet stannar efter researchen
-    runtime <slug> --fil dc-runtime.js --release R      Design-typens körmiljö för den lokala renderingen (privat kopia)
-    tillgang <slug> --blob ID --fil BILD [--kalla TEXT]  en uppladdad tillgång: dukens /_blob/<id> ↔ den lokala filen
-    version <slug> --fran KATALOG --artifact-version ID --orsak TEXT [--station S --ritning R] [--hoppa S="skäl" …]
-            [--bestallning B001 …] [--av utforaren|agaren]   vNN ur dukens återlästa filer, renderad i 390/768/1440, med
-                                                stationens insats prövad mot förra versionen av ritningen
-    rendera <slug> vNN [--kontroll]             om renderingen (och axe med meny och formulärfel, stilrapporten)
-    station <slug> <station> --ritning R     stationens arbetsinstruktion ur metodkartans band (en station i taget)
-    bestall <slug> --typ T --version vNN --ritning R --uppgift TEXT [--station S] [--material …]   en specialistbeställning BNNN
+    ny <slug>                                   designfasen startar i läget astro: DESIGNFAS.json
+    riktningar <slug> kNN … [--nya]             riktningarna registrerade i bandet (kandidatflödet gör det själv);
+                                                --nya: fler på ägarens begäran, med projekten ur sajten
+    version <slug> --ritning kNN --orsak TEXT [--station S] [--hoppa S="skäl" …] [--paket namn@version …]
+            [--bestallning B001 …] [--av utforaren|agaren]   vNN ur riktningens projekt: paketen vid behov, bygget, källan
+                                                i kalla/, dist i sida/, startsidan och undersidorna renderade i 390/768/1440
+                                                med kontrollerna, och stationens insats prövad mot förra versionen av riktningen
+    rendera <slug> vNN [--kontroll]             om renderingen (och axe med meny och formulärfel, stilrapporten, detektorn)
+    station <slug> <station> --ritning kNN      stationens arbetsinstruktion ur metodkartans band (en station i taget)
+    artefakt <slug> kNN [--url URL --version vNN]   ägarens visning: paketet för riktningens privata artefakt
+                                                (design/artefakt/kNN/ med FILER.json); med --url registreras publiceringen
+    bestall <slug> --typ T --version vNN --ritning kNN|* --uppgift TEXT [--station S] [--material …]   en specialistbeställning
     specialist <slug> BNNN                      kör beställningen som ett pass i repot (rollens kompetensblock, kvitto)
     svar <slug> BNNN --fil SVAR.md --utforare TEXT       ett svar som gjorts på annat sätt (manuell överlämning)
     infor <slug> BNNN --version vNN --bedomning TEXT     beställningens resultat infört i en version, med bedömningen
-    godkann <slug> vNN --ritning R [--text TEXT] ÄGARENS designgodkännande (nekas sessionerna; ägaren kör det själv)
-    overlamna <slug> [--prova]                  överlämningspaketet till helbygget ur den godkända versionen
+    godkann <slug> vNN --ritning kNN [--text TEXT]   ÄGARENS designgodkännande (nekas sessionerna; ägaren kör det själv)
+    overlamna <slug> [--prova]                  överlämningspaketet till helbygget ur den godkända versionen, med kalla/
     status <slug> · kvitto <slug> --session ID [--pass skapa] · karta --prova · start <slug> [--skriv-bara]
     inventera [--placera]                       förmågorna mot kartan; --placera skriver stationerna, flödena och preliminära
                                                 rader för nya skills och filer (underhållet kör det vid varje skillintag)
 
-Designgodkännande, byggstart och publicering är tre beslut: godkann startar inget, kor.sh tar vid först när ägaren
-startar bygget, och publiceringen är lanseringens eget steg (kunskap/lansering.md). Slutkoder: 0 klart, 1 en kontroll
-föll eller något saknas, 2 fel i anropet.
+Läget duk (Claude Design, kunskap/claude-design.md) står kvar men är pausat: ny --kanvas, runtime, tillgang och
+version --fran nekas utom med NWP_DESIGNLAGE=duk. Designgodkännande, byggstart och publicering är tre beslut: godkann
+startar inget, kor.sh tar vid först när ägaren startar bygget (och lägger den godkända källan i kunder/<slug>/sajt med
+installera_godkand), och publiceringen är lanseringens eget steg (kunskap/lansering.md). Slutkoder: 0 klart, 1 en kontroll
+eller ett bygge föll eller något saknas, 2 fel i anropet.
 """
 import argparse
 import fnmatch
@@ -54,9 +61,20 @@ BEST = re.compile(r'^B(\d{3})$')
 KANVAS = re.compile(r'^https://claude\.ai/(?:code/)?artifact/[A-Za-z0-9-]{10,64}$')
 BREDDER = (390, 768, 1440)
 MATTSTOCK = UNDERLAG / 'niva' / 'MATTSTOCK.md'  # ägarens kvalitetsribba, satt genom Apple/Nike-beskedet (ägarens besked 2026-10-12)
-SPARR = ('designfasen i Claude Design är aktiv för %s (underlag/%s/design/DESIGNFAS.json): Code gör research, material, '
-         'specialistbedömningar och kontroller, men ingen egen kunddesign; skissen, förfiningen och uppdragen görs på duken av '
-         'den utsedda utföraren (kunskap/claude-design.md)')
+LAGEN = ('astro', 'duk')  # astro: riktningarna i kundens Astro-projekt (ägarens beslut 2026-10-13); duk: Claude Design, pausat
+PAUSAT = ('%s hör till läget duk (Claude Design), som är pausat sedan ägarens beslut 2026-10-13 (BESLUT.md, tillägget '
+          '2026-10-13: formgivningen lokalt i Astro): riktningarna görs i kundens Astro-projekt. NWP_DESIGNLAGE=duk släpper '
+          'läget för ett undantag som ägaren beslutat')
+BANDET = ('riktningarna för %s är i designfasens band (underlag/%s/design/DESIGNFAS.json): designfas.py är enda skrivaren av '
+          'deras versioner, och utföraren startas med ./design.sh %s. Ett val, en förfining eller ett uppdrag i Code väntar tills '
+          'bandet är klart; ägaren kommenterar i riktningens artefakt och godkänner med designfas.py godkann')
+KALLFILER = ('package.json', 'package-lock.json', 'astro.config.mjs', 'tsconfig.json', 'components.json', '.npmrc', 'DESIGN.md', 'RIKTNING.md')
+KALLKATALOGER = ('src', 'public')
+MALLSIDOR = ('404.html', 'tack/index.html', 'fel/index.html', 'mottagen/index.html')  # mallens egna sidor (kandidater.MALLSIDOR)
+MAX_SIDOR = 4  # startsidan och högst tre undersidor renderas per version; resten står i versionens ej_renderade
+NPMRC_SAJT = {'ignore-scripts': 'true', 'save-exact': 'true', 'registry': 'https://registry.npmjs.org/'}  # punkt 5, beslutet 2026-10-13
+ARTEFAKT_FILER = 255  # Artifact-verktyget: högst 255 filer per publicering (prövat 2026-10-13)
+ARTEFAKT_BYTE = 15 * 1024 * 1024  # och högst 15 MB per binärfil, 16 MB per sida
 # beställningens typ → specialistpasset (metodkartans kompetensblock: rollen som har passet) och om passet söker på webben
 TYPER = {
     'referenser': ('ds_research', True, 'referenser och förebilder för en uppgift (bransch, visuell inspiration eller implementationsgrund) ur Refero, Mobbin, 21st och webben'),
@@ -94,7 +112,7 @@ SVAR_SCHEMA = {
                                       'licens': {'type': 'string'}, 'kod': {'type': 'string'}}}},
         'begransningar': {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 12},
         'atergang': {'type': 'object', 'additionalProperties': False, 'required': ['till', 'skal'],
-                     'properties': {'till': {'type': 'string', 'enum': ['fortsatt', 'underlag', 'innehall', 'art', 'komposition']},
+                     'properties': {'till': {'type': 'string', 'enum': ['fortsatt', 'underlag', 'innehall', 'art', 'komposition', 'detaljer']},
                                     'skal': {'type': 'string', 'maxLength': 800}}},
         'kompetens': {'type': 'object', 'additionalProperties': False, 'required': ['aktiverade', 'lasta', 'valda'],
                       'properties': {'aktiverade': {'type': 'array', 'items': {'type': 'string'}},
@@ -225,8 +243,8 @@ def rel(p):
 
 
 def aktiv(slug, underlag=None):
-    """Sant när kunden arbetar i Claude Design: kandidatflödet gör då bara researchen (kandidater.kor) och inga
-    skisser, förfiningar eller uppdrag i Code (ateljé och prototyp nekar dem med SPARR)."""
+    """Sant när kunden har en designfas: kandidatflödet lämnar då riktningarna till bandet efter planprövningen
+    (kandidater.lamna_till_bandet), och skaparna i Code startar inte."""
     try:
         d = las(rot(slug, underlag) / 'DESIGNFAS.json')
     except Fel:
@@ -234,22 +252,44 @@ def aktiv(slug, underlag=None):
     return bool(isinstance(d, dict) and d.get('aktiv'))
 
 
-def sparr(slug):
-    return SPARR % (slug, slug)
+def i_bandet(slug):
+    """Beskedet när ett val, en förfining eller ett uppdrag i Code möter riktningar i bandet (ateljén, prototyp, domen)."""
+    return BANDET % (slug, slug, slug)
 
 
 def designfas(slug, underlag=None):
     d = las(rot(slug, underlag) / 'DESIGNFAS.json')
     if not isinstance(d, dict):
-        raise Fel('ingen designfas för %s: starta med designfas.py ny %s --kanvas <url>' % (slug, slug))
+        raise Fel('ingen designfas för %s: starta med designfas.py ny %s' % (slug, slug))
     return d
+
+
+def lage(slug, underlag=None):
+    """Designfasens läge: 'astro' (riktningarna i kundens Astro-projekt) eller 'duk', det pausade läget i Claude Design.
+    En designfas från före beslutet 2026-10-13 saknar fältet och är 'duk' när den har en registrerad duk."""
+    d = designfas(slug, underlag)
+    return d.get('lage') if d.get('lage') in LAGEN else ('duk' if (d.get('kanvas') or {}).get('url') else 'astro')
+
+
+def duk_pausad(vad):
+    """Läget duk är pausat: vad nekas utom med NWP_DESIGNLAGE=duk."""
+    if os.environ.get('NWP_DESIGNLAGE') != 'duk':
+        raise Fel(PAUSAT % vad)
+
+
+def kanvas_url(d):
+    return (d.get('kanvas') or {}).get('url')
 
 
 # ---- start och körmiljö -------------------------------------------------------------------------------------------
 
-def ny(slug, kanvas=None, release=None, underlag=None):
-    """Designfasen startar för kunden, med eller utan duk: utan duk är spärren mot en egen kunddesign i Code på redan
-    innan utföraren skapat duken, och utföraren registrerar dukens adress med samma kommando när den finns."""
+def ny(slug, kanvas=None, release=None, underlag=None, lage_=None):
+    """Designfasen startar för kunden, i läget astro (standard): kandidatflödet lämnar sedan riktningarna till bandet
+    efter planprövningen. Läget duk (en registrerad duk, eller lage_='duk') är pausat och kräver NWP_DESIGNLAGE=duk. En
+    befintlig designfas behåller sitt läge; ett annat läge är ett nytt beslut, och design/ flyttas till historik först."""
+    lage_ = 'duk' if kanvas is not None or lage_ == 'duk' else 'astro'
+    if lage_ == 'duk':
+        duk_pausad('ny --kanvas')
     if kanvas is not None and not KANVAS.match(kanvas):
         raise Fel('dukens adress ska vara en claude.ai-artefakt (https://claude.ai/artifact/<id>): %r' % kanvas)
     u = Path(underlag or UNDERLAG) / slug
@@ -258,20 +298,80 @@ def ny(slug, kanvas=None, release=None, underlag=None):
     r = rot(slug, underlag)
     f = r / 'DESIGNFAS.json'
     gammal = las(f) or {}
-    kanvas = kanvas or (gammal.get('kanvas') or {}).get('url')
-    if (gammal.get('kanvas') or {}).get('url') not in (None, kanvas):
-        raise Fel('designfasen har redan en duk (%s); en ny duk är ett nytt beslut: flytta DESIGNFAS.json till historik först' % gammal['kanvas']['url'])
-    d = {'schema': 1, 'slug': slug, 'aktiv': True, 'skapad': gammal.get('skapad') or nu(),
-         'kanvas': {'url': kanvas, 'typ': DESIGNTYP, 'typ_release': release or gammal.get('kanvas', {}).get('typ_release')},
-         'utforare': 'en interaktiv Claude Code-session i repots rot med skillen designfas (./design.sh %s)' % slug,
+    if gammal and lage(slug, underlag) != lage_:
+        raise Fel('designfasen för %s är i läget %s; ett annat läge är ett nytt beslut: flytta underlag/%s/design/ till historik först'
+                  % (slug, lage(slug, underlag), slug))
+    d = {'schema': 1, 'slug': slug, 'aktiv': True, 'lage': lage_, 'skapad': gammal.get('skapad') or nu(),
          'fiktiv': bool((las(u / 'VERKSAMHET.json') or {}).get('fiktiv'))}
+    if lage_ == 'duk':
+        kanvas = kanvas or kanvas_url(gammal)
+        if kanvas_url(gammal) not in (None, kanvas):
+            raise Fel('designfasen har redan en duk (%s); en ny duk är ett nytt beslut: flytta DESIGNFAS.json till historik först' % gammal['kanvas']['url'])
+        d['kanvas'] = {'url': kanvas, 'typ': DESIGNTYP, 'typ_release': release or gammal.get('kanvas', {}).get('typ_release')}
+        d['utforare'] = 'en interaktiv Claude Code-session i repots rot med skillen designfas (./design.sh %s)' % slug
+    else:
+        d['riktningar'] = gammal.get('riktningar') or {}
+        d['utforare'] = ('en interaktiv Claude Code-session i repots rot med skillen designfas (./design.sh %s), som arbetar i '
+                         'riktningarnas Astro-projekt' % slug)
     skriv(f, d)
-    for k in ('versioner', 'bestallningar', 'svar', 'runtime'):
+    for k in ('versioner', 'bestallningar', 'svar') + (('runtime',) if lage_ == 'duk' else ('riktningar',)):
         (r / k).mkdir(parents=True, exist_ok=True)
     return d
 
 
+def riktningar(slug, ids, underlag=None, titlar=None, nya=False):
+    """Riktningarna registrerade i bandet (kandidater.lamna_till_bandet efter planprövningen): kNN och projektets väg
+    kunder/<slug>/kandidater/kNN/sajt i DESIGNFAS.json, och ett spår per riktning i design/riktningar/kNN/. Därefter är
+    designfas.py enda skrivaren av riktningarnas versioner. nya: fler riktningar på ägarens begäran (två åt gången) får
+    sina projekt ur sajten med kandidatflödets forbered_projekt; deras uppdrag skriver utföraren i RIKTNING.md."""
+    import atelje
+    d = designfas(slug, underlag)
+    if lage(slug, underlag) != 'astro':
+        raise Fel('riktningar registreras i läget astro; designfasen för %s är i läget %s' % (slug, lage(slug, underlag)))
+    rk = d.setdefault('riktningar', {})
+    for kid in ids:
+        if not re.fullmatch(r'k\d{2}', str(kid)):
+            raise Fel('en riktning heter kNN (kandidatens id): %r' % kid)
+        if nya:
+            import kandidater
+            if kid in rk:
+                raise Fel('riktningen %s finns redan i bandet' % kid)
+            try:
+                kandidater.forbered_projekt(slug, kid)
+            except RuntimeError as e:
+                raise Fel('projektet för %s kunde inte förberedas: %s' % (kid, e))
+            kandidater.satt_status(slug, kid, 'planerad', 'i bandet: en riktning till på ägarens begäran; designfasen '
+                                   '(designfas.py) är enda skrivaren', bandet={'tid': nu(), 'fore': None})
+        try:
+            p = atelje.saker_vag(atelje.KUNDER / slug / 'kandidater' / kid / 'sajt', atelje.KUNDER / slug)
+        except RuntimeError as e:
+            raise Fel('riktningens projekt: %s' % e)
+        if not (p / 'package.json').is_file():
+            raise Fel('riktningens projekt saknas: %s (kandidater.forbered_projekt)' % rel(p))
+        forr = rk.get(kid) or {}
+        rk[kid] = {'projekt': rel(p), 'titel': (titlar or {}).get(kid) or forr.get('titel'), 'registrerad': forr.get('registrerad') or nu()}
+        (rot(slug, underlag) / 'riktningar' / kid).mkdir(parents=True, exist_ok=True)
+    skriv(rot(slug, underlag) / 'DESIGNFAS.json', d)
+    return rk
+
+
+def projekt(slug, rid, underlag=None):
+    """Riktningens Astro-projekt ur DESIGNFAS.json, prövat utan länk i vägen under kunder/<slug>/."""
+    import atelje
+    rk = designfas(slug, underlag).get('riktningar') or {}
+    if rid not in rk:
+        raise Fel('riktningen %s finns inte i bandet (riktningarna: %s); kandidatflödet lämnar dem (prototyp.py %s)' % (
+            rid, ', '.join(rk) or 'inga', slug))
+    p = Path(rk[rid]['projekt'])
+    p = p if p.is_absolute() else ROOT / p
+    try:
+        return atelje.saker_vag(p, atelje.KUNDER / slug)
+    except RuntimeError as e:
+        raise Fel('riktningens projekt: %s' % e)
+
+
 def runtime(slug, fil, release, underlag=None):
+    duk_pausad('runtime')
     p = Path(fil)
     if not p.is_file() or p.stat().st_size < 10000:
         raise Fel('körmiljön saknas eller är för liten: %s' % fil)
@@ -305,6 +405,7 @@ MEDIA = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.web
 
 
 def tillgang(slug, blob, fil, kalla='', underlag=None):
+    duk_pausad('tillgang')
     if not re.fullmatch(r'[0-9a-f]{32}', blob or ''):
         raise Fel('ogiltigt blob-id: %r' % blob)
     p = Path(fil).resolve()
@@ -330,12 +431,13 @@ def nasta(slug, underlag=None):
     return 'v%02d' % (int(vs[-1][1:]) + 1 if vs else 1)
 
 
-def version(slug, fran, artifact_version, orsak, bestallningar=(), av='utforaren', bilder=True, underlag=None, station_=None,
-            ritning=None, hoppade=()):
-    """En ny version ur dukens återlästa filer (Artifact read med out_dir: KATALOG/project/canvas.json och ritningarna).
-    Filerna kopieras oförändrade, hashas och renderas; versionen kan inte skrivas om (en ändring blir nästa version). En
-    version från utföraren bär bandets station och riktningens ritning (vilken station gjorde vad), och hoppade stationer
-    med skäl; insatsen prövas i renderingen mot förra versionen av samma ritning, och dukens notering för versionen läses."""
+def version(slug, fran=None, artifact_version=None, orsak='', bestallningar=(), av='utforaren', bilder=True, underlag=None,
+            station_=None, ritning=None, hoppade=(), paket=()):
+    """En ny version i bandet. Läget astro: ur riktningens Astro-projekt (ritning = riktningens id, kNN), med paketen vid
+    behov, bygget, källan i kalla/ och dist i sida/ (_version_projekt). Läget duk, pausat: ur dukens återlästa filer
+    (fran, artifact_version; _version_duk). Versionen kan inte skrivas om (en ändring blir nästa version). En version från
+    utföraren bär bandets station och riktningen (vilken station gjorde vad) och hoppade stationer med skäl; insatsen prövas
+    i renderingen mot förra versionen av samma riktning."""
     d = designfas(slug, underlag)
     if station_:
         station(station_)
@@ -354,6 +456,24 @@ def version(slug, fran, artifact_version, orsak, bestallningar=(), av='utforaren
         raise Fel('en överhoppad station gäller en riktning: ange --ritning')
     if av not in ('utforaren', 'agaren', 'okand'):
         raise Fel('--av är utforaren, agaren eller okand')
+    if not (orsak or '').strip():
+        raise Fel('orsaken saknas: vilken återkoppling eller beställning versionen svarar på')
+    for b in bestallningar:
+        if not (rot(slug, underlag) / 'bestallningar' / ('%s.json' % b)).is_file():
+            raise Fel('beställningen %s finns inte' % b)
+    if lage(slug, underlag) == 'duk' or fran is not None:
+        duk_pausad('version --fran')
+        if lage(slug, underlag) != 'duk':
+            raise Fel('--fran läser en återläst duk; designfasen för %s är i läget astro, där versionen byggs ur riktningens projekt' % slug)
+        return _version_duk(slug, d, fran, artifact_version, orsak, bestallningar, av, bilder, underlag, station_, ritning, hopp)
+    if not ritning:
+        raise Fel('en version gäller en riktning: ange --ritning kNN (riktningarna: %s)' % (', '.join(d.get('riktningar') or {}) or 'inga'))
+    return _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, station_, ritning, hopp, paket)
+
+
+def _version_duk(slug, d, fran, artifact_version, orsak, bestallningar, av, bilder, underlag, station_, ritning, hopp):
+    """En version ur dukens återlästa filer (Artifact read med out_dir: KATALOG/project/canvas.json och ritningarna).
+    Filerna kopieras oförändrade, hashas och renderas, och dukens notering för versionen läses."""
     if not re.fullmatch(r'[0-9]{6,16}-[0-9a-f]{3,8}', str(artifact_version or '')):
         raise Fel('artifact-version ska vara dukens versions-id ur publiceringen (t.ex. 1791822460-0589): %r' % artifact_version)
     if not (orsak or '').strip():
@@ -370,9 +490,6 @@ def version(slug, fran, artifact_version, orsak, bestallningar=(), av='utforaren
         raise Fel('ritningar som indexet nämner saknas (%s), eller ett filnamn duger inte' % ', '.join(saknas))
     if ritning and ritning not in ritningar:
         raise Fel('ritningen %s finns inte på duken' % ritning)
-    for b in bestallningar:
-        if not (rot(slug, underlag) / 'bestallningar' / ('%s.json' % b)).is_file():
-            raise Fel('beställningen %s finns inte' % b)
     vs = versioner(slug, underlag)
     for v_ in vs:  # samma artefaktversion två gånger är samma version: ingen dubblett
         if (las(rot(slug, underlag) / 'versioner' / v_ / 'VERSION.json') or {}).get('artifact_version') == artifact_version:
@@ -411,6 +528,131 @@ def version(slug, fran, artifact_version, orsak, bestallningar=(), av='utforaren
     return post
 
 
+
+class ByggFel(Fel):
+    """Riktningens projekt gick inte att bygga eller paketen inte att installera: ingen version skrivs (slutkod 1)."""
+
+
+def bygg(sajt):
+    """npm run build i riktningens projekt innanför processgränsen (prova.bygg_inom_grans, kandidatflödets byggväg med
+    bygglås och återanvändning av samma indata). Ger (rc, text)."""
+    import prova
+    return prova.bygg_inom_grans(sajt)
+
+
+def sidor_i(dist):
+    """De byggda sidorna i dist/ som renderas: startsidan först, sedan undersidorna (högst tre kataloger ner, i ordning
+    efter djup och namn), utan mallens egna sidor (404, tack, fel, mottagen). Länkar följs inte."""
+    dist = Path(dist)
+    ut = []
+    for f in dist.rglob('*.html'):
+        r = f.relative_to(dist)
+        if f.is_symlink() or not f.is_file() or len(r.parts) > 4 or r.as_posix() in MALLSIDOR or r.parts[0] == '_astro':
+            continue
+        if any((dist / Path(*r.parts[:i])).is_symlink() for i in range(1, len(r.parts))):
+            continue
+        ut.append(r.as_posix())
+    return sorted(ut, key=lambda x: (x != 'index.html', x.count('/'), x))
+
+
+def sidor(post):
+    """Versionens renderade sidor: läget astro har sidorna (index.html, om/index.html), läget duk ritningarna."""
+    if post.get('lage') == 'astro':
+        return list(post.get('sidor') or [])
+    return [r['fil'] for r in post.get('ritningar') or []]
+
+
+def stam(namn):
+    """Bildernas stam för en sida eller ritning: utan .dc.html eller .html, med / som - (rendera.mjs gör samma)."""
+    return re.sub(r'\.dc\.html$|\.html$', '', namn).replace('/', '-')
+
+
+def bildsida(post_eller_lage, ritning=None):
+    """Sidan vars bilder bär en riktning: startsidan (index.html) i läget astro, ritningen själv i läget duk."""
+    lage_ = post_eller_lage.get('lage') if isinstance(post_eller_lage, dict) else post_eller_lage
+    return 'index.html' if lage_ == 'astro' else ritning
+
+
+def kopiera_kalla(slug, p, mal):
+    """Projektets källa till versionens kalla/: src/, public/, package.json, låset, astro.config.mjs, tsconfig.json,
+    components.json, .npmrc, DESIGN.md och RIKTNING.md, utan länkar. Delar projektet sajtens node_modules (länken ur
+    kandidater.forbered_projekt) och saknar eget lås, byggs det ur sajtens package-lock.json, och det låset följer med.
+    Ger ({relativ väg: sha256}, låsets ursprung)."""
+    import atelje
+    import kandidater
+    filer = {}
+    for k in KALLKATALOGER:
+        if (p / k).is_dir() and not (p / k).is_symlink():
+            filer.update({'%s/%s' % (k, x): s for x, s in kandidater.kopiera(p / k, mal / k).items()})
+    for n in KALLFILER:
+        if (p / n).is_file() and not (p / n).is_symlink():
+            mal.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(p / n, mal / n)
+            filer[n] = sha(mal / n)
+    las_ = 'projektets'
+    if 'package-lock.json' not in filer:
+        delad = atelje.KUNDER / slug / 'sajt' / 'package-lock.json'
+        if (p / 'node_modules').is_symlink() and delad.is_file() and not delad.is_symlink():
+            shutil.copyfile(delad, mal / 'package-lock.json')
+            filer['package-lock.json'] = sha(mal / 'package-lock.json')
+            las_ = 'sajtens (projektet delar sajtens node_modules)'
+        else:
+            las_ = None
+    return filer, las_
+
+
+def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, station_, rid, hopp, paket):
+    """En version ur riktningens Astro-projekt: paketen (--paket, eller kandidater.paketbehov), bygget, källan i
+    kalla/ och dist i sida/, och renderingen av startsidan och undersidorna med kontrollerna. Kandidatens skrivlås hålls
+    under arbetet (en skrivare per projekt). Ett bygge som faller ger ingen version."""
+    import kandidater
+    p = projekt(slug, rid, underlag)
+    if not (p / 'package.json').is_file() or not (p / 'src' / 'pages' / 'index.astro').is_file():
+        raise Fel('riktningens projekt saknar package.json eller startsidan (src/pages/index.astro): %s' % rel(p))
+    titel = ((d.get('riktningar') or {}).get(rid) or {}).get('titel')
+    with kandidater.skrivlas(slug, rid, vanta=120, vem='designfasens version'):
+        paket_ = None
+        if paket or kandidater.paketbehov(slug, rid):
+            rc_p, text_p = kandidater.egna_paket(slug, rid, list(paket))
+            paket_ = {'begarda': list(paket), 'rc': rc_p, 'text': ' '.join(text_p.split())[-600:]}
+            if rc_p:
+                raise ByggFel('paketen kunde inte installeras i %s (rc %s): %s' % (rel(p), rc_p, ' '.join(text_p.split())[-400:]))
+        rc, text = bygg(p)
+        if rc:
+            raise ByggFel('bygget av %s föll; ingen version skrevs: %s' % (rel(p), ' '.join(str(text).split())[-600:]))
+        dist = p / 'dist'
+        alla = sidor_i(dist)
+        if 'index.html' not in alla:
+            raise ByggFel('bygget gav ingen startsida (%s/dist/index.html)' % rel(p))
+        vs = versioner(slug, underlag)
+        v = nasta(slug, underlag)
+        vk = rot(slug, underlag) / 'versioner' / v
+        vk.mkdir(parents=True)
+        filer, las_ = kopiera_kalla(slug, p, vk / 'kalla')
+        kandidater.kopiera(dist, vk / 'sida')
+    forra = [x for x in vs if (las(rot(slug, underlag) / 'versioner' / x / 'VERSION.json') or {}).get('ritning') == rid]
+    post = {'schema': 1, 'lage': 'astro', 'version': v, 'tid': nu(), 'av': av, 'orsak': orsak.strip()[:2000],
+            'bestallningar': list(bestallningar), 'foregaende': vs[-1] if vs else None, 'forra_i_riktningen': forra[-1] if forra else None,
+            'ritning': rid, 'riktning': {'id': rid, 'titel': titel, 'projekt': rel(p)}, 'station': station_, 'hoppade': hopp,
+            'filer': filer, 'las': las_, 'paket': paket_, 'sidor': alla[:MAX_SIDOR], 'ej_renderade': alla[MAX_SIDOR:],
+            'sekunder_sedan_forra': sekunder_mellan((las(rot(slug, underlag) / 'versioner' / vs[-1] / 'VERSION.json') or {}).get('tid') if vs else None, None)}
+    post['varningar'] = [x for x, ok in (
+        ('RIKTNING.md saknas i projektet: riktningens underlag (referenslåset, språket, skälen för en lättad CSP) står där',
+         'RIKTNING.md' in filer),
+        ('låset saknas: varken projektet eller sajten har package-lock.json, så paketen följer inte med till helbygget', las_)) if not ok]
+    skriv(vk / 'VERSION.json', post)
+    with open(rot(slug, underlag) / 'VERSIONER.jsonl', 'a', encoding='utf-8') as fh:
+        fh.write(json.dumps({k: post.get(k) for k in ('version', 'tid', 'av', 'orsak', 'bestallningar', 'station', 'ritning', 'hoppade')},
+                            ensure_ascii=False) + '\n')
+    for b in bestallningar:
+        uppdatera_bestallning(slug, b, underlag, status='inford', inford_i=v)
+    if bilder:
+        post['rendering'] = rendera(slug, v, kontroll=True, underlag=underlag)
+        post['insats'] = insats(slug, v, rid, underlag)
+        skriv(vk / 'VERSION.json', post)
+    return post
+
+
 def notering(index, v):
     """Dukens anteckning för versionen (canvas.json notes med id v eller en text som börjar med v), eller None."""
     notes = (index or {}).get('notes') or {}
@@ -432,26 +674,33 @@ def sekunder_mellan(a, b):
 
 
 def forra_med(slug, v, ritning, underlag=None):
-    """Den senaste versionen före v som har ritningen och bilder av den."""
+    """Den senaste versionen före v av samma riktning med bilder av den: i läget astro en version vars ritning är
+    riktningen (kNN) och som har startsidans bilder, i läget duk en version som har ritningen."""
     vs = versioner(slug, underlag)
     for v_ in reversed(vs[:vs.index(v)] if v in vs else vs):
-        b = (las(rot(slug, underlag) / 'versioner' / v_ / 'BILDER.json') or {}).get('ritningar') or {}
-        if ritning in b:
+        vk = rot(slug, underlag) / 'versioner' / v_
+        post = las(vk / 'VERSION.json') or {}
+        b = (las(vk / 'BILDER.json') or {}).get('ritningar') or {}
+        if post.get('lage') == 'astro':
+            if post.get('ritning') == ritning and 'index.html' in b:
+                return v_
+        elif ritning in b:
             return v_
     return None
 
 
 def insats(slug, v, ritning, underlag=None):
-    """Syns stationens insats? Ritningens helsida i 390 och 1440 mot förra versionen av samma ritning (jamfor.mjs):
-    andelen pixlar som skiljer sig och höjdskillnaden. Mäter förändring, inte kvalitet."""
+    """Syns stationens insats? Helsidan i 390 och 1440 (startsidan i läget astro, ritningen i läget duk) mot förra
+    versionen av samma riktning (jamfor.mjs): andelen pixlar som skiljer sig och höjdskillnaden, med bilderna före och
+    efter. Mäter förändring, inte kvalitet."""
     f = forra_med(slug, v, ritning, underlag)
     if not f:
         return {'jamfort_med': None, 'synlig': None, 'skal': 'riktningens första version'}
-    stam = ritning[:-len('.dc.html')]
+    s = stam(bildsida(las(rot(slug, underlag) / 'versioner' / v / 'VERSION.json') or {}, ritning))
     ut, synlig = {'jamfort_med': f, 'bredder': {}}, False
     for w in (390, 1440):
-        a_ = rot(slug, underlag) / 'versioner' / f / 'bilder' / ('%s-%d.png' % (stam, w))
-        b_ = rot(slug, underlag) / 'versioner' / v / 'bilder' / ('%s-%d.png' % (stam, w))
+        a_ = rot(slug, underlag) / 'versioner' / f / 'bilder' / ('%s-%d.png' % (s, w))
+        b_ = rot(slug, underlag) / 'versioner' / v / 'bilder' / ('%s-%d.png' % (s, w))
         if not a_.is_file() or not b_.is_file():
             ut['bredder'][str(w)] = {'fel': 'bild saknas'}
             continue
@@ -460,7 +709,7 @@ def insats(slug, v, ritning, underlag=None):
         rad = next((x for x in reversed((r.stdout or '').strip().splitlines()) if x.startswith('{')), '')
         try:
             res = json.loads(rad)
-            ut['bredder'][str(w)] = {k: res.get(k) for k in ('andel', 'hojdskillnad', 'breddskillnad')}
+            ut['bredder'][str(w)] = dict({k: res.get(k) for k in ('andel', 'hojdskillnad', 'breddskillnad')}, fore=rel(a_), efter=rel(b_))
             synlig = synlig or (res.get('andel') or 0) > 0.0005 or bool(res.get('hojdskillnad'))
         except ValueError:
             ut['bredder'][str(w)] = {'fel': (r.stderr or r.stdout or 'inget svar')[-200:]}
@@ -469,11 +718,16 @@ def insats(slug, v, ritning, underlag=None):
 
 
 def bygg_sida(slug, v, underlag=None):
-    """En lokal katalog som Design-typens körmiljö kan köra: ritningarna, support.js och dukens tillgångar."""
+    """Katalogen som renderas. Läget astro: versionens sida/ (projektets dist), utan körmiljö. Läget duk: en lokal
+    katalog som Design-typens körmiljö kan köra, med ritningarna, support.js och dukens tillgångar."""
     vk = rot(slug, underlag) / 'versioner' / v
     post = las(vk / 'VERSION.json')
     if not post:
         raise Fel('versionen %s finns inte' % v)
+    if post.get('lage') == 'astro':
+        if not (vk / 'sida' / 'index.html').is_file():
+            raise Fel('versionen %s saknar sin byggda sida (sida/index.html)' % v)
+        return vk / 'sida', [], {}
     rt, rtpost = aktuell_runtime(slug, underlag)
     s = vk / 'sida'
     if s.exists():
@@ -511,7 +765,7 @@ def rendera(slug, v, kontroll=False, underlag=None):
         if m:
             env.update(IMPECCABLE_MOTOR=str(m), IMPECCABLE_SKILL_DIR=str(detektor.SKILL))
     r = subprocess.run(['node', str(ROOT / 'kontroller' / 'designfas' / 'rendera.mjs'), '--sida', str(s), '--ut', str(vk),
-                        '--ritningar', ','.join(x['fil'] for x in post['ritningar'])] + (['--kontroll'] if kontroll else []),
+                        '--ritningar', ','.join(sidor(post))] + (['--kontroll'] if kontroll else []),
                        capture_output=True, text=True, timeout=900, env=env, cwd=str(ROOT))
     b = las(vk / 'BILDER.json') or {}
     ax = las(vk / 'kontroll' / 'axe' / 'axe.json') if kontroll else None
@@ -524,8 +778,9 @@ def rendera(slug, v, kontroll=False, underlag=None):
             if any(('/' + r_) in x for x in ofull):
                 rp_.setdefault('varningar', []).append('axe kunde inte avgöra textkontrasten (incomplete) i %s; ge text och bakgrund färdiga '
                                                       'färgvärden (byggstandarden 3.4)' % ', '.join(x for x in ofull if ('/' + r_) in x)[:300])
-    b.update({'runtime': {'release': rtpost.get('release'), 'sha256': rtpost.get('sha256')}, 'saknade_tillgangar': saknade,
-              'slutkod': r.returncode, 'utdata': (r.stdout or '')[-800:], 'fel': (r.stderr or '')[-800:]})
+    b.update({'saknade_tillgangar': saknade, 'slutkod': r.returncode, 'utdata': (r.stdout or '')[-800:], 'fel': (r.stderr or '')[-800:]})
+    if rtpost:
+        b['runtime'] = {'release': rtpost.get('release'), 'sha256': rtpost.get('sha256')}
     skriv(vk / 'BILDER.json', b)
     return {'slutkod': r.returncode, 'saknade_tillgangar': saknade, 'besked': (r.stdout or r.stderr or '').strip()[-400:]}
 
@@ -562,46 +817,73 @@ def bestall(slug, typ, v, ritning, uppgift, material=(), underlag=None, station_
     if v not in versioner(slug, underlag):
         raise Fel('versionen %s finns inte; beställningen gäller en sparad version' % v)
     vpost = las(rot(slug, underlag) / 'versioner' / v / 'VERSION.json')
-    if ritning not in [r['fil'] for r in vpost['ritningar']] and ritning != '*':
+    if vpost.get('lage') == 'astro':
+        if ritning not in (vpost.get('ritning'), '*'):
+            raise Fel('versionen %s gäller riktningen %s, inte %s (eller * för alla riktningarnas senaste version)' % (v, vpost.get('ritning'), ritning))
+    elif ritning not in [r['fil'] for r in vpost['ritningar']] and ritning != '*':
         raise Fel('ritningen %s finns inte i %s (eller * för alla)' % (ritning, v))
     if len((uppgift or '').strip()) < 20:
         raise Fel('uppgiften behöver säga vad som ska undersökas och varför (minst en mening)')
     bs = bestallningar(slug, underlag)
     bid = 'B%03d' % (int(bs[-1][1:]) + 1 if bs else 1)
-    if not d['kanvas'].get('url'):
+    if lage(slug, underlag) == 'duk' and not kanvas_url(d):
         raise Fel('duken är inte registrerad: designfas.py ny %s --kanvas <url>' % slug)
-    post = {'schema': 1, 'id': bid, 'projekt': slug, 'kanvas': d['kanvas']['url'], 'version': v, 'ritning': ritning,
+    post = {'schema': 1, 'id': bid, 'projekt': slug, 'kanvas': kanvas_url(d), 'lage': lage(slug, underlag), 'version': v, 'ritning': ritning,
             'typ': typ, 'pass': TYPER[typ][0], 'station': st['id'], 'uppgift': uppgift.strip()[:3000], 'material': [str(m)[:300] for m in material][:20],
             'tid': nu(), 'status': 'bestalld', 'resultat': None}
     skriv(rot(slug, underlag) / 'bestallningar' / ('%s.json' % bid), post)
     return post
 
 
+def senaste_per_riktning(slug, underlag=None):
+    """{riktning: senaste version med bilder} i läget astro, i riktningarnas ordning."""
+    ut = {}
+    for v in versioner(slug, underlag):
+        post = las(rot(slug, underlag) / 'versioner' / v / 'VERSION.json') or {}
+        if post.get('lage') == 'astro' and post.get('ritning') and (rot(slug, underlag) / 'versioner' / v / 'BILDER.json').is_file():
+            ut[post['ritning']] = v
+    ordning = list(designfas(slug, underlag).get('riktningar') or {})
+    return {r: ut[r] for r in sorted(ut, key=lambda x: (ordning.index(x) if x in ordning else 99, x))}
+
+
 def specialist_prompt(slug, b, underlag=None):
     vk = rot(slug, underlag) / 'versioner' / b['version']
+    astro = b.get('lage') == 'astro' or (las(vk / 'VERSION.json') or {}).get('lage') == 'astro'
     bild = las(vk / 'BILDER.json') or {}
     rader = []
-    for r, rp in (bild.get('ritningar') or {}).items():
-        if b['ritning'] in ('*', r):
-            rader += ['- %s, %s: %s' % (r, k, rel(vk / x['fil'])) for k, x in (rp.get('bilder') or {}).items()]
+    if astro:  # en riktnings version, eller (*) varje riktnings senaste version sida vid sida för jämförelsen
+        versionerna = senaste_per_riktning(slug, underlag) if b['ritning'] == '*' else {b['ritning']: b['version']}
+        for rid, v_ in versionerna.items():
+            vk_ = rot(slug, underlag) / 'versioner' / v_
+            for r, rp in ((las(vk_ / 'BILDER.json') or {}).get('ritningar') or {}).items():
+                rader += ['- riktningen %s, %s, sidan %s, %s: %s' % (rid, v_, r, k, rel(vk_ / x['fil'])) for k, x in (rp.get('bilder') or {}).items()]
+    else:
+        for r, rp in (bild.get('ritningar') or {}).items():
+            if b['ritning'] in ('*', r):
+                rader += ['- %s, %s: %s' % (r, k, rel(vk / x['fil'])) for k, x in (rp.get('bilder') or {}).items()]
     kritik = b['pass'] == 'ds_kritik'
     u = 'underlag/%s' % slug
     return '\n'.join([
-        'Du är ett specialistpass i Nortropics designfas (kunskap/claude-design.md). Designen formges i Claude Design av en',
+        'Du är ett specialistpass i Nortropics designfas (skillen designfas, bandet i kunskap/metodkarta.md). Designen formges %s'
+        ' av en' % ('i riktningarnas Astro-projekt' if astro else 'i Claude Design'),
         'utsedd utförare; du ändrar aldrig designen och skriver inga filer. Du lämnar underlag och förslag i svarsschemat, och',
         'utföraren avgör vad som förs in i nästa version.',
         '',
-        'Beställning %s · projekt %s · duk %s · version %s · ritning %s · typ %s (%s)' % (
-            b['id'], slug, b['kanvas'], b['version'], b['ritning'], b['typ'], TYPER[b['typ']][2]),
+        'Beställning %s · projekt %s · %s · version %s · %s %s · typ %s (%s)' % (
+            b['id'], slug, 'läget astro' if astro else 'duk %s' % b.get('kanvas'), b['version'], 'riktning' if astro else 'ritning',
+            b['ritning'], b['typ'], TYPER[b['typ']][2]),
         'Uppgift: ' + b['uppgift'],
         'Berört material: ' + ('; '.join(b['material']) or 'inget utöver versionen'),
         '',
-        'Versionens bilder (lokal rendering av dukens källa med Design-typens körmiljö, release %s; inte skärmbilder ur Designs'
-        ' gränssnitt). Läs dem med Read innan du bedömer något; en bredd eller ett tillstånd räknas som bedömt bara ur en bild' % (
-            (bild.get('runtime') or {}).get('release')),
+        ('Versionens bilder (lokal rendering av riktningens byggda Astro-sida i Chromium; inte skärmbilder ur en förhandsvisning).'
+         ' Läs dem med Read innan du bedömer något; en bredd eller ett tillstånd räknas som bedömt bara ur en bild') if astro else
+        ('Versionens bilder (lokal rendering av dukens källa med Design-typens körmiljö, release %s; inte skärmbilder ur Designs'
+         ' gränssnitt). Läs dem med Read innan du bedömer något; en bredd eller ett tillstånd räknas som bedömt bara ur en bild' % (
+             (bild.get('runtime') or {}).get('release'))),
         'du läst:',
         *rader,
-        '' if kritik else 'Versionens källa (ritningarnas .dc.html, dukens format): %s/' % rel(vk / 'kanvas'),
+        '' if kritik else ('Versionens källa (projektets src/, public/, package.json och RIKTNING.md): %s/' % rel(vk / 'kalla') if astro else
+                           'Versionens källa (ritningarnas .dc.html, dukens format): %s/' % rel(vk / 'kanvas')),
         'Kontrollerna mot samma rendering (axe med menyn öppen och formulären skickade tomma, stilrapporten och impeccables'
         ' detektor i 390 och 1440 under detektor/, med regel, allvar och kategori men utan kodutdrag): %s/. Pröva varje'
         ' detektorfynd mot bilderna och ägarbesluten; ett fynd rättas eller motiveras med namngivet belägg.' % rel(vk / 'kontroll'),
@@ -758,7 +1040,8 @@ def svar_md(b, post):
                                           (' · licens ' + r['licens']) if r.get('licens') else '') for r in so.get('referenser') or []] or ['- inga']
     if so.get('atergang'):
         rader += ['', '## Återgång', '', '- %s: %s' % ({'fortsatt': 'fortsätt bandet', 'underlag': 'omtag av underlaget (ny research eller nya förebilder)', 'innehall': 'omtag av innehåll och struktur',
-                                                        'art': 'omtag av art direction', 'komposition': 'omtag av kompositionen'}
+                                                        'art': 'omtag av art direction', 'komposition': 'omtag av kompositionen',
+                                                        'detaljer': 'omtag av detaljerna'}
                                                        .get(so['atergang'].get('till'), so['atergang'].get('till')), so['atergang'].get('skal'))]
     rader += ['', '## Begränsningar', ''] + (['- ' + x for x in so.get('begransningar') or []] or ['- inga redovisade'])
     rader += ['', '## Kompetens (kvittot ur transkriptet, inte passets egen uppgift)', '',
@@ -806,7 +1089,10 @@ def versionens_avtryck(slug, v, underlag=None):
         for k, x in (rp.get('bilder') or {}).items():
             p = vk / x['fil']
             bilder['%s@%s' % (r, k)] = sha(p) if p.is_file() else None
-    return {'filer': post.get('filer') or {}, 'bilder': bilder}
+    filer = post.get('filer') or {}
+    if post.get('lage') == 'astro':  # källan som den ligger på disken: en ändrad fil i kalla/ gör godkännandet ogiltigt
+        filer = {n: sha(vk / 'kalla' / n) if (vk / 'kalla' / n).is_file() and not (vk / 'kalla' / n).is_symlink() else None for n in filer}
+    return {'filer': filer, 'bilder': bilder}
 
 
 def godkann(slug, v, ritning, text='', underlag=None):
@@ -819,20 +1105,26 @@ def godkann(slug, v, ritning, text='', underlag=None):
         raise Fel('versionen %s finns inte' % v)
     vk = rot(slug, underlag) / 'versioner' / v
     post = las(vk / 'VERSION.json')
-    if ritning not in [r['fil'] for r in post['ritningar']]:
+    astro = post.get('lage') == 'astro'
+    if astro and ritning != post.get('ritning'):
+        raise Fel('versionen %s gäller riktningen %s, inte %s' % (v, post.get('ritning'), ritning))
+    if not astro and ritning not in [r['fil'] for r in post['ritningar']]:
         raise Fel('ritningen %s finns inte i %s' % (ritning, v))
-    bild = (las(vk / 'BILDER.json') or {}).get('ritningar', {}).get(ritning, {}).get('bilder') or {}
+    bild = (las(vk / 'BILDER.json') or {}).get('ritningar', {}).get(bildsida(post, ritning), {}).get('bilder') or {}
     saknas = [w for w in BREDDER if str(w) not in {str(k) for k in bild}]
     if saknas:
-        raise Fel('ritningen saknar bilder i %s: kör designfas.py rendera %s %s först' % (', '.join(map(str, saknas)), slug, v))
+        raise Fel('%s saknar bilder i %s: kör designfas.py rendera %s %s först' % (
+            'startsidan' if astro else 'ritningen', ', '.join(map(str, saknas)), slug, v))
     u = Path(underlag or UNDERLAG)
     tid = nu()
-    text = text.strip() or 'Designen godkänd i Claude Design: %s, ritningen %s (artefaktversion %s).' % (v, ritning, post['artifact_version'])
+    text = text.strip() or ('Designen godkänd: %s, riktningen %s (%s).' % (v, ritning, (post.get('riktning') or {}).get('projekt')) if astro else
+                            'Designen godkänd i Claude Design: %s, ritningen %s (artefaktversion %s).' % (v, ritning, post['artifact_version']))
     dom = skapande.lagg_till_dom(slug, 'ägaren', 'godkand', text, avser='designfas %s %s' % (v, ritning), underlag=u, tid=tid,
                                  belagg='ägarens eget kommando: designfas.py godkann %s %s --ritning %s, %s' % (slug, v, ritning, tid),
-                                 designfas={'version': v, 'ritning': ritning, 'kanvas': d['kanvas']['url'], 'artifact_version': post['artifact_version']})
-    g = {'schema': 1, 'slug': slug, 'tid': tid, 'kalla': 'ägaren', 'version': v, 'ritning': ritning, 'kanvas': d['kanvas']['url'],
-         'artifact_version': post['artifact_version'], 'avtryck': versionens_avtryck(slug, v, underlag),
+                                 designfas={'version': v, 'ritning': ritning, 'lage': post.get('lage') or 'duk', 'kanvas': kanvas_url(d),
+                                            'artifact_version': post.get('artifact_version')})
+    g = {'schema': 1, 'slug': slug, 'tid': tid, 'kalla': 'ägaren', 'version': v, 'ritning': ritning, 'lage': post.get('lage') or 'duk',
+         'kanvas': kanvas_url(d), 'artifact_version': post.get('artifact_version'), 'avtryck': versionens_avtryck(slug, v, underlag),
          'underlag_sha': skapande.underlagsversion(slug, u), 'dom_tid': dom['tid'],
          'betyder': 'designen är godkänd; byggstart och publicering är egna beslut (kor.sh startar bygget, lanseringen publicerar)'}
     skriv(rot(slug, underlag) / 'GODKANNANDE.json', g)
@@ -875,14 +1167,15 @@ def overlamning_katalog(slug, underlag=None):
 
 
 def overlamna(slug, underlag=None):
-    """Paketet ur den godkända versionen: ritningarna (prototypkoden), bilderna, kontrollerna, tillgångarna med ursprung
-    och en DESIGN.md-mall med rubrikerna som utföraren fyller i ur versionen. Paketet skrivs inte över när det finns:
-    det som utföraren skrivit står kvar, och bara de kopierade delarna och OVERLAMNING.json förnyas."""
+    """Paketet ur den godkända versionen: källan (kalla/, läget astro: projektets src/, public/, package.json och låset)
+    eller ritningarna (kanvas/, läget duk), bilderna, kontrollerna, tillgångarna med ursprung och en DESIGN.md-mall med
+    rubrikerna som utföraren fyller i ur versionen. Paketet skrivs inte över när det finns: det som utföraren skrivit står
+    kvar, och bara de kopierade delarna och OVERLAMNING.json förnyas."""
     k, g = overlamning_katalog(slug, underlag)
     if not g:
         raise Fel('inget designgodkännande: ägaren godkänner en version först (designfas.py godkann)')
     vk = rot(slug, underlag) / 'versioner' / g['version']
-    for n in ('kanvas', 'bilder', 'kontroll'):
+    for n in ('kanvas', 'kalla', 'bilder', 'kontroll'):
         if (k / n).exists():
             shutil.rmtree(k / n)
         if (vk / n).is_dir():
@@ -891,14 +1184,15 @@ def overlamna(slug, underlag=None):
         shutil.copy2(vk / n, k / n)
     kanda = (las(rot(slug, underlag) / 'TILLGANGAR.json') or {}).get('blobs') or {}
     post = las(vk / 'VERSION.json')
-    tillg = {b: kanda.get(b) for b in post['tillgangar']}
+    tillg = {b: kanda.get(b) for b in post.get('tillgangar') or []}
     dm = k / 'DESIGN.md'
     if not dm.is_file():
         dm.write_text('\n'.join(['# DESIGN · %s · %s (%s)' % (slug, g['version'], g['ritning']), '',
-                                 'Fylls i av utföraren ur den godkända versionen (kunskap/claude-design.md, Överlämningen). Varje värde är '
-                                 '`uppmätt:` (ur renderingen), `valt:` (beslut i designen) eller `uppskattat:`; inget hittas på.', ''] +
+                                 'Fylls i av utföraren ur den godkända versionen (skillen designfas, Överlämningen). Varje värde är '
+                                 '`uppmätt:` (ur renderingen), `valt:` (beslut i designen) eller `uppskattat:`; inget hittas på.' +
+                                 (' Projektets egen DESIGN.md, den som bygget läser, står i kalla/DESIGN.md.' if (vk / 'kalla').is_dir() else ''), ''] +
                                 sum((['## ' + r, '', '<!-- fyll i -->', ''] for r in OVERLAMNING_RUBRIKER), [])) + '\n', encoding='utf-8')
-    skriv(k / 'OVERLAMNING.json', {'schema': 1, 'slug': slug, 'tid': nu(), 'godkannande': {x: g[x] for x in ('tid', 'version', 'ritning', 'kanvas', 'artifact_version', 'dom_tid')},
+    skriv(k / 'OVERLAMNING.json', {'schema': 1, 'slug': slug, 'tid': nu(), 'godkannande': {x: g.get(x) for x in ('tid', 'version', 'ritning', 'lage', 'kanvas', 'artifact_version', 'dom_tid')},
                                     'tillgangar': tillg, 'filer': {str(p.relative_to(k)): sha(p) for p in sorted(k.rglob('*'))
                                                                    if p.is_file() and p.name != 'OVERLAMNING.json'}})
     return k
@@ -921,8 +1215,12 @@ def overlamning_brister(slug, underlag=None):
         if len(innehall) < 40:
             brister.append('DESIGN.md: avsnittet "%s" saknas eller är tomt' % r)
     for w in BREDDER:
-        if not (k / 'bilder' / ('%s-%d.png' % (g['ritning'][:-len('.dc.html')], w))).is_file():
+        if not (k / 'bilder' / ('%s-%d.png' % (stam(bildsida(g, g['ritning'])), w))).is_file():
             brister.append('jämförelsebilden i %d saknas' % w)
+    if g.get('lage') == 'astro':  # källan med paketen följer med till helbygget (punkt 5 i beslutet 2026-10-13)
+        for n, varfor in (('package.json', 'paketen'), ('package-lock.json', 'låset, som npm ci installerar ur'), ('src/pages/index.astro', 'startsidan')):
+            if not (k / 'kalla' / n).is_file():
+                brister.append('kalla/%s saknas (%s)' % (n, varfor))
     for b, t in (o.get('tillgangar') or {}).items():
         if not t or not (t.get('kalla') or '').strip():
             brister.append('tillgången %s saknar ursprung (designfas.py tillgang --kalla)' % b)
@@ -934,7 +1232,7 @@ def overlamning_brister(slug, underlag=None):
 
 
 def jamfor_bygget(slug, insp, ut, dist_sha=None, underlag=None):
-    """Bygget mot den godkända förlagan ur Claude Design, pixel för pixel (kontroller/webblasare/jamfor.mjs): förlagans
+    """Bygget mot den godkända förlagan ur designfasen, pixel för pixel (kontroller/webblasare/jamfor.mjs): förlagans
     helsida i 390, 768 och 1440 mot byggets vy-<bredd>-hela.png, och menyn öppen i 390 mot vy-390-meny.png. Mäter
     förändring, inte kvalitet; ett par som inte kunde jämföras visar inte att designen är bevarad. Resultatet binds till
     godkännandet (version, ritning, domens tid) och till bygget (dist). Skriver ut/DESIGNJAMFORELSE.json och .md."""
@@ -944,9 +1242,9 @@ def jamfor_bygget(slug, insp, ut, dist_sha=None, underlag=None):
     par = []
     if g:
         k = rot(slug, underlag) / 'overlamning' / g['version'] / 'bilder'
-        stam = g['ritning'][:-len('.dc.html')]
-        for vy, slag, a_, b_ in [(str(w), 'helsidan', '%s-%d.png' % (stam, w), 'vy-%d-hela.png' % w) for w in BREDDER] + \
-                                [('390', 'menyn öppen', '%s-390-meny.png' % stam, 'vy-390-meny.png')]:
+        s = stam(bildsida(g, g['ritning']))
+        for vy, slag, a_, b_ in [(str(w), 'helsidan', '%s-%d.png' % (s, w), 'vy-%d-hela.png' % w) for w in BREDDER] + \
+                                [('390', 'menyn öppen', '%s-390-meny.png' % s, 'vy-390-meny.png')]:
             fa, fb = k / a_, insp / b_
             post = {'vy': vy, 'slag': slag, 'forlaga': rel(fa), 'bygget': rel(fb)}
             saknas = [x for x, q in (('förlagans bild', fa), ('byggets bild', fb)) if not q.is_file()]
@@ -967,7 +1265,7 @@ def jamfor_bygget(slug, insp, ut, dist_sha=None, underlag=None):
     d = {'tid': nu(), 'giltigt_godkannande': ok, 'skal': skal, 'bindning': {k_: (g or {}).get(k_) for k_ in ('version', 'ritning', 'dom_tid', 'artifact_version')},
          'dist_sha256': dist_sha, 'par': par, 'jamforda': sum(1 for x in par if not x.get('fel'))}
     skriv(ut / 'DESIGNJAMFORELSE.json', d)
-    rader = ['# Bygget mot förlagan ur Claude Design', '',
+    rader = ['# Bygget mot förlagan ur designfasen', '',
              'Pixeljämförelse (kontroller/webblasare/jamfor.mjs) av den godkända ritningens bilder mot byggets startsida i samma',
              'bredder och med menyn öppen. Måttet är förändring, inte kvalitet; granskaren avgör med båda bildserierna om en',
              'förändring är en försämring, en godkänd anpassning eller en förbättring. Ett par som inte kunde jämföras visar inte',
@@ -982,23 +1280,281 @@ def jamfor_bygget(slug, insp, ut, dist_sha=None, underlag=None):
         d['jamforda'], len(par), '' if ok else '; godkännandet gäller inte: ' + skal)
 
 
+# ---- ägarens visning: en privat artefakt per riktning (beslutet 2026-10-13, punkt 2) --------------------------------
+
+ASTRO_VAG = re.compile(r'(["\'(]|, )/_astro/')  # "/_astro/, '/_astro/, url(/_astro/ och srcset-ledet , /_astro/
+CSP_META = re.compile(r'<meta\b[^>]*http-equiv\s*=\s*["\']?content-security-policy["\']?[^>]*>', re.I)
+ROTVAG = re.compile(r'(?:src|srcset|poster)\s*=\s*["\']/(?!_astro/|/)', re.I)
+
+
+def relativa_vagar(text, djup=0):
+    """Astros absoluta /_astro/-vägar relativa till en fil djup kataloger under versionens katalog (sidan 0, _astro/x.css 1)."""
+    return ASTRO_VAG.sub(lambda m: m.group(1) + '../' * djup + '_astro/', text)
+
+
+def artefakt_post(slug, rid, underlag=None):
+    """Riktningens publicerade artefakt (design/riktningar/<riktning>/ARTEFAKT.json), eller {}."""
+    try:
+        return las(rot(slug, underlag) / 'riktningar' / rid / 'ARTEFAKT.json') or {}
+    except Fel:
+        return {}
+
+
+def artefakt(slug, rid, underlag=None):
+    """Paketet för ägarens visning av en riktning: en privat artefakt per riktning, som sessionen publicerar med
+    Artifact-verktyget (inget kommando når det; skillen designfas säger när och hur) och uppdaterar efter varje sparad
+    version. I underlag/<slug>/design/artefakt/<riktning>/: index.html är visningssidan (artefakten lindar in den i ett eget
+    skelett, så den har ingen egen <html> eller <head>), och vNN/ per version har den byggda startsidan och _astro/, med
+    Astros absoluta /_astro/-vägar relativa och sidans CSP-meta borttagen (hasharna stämmer inte efter omskrivningen;
+    sajtens CSP prövas i den lokala renderingen). Andra HTML-filer serveras som de är. FILER.json listar {path} för
+    verktygets files, med root = katalogen; över 255 filer delas listan i FILER-1.json, FILER-2.json … för flera
+    publiceringar till samma adress. Artefaktens CSP släpper bara egna filer: en extern bild syns inte där."""
+    d = designfas(slug, underlag)
+    if lage(slug, underlag) != 'astro':
+        raise Fel('artefakten visar riktningarna i läget astro; designfasen för %s är i läget %s' % (slug, lage(slug, underlag)))
+    if rid not in (d.get('riktningar') or {}):
+        raise Fel('riktningen %s finns inte i bandet (riktningarna: %s)' % (rid, ', '.join(d.get('riktningar') or {}) or 'inga'))
+    vs = []
+    for v in versioner(slug, underlag):
+        vk = rot(slug, underlag) / 'versioner' / v
+        post = las(vk / 'VERSION.json') or {}
+        if post.get('lage') == 'astro' and post.get('ritning') == rid and (vk / 'sida' / 'index.html').is_file():
+            vs.append((v, post))
+    if not vs:
+        raise Fel('riktningen %s har ingen sparad version än: designfas.py version %s --ritning %s först' % (rid, slug, rid))
+    ut = rot(slug, underlag) / 'artefakt' / rid
+    if ut.is_symlink():
+        raise Fel('%s är en länk; paketet skrivs inte' % rel(ut))
+    if ut.exists():
+        shutil.rmtree(ut)
+    filer, varningar = [], []
+    for v, post in vs:
+        sida, mal = rot(slug, underlag) / 'versioner' / v / 'sida', ut / v
+        mal.mkdir(parents=True)
+        text = CSP_META.sub('', relativa_vagar((sida / 'index.html').read_text(encoding='utf-8', errors='replace'), 0))
+        (mal / 'index.html').write_text(text, encoding='utf-8')
+        filer.append('%s/index.html' % v)
+        if ROTVAG.search(text):
+            varningar.append('%s: startsidan laddar filer utanför _astro/ (public/), som förhandsvisningen inte har' % v)
+        a_ = sida / '_astro'
+        for f in sorted(a_.rglob('*')) if a_.is_dir() and not a_.is_symlink() else []:
+            r = f.relative_to(sida)
+            if f.is_symlink() or not f.is_file() or any((sida / Path(*r.parts[:i])).is_symlink() for i in range(1, len(r.parts))):
+                continue
+            m = mal / r
+            m.parent.mkdir(parents=True, exist_ok=True)
+            if f.suffix == '.css':
+                m.write_text(relativa_vagar(f.read_text(encoding='utf-8', errors='replace'), len(r.parts) - 1), encoding='utf-8')
+            else:
+                shutil.copyfile(f, m)
+                if f.suffix in ('.js', '.mjs') and '/_astro/' in f.read_text(encoding='utf-8', errors='replace'):
+                    varningar.append('%s: skriptet %s har absoluta /_astro/-vägar, som förhandsvisningen inte når' % (v, r.as_posix()))
+            if m.stat().st_size > ARTEFAKT_BYTE:
+                varningar.append('%s: %s är större än 15 MB, som en artefakt inte tar' % (v, r.as_posix()))
+            filer.append(m.relative_to(ut).as_posix())
+    (ut / 'index.html').write_text(visningssida(slug, rid, d, vs, underlag), encoding='utf-8')
+    (ut / 'FILER.json').write_text(json.dumps([{'path': f} for f in filer], ensure_ascii=False) + '\n', encoding='utf-8')
+    omgangar = [rel(ut / 'FILER.json')]
+    if len(filer) > ARTEFAKT_FILER:
+        omgangar = []
+        for i in range(0, len(filer), ARTEFAKT_FILER):
+            f_ = ut / ('FILER-%d.json' % (i // ARTEFAKT_FILER + 1))
+            f_.write_text(json.dumps([{'path': f} for f in filer[i:i + ARTEFAKT_FILER]], ensure_ascii=False) + '\n', encoding='utf-8')
+            omgangar.append(rel(f_))
+    if len(filer) + 1 > 511:
+        varningar.append('%d filer: en artefaktversion rymmer högst 511; visa färre versioner (äldre versioner står kvar i spåret)' % (len(filer) + 1))
+    return {'riktning': rid, 'katalog': rel(ut), 'sida': rel(ut / 'index.html'), 'root': rel(ut), 'filer': len(filer),
+            'omgangar': omgangar, 'versioner': [v for v, _ in vs], 'url': artefakt_post(slug, rid, underlag).get('url'),
+            'varningar': varningar}
+
+
+VISNING = """<title>__TITEL__</title>
+<style>
+/* Visningen av en riktning: versionerna i en rad, den valda versionens byggda sida i en ram med tre bredder */
+:root {
+  --bg: #f4f4f1; --yta: #ffffff; --fg: #1e1e1c; --dim: #5b5853; --linje: #d9dad6; --accent: #1f5fbf;
+  --text: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161615; --yta: #1f1f1d; --fg: #eeede8; --dim: #b0ada6; --linje: #3a3a37; --accent: #8db4f0; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #161615; --yta: #1f1f1d; --fg: #eeede8; --dim: #b0ada6; --linje: #3a3a37; --accent: #8db4f0; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--text); margin: 0; padding: 16px 16px 32px; }
+.huvud, .versioner, .bredder, .ram, .orsak { max-width: 1480px; margin-inline: auto; }
+.huvud { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+h1 { font-size: 20px; margin: 0; text-wrap: balance; }
+.not, .orsak { color: var(--dim); margin: 4px auto 0; max-width: 70ch; }
+.orsak { max-width: 1480px; margin-block: 0 12px; }
+.versioner { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin-block: 12px; }
+.versioner a { display: inline-flex; align-items: center; padding: 8px 12px; min-height: 44px; box-sizing: border-box; border: 1px solid var(--linje);
+  border-radius: 6px; color: var(--fg); text-decoration: none; background: var(--yta); }
+.versioner a[aria-current="page"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.versioner a:focus-visible, .bredder button:focus-visible, .oppna:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.bredder { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 0 12px; }
+.bredder button { font: inherit; padding: 8px 12px; min-height: 44px; border: 1px solid var(--linje); border-radius: 6px; background: var(--yta);
+  color: var(--fg); cursor: pointer; }
+.bredder button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ram { overflow-x: auto; }
+iframe { display: block; border: 1px solid var(--linje); background: #fff; height: 80vh; width: 100%; max-width: 100%; margin: 0 auto; }
+.oppna { color: var(--fg); min-height: 44px; display: inline-flex; align-items: center; }
+</style>
+
+<div class="huvud">
+  <div>
+    <h1>__RUBRIK__</h1>
+    <p class="not">Den byggda Astro-sidan i varje version av riktningen, privat. Kommentera med artefaktens kommentarer och nämn versionen. Externa bilder visas inte här (artefaktens skydd); sajtens eget skydd prövas i den lokala renderingen.</p>
+  </div>
+  <a class="oppna" id="oppna" href="__SENASTE__/index.html">Öppna versionen som hel sida</a>
+</div>
+<ul class="versioner" id="versioner">
+__VERSIONER__
+</ul>
+<p class="orsak" id="orsak"></p>
+<div class="bredder" role="group" aria-label="Bredd">
+  <button type="button" data-w="390" aria-pressed="false">390</button>
+  <button type="button" data-w="768" aria-pressed="false">768</button>
+  <button type="button" data-w="1440" aria-pressed="true">1440</button>
+</div>
+<div class="ram"><iframe id="sida" title="__RUBRIK__, __SENASTE__" src="__SENASTE__/index.html"></iframe></div>
+
+<script>
+  const ram = document.getElementById('sida');
+  for (const b of document.querySelectorAll('.bredder button')) {
+    b.addEventListener('click', () => {
+      for (const x of document.querySelectorAll('.bredder button')) x.setAttribute('aria-pressed', String(x === b));
+      ram.style.width = b.dataset.w === '1440' ? '100%' : b.dataset.w + 'px';
+    });
+  }
+  const valj = (v) => {
+    let funnen = null;
+    for (const a of document.querySelectorAll('#versioner a')) {
+      if (a.dataset.v === v) { a.setAttribute('aria-current', 'page'); funnen = a; } else a.removeAttribute('aria-current');
+    }
+    if (!funnen) return;
+    ram.src = v + '/index.html';
+    ram.title = funnen.textContent;
+    document.getElementById('oppna').href = v + '/index.html';
+    document.getElementById('orsak').textContent = funnen.dataset.orsak || '';
+  };
+  const h = (location.hash || '').slice(1);
+  valj(/^v\\d{2,3}$/.test(h) ? h : '__SENASTE__');
+  for (const a of document.querySelectorAll('#versioner a')) a.addEventListener('click', () => valj(a.dataset.v));
+</script>
+"""
+
+
+def visningssida(slug, rid, d, vs, underlag=None):
+    """Visningssidan: titel, färgtokens för ljust och mörkt, en rad med versionerna (station och orsak), en ram med
+    bredderna 390, 768 och 1440 och en länk till hela sidan; den nyaste versionen är vald."""
+    import html as h
+    namn = (las(Path(underlag or UNDERLAG) / slug / 'VERKSAMHET.json') or {}).get('namn') or slug
+    titel = ((d.get('riktningar') or {}).get(rid) or {}).get('titel')
+    st = stationer()
+    rader = []
+    for v, post in vs:
+        sid = post.get('station')
+        etikett = '%s · %s' % (v, st[sid]['namn'] if sid in st else (sid or 'utan station'))
+        rader.append('  <li><a href="#%s" data-v="%s" data-orsak="%s">%s</a></li>' % (
+            v, v, h.escape('%s: %s' % (v, post.get('orsak') or ''), quote=True), h.escape(etikett)))
+    rubrik = '%s · riktning %s%s' % (namn, rid, (' · %s' % titel) if titel else '')
+    return (VISNING.replace('__TITEL__', h.escape('%s %s' % (namn, rid))).replace('__RUBRIK__', h.escape(rubrik))
+            .replace('__VERSIONER__', '\n'.join(rader)).replace('__SENASTE__', vs[-1][0]))
+
+
+def registrera_artefakt(slug, rid, url, v, artifact_version=None, underlag=None):
+    """Publiceringen av riktningens artefakt (sessionen gjorde den med Artifact-verktyget): adressen och den version som
+    visas i ARTEFAKT.json i riktningens spår. Samma artefakt per riktning: en annan adress nekas."""
+    if not KANVAS.match(url or ''):
+        raise Fel('adressen ska vara en claude.ai-artefakt (https://claude.ai/artifact/<id>): %r' % url)
+    if artifact_version and not re.fullmatch(r'[0-9A-Za-z._-]{1,64}', artifact_version):
+        raise Fel('ogiltig artefaktversion: %r' % artifact_version)
+    post = las(rot(slug, underlag) / 'versioner' / str(v) / 'VERSION.json') if VERSION.match(str(v or '')) else None
+    if not post or post.get('ritning') != rid:
+        raise Fel('versionen %s finns inte eller gäller inte riktningen %s' % (v, rid))
+    f = rot(slug, underlag) / 'riktningar' / rid / 'ARTEFAKT.json'
+    gammal = las(f) or {}
+    if gammal.get('url') not in (None, url):
+        raise Fel('riktningen %s har redan artefakten %s: samma artefakt uppdateras för varje version; en ny adress är ett nytt '
+                  'beslut (flytta ARTEFAKT.json till historik först)' % (rid, gammal['url']))
+    tid = nu()
+    ny_ = {'schema': 1, 'riktning': rid, 'url': url, 'version': v, 'artifact_version': artifact_version, 'tid': tid,
+           'synlighet': 'privat: publicerad av sessionen med Artifact-verktyget; ingen offentlig publicering av kundmaterial',
+           'historik': ((gammal.get('historik') or []) + [{'version': v, 'tid': tid, 'artifact_version': artifact_version}])[-100:]}
+    skriv(f, ny_)
+    return ny_
+
+
+def sajtens_npmrc(sajt):
+    """Sajtens .npmrc låser helbyggets installation (beslutet 2026-10-13, punkt 5): inga paketskript, exakta versioner
+    och bara npm-registret. Andra rader står kvar. Ger True när filen skrevs."""
+    f = Path(sajt) / '.npmrc'
+    if f.is_symlink():
+        f.unlink()
+    gammal = f.read_text(encoding='utf-8') if f.is_file() else ''
+    behall = [r for r in gammal.splitlines() if r.strip() and r.split('=', 1)[0].strip() not in NPMRC_SAJT]
+    ny_ = '\n'.join(behall + ['%s=%s' % kv for kv in NPMRC_SAJT.items()]) + '\n'
+    if ny_ == gammal:
+        return False
+    f.write_text(ny_, encoding='utf-8')
+    return True
+
+
+def installera_godkand(slug, underlag=None):
+    """Före ett bygge från ägarens designgodkännande i läget astro (kor.sh): den godkända versionens källa (kalla/: src/,
+    public/, package.json, låset, astro.config.mjs, DESIGN.md och RIKTNING.md) läggs i kunder/<slug>/sajt med samma
+    prövning som en godkänd kandidat (atelje.prova_overforing och overfor_godkanda: allt prövas mot versionens hashar
+    innan något ersätts, och det ersatta flyttas till kunder/<slug>/startsida-ersatt/). Paketen följer med i package.json
+    och låset, och sajtens .npmrc låser installationen (sajtens_npmrc). Läget duk installerar inget här: bygget
+    implementerar förlagan. Ger vägarna som ersattes eller skrevs."""
+    import atelje
+    ok, skal, g = godkand_giltig(slug, underlag)
+    if not ok:
+        raise Fel('inget giltigt designgodkännande: %s' % skal)
+    if g.get('lage') != 'astro':
+        return []
+    vk = rot(slug, underlag) / 'versioner' / g['version']
+    kalla = vk / 'kalla'
+    sajt = atelje.KUNDER / slug / 'sajt'
+    filer = (las(vk / 'VERSION.json') or {}).get('filer') or {}
+    par = [(kalla / n, sajt / n, s) for n, s in sorted(filer.items()) if n != '.npmrc']  # .npmrc skrivs av sajtens_npmrc
+    try:
+        atelje.saker_vag(sajt, atelje.KUNDER / slug)
+        atelje.prova_overforing(slug, par, kalla, 'den godkända versionen')
+        ersatta = atelje.overfor_godkanda(slug, par, kalla, 'underlag/%s/design/versioner/%s/kalla' % (slug, g['version']))
+    except RuntimeError as e:
+        raise Fel(str(e))
+    if sajtens_npmrc(sajt):
+        ersatta.append(rel(sajt / '.npmrc'))
+    return ersatta
+
+
 # ---- status, kvitto, karta och start --------------------------------------------------------------------------------
 
 def band(slug, underlag=None):
-    """Bandets läge per riktning (ritning i senaste versionen): varje station i ordning som gjord (version, synlig ändring,
-    tid), svar (beställning), hoppad (skäl), ej tillämplig (formulär utan formulär, jämförelse med en riktning,
-    överlämning före godkännandet) eller återstår (ägarens uppdrag 2026-10-12 ~17:35Z, punkt 5)."""
+    """Bandets läge per riktning: varje station i ordning som gjord (version, synlig ändring, tid), svar (beställning),
+    hoppad (skäl), ej tillämplig (formulär utan formulär, jämförelse med en riktning, överlämning före godkännandet) eller
+    återstår (ägarens uppdrag 2026-10-12 ~17:35Z, punkt 5). Läget astro: riktningarna ur DESIGNFAS.json, och sist raden
+    artefakt med adressen till riktningens privata artefakt när den är publicerad. Läget duk: ritningarna i senaste
+    versionen."""
     r = rot(slug, underlag)
     vs = [las(r / 'versioner' / v / 'VERSION.json') or {'version': v} for v in versioner(slug, underlag)]
-    if not vs:
+    astro = lage(slug, underlag) == 'astro'
+    if not vs and not astro:
         return {}
     bs = [bestallning(slug, b, underlag) for b in bestallningar(slug, underlag)]
-    sista = vs[-1]
-    ritningar = [x['fil'] for x in sista.get('ritningar') or []]
-    bild = (las(r / 'versioner' / sista['version'] / 'BILDER.json') or {}).get('ritningar') or {}
     godkand = (las(r / 'GODKANNANDE.json') or {}).get('version')
+    if astro:
+        ritningar = list(designfas(slug, underlag).get('riktningar') or {})
+    else:
+        ritningar = [x['fil'] for x in vs[-1].get('ritningar') or []]
+        bild_duk = (las(r / 'versioner' / vs[-1]['version'] / 'BILDER.json') or {}).get('ritningar') or {}
     ut = {}
     for rit in ritningar:
+        if astro:  # formulären på riktningens senaste version, alla dess sidor
+            egna = [x for x in vs if x.get('ritning') == rit]
+            bilder_ = ((las(r / 'versioner' / egna[-1]['version'] / 'BILDER.json') or {}).get('ritningar') or {}) if egna else {}
+            formular = any((b_ or {}).get('formular') for rp in bilder_.values() for b_ in ((rp or {}).get('bilder') or {}).values())
+        else:
+            formular = any((x or {}).get('formular') for x in ((bild_duk.get(rit) or {}).get('bilder') or {}).values())
         rad = []
         for sid in stationer():
             post = {'station': sid}
@@ -1016,15 +1572,19 @@ def band(slug, underlag=None):
                     post['atergang'] = ag
             elif hopp:
                 post.update(lage='hoppad', skal=hopp[-1]['hoppade'][sid], version=hopp[-1]['version'])
-            elif sid == 'formular' and not any((x or {}).get('formular') for x in ((bild.get(rit) or {}).get('bilder') or {}).values()):
-                post.update(lage='ej tillämplig', skal='ritningen har inget formulär')
+            elif sid == 'formular' and not formular:
+                post.update(lage='ej tillämplig', skal='riktningen har inget formulär' if astro else 'ritningen har inget formulär')
             elif sid == 'jamforelse' and len(ritningar) < 2:
-                post.update(lage='ej tillämplig', skal='bara en riktning på duken')
+                post.update(lage='ej tillämplig', skal='bara en riktning i bandet' if astro else 'bara en riktning på duken')
             elif sid == 'overlamning' and not godkand:
                 post.update(lage='väntar', skal='efter ägarens godkännande')
             else:
                 post['lage'] = 'återstår'
             rad.append(post)
+        if astro:
+            a_ = artefakt_post(slug, rit, underlag)
+            rad.append({'station': 'artefakt', 'lage': 'publicerad' if a_.get('url') else 'inte publicerad', 'url': a_.get('url'),
+                        'version': a_.get('version'), 'tid': a_.get('tid')})
         ut[rit] = rad
     return ut
 
@@ -1034,7 +1594,11 @@ def status(slug, underlag=None):
     r = rot(slug, underlag)
     vs = [las(r / 'versioner' / v / 'VERSION.json') or {'version': v} for v in versioner(slug, underlag)]
     ok, skal, g = godkand_giltig(slug, underlag)
-    return {'designfas': d, 'nasta_version': nasta(slug, underlag),
+    astro = lage(slug, underlag) == 'astro'
+    return {'designfas': d, 'lage': lage(slug, underlag), 'nasta_version': nasta(slug, underlag),
+            'riktningar': {rid: dict(x, artefakt=artefakt_post(slug, rid, underlag).get('url'),
+                                     senaste=(senaste_per_riktning(slug, underlag).get(rid)))
+                           for rid, x in (d.get('riktningar') or {}).items()} if astro else None,
             'versioner': [{k: x.get(k) for k in ('version', 'tid', 'artifact_version', 'av', 'station', 'ritning', 'orsak', 'bestallningar', 'hoppade')}
                           for x in vs],
             'bestallningar': [{k: bestallning(slug, b, underlag).get(k) for k in ('id', 'station', 'typ', 'version', 'status', 'inford_i')}
@@ -1044,8 +1608,9 @@ def status(slug, underlag=None):
 
 
 # Detektorns område per station (renderingens fält omrade ur motorns --scope; valideringen 2026-10-12, skills del 1
-# åtgärd 4): typografi läser typfynden, komposition och responsiv layoutfynden, kritiken och polish alla
-DETEKTOR_OMRADE = {'typografi': ('typografi',), 'komposition': ('layout',), 'responsiv': ('layout',), 'kritik': None, 'polish': None}
+# åtgärd 4): typografi läser typfynden, komposition och responsiv layoutfynden, detaljer, kritiken och polish alla
+DETEKTOR_OMRADE = {'typografi': ('typografi',), 'komposition': ('layout',), 'responsiv': ('layout',), 'detaljer': None, 'kritik': None,
+                   'polish': None}
 
 
 def detektor_rader(vk, ritning, sid):
@@ -1056,7 +1621,7 @@ def detektor_rader(vk, ritning, sid):
     omr = DETEKTOR_OMRADE[sid]
     fynd = {}
     for w in ('390', '1440'):
-        for f in las(vk / 'kontroll' / 'detektor' / ('%s-%s.json' % (ritning, w))) or []:
+        for f in las(vk / 'kontroll' / 'detektor' / ('%s-%s.json' % (ritning.replace('/', '-'), w))) or []:
             if isinstance(f, dict) and f.get('antipattern') and (omr is None or f.get('omrade') in omr):
                 x = fynd.setdefault(f['antipattern'], {'namn': f.get('name') or f['antipattern'], 'allvar': f.get('severity'),
                                                         'bredder': [], 'rad': f.get('advisory')})
@@ -1071,9 +1636,41 @@ def detektor_rader(vk, ritning, sid):
 
 
 def station_brief(slug, sid, ritning, underlag=None):
-    """Arbetsinstruktionen för en station på en riktning: frågan och skills ur metodkartans tabell, versionens filer och
-    bilder, och hur insatsen sparas. Till utföraren eller till den underagent som gör stationen."""
+    """Arbetsinstruktionen för en station på en riktning: frågan och skills ur metodkartans tabell, riktningens senaste
+    version (bilder, mätningar, detektorns fynd) eller, före riktningens första version, projektet och indata, och hur
+    insatsen sparas. Till utföraren eller till den underagent som gör stationen."""
     st = station(sid)
+    if lage(slug, underlag) == 'duk':
+        return _station_brief_duk(slug, st, ritning, underlag)
+    p = projekt(slug, ritning, underlag)
+    titel = ((designfas(slug, underlag).get('riktningar') or {}).get(ritning) or {}).get('titel')
+    v = senaste_per_riktning(slug, underlag).get(ritning)
+    vk = rot(slug, underlag) / 'versioner' / v if v else None
+    bild = (((las(vk / 'BILDER.json') or {}).get('ritningar') or {}) if vk else {})
+    a_ = artefakt_post(slug, ritning, underlag)
+    return '\n'.join([
+        'Station %s på riktningen %s%s, %s (%s blir nästa version).' % (
+            st['id'], ritning, (' (%s)' % titel) if titel else '', ('senaste version %s' % v) if v else 'riktningens första version',
+            nasta(slug, underlag)),
+        *station_rader(st),
+        'Indata: ' + st['indata'] + '.',
+        'Projektet: %s (src/, public/ och RIKTNING.md med referenslåset, språket och skälen; package.json med paketen). Arbeta '
+        'bara i det projektet. Riktningens uppdrag ur planen: underlag/%s/atelje/kandidater/%s/UPPDRAG.md.' % (rel(p), slug, ritning),
+        *(['Bilderna i %s: ' % v + '; '.join('%s: %s' % (s_, ', '.join('%s %s' % (k, rel(vk / x['fil'])) for k, x in (rp.get('bilder') or {}).items()))
+                                            for s_, rp in bild.items()),
+           'Mätningar och varningar: %s; kontrollerna (axe, stilrapporten, detektorn): %s/' % (rel(vk / 'BILDER.json'), rel(vk / 'kontroll'))]
+          if v else ['Riktningen har ingen version än: stationens insats blir dess första, med bilder och kontroller.']),
+        *(detektor_rader(vk, 'index.html', st['id']) if v else []),
+        'Underlaget: underlag/%s/KUNDFORSTAELSE.md och kunskap/designregler.md.' % slug,
+        'Insatsen: ändra bara det stationen gäller i projektet och lämna resten orört. Spara den som '
+        '`designfas.py version %s --station %s --ritning %s --orsak "<vad stationen ändrade och varför>"` (ett nytt paket: '
+        '`--paket namn@version`); versionen byggs, renderas med kontrollerna och jämförs med förra versionen av riktningen. '
+        'Hoppas stationen över: `--hoppa %s="<skäl>"` på nästa version.' % (slug, st['id'], ritning, st['id']),
+        'Visningen för ägaren efter versionen: `designfas.py artefakt %s %s` och riktningens privata artefakt (%s).' % (
+            slug, ritning, a_.get('url') or 'inte publicerad än')])
+
+
+def _station_brief_duk(slug, st, ritning, underlag=None):
     vs = versioner(slug, underlag)
     if not vs:
         raise Fel('ingen version än: stationen gäller en sparad version')
@@ -1346,6 +1943,8 @@ def start(slug, skriv_bara=False, underlag=None):
     import atelje
     import kundvakt
     designfas(slug, underlag)
+    if lage(slug, underlag) == 'duk':
+        duk_pausad('./design.sh för en designfas i läget duk')
     inst = json.loads(kundvakt.installningar(slug, Path(underlag or UNDERLAG)))
     inst.setdefault('permissions', {}).setdefault('deny', []).extend(['Bash(*designfas.py godkann*)', 'Bash(*skapande.py dom*)'])
     f = rot(slug, underlag) / 'session' / 'installningar.json'
@@ -1363,11 +1962,15 @@ def main(argv=None):
     p = argparse.ArgumentParser(prog='designfas', description=__doc__.split('\n\n')[0], allow_abbrev=False)
     s = p.add_subparsers(dest='cmd', required=True)
     a = s.add_parser('ny'); a.add_argument('slug'); a.add_argument('--kanvas'); a.add_argument('--release')
+    a.add_argument('--lage', choices=LAGEN)
+    a = s.add_parser('riktningar'); a.add_argument('slug'); a.add_argument('riktningar', nargs='+'); a.add_argument('--nya', action='store_true')
+    a = s.add_parser('artefakt'); a.add_argument('slug'); a.add_argument('riktning'); a.add_argument('--url')
+    a.add_argument('--version'); a.add_argument('--artifact-version')
     a = s.add_parser('runtime'); a.add_argument('slug'); a.add_argument('--fil', required=True); a.add_argument('--release', required=True)
     a = s.add_parser('tillgang'); a.add_argument('slug'); a.add_argument('--blob', required=True); a.add_argument('--fil', required=True)
     a.add_argument('--kalla', default='')
-    a = s.add_parser('version'); a.add_argument('slug'); a.add_argument('--fran', required=True)
-    a.add_argument('--artifact-version', required=True); a.add_argument('--orsak', required=True)
+    a = s.add_parser('version'); a.add_argument('slug'); a.add_argument('--fran')
+    a.add_argument('--artifact-version'); a.add_argument('--orsak', required=True); a.add_argument('--paket', action='append', default=[])
     a.add_argument('--bestallning', action='append', default=[]); a.add_argument('--av', default='utforaren')
     a.add_argument('--utan-bilder', action='store_true')
     a.add_argument('--station'); a.add_argument('--ritning'); a.add_argument('--hoppa', action='append', default=[])
@@ -1394,17 +1997,32 @@ def main(argv=None):
     ut = lambda d: print(json.dumps(d, ensure_ascii=False, indent=1))  # noqa: E731
     try:
         if x.cmd == 'ny':
-            ut(ny(x.slug, x.kanvas, x.release))
+            ut(ny(x.slug, x.kanvas, x.release, lage_=x.lage))
+        elif x.cmd == 'riktningar':
+            ut(riktningar(x.slug, x.riktningar, nya=x.nya))
+        elif x.cmd == 'artefakt':
+            if x.url or x.version:
+                if not (x.url and x.version):
+                    raise Fel('publiceringen registreras med både --url och --version')
+                ut(registrera_artefakt(x.slug, x.riktning, x.url, x.version, x.artifact_version))
+            else:
+                r = artefakt(x.slug, x.riktning)
+                ut(r)
+                return 1 if r['varningar'] and any('15 MB' in v or '511' in v for v in r['varningar']) else 0
         elif x.cmd == 'runtime':
             ut(runtime(x.slug, x.fil, x.release))
         elif x.cmd == 'tillgang':
             ut(tillgang(x.slug, x.blob, x.fil, x.kalla))
         elif x.cmd == 'version':
-            post = version(x.slug, x.fran, x.artifact_version, x.orsak, x.bestallning, x.av, not x.utan_bilder, station_=x.station,
-                           ritning=x.ritning, hoppade=x.hoppa)
-            ut({k: post.get(k) for k in ('version', 'station', 'ritning', 'hoppade', 'artifact_version', 'filer', 'okanda_tillgangar', 'rendering',
-                                         'insats', 'notering', 'varningar')})
-            return 0 if (post.get('rendering') or {}).get('slutkod', 0) == 0 and not post['okanda_tillgangar'] else 1
+            try:
+                post = version(x.slug, x.fran, x.artifact_version, x.orsak, x.bestallning, x.av, not x.utan_bilder, station_=x.station,
+                               ritning=x.ritning, hoppade=x.hoppa, paket=x.paket)
+            except ByggFel as e:
+                print('designfas: %s' % e, file=sys.stderr)
+                return 1
+            ut({k: post.get(k) for k in ('version', 'station', 'ritning', 'hoppade', 'artifact_version', 'sidor', 'ej_renderade', 'paket',
+                                         'okanda_tillgangar', 'rendering', 'insats', 'notering', 'varningar')})
+            return 0 if (post.get('rendering') or {}).get('slutkod', 0) == 0 and not post.get('okanda_tillgangar') else 1
         elif x.cmd == 'rendera':
             r = rendera(x.slug, x.version, x.kontroll)
             ut(r)

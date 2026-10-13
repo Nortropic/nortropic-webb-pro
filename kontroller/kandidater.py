@@ -67,7 +67,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import atelje  # noqa: E402  session, saker_vag, egna_bilder, NEKAS, ROOT/UNDERLAG/KUNDER
 import bildkedja  # noqa: E402
 import forhandsvisa  # noqa: E402
-import designfas  # noqa: E402  kunskap/claude-design.md: aktiv designfas = bara research i Code
+import designfas  # noqa: E402  aktiv designfas: riktningarna lämnas till bandet efter planprövningen (lamna_till_bandet)
 import kompetens  # noqa: E402  kompetenserna per pass (kunskap/metodkarta.md, Kompetenserna)
 import metod  # noqa: E402
 import prova  # noqa: E402
@@ -2358,7 +2358,7 @@ def skiss_prompt(slug, kid, fel=None, komplettering=None, erbjud=True, minuter=3
         '   d. Impeccable typeset och colorize (typeset.md, colorize.md) med better-typography och better-colors: typsnitt,',
         '      hierarki, radlängd och färgernas roller.',
         '   e. Emils rörelsepass (emil-design-eng, emil-animate, emil-improve-animations, emil-review-animations, lästa hela):',
-        '      varje rörelse prövad mot reglerna, eller beslutet att sidan är stilla, med reducerad rörelse.',
+        '      varje rörelse prövad mot reglerna, och ett element som står stilla med det teknikvalet och skälet, med reducerad rörelse.',
         '   f. Webbläsarprovet: `%s --mellan --tillstand tangentbord,reflow` (lägg till `--meny` med' % forhand,
         '      menyknappens väljare) och läs bilderna i 390 och 1440; huvudvägen, menyn och fokus ska fungera, inget spill.',
         '   g. Impeccable polish (polish.md) sist.',
@@ -5011,22 +5011,55 @@ def kor_pool(slug, ids, arbete, status, skriv, parallellt=None, forsta=None):
 
 
 def stanna_efter_forskning(slug, status, skriv):
-    """Körningen stannar efter researchen: på begäran (NWP_KANDIDAT_STOPP_EFTER=forskning; prototyp.py --fortsatt tar vid i
-    planeringen) eller för att kunden arbetar i Claude Design, där riktningarna görs på duken och Code inte gör någon egen
-    kunddesign (designfas.aktiv; kunskap/claude-design.md). Researchen, referenspaketet och tjänsternas svar står kvar som
-    designfasens underlag."""
-    d = designfas.aktiv(slug, atelje.UNDERLAG)
-    status.update(steg='forskad', klar=nu(), skal=(designfas.sparr(slug) + '. Researchen är klar och lämnas till duken: '
-                                                   'underlag/%s/atelje/FORSKNING.md och referenspaketet' % slug) if d else
-                  'körningen stannade efter researchen (NWP_KANDIDAT_STOPP_EFTER=forskning): prototyp.py --fortsatt tar vid i planeringen')
+    """Körningen stannar efter researchen på begäran (NWP_KANDIDAT_STOPP_EFTER=forskning); prototyp.py --fortsatt tar vid
+    i planeringen."""
+    status.update(steg='forskad', klar=nu(),
+                  skal='körningen stannade efter researchen (NWP_KANDIDAT_STOPP_EFTER=forskning): prototyp.py --fortsatt tar vid i planeringen')
+    skriv()
+    return []
+
+
+def lamna_till_bandet(slug, status, skriv, ids):
+    """Riktningarna lämnas till designfasens band (ägarens beslut 2026-10-13 i BESLUT.md: formgivningen lokalt i Astro),
+    efter researchen, planen, planprövningen och uppdragsmaterialet. Varje kandidat med ett prövat uppdrag får sitt
+    Astro-projekt (forbered_projekt, med stilpaketet ur uppdragsmaterialet) och status planerad med skälet "i bandet",
+    riktningarna registreras i DESIGNFAS.json (designfas.riktningar), och körningens steg blir band. Inga skapare startar:
+    därefter är designfas.py enda skrivaren av riktningarna, och utföraren startas med ./design.sh <slug>. Ett uppdrag
+    som står stoppat (inte planprövat, eller utan uppdrag i planen) behåller sitt skäl och lämnas inte."""
+    plan_ = (atelje.las_json(rot(slug) / 'KANDIDATPLAN.json') or {}).get('kandidater') or {}
+    lamnade = []
+    for kid in ids:
+        st_ = las_status(slug, kid)
+        if st_.get('planprovning_saknas') or st_.get('atergang_fel') or (st_.get('status') == 'fel' and st_.get('referenskontrakt_brister')):
+            continue
+        forbered_projekt(slug, kid)
+        stilpaket_i_projekt(slug, kid)
+        satt_status(slug, kid, 'planerad', 'i bandet: designfasen (designfas.py) är enda skrivaren av riktningen; utföraren '
+                    'startas med ./design.sh %s' % slug, bandet={'tid': nu(), 'fore': st_.get('status')})
+        lamnade.append(kid)
+    if not lamnade:
+        raise RuntimeError('ingen riktning kunde lämnas till bandet: varje uppdrag står stoppat (%s)' % '; '.join(
+            '%s: %s' % (k, las_status(slug, k).get('skal') or '') for k in ids)[:600])
+    designfas.riktningar(slug, lamnade, atelje.UNDERLAG,
+                         titlar={k: (plan_.get(k) or {}).get('titel') or las_status(slug, k).get('titel') for k in lamnade})
+    status.update(steg='band', klar=nu(), kandidater={k: las_status(slug, k).get('status') for k in ids},
+                  bandet={'riktningar': lamnade, 'tid': nu()},
+                  skal='%d riktningar i designfasens band (%s): utföraren startas med ./design.sh %s, och designfas.py är enda '
+                       'skrivaren av dem' % (len(lamnade), ', '.join(lamnade), slug))
     skriv()
     return []
 
 
 def kor(slug, status, skriv, n=None):
     """Hela utforskningen, återupptagbar: metoden, researchen och planen om de saknas, sedan varje kandidats kedja (några
-    åt gången), ett andra försök för de ofullständiga, och jämförelsen. Sätter körningens steg; ägaren väljer sedan."""
+    åt gången), ett andra försök för de ofullständiga, och jämförelsen. Sätter körningens steg; ägaren väljer sedan. Med en
+    designfas lämnas riktningarna till bandet efter planprövningen och uppdragsmaterialet (lamna_till_bandet), och inga
+    skapare startar; en designfas i det pausade läget duk stoppar körningen före researchen."""
     n = n or ANTAL
+    bandet = designfas.aktiv(slug, atelje.UNDERLAG)
+    if bandet and designfas.lage(slug, atelje.UNDERLAG) == 'duk' and os.environ.get('NWP_DESIGNLAGE') != 'duk':
+        raise RuntimeError(designfas.PAUSAT % ('designfasen för %s (underlag/%s/design/)' % (slug, slug)) +
+                           '; flytta design/ till historik och starta läget astro med designfas.py ny %s' % slug)
     r = rot(slug)
     r.mkdir(parents=True, exist_ok=True)
     lage = korlage(slug, status)
@@ -5057,14 +5090,12 @@ def kor(slug, status, skriv, n=None):
                 else ['den sparade researchen är äldre än referenskontraktet (version %d)' % rk.VERSION]
             if brister or rbrister:
                 status['forskning_varning'] = '; '.join(x for x in (kvittovarning(brister), ('referenskontraktet: ' + '; '.join(rbrister)) if rbrister else '') if x)[:900]
-        if STOPP_EFTER == 'forskning' or designfas.aktiv(slug, atelje.UNDERLAG):
+        if STOPP_EFTER == 'forskning':
             return stanna_efter_forskning(slug, status, skriv)
         status['steg'] = 'planera'
         skriv()
         planera(slug, n, lage)
         tider['plan'] = nu()
-    elif designfas.aktiv(slug, atelje.UNDERLAG):  # en plan från före designfasen: inga skapare i Code
-        return stanna_efter_forskning(slug, status, skriv)
     ids = lista(slug)
     plan_ = atelje.las_json(r / 'KANDIDATPLAN.json') or {}
     planbrister = kompetens.kravbrister(plan_.get('kompetens'), 'planera')
@@ -5142,6 +5173,8 @@ def kor(slug, status, skriv, n=None):
                            'metodförsök kan förberedas med ab.py forbered-skiss, och prototyp.py --fortsatt tar vid hos skaparna')
         skriv()
         return []
+    if bandet:  # designfasen: riktningarna går bandet i sina projekt, och inga skapare startar här
+        return lamna_till_bandet(slug, status, skriv, ids)
     status.update(steg='skapa', kandidater={k: las_status(slug, k).get('status') for k in ids})
     skriv()
     if lage == 'skiss':  # ingen granskningspanel, förbättringsrunda eller jämförelse före ägarens val

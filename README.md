@@ -80,14 +80,18 @@ Designflödet i detalj: `kunskap/skapandeflodet.md`; helbygget: skillen `bygg-sa
 | 9. Leveransen: förhandsvisning, skydd och DNS | Byggflöde → Förhandsvisa exportens commit, `prototyp.py <slug> --preview --start-id <id>` eller `kundrepo.py <slug> --preview` (Wrangler i Nortropics Cloudflare-konto ur den privata `cloudflare.env`, Workern `kund-<slug>-forhandsvisning` bakom Cloudflare Access, metadata commit och export); produktion, D1, R2, Access och domänen: människa med ägarens ja (`kunskap/lansering.md`, Cloudflare-steget) | privat `kunder/<slug>/leverans/PREVIEW-<tid>.json` med adress, versions-id, commit, export, det frysta underlagets sha256, skyddet före och efter och status (`vantar_pa_konto` utan konto, `vantar_pa_skydd` när Access saknas för en verklig verksamhet); uppladdningen går ur commitens filer under kundens lås; Flöde visar den | en förhandsvisning är inte produktion; `kontroller/driftkoll.py` prövar en driftsatt adress och skriver bara ut; Workern är prövad lokalt i workerd, men verklig driftsättning är inte prövad: kontot är inte anslutet |
 
 
-**Designfasen i Claude Design** (normalflödet för formgivningen sedan 2026-10-12; `kunskap/claude-design.md`) ersätter
-steg 2–5 för formgivningen men inte för researchen: `designfas.py ny <slug>` och sedan `prototyp.py <slug>` gör
-researchen och stannar i steget `forskad`; ägaren startar utföraren med `./design.sh <slug>`, som skapar eller öppnar
-kundens duk på claude.ai (privat). Riktningarna, valet och förfiningen görs på duken; specialistinsatser beställs med
-`designfas.py bestall` och körs med `designfas.py specialist`; ägaren godkänner en exakt version med sitt eget kommando
-`designfas.py godkann <slug> <v> --ritning <fil>`, och överlämningen (`designfas.py overlamna <slug>`) är det kor.sh tar
-vid från i steg 6. Spåret står i `underlag/<slug>/design/` (versioner med bilder i 390/768/1440, kontroller,
-beställningar och svar, GODKANNANDE.json och `overlamning/<v>/`). Chat-knappen på duken och Remote Control är oprövade.
+**Designfasen, lokalt i Astro** (normalflödet för formgivningen sedan 2026-10-13; `BESLUT.md`, skillen `designfas`)
+ersätter steg 2–5 för formgivningen efter planen: `designfas.py ny <slug>` och sedan `prototyp.py <slug>` gör researchen,
+planen med tre riktningar, planprövningen och uppdragsmaterialet och lämnar varje riktning som ett Astro-projekt
+(`kunder/<slug>/kandidater/kNN/sajt`) i steget `band`. Ägaren startar utföraren med `./design.sh <slug>`, som för varje
+riktning genom bandets stationer i projektet; varje station blir en version (`designfas.py version`: bygget, källan,
+bilderna i 390/768/1440 och kontrollerna), och ägaren ser och kommenterar versionerna i riktningens privata artefakt
+(`designfas.py artefakt`, publicerad av sessionen). Specialistinsatser beställs med `designfas.py bestall` och körs med
+`designfas.py specialist`; ägaren godkänner en exakt version med sitt eget kommando `designfas.py godkann <slug> <v>
+--ritning <kNN>`, och överlämningen (`designfas.py overlamna <slug>`, med källan i `kalla/`) är det kor.sh tar vid från i
+steg 6, där den godkända källan med `package.json` och låset läggs i sajten. Spåret står i `underlag/<slug>/design/`
+(versioner, kontroller, beställningar och svar, riktningarnas artefakter, GODKANNANDE.json och `overlamning/<v>/`).
+Läget duk i Claude Design (`kunskap/claude-design.md`) är pausat.
 
 Helbygget går obevakat från den godkända startsidan: byggaren bygger resten av sajten i `kunder/<slug>/sajt/`, provar
 tills grindarna är gröna och två oberoende granskare godkänt, eller tills taket nås (slutkod 1), och skriver `kunder/<slug>/RAPPORT.md` och sina egna

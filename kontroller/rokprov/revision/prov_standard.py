@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Byggstandardens 3.2 i standard_kontroll: flytande typografi med cqi godtas, vw mot ett omslag ger information, bara vw ger information."""
+"""Byggstandarden i standard_kontroll: 3.2 flytande typografi med cqi godtas, vw mot ett omslag ger information, bara vw ger
+information; 8.2 CSP per sajt (ägarens beslut 2026-10-13, punkt 4): en lättnad mot mallen godtas med skälet på en rad
+som börjar med "CSP:" i projektets RIKTNING.md, annars är den ett fel, och ett verkningslöst skriptdirektiv är alltid ett fel."""
 import contextlib
 from pathlib import Path
 import sys
@@ -44,6 +46,50 @@ class Typografi(unittest.TestCase):
     def test_vw_med_rem_utan_omslag_och_bara_vw(self):
         self.assertEqual(self.info32('h1{font-size:clamp(1.8rem, 1rem + 3vw, 3rem)}'), [])
         t = self.info32('.omslag{max-width:72rem}h1{font-size:clamp(1.8rem, 4vw, 3rem)}'); self.assertEqual(len(t), 1); self.assertIn('bara vw', t[0])
+
+
+
+MALL = "default-src 'self';img-src 'self' data:;object-src 'none';base-uri 'self';form-action 'self';font-src 'self'; script-src 'self' 'sha256-AAAA'; style-src 'self' 'sha256-BBBB'; style-src-attr 'unsafe-inline';"
+
+
+class CspPerSajt(unittest.TestCase):
+    def fynd82(self, policy, riktning=None):
+        with contextlib.ExitStack() as st:
+            sajt = Path(st.enter_context(korregister.egen_tmp_med('nwp-kallgap-', 'syntetisk byggstandard 8.2')))
+            d = sajt / 'dist'
+            d.mkdir()
+            (d / 'index.html').write_text(SIDA.replace('<title>', '<meta http-equiv="content-security-policy" content="%s"><title>' % policy),
+                                          encoding='utf-8')
+            (d / 'stil.css').write_text('body{margin:0}', encoding='utf-8')
+            if riktning is not None:
+                (sajt / 'RIKTNING.md').write_text(riktning, encoding='utf-8')
+            fel, info, _ = sk.granska(d)
+            return [f['text'] for f in fel if f['punkt'] == '8.2'], [i['text'] for i in info if i['punkt'] == '8.2']
+
+    def test_mallens_csp_ar_utan_fynd(self):
+        self.assertEqual(self.fynd82(MALL), ([], []))
+
+    def test_en_lattnad_utan_skal_ar_ett_fel(self):
+        for lattnad in ("img-src 'self' data: https://bilder.example.se", "style-src-elem 'self' 'unsafe-inline'"):
+            fel, _ = self.fynd82(MALL.replace("img-src 'self' data:", lattnad), riktning='# Riktning\n\nInget skäl här.\n')
+            self.assertTrue(any('lättad mot mallen' in f and 'utan skäl' in f for f in fel), (lattnad, fel))
+        fel, _ = self.fynd82(MALL.replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'"))
+        self.assertTrue(any("släpper igenom annat än 'self'" in f for f in fel), fel)
+
+    def test_en_lattnad_med_skal_i_riktning_md_godtas(self):
+        skal = '# Riktning\n\nCSP: hjulet ritas med WebGL i WASM, och omdömenas bilder kommer från kundens bildbank\n'
+        policy = MALL.replace("img-src 'self' data:", "img-src 'self' data: https://bilder.example.se").replace(
+            "script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
+        fel, info = self.fynd82(policy, riktning=skal)
+        self.assertEqual(fel, [])
+        self.assertTrue(any('img-src https://bilder.example.se' in i and 'WebGL' in i for i in info), info)
+        self.assertTrue(any("'wasm-unsafe-eval'" in i for i in info), info)
+        self.assertTrue(self.fynd82(policy, riktning=skal.replace('CSP: ', 'CSP: kort\n'))[0], 'ett skäl under 15 tecken räknas inte')
+
+    def test_ett_verkningslost_skriptdirektiv_ar_ett_fel_aven_med_skal(self):
+        fel, _ = self.fynd82(MALL.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'"),
+                             riktning='CSP: en inbäddad tjänst kräver inline-skript utan hash\n')
+        self.assertTrue(any("'unsafe-inline'" in f for f in fel), fel)
 
 
 if __name__ == '__main__':

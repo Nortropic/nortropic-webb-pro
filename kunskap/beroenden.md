@@ -100,8 +100,12 @@ under byggstandardens 200 kB (3.7), men GSAP är det tyngsta valet och bär sig 
 
   Shaders i första vyn görs med ren WebGL eller ogl, och three efter LCP (`client:idle` eller `client:visible`), så
   att Lighthouse ≥ 90 håller.
-  **CSP:n:** mallens CSP stoppar i dag Radix skrollås, WebAssembly, `blob:`-workers och externa bilder (mätt
-  2026-10-12). Ändringen ligger hos ägaren (se morgonrapporten 2026-10-13).
+  **CSP:n per sajt** (ägarens beslut 2026-10-13, punkt 4): mallens CSP stoppar Radix skrollås, WebAssembly,
+  `blob:`-workers och externa bilder (mätt 2026-10-12), och den behålls; mallen ändras inte. Behöver en riktning något
+  av det lättas CSP:n i riktningens projekt (`security.csp` i dess `astro.config.mjs`), med skälet på en rad som börjar
+  med `CSP:` i RIKTNING.md. `kontroller/standard_kontroll.py` godtar en lättnad med skälet och fäller den utan; skript
+  står kvar med hash (ett skriptdirektiv med `'unsafe-inline'`, `'unsafe-eval'`, `*` eller ett helt schema fälls också
+  med skäl). Lättnaden följer med riktningens källa till helbygget.
 
 ## Kvalitetskraven som består (inte teknikval)
 
@@ -125,13 +129,16 @@ läggs i mallen, i den här ordningen:
 4. Lägg `package.json` och `package-lock.json` i `mall/astro/`, uppdatera tabellen ovan med granskningen, och kör
   `kontroller/rokprov.sh` tills det är grönt. Nya sajter installerar med `npm ci` mot låset (`kontroller/ny_sajt.py`).
 
-Ett paket som bara en riktning behöver installerar skaparen i sin kandidat med
-`kontroller/kandidater.py <slug> --paket kNN <paket@version …>`: exakt version, `--ignore-scripts`, bara npm-registret,
-en egen `node_modules` i kandidaten i stället för länken till sajtens, och loggen i kandidatens `PAKET.jsonl`.
-Fotograferingen och förhandsvisningen kör `npm install` i kandidaten när `package.json` kräver det (BESLUT.md, tillägget
-2026-10-12 om fria tyglar i flödets kod). Version, källa och licens står i RIKTNING.md. Paketet följer ännu inte med
-automatiskt till helbygget: överföringen bär `src/`, DESIGN.md och materialet, så helbygget installerar paketen ur
-RIKTNING.md.
+Ett paket som bara en riktning behöver installeras i riktningens projekt: i designfasens band med
+`designfas.py version <slug> --ritning kNN --paket <paket@version> …`, i kandidatflödet med
+`kontroller/kandidater.py <slug> --paket kNN <paket@version …>`. Båda går genom `kandidater.egna_paket`: exakt version,
+`--ignore-scripts`, bara npm-registret, en egen `node_modules` i projektet i stället för länken till sajtens, och loggen i
+kandidatens `PAKET.jsonl`. Versionen, fotograferingen och förhandsvisningen kör `npm install` i projektet när
+`package.json` kräver det (BESLUT.md, tillägget 2026-10-12 om fria tyglar i flödets kod). Version, källa och licens står
+i RIKTNING.md. Paketen följer med till helbygget (ägarens beslut 2026-10-13, punkt 5): designfasens version bär
+`package.json` och låset i sin källa, kor.sh lägger dem i sajten (`designfas.installera_godkand`, sajtens `.npmrc` med
+`ignore-scripts`, `save-exact` och npm-registret), och bygget installerar med `npm ci --prefix kunder/<slug>/sajt`. En
+kandidat ur kandidatflödet bär ännu `src/`, DESIGN.md och materialet, så där installerar helbygget paketen ur RIKTNING.md.
 
 ## Nortropic.app:s beroenden (`desktop/`)
 
