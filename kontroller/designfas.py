@@ -601,6 +601,39 @@ def kopiera_kalla(slug, p, mal):
     return filer, las_
 
 
+NPM_REGISTRET = 'https://registry.npmjs.org/'
+
+
+def las_brister(pj, las):
+    """Hör package.json och låset ihop så att npm ci installerar dem i helbygget, och kommer varje paket ur npm-registret?
+    Låsets rot (packages[""]) ska ha exakt package.json:s beroendefält, varje paket med resolved ska komma från
+    NPM_REGISTRET, och inget paket är en lokal länk (granskningen av astro-flödet 2026-10-13, fynd 2: git-, fil- och
+    adresskällor fälls oavsett väg). Ger bristerna, tom lista när allt håller."""
+    import kandidater
+    if not las or not Path(las).is_file():
+        return ['låset (package-lock.json) saknas: helbygget installerar paketen med npm ci ur låset']
+    try:
+        d = json.loads(Path(las).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return ['låset %s går inte att läsa' % rel(las)]
+    brister = []
+    pjf, rot_ = kandidater.paketfalten(pj), kandidater.lasets_rot(las)
+    if pjf != rot_:
+        skiljer = sorted({n for f in kandidater.BEROENDEFALT for n in set((pjf or {}).get(f) or {}) ^ set((rot_ or {}).get(f) or {})}
+                         | {n for f in kandidater.BEROENDEFALT for n, v in ((pjf or {}).get(f) or {}).items()
+                            if ((rot_ or {}).get(f) or {}).get(n) not in (None, v)})
+        brister.append('package.json och låset %s hör inte ihop (%s): kör paketvägen (--paket) så att låset skrivs om'
+                       % (rel(las), ', '.join(skiljer[:8]) or 'fälten skiljer sig'))
+    for namn, x in ((d.get('packages') or {}).items() if isinstance(d, dict) else ()):
+        if not namn or not isinstance(x, dict):
+            continue
+        if x.get('link'):
+            brister.append('%s är en lokal länk i låset, inte ett paket ur npm-registret' % namn)
+        elif x.get('resolved') and not str(x['resolved']).startswith(NPM_REGISTRET):
+            brister.append('%s kommer från %s, inte från npm-registret' % (namn, str(x['resolved'])[:100]))
+    return brister
+
+
 def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, station_, rid, hopp, paket):
     """En version ur riktningens Astro-projekt: paketen (--paket, eller kandidater.paketbehov), bygget, källan i
     kalla/ och dist i sida/, och renderingen av startsidan och undersidorna med kontrollerna. Kandidatens skrivlås hålls
@@ -617,6 +650,9 @@ def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, statio
             paket_ = {'begarda': list(paket), 'rc': rc_p, 'text': ' '.join(text_p.split())[-600:]}
             if rc_p:
                 raise ByggFel('paketen kunde inte installeras i %s (rc %s): %s' % (rel(p), rc_p, ' '.join(text_p.split())[-400:]))
+        brister = las_brister(p / 'package.json', kandidater.projektets_las(slug, rid))
+        if brister:
+            raise ByggFel('källans paket följer inte med till helbygget; ingen version skrevs: %s' % '; '.join(brister)[:900])
         rc, text = bygg(p)
         if rc:
             raise ByggFel('bygget av %s föll; ingen version skrevs: %s' % (rel(p), ' '.join(str(text).split())[-600:]))
@@ -636,10 +672,8 @@ def _version_projekt(slug, d, orsak, bestallningar, av, bilder, underlag, statio
             'ritning': rid, 'riktning': {'id': rid, 'titel': titel, 'projekt': rel(p)}, 'station': station_, 'hoppade': hopp,
             'filer': filer, 'las': las_, 'paket': paket_, 'sidor': alla[:MAX_SIDOR], 'ej_renderade': alla[MAX_SIDOR:],
             'sekunder_sedan_forra': sekunder_mellan((las(rot(slug, underlag) / 'versioner' / vs[-1] / 'VERSION.json') or {}).get('tid') if vs else None, None)}
-    post['varningar'] = [x for x, ok in (
-        ('RIKTNING.md saknas i projektet: riktningens underlag (referenslåset, språket, skälen för en lättad CSP) står där',
-         'RIKTNING.md' in filer),
-        ('låset saknas: varken projektet eller sajten har package-lock.json, så paketen följer inte med till helbygget', las_)) if not ok]
+    post['varningar'] = [] if 'RIKTNING.md' in filer else [
+        'RIKTNING.md saknas i projektet: riktningens underlag (referenslåset, språket, skälen för en lättad CSP) står där']
     skriv(vk / 'VERSION.json', post)
     with open(rot(slug, underlag) / 'VERSIONER.jsonl', 'a', encoding='utf-8') as fh:
         fh.write(json.dumps({k: post.get(k) for k in ('version', 'tid', 'av', 'orsak', 'bestallningar', 'station', 'ritning', 'hoppade')},

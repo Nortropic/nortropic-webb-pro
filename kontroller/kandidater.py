@@ -612,11 +612,51 @@ def _installerad(nm, namn):
         return None
 
 
-def paketbehov(slug, kid):
-    """Behöver kandidaten npm install i sitt projekt före bygget? Med länken till sajtens node_modules: när kandidatens
-    package.json kräver ett paket eller en version som sajtens inte bär. Med en egen node_modules: när package.json, eller
-    sajtens paket (ett typsnitt som installerats i sajten), ändrats sedan den senaste installationen. Annars False."""
+BEROENDEFALT = ('dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies')
+
+
+def paketfalten(pj):
+    """Beroendefälten ur en package.json ({fält: {namn: version}}), eller None när filen inte går att läsa."""
+    try:
+        d = json.loads(Path(pj).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    return {f: dict(d.get(f) or {}) for f in BEROENDEFALT} if isinstance(d, dict) else None
+
+
+def lasets_rot(las):
+    """Beroendefälten i låsets rot (package-lock.json, packages[""]), eller None när låset saknas eller inte går att läsa.
+    npm ci installerar bara när de är exakt package.json:s."""
+    try:
+        d = json.loads(Path(las).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    r = ((d.get('packages') or {}).get('') if isinstance(d, dict) else None) or {}
+    return {f: dict(r.get(f) or {}) for f in BEROENDEFALT}
+
+
+def projektets_las(slug, kid):
+    """Låset som kandidatens projekt byggs med: projektets eget, eller sajtens när projektet delar sajtens node_modules
+    genom länken; None annars."""
     s = ksajt(slug, kid)
+    if (s / 'package-lock.json').is_file() and not (s / 'package-lock.json').is_symlink():
+        return s / 'package-lock.json'
+    delad = atelje.KUNDER / slug / 'sajt' / 'package-lock.json'
+    return delad if (s / 'node_modules').is_symlink() and delad.is_file() and not delad.is_symlink() else None
+
+
+def paketbehov(slug, kid):
+    """Behöver kandidaten npm install i sitt projekt före bygget? Först låset: skiljer sig package.json:s beroenden från
+    rotens i låset som projektet byggs med (projektets eget, eller sajtens genom länken), behövs en installation, också
+    när paketet råkar finnas transitivt i node_modules (granskningen av astro-flödet 2026-10-13, fynd 2: annars följer
+    paketet inte med låset till helbygget). Annars, med länken till sajtens node_modules: när package.json kräver ett
+    paket eller en version som sajtens inte bär. Med en egen node_modules: när package.json, eller sajtens paket (ett
+    typsnitt som installerats i sajten), ändrats sedan den senaste installationen. Annars False."""
+    s = ksajt(slug, kid)
+    las = projektets_las(slug, kid)
+    rot_ = lasets_rot(las) if las else None
+    if rot_ is not None and rot_ != paketfalten(s / 'package.json'):
+        return True
     egna = _beroenden(s / 'package.json')
     delade = _beroenden(atelje.KUNDER / slug / 'sajt' / 'package.json')
     nm = s / 'node_modules'

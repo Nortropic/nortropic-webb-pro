@@ -391,9 +391,13 @@ class B_Version(Grund):
         p = self.projekt('k02', las=False)
         (p / 'RIKTNING.md').unlink()
         df.riktningar(SLUG, ['k02'])
+        with self.assertRaisesRegex(df.ByggFel, 'låset'):
+            df.version(SLUG, None, None, 'utan lås', ritning='k02', bilder=False)
+        self.assertEqual(df.versioner(SLUG), [], 'utan lås kan helbygget inte installera paketen: ingen version')
+        (p / 'package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {'': {'name': 'prov-k02'}}}))
         post = df.version(SLUG, None, None, 'första', ritning='k02', bilder=False)
-        self.assertIsNone(post['las'])
-        self.assertTrue(any('låset saknas' in x for x in post['varningar']) and any('RIKTNING.md saknas' in x for x in post['varningar']))
+        self.assertEqual(post['las'], 'projektets')
+        self.assertTrue(any('RIKTNING.md saknas' in x for x in post['varningar']))
         with patch.object(df, 'bygg', return_value=(1, 'astro build: ett fel i sidan')):
             with self.assertRaisesRegex(df.ByggFel, 'ett fel i sidan'):
                 df.version(SLUG, None, None, 'andra', ritning='k02', bilder=False)
@@ -534,6 +538,72 @@ class B_Version(Grund):
         df.ny(SLUG, lage_='duk')
         with self.assertRaisesRegex(df.Fel, 'duken är inte registrerad'):
             df.version(SLUG, self.las_tillbaka(), '1791822460-0589', 'x', bilder=False)
+
+
+
+class K_Paketen(Grund):
+    """Paketen följer riktningen in i helbygget (granskningens fynd 2): paketbehovet avgörs av package.json mot låsets
+    rot, inte av vad som råkar finnas i node_modules; källans package.json och lås ska höra ihop och varje paket komma ur
+    npm-registret, annars skrivs ingen version."""
+
+    def delad_sajt(self, rot_dep):
+        s = self.k / SLUG / 'sajt'
+        (s / 'node_modules' / 'clsx').mkdir(parents=True)  # clsx finns transitivt i sajtens node_modules
+        (s / 'node_modules' / 'clsx' / 'package.json').write_text(json.dumps({'name': 'clsx', 'version': '2.1.1'}))
+        (s / 'package.json').write_text(json.dumps({'name': 'sajt', 'dependencies': rot_dep}))
+        (s / 'package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {'': {'name': 'sajt', 'dependencies': rot_dep},
+                                                         'node_modules/astro': {'version': '5.0.0', 'resolved': 'https://registry.npmjs.org/astro/-/astro-5.0.0.tgz'}}}))
+        return s
+
+    def riktning_med_lank(self, beroenden):
+        s = self.delad_sajt({'astro': '5.0.0'})
+        df.ny(SLUG)
+        p = self.projekt('k01', las=False)
+        os.symlink(s / 'node_modules', p / 'node_modules')
+        (p / 'package.json').write_text(json.dumps({'name': 'prov-k01', 'dependencies': beroenden}))
+        df.riktningar(SLUG, ['k01'])
+        self.stack.enter_context(patch.object(df, 'bygg', side_effect=bygg_attrapp))
+        return p
+
+    def test_paketbehovet_las_mot_package_json(self):
+        p = self.riktning_med_lank({'astro': '5.0.0', 'clsx': '2.1.1'})
+        self.assertTrue(kd.paketbehov(SLUG, 'k01'), 'clsx finns i node_modules men inte i låsets rot: npm install behövs')
+        (p / 'package.json').write_text(json.dumps({'name': 'prov-k01', 'dependencies': {'astro': '5.0.0'}}))
+        self.assertFalse(kd.paketbehov(SLUG, 'k01'), 'samma beroenden som låsets rot: inget behov')
+
+    def test_kallans_paket_och_las_hor_ihop(self):
+        p = self.riktning_med_lank({'astro': '5.0.0', 'clsx': '2.1.1'})
+        with patch.object(kd, 'egna_paket', return_value=(0, 'ingenting installerades')):
+            with self.assertRaisesRegex(df.ByggFel, 'hör inte ihop'):
+                df.version(SLUG, None, None, 'clsx i riktningen', ritning='k01', bilder=False)
+        self.assertEqual(df.versioner(SLUG), [], 'ingen version med ett lås som npm ci vägrar')
+
+        def installera(slug, kid, paket=(), frist=None):  # som npm install: projektets eget lås med rotens beroenden
+            (p / 'node_modules').unlink()
+            (p / 'node_modules').mkdir()
+            pj = json.loads((p / 'package.json').read_text())
+            (p / 'package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {
+                '': {'name': 'prov-k01', 'dependencies': pj['dependencies']},
+                'node_modules/clsx': {'version': '2.1.1', 'resolved': 'https://registry.npmjs.org/clsx/-/clsx-2.1.1.tgz'}}}))
+            return 0, 'installerat'
+        with patch.object(kd, 'egna_paket', side_effect=installera):
+            post = df.version(SLUG, None, None, 'clsx i riktningen', ritning='k01', bilder=False)
+        kalla = self.u / SLUG / 'design' / 'versioner' / post['version'] / 'kalla'
+        self.assertEqual(json.loads((kalla / 'package-lock.json').read_text())['packages']['']['dependencies'],
+                         json.loads((kalla / 'package.json').read_text())['dependencies'])
+
+    def test_ett_paket_utanfor_npm_registret_falls(self):
+        df.ny(SLUG)
+        p = self.projekt('k01')
+        df.riktningar(SLUG, ['k01'])
+        self.stack.enter_context(patch.object(df, 'bygg', side_effect=bygg_attrapp))
+        for kalla, falt in (('git+https://github.com/exempel/paket.git', {'resolved': 'git+https://github.com/exempel/paket.git'}),
+                            ('lokal länk', {'link': True, 'resolved': '../paket'})):
+            (p / 'package-lock.json').write_text(json.dumps({'lockfileVersion': 3, 'packages': {
+                '': {'name': 'prov-k01'}, 'node_modules/paket': dict({'version': '1.0.0'}, **falt)}}))
+            with self.assertRaisesRegex(df.ByggFel, 'npm-registret'):
+                df.version(SLUG, None, None, 'ett paket ur %s' % kalla, ritning='k01', bilder=False)
+        self.assertEqual(df.versioner(SLUG), [])
 
 
 class C_Bestallning(Grund):
