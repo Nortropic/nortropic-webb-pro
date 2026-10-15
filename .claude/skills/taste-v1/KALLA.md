@@ -1,7 +1,7 @@
 # Källa
 
 - **Skill:** `design-taste-frontend-v1` (mappen `taste-v1`). Den ursprungliga v1 av taste-skill, bevarad för bakåtkompatibilitet.
-- **Källa:** https://github.com/Leonxlnx/taste-skill, `skills/taste-skill-v1/`, commit `ce26fc25c0e5e8cab638f883de62d9a86ee5e45b` (2026-09-26T11:01:50+02:00, standardgrenen main, ingen tagg; plugin.json 1.0.0). Mappen ändrades senast i `f70fa024ba47` (2026-05-28T22:09:06+08:00).
+- **Källa:** https://github.com/Leonxlnx/taste-skill, `skills/taste-skill-v1/`, commit `9da1763c950baed17a69158a5f4c76f8f85bf49b` (2026-09-26T11:01:50+02:00, standardgrenen main, ingen tagg; plugin.json 1.0.0). Mappen ändrades senast i `f70fa024ba47` (2026-05-28T22:09:06+08:00).
 - **Licens:** MIT. `LICENSE` (Copyright (c) 2026 Leonxlnx), repots licensfil, kopierad till mappen.
 - **Intagen:** 2026-10-05 på ägarens beslut samma dag: "vi behöver säkerställa att alla skills är i sin fullo. installera de även ui ux pro max." Ordagrant: alla git-spårade filer i skillmappen, kontrollerade byte för byte mot upstreams blobbar; inget omskrivet eller borttaget.
 - **Filer:** 1 från upstream (1 i mappens rot): `SKILL.md`. Våra tillägg: `KALLA.md`, `LICENSE`.
@@ -9,3 +9,4 @@
 - **Förgranskning 2026-10-05:** `kontroller/granska_repo.py` (körd på en kopia) gav LÅG. Inga dolda tecken, ingen text riktad till agenter, inga skript, inga hemligheter, inga nätanrop vid laddning.
 - **Krockar med våra beslut:** React/Next som stack (:19); "NO Inter Font: Banned." (:108); picsum som platshållarbilder (:124).
 - **Så används skillen här:** Läses av skaparsessionerna i skapandeflödet som stöd; ägarens beslut och kundens behov går före skillens standardförslag (hos oss: layout, palett och typografi får kopieras från referenser; bilder som visar verksamheten är dess egna, medan licensierat eller genererat material som inte utger sig för att visa verksamheten är tillåtet med källa; Astro med de förberedda, låsta beroendena (kunskap/beroenden.md); inget färgförbud; kunskap/metodkarta.md, Avgörandena).
+- **Uppdaterad av underhållet 2026-10-15T20:36:27Z** från `ce26fc25c0e5` till `9da1763c950b` (1 filer, lokala anpassningar sammanslagna; Ändringen skriver bara om beskrivningen i frontmattern (:3) så att `design-taste-frontend` kallas "v2" och "a new skill" i stället för "v2 experimental" och "a substantial rewrite", utan nya instruktioner eller dolda tecken.).
